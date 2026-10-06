@@ -140,4 +140,65 @@ final class MemoRecordStoreTests: XCTestCase {
             toMemoID: memo.id
         ))
     }
+
+    func testCanonicalDayKeyTargetsOwningFileAndFailsClosedOnInvalidDays() async throws {
+        let root = try XCTUnwrap(vaultURL)
+        // 2026-10-02T10:00:00Z is already 2026-10-03 in +14; the owning file
+        // key is whatever the entry point recorded — never re-derived here.
+        let memo = Memo(id: UUID(), created: Date(timeIntervalSince1970: 1_790_935_200), body: "owning file")
+        let oct3URL = root.appendingPathComponent("raw/2026-10-03.md")
+        try RawStorage.atomicWrite(string: RawStorage.serialize([memo]), to: oct3URL)
+        let before = try Data(contentsOf: oct3URL)
+        let store = MemoRecordStore()
+
+        let updated = try await store.updateBody(
+            id: memo.id, dayString: "2026-10-03", body: "edited", vaultRoot: root
+        )
+        XCTAssertEqual(updated.body, "edited")
+        XCTAssertEqual(try RawStorage.read(dayString: "2026-10-03", vaultRoot: root).map(\.id), [memo.id])
+
+        for invalid in ["", "2026-10-3", "2026-02-30", "../2026-10-03", "2026-10-03.md"] {
+            do {
+                _ = try await store.updateBody(id: memo.id, dayString: invalid, body: "x", vaultRoot: root)
+                XCTFail("Expected invalidDay for \(invalid)")
+            } catch {
+                XCTAssertEqual(error as? MemoRecordStoreError, .invalidDay(invalid))
+            }
+            do {
+                _ = try RawStorage.read(dayString: invalid, vaultRoot: root)
+                XCTFail("Expected invalidDayString for \(invalid)")
+            } catch let error as RawStorageError {
+                guard case .invalidDayString = error else {
+                    return XCTFail("Unexpected RawStorageError \(error)")
+                }
+            }
+            XCTAssertNil(RawStorage.fileURL(forDayString: invalid, vaultRoot: root))
+        }
+        XCTAssertNotEqual(try Data(contentsOf: oct3URL), before)
+    }
+
+    func testWriteNotificationCarriesActualWrittenDayStringKey() async throws {
+        let root = try XCTUnwrap(vaultURL)
+        let memo = Memo(id: UUID(), created: day, body: "notify")
+        let dayString = RawStorage.dayString(for: day)
+        let store = MemoRecordStore()
+
+        let observed = expectation(description: "rawStorageDidWrite carries dayString")
+        var receivedKey: String?
+        let token = NotificationCenter.default.addObserver(
+            forName: .rawStorageDidWrite,
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let key = notification.userInfo?[RawStorage.writtenDayStringKey] as? String {
+                receivedKey = key
+                observed.fulfill()
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        try await store.restore(memo, dayString: dayString, vaultRoot: root)
+        await fulfillment(of: [observed], timeout: 2)
+        XCTAssertEqual(receivedKey, dayString)
+    }
 }

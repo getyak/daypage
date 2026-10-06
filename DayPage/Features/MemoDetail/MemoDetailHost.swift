@@ -34,6 +34,7 @@ struct MemoDetailHost: View {
                 MemoDetailView(
                     memo: memo,
                     backLabel: reference.source.backLabel,
+                    owningFileKey: reference.dayString,
                     onUpdateBody: updateBody,
                     onDelete: deleteMemo,
                     onRestore: restoreMemo,
@@ -55,7 +56,10 @@ struct MemoDetailHost: View {
             message: "detail route started source=\(reference.source)"
         )
         do {
-            let memo = try await MemoRecordStore.shared.memo(id: reference.id, day: reference.day)
+            let memo = try await MemoRecordStore.shared.memo(
+                id: reference.id,
+                dayString: reference.dayString
+            )
             guard !Task.isCancelled else { return }
             state = .ready(memo)
             let photos = memo.attachments.lazy.filter { $0.kind == "photo" }.count
@@ -78,17 +82,17 @@ struct MemoDetailHost: View {
     private func updateBody(_ body: String) async throws -> Memo {
         try await MemoRecordStore.shared.updateBody(
             id: reference.id,
-            day: reference.day,
+            dayString: reference.dayString,
             body: body
         )
     }
 
     private func deleteMemo() async throws {
-        try await MemoRecordStore.shared.delete(id: reference.id, day: reference.day)
+        try await MemoRecordStore.shared.delete(id: reference.id, dayString: reference.dayString)
     }
 
     private func restoreMemo(_ memo: Memo) async throws {
-        try await MemoRecordStore.shared.restore(memo, day: reference.day)
+        try await MemoRecordStore.shared.restore(memo, dayString: reference.dayString)
     }
 
     private func memoDidChange(_ memo: Memo) {

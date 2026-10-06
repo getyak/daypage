@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAddDraft } from "./useAddDraft";
 import { Dialog } from "../_components/Dialog";
+import { useSpeechSupported } from "@/hooks/useBrowserCapabilities";
 
 const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -57,13 +58,7 @@ function createSpeechRecognition(): SpeechRecognitionLike | null {
 // ── VoiceButton ───────────────────────────────────────────────────────────────
 function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [recording, setRecording] = useState(false);
-  // `supported` must start `false` on both server and first client render so
-  // SSR HTML and the initial hydration tree match. We flip it after mount via
-  // useEffect — by then React is past hydration and a re-render is safe.
-  const [supported, setSupported] = useState(false);
-  useEffect(() => {
-    setSupported(hasSpeechAPI());
-  }, []);
+  const supported = useSpeechSupported();
   const srRef = useRef<SpeechRecognitionLike | null>(null);
 
   const handleClick = useCallback(() => {

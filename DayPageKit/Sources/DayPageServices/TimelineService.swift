@@ -10,10 +10,17 @@ import DayPageStorage
 /// cold scroll doesn't reopen and parse every historical day.
 public struct TimelineDayEntry: Identifiable, Equatable, Sendable {
 
-    /// `yyyy-MM-dd`. Stable id (at most one entry per date).
+    /// `yyyy-MM-dd`. Stable id (at most one entry per date). Also the
+    /// canonical Gregorian civil identity of the owning file
+    /// (`vault/raw/YYYY-MM-DD.md`) — grouping and display must derive from
+    /// this key, never from `date`.
     public let dateString: String
 
-    /// Local-timezone midnight of the day.
+    /// Derived scan artifact: the scan's zone-local midnight of the day. It
+    /// is NOT a memo timestamp and NOT stable across preferred-zone switches
+    /// (a warm cache keeps values from the zone it was scanned in). Never
+    /// reinterpret it under another zone; classification and labels use
+    /// `dateString` instead.
     public let date: Date
 
     /// Number of raw memos parsed from the day file.
@@ -36,6 +43,18 @@ public struct TimelineDayEntry: Identifiable, Equatable, Sendable {
 
     public var id: String { dateString }
 
+    /// Deterministic construction point used by the scanner and by tests that
+    /// build warm caches carrying deliberately stale `date` values.
+    public init(dateString: String, date: Date, memoCount: Int, summary: String?,
+                excerpt: String?, previewLines: [String]) {
+        self.dateString = dateString
+        self.date = date
+        self.memoCount = memoCount
+        self.summary = summary
+        self.excerpt = excerpt
+        self.previewLines = previewLines
+    }
+
     public static func == (lhs: TimelineDayEntry, rhs: TimelineDayEntry) -> Bool {
         lhs.dateString == rhs.dateString &&
         lhs.memoCount == rhs.memoCount &&
@@ -57,8 +76,11 @@ public enum TimelineSectionKind: Hashable {
     case thisWeekOthers
     case lastWeek
     case weekBeforeLast
-    /// Month bucket for entries older than three weeks back. Carries the first
-    /// day of that month for label formatting (e.g. "2026-04-01" → "April 2026").
+    /// Month bucket for entries older than three weeks back. Carries the
+    /// owning civil month's first day as a timezone-neutral Gregorian instant
+    /// (see `TimelineDayKey.startOfMonth`) so label formatting (e.g.
+    /// "2026-04-01" → "April 2026") can never shift into the previous month
+    /// under a negative-offset system zone.
     case month(Date)
 }
 
@@ -83,16 +105,112 @@ public struct TimelineSection: Identifiable, Equatable {
         case .lastWeek: return "lastWeek"
         case .weekBeforeLast: return "weekBeforeLast"
         case .month(let date):
-            let f = DateFormatter()
-            f.dateFormat = "yyyy-MM"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            f.timeZone = AppSettings.currentTimeZone()
-            return "month-\(f.string(from: date))"
+            // The payload is the owning civil month's first day in the neutral
+            // calendar; read the civil month back through the same neutral
+            // calendar so the id stays stable across zone switches.
+            let comps = TimelineDayKey.neutralCalendar().dateComponents([.year, .month], from: date)
+            return String(format: "month-%04d-%02d", comps.year ?? 0, comps.month ?? 0)
         }
     }
 
     public static func == (lhs: TimelineSection, rhs: TimelineSection) -> Bool {
         lhs.kind == rhs.kind && lhs.days == rhs.days
+    }
+}
+
+// MARK: - TimelineDayKey
+
+/// Strict canonical `yyyy-MM-dd` day-key handling for the timeline.
+///
+/// A canonical day key is the Gregorian civil identity of the owning raw file
+/// (`vault/raw/YYYY-MM-DD.md`) — not a timestamp and not a zone-local
+/// midnight. All parsing and arithmetic here therefore run through a
+/// timezone-neutral (fixed UTC offset) Gregorian calendar:
+///
+///  - Parsing is strict and fails closed on malformed or impossible keys
+///    (`2026-02-30`, `2025-02-29`, `2026-13-01`, `2026-10-3`, …).
+///  - Classification never re-derives the owning day through a zone-local
+///    midnight parse, so a civil day skipped by some zone's local midnight
+///    (Pacific/Apia skipped 2011-12-30) still owns a valid file day.
+///  - Month payloads are civil month starts, so a negative-offset display
+///    zone can never render the previous month for a month-first instant.
+public enum TimelineDayKey {
+
+    /// Gregorian year/month/day of one owning civil day.
+    public struct Day: Hashable, Comparable {
+        public let year: Int
+        public let month: Int
+        public let day: Int
+
+        public init(year: Int, month: Int, day: Int) {
+            self.year = year
+            self.month = month
+            self.day = day
+        }
+
+        public static func < (lhs: Day, rhs: Day) -> Bool {
+            (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
+        }
+    }
+
+    /// Fixed UTC-offset zone used only as a neutral carrier for civil
+    /// arithmetic — never as a display or reference boundary zone. The API is
+    /// optional-typed; the fallback chain keeps production force-unwrap-free
+    /// while remaining constant in practice.
+    public static let neutralTimeZone: TimeZone =
+        TimeZone(secondsFromGMT: 0) ?? TimeZone(identifier: "UTC") ?? TimeZone.current
+
+    /// Neutral Gregorian calendar for civil key math. `firstWeekday` is
+    /// injectable so week-band boundaries honor the user's calendar setting
+    /// without reading global state inside the pure arithmetic.
+    public static func neutralCalendar(firstWeekday: Int? = nil) -> Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = neutralTimeZone
+        if let firstWeekday { cal.firstWeekday = firstWeekday }
+        return cal
+    }
+
+    /// Strict `yyyy-MM-dd` parse. Fails closed on anything non-canonical,
+    /// including calendar-impossible dates like 2026-02-30.
+    public static func day(fromKey key: String) -> Day? {
+        let parts = key.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
+              let year = decimalValue(parts[0]),
+              let month = decimalValue(parts[1]),
+              let day = decimalValue(parts[2]) else { return nil }
+        // Round-trip through the neutral calendar so DateComponents overflow
+        // (Feb 30 → Mar 2) cannot sneak past the canonical form check.
+        let cal = neutralCalendar()
+        guard let anchor = cal.date(from: DateComponents(year: year, month: month, day: day)) else { return nil }
+        let roundTrip = cal.dateComponents([.year, .month, .day], from: anchor)
+        guard roundTrip.year == year, roundTrip.month == month, roundTrip.day == day else { return nil }
+        return Day(year: year, month: month, day: day)
+    }
+
+    /// The owning civil day of an absolute instant in `timeZone`. Used only to
+    /// project the reference "today" boundary — never to reinterpret a cached
+    /// entry key.
+    public static func day(for instant: Date, in timeZone: TimeZone) -> Day {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        let comps = cal.dateComponents([.year, .month, .day], from: instant)
+        return Day(year: comps.year ?? 0, month: comps.month ?? 1, day: comps.day ?? 1)
+    }
+
+    /// Neutral midnight of a civil day (classification anchor).
+    public static func startOfDay(for day: Day) -> Date? {
+        neutralCalendar().date(from: DateComponents(year: day.year, month: day.month, day: day.day))
+    }
+
+    /// Neutral first-of-month of the owning civil month (`.month` payload).
+    public static func startOfMonth(for day: Day) -> Date? {
+        neutralCalendar().date(from: DateComponents(year: day.year, month: day.month))
+    }
+
+    private static func decimalValue(_ digits: Substring) -> Int? {
+        guard !digits.isEmpty, digits.utf8.allSatisfy({ (0x30...0x39).contains($0) }) else { return nil }
+        return Int(digits)
     }
 }
 
@@ -103,8 +221,10 @@ public struct TimelineSection: Identifiable, Equatable {
 /// buckets by calendar month.
 ///
 /// The service is intentionally nonisolated and stateless — all heavy I/O
-/// happens off the main actor. The week boundary respects the user's system
-/// `Calendar.current.firstWeekday` (per CLAUDE.md guidance).
+/// happens off the main actor. Week bands follow an injectable
+/// `firstWeekday` (default: the user's system `Calendar.current.firstWeekday`,
+/// per CLAUDE.md guidance) and classify strictly by canonical `dateString`
+/// (see `TimelineDayKey`).
 public enum TimelineService {
 
     // MARK: - Public entry points
@@ -276,18 +396,43 @@ public enum TimelineService {
     /// internal scope so future unit tests can exercise the boundary math
     /// without touching the file system.
     ///
+    /// Semantics (canonical-date repair):
+    ///  - Every entry is classified STRICTLY by its canonical `yyyy-MM-dd`
+    ///    `dateString` (Gregorian civil file identity). The scan-derived
+    ///    `date` is never read, so warm caches carrying stale zone-midnight
+    ///    values classify identically after a preferred-zone switch.
+    ///  - Malformed keys fail closed: the entry is dropped, never guessed.
+    ///  - The reference instant is projected to "today" with one per-call
+    ///    `timeZone` snapshot (default: the completed preferred zone at call
+    ///    time); the week bands follow `firstWeekday` (default:
+    ///    `Calendar.current.firstWeekday`).
+    ///  - All civil math runs in `TimelineDayKey`'s timezone-neutral Gregorian
+    ///    calendar, so a zone-skipped local midnight still owns its file day
+    ///    and the `.month` payload is the owning civil month's first day.
+    ///  - The exact current canonical day is excluded (rendered separately);
+    ///    pinned days surface newest-first by canonical key and leave their
+    ///    natural band.
+    ///
     /// `pinnedDateStrings` are pulled out into a leading `.pinned` section and
     /// excluded from their natural time band; passing an empty set yields the
     /// original four-band layout for backward-compatible call sites and tests.
     public static func group(
         entries: [TimelineDayEntry],
         referenceDate: Date,
-        pinnedDateStrings: Set<String> = []
+        pinnedDateStrings: Set<String> = [],
+        timeZone: TimeZone? = nil,
+        firstWeekday: Int? = nil
     ) -> [TimelineSection] {
-        let cal = systemCalendar()
-        let today = cal.startOfDay(for: referenceDate)
+        // One explicit per-call zone snapshot drives the reference day only;
+        // cached entries never get re-projected through it.
+        let boundaryZone = timeZone ?? AppSettings.currentTimeZone()
+        let cal = TimelineDayKey.neutralCalendar(
+            firstWeekday: firstWeekday ?? Calendar.current.firstWeekday
+        )
 
-        guard let thisWeekStart = cal.dateInterval(of: .weekOfYear, for: today)?.start,
+        let today = TimelineDayKey.day(for: referenceDate, in: boundaryZone)
+        guard let todayStart = TimelineDayKey.startOfDay(for: today),
+              let thisWeekStart = cal.dateInterval(of: .weekOfYear, for: todayStart)?.start,
               let lastWeekStart = cal.date(byAdding: .weekOfYear, value: -1, to: thisWeekStart),
               let weekBeforeStart = cal.date(byAdding: .weekOfYear, value: -2, to: thisWeekStart)
         else { return [] }
@@ -299,8 +444,10 @@ public enum TimelineService {
         var byMonth: [Date: [TimelineDayEntry]] = [:]
 
         for entry in entries {
-            let day = cal.startOfDay(for: entry.date)
-            if day == today { continue }                  // today rendered separately
+            // Fail closed on malformed keys — never guess an owning day.
+            guard let key = TimelineDayKey.day(fromKey: entry.dateString),
+                  let dayStart = TimelineDayKey.startOfDay(for: key) else { continue }
+            if key == today { continue }                  // today rendered separately
 
             // Pinned days bubble up regardless of their natural time band.
             if pinnedDateStrings.contains(entry.dateString) {
@@ -308,55 +455,48 @@ public enum TimelineService {
                 continue
             }
 
-            if day >= thisWeekStart {
+            if dayStart >= thisWeekStart {
                 thisWeekOthers.append(entry)
-            } else if day >= lastWeekStart {
+            } else if dayStart >= lastWeekStart {
                 lastWeek.append(entry)
-            } else if day >= weekBeforeStart {
+            } else if dayStart >= weekBeforeStart {
                 weekBeforeLast.append(entry)
             } else {
-                // Bucket by first-of-month so two days in the same month share a section.
-                let comps = cal.dateComponents([.year, .month], from: day)
-                if let monthStart = cal.date(from: comps) {
+                // Bucket by owning civil month so two days in the same month
+                // share a section and the payload stays civil-month exact.
+                if let monthStart = TimelineDayKey.startOfMonth(for: key) {
                     byMonth[monthStart, default: []].append(entry)
                 }
             }
         }
 
+        // Newest-first by canonical key inside every section — ordering must
+        // not depend on the stale scan-derived `date` either.
+        func newestFirst(_ list: [TimelineDayEntry]) -> [TimelineDayEntry] {
+            list.sorted { $0.dateString > $1.dateString }
+        }
+
         var sections: [TimelineSection] = []
         // Pinned first, newest-first within the section.
         if !pinned.isEmpty {
-            sections.append(TimelineSection(kind: .pinned, days: pinned.sorted { $0.date > $1.date }))
+            sections.append(TimelineSection(kind: .pinned, days: newestFirst(pinned)))
         }
         if !thisWeekOthers.isEmpty {
-            sections.append(TimelineSection(kind: .thisWeekOthers, days: thisWeekOthers))
+            sections.append(TimelineSection(kind: .thisWeekOthers, days: newestFirst(thisWeekOthers)))
         }
         if !lastWeek.isEmpty {
-            sections.append(TimelineSection(kind: .lastWeek, days: lastWeek))
+            sections.append(TimelineSection(kind: .lastWeek, days: newestFirst(lastWeek)))
         }
         if !weekBeforeLast.isEmpty {
-            sections.append(TimelineSection(kind: .weekBeforeLast, days: weekBeforeLast))
+            sections.append(TimelineSection(kind: .weekBeforeLast, days: newestFirst(weekBeforeLast)))
         }
-        // Months newest-first; days inside each month already newest-first thanks to
-        // the source ordering.
+        // Months newest-first (the neutral payload orders chronologically).
         let months = byMonth.keys.sorted(by: >)
         for monthStart in months {
             let days = byMonth[monthStart] ?? []
-            sections.append(TimelineSection(kind: .month(monthStart), days: days))
+            sections.append(TimelineSection(kind: .month(monthStart), days: newestFirst(days)))
         }
         return sections
-    }
-
-    // MARK: - Helpers
-
-    /// Calendar honoring the user's system `firstWeekday` setting. Mirrors
-    /// what SwiftUI's date pickers use, so "this week" matches what the user
-    /// sees elsewhere in the OS.
-    private static func systemCalendar() -> Calendar {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = Calendar.current.firstWeekday
-        cal.timeZone = AppSettings.currentTimeZone()
-        return cal
     }
 
 }

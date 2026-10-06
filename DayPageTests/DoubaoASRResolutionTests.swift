@@ -3,6 +3,7 @@ import Foundation
 import DayPageStorage
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// End-to-end resolution test for the Doubao credential chain:
 /// Keychain → `Secrets.resolvedDoubaoASR*` → `DoubaoASRConfig.hasCredentials`.
 ///
@@ -77,3 +78,9 @@ struct DoubaoASRResolutionTests {
         #expect(raws.contains("doubaoASRSecretKey"))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias DoubaoASRResolutionTests = DayPageSerialSwiftTests.DoubaoASRResolutionTests

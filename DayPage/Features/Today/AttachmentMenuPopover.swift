@@ -43,17 +43,19 @@ struct AttachmentMenuPopover: View {
             // Issue #3 (2026-07-03): 增加 "链接" 让统一导入中心
             // 六入口齐全（文本 + 语音在主输入栏，这里补齐 5 个附件类）。
             HStack(spacing: 0) {
-                tile(icon: "camera",     label: "拍照",
+                tile(icon: "camera",     label: NSLocalizedString("attachment.menu.camera", comment: "Capture photo"),
                      action: onCapturePhoto)
-                tile(icon: "photo.on.rectangle", label: "相册",
+                tile(icon: "photo.on.rectangle", label: NSLocalizedString("attachment.menu.photos", comment: "Photo library"),
                      action: onPickPhoto)
                 tile(icon: hasPendingLocation ? "mappin.circle.fill" : "mappin",
-                     label: hasPendingLocation ? "更新位置" : "位置",
+                     label: hasPendingLocation
+                        ? NSLocalizedString("attachment.menu.update_location", comment: "Update location")
+                        : NSLocalizedString("attachment.menu.location", comment: "Add location"),
                      isLoading: isLocating,
                      action: onAddLocation)
-                tile(icon: "paperclip",  label: "附件",
+                tile(icon: "paperclip",  label: NSLocalizedString("attachment.menu.files", comment: "Attach file"),
                      action: onAddFile)
-                tile(icon: "link",       label: "链接",
+                tile(icon: "link",       label: NSLocalizedString("attachment.menu.link", comment: "Attach link"),
                      action: onAddURL)
             }
             .padding(.horizontal, 8)

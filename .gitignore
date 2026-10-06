@@ -65,9 +65,6 @@ Packages/
 !packages/**
 /packages/**/dist/
 Package.pins
-# Package.resolved 一般要提交（锁版本），但如果你的工作流不需要可以忽略
-# Package.resolved
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # -----------------------------------------------------------------------------
 # CocoaPods（如果将来用到）
@@ -75,6 +72,14 @@ Package.pins
 Pods/
 *.xcworkspace
 !default.xcworkspace
+# Keep the iOS release dependency graph reproducible; continue ignoring user data.
+!DayPage.xcodeproj/project.xcworkspace/
+DayPage.xcodeproj/project.xcworkspace/*
+!DayPage.xcodeproj/project.xcworkspace/xcshareddata/
+DayPage.xcodeproj/project.xcworkspace/xcshareddata/*
+!DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # -----------------------------------------------------------------------------
 # Carthage（如果将来用到）
@@ -180,6 +185,8 @@ android/local.properties
 # 日志 / 临时文件
 # -----------------------------------------------------------------------------
 *.log
+# Versioned XCTest / Swift Testing transcript used by the five-pass parser tests.
+!scripts/ci/tests/fixtures/mixed-xctest-swift-testing.log
 *.tmp
 *.bak
 *.orig

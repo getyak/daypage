@@ -52,7 +52,6 @@ struct OnboardingView: View {
                     .tag(3)
                 ApiKeysPage(onComplete: {
                     UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasOnboarded)
-                    SampleDataSeeder.seedIfNeeded()
                     hasOnboarded = true
                 })
                 .tag(4)
@@ -305,6 +304,15 @@ private struct DataFlowPage: View {
                         payload: NSLocalizedString("onboarding.dataflow.photo.payload", comment: ""),
                         destination: NSLocalizedString("onboarding.dataflow.photo.destination", comment: "")
                     )
+                    // Issue #922: disclose that optional iCloud / signed-in
+                    // account sync may upload notes, audio, and images — and
+                    // that sync is not end-to-end encrypted.
+                    DataFlowRow(
+                        icon: "icloud.and.arrow.up.fill",
+                        feature: NSLocalizedString("onboarding.dataflow.sync.feature", comment: ""),
+                        payload: NSLocalizedString("onboarding.dataflow.sync.payload", comment: ""),
+                        destination: NSLocalizedString("onboarding.dataflow.sync.destination", comment: "")
+                    )
                     DataFlowRow(
                         icon: "ant.fill",
                         feature: NSLocalizedString("onboarding.dataflow.sentry.feature", comment: ""),
@@ -519,11 +527,20 @@ private struct WelcomePage: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: DSSpacing.xs) {
-                Button(action: onNext) {
-                    Text("onboarding.welcome.begin", bundle: .main)
+                Button(action: startLocally) {
+                    Text("onboarding.apikeys.complete.local", bundle: .main)
                 }
                 .buttonStyle(.dsPrimary(size: .large, font: DSType.bodyMD))
                 .accessibilityIdentifier("onboarding.welcome.begin")
+
+                Button(action: onNext) {
+                    Text("onboarding.welcome.customize", bundle: .main)
+                        .font(.footnote)
+                        .foregroundColor(DSColor.accentOnBg)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("onboarding.welcome.customize")
 
                 if !usesAccessibilityLayout {
                     Button(action: showSample) {
@@ -542,6 +559,18 @@ private struct WelcomePage: View {
             .background(DSColor.backgroundWarm)
             .dynamicTypeSize(.xSmall ... .accessibility1)
         }
+    }
+
+    private func startLocally() {
+        // A first note does not require permissions, an account, reminders or
+        // provider credentials. Enhanced features remain opt-in in Settings.
+        UserDefaults.standard.set(false, forKey: AppSettings.Keys.aiFeaturesEnabled)
+        UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
+        // The direct-writing choice should not immediately open another
+        // blocking setup overlay. The full setup path retains the coach marks.
+        UserDefaults.standard.set(true, forKey: InputBarTutorialOverlay.completionKey)
+        UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasOnboarded)
+        hasOnboarded = true
     }
 
     private func showSample() {
@@ -867,11 +896,18 @@ private struct ApiKeysPage: View {
                     )
                 }
 
+                // Issue #922: starting locally is the clear primary completion
+                // when no keys are entered — keys are optional and billed
+                // separately by their providers. With keys entered the same
+                // button saves them (non-empty fields only) and completes.
                 Button(action: saveAndComplete) {
-                    Text("onboarding.apikeys.complete", bundle: .main)
+                    Text(hasAnyEnteredKey
+                         ? NSLocalizedString("onboarding.apikeys.complete.save", comment: "Save entered keys and start")
+                         : NSLocalizedString("onboarding.apikeys.complete.local", comment: "Start locally without AI keys"))
                 }
                 .buttonStyle(.dsPrimary(size: .large, font: DSType.bodyMD))
                 .padding(.top, DSSpacing.sm)
+                .accessibilityIdentifier("onboarding-apikeys-complete")
 
                 // B5: dedicated skip path. Pasting keys here is optional; the
                 // user can always wire them up later in Settings → API Keys.
@@ -924,6 +960,12 @@ private struct ApiKeysPage: View {
             .padding(DSSpacing.md)
             .background(DSColor.surfaceSunken)
             .cornerRadius(8)
+        }
+    }
+
+    private var hasAnyEnteredKey: Bool {
+        ![deepSeekKey, openAIKey, openWeatherKey].allSatisfy {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 

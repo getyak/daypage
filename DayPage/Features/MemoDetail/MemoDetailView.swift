@@ -8,6 +8,12 @@ import DayPageServices
 struct MemoDetailView: View {
     let memo: Memo
     let backLabel: String
+    /// Owning raw file key (`YYYY-MM-DD`) supplied by `MemoDetailHost` from the
+    /// validated route ref, so FILE metadata displays the exact owning file
+    /// even when a preferred-time-zone change would re-date `memo.created`.
+    /// Optional only to preserve standalone construction (previews/tests)
+    /// without a host route; that fallback keeps the legacy created-derived key.
+    var owningFileKey: String? = nil
     let onUpdateBody: (String) async throws -> Memo
     let onDelete: () async throws -> Void
     let onRestore: (Memo) async throws -> Void
@@ -15,6 +21,7 @@ struct MemoDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var nav: AppNavigationModel
+    @ObservedObject private var appSettings = AppSettings.shared
 
     @State private var derivedData = MemoDetailDerivedData.empty
     @State private var isEditingBody = false
@@ -26,11 +33,7 @@ struct MemoDetailView: View {
     @State private var errorMessage: String?
 
     private var kickerText: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd  HH:mm"
-        return formatter.string(from: memo.created).uppercased()
+        MemoDetailDatePresentation.kicker(memo.created, timeZone: appSettings.preferredTimeZone)
     }
 
     private var quoteAttribution: String {
@@ -78,7 +81,12 @@ struct MemoDetailView: View {
 
                     MemoDetailMetadataSection(
                         memo: memo,
-                        photoMetadataByFile: derivedData.photoMetadataByFile
+                        photoMetadataByFile: derivedData.photoMetadataByFile,
+                        // Owning file key comes from the Host's validated
+                        // route — never recomputed from `memo.created` under a
+                        // new time zone.
+                        owningFileKey: owningFileKey
+                            ?? DateFormatters.isoDate.string(from: memo.created)
                     )
                     Spacer(minLength: 24)
                 }

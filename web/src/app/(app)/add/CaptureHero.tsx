@@ -13,8 +13,9 @@
 // RAW · CAPTURE MOMENT and the current queue count so the entrance still
 // reads as a wall label, not a form header).
 
-import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { useMemo } from "react";
+import { useSessionEntrance } from "@/hooks/useSessionEntrance";
 
 interface CaptureHeroProps {
   queueCount: number;
@@ -30,8 +31,7 @@ const MONTHS = [
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
 
 export function CaptureHero({ queueCount, doneCount }: CaptureHeroProps) {
-  const reduced = useReducedMotion();
-  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const controls = useSessionEntrance(PLAYED_KEY);
 
   // Compute date on the client so SSR/client match without hydration flicker.
   // The hero renders the same textual date either way — we just tolerate a
@@ -44,23 +44,10 @@ export function CaptureHero({ queueCount, doneCount }: CaptureHeroProps) {
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      if (sessionStorage.getItem(PLAYED_KEY)) return;
-      sessionStorage.setItem(PLAYED_KEY, "1");
-      setShouldAnimate(true);
-    } catch {
-      /* sessionStorage blocked — stay static */
-    }
-  }, []);
-
-  const animateIn = shouldAnimate && !reduced;
-
   return (
     <motion.header
-      initial={animateIn ? { opacity: 0, y: 12 } : false}
-      animate={animateIn ? { opacity: 1, y: 0 } : undefined}
+      initial={false}
+      animate={controls}
       transition={{ duration: 0.36, ease: [0.2, 0.8, 0.2, 1] }}
       className="ds-home-hero ds-capture-hero"
       data-testid="capture-hero"

@@ -1,5 +1,5 @@
 /**
- * US-017: End-to-end validation — Telegram → memo → activity log → compile trigger
+ * US-017: Mocked pipeline validation — webhook → memo → activity → compile trigger
  *
  * Scenario:
  *   1. A Telegram Update arrives at POST /api/ingest/telegram/webhook.
@@ -8,10 +8,10 @@
  *   4. An activity is logged (verb="ingest", subject="telegram").
  *   5. The memo/created Inngest event is fired (compile trigger).
  *   6. Unknown chat_id → ignored, returns { ok: true } (no memo created).
- *   7. Wrong secret token → silently ignored (still 200, no memo created).
+ *   7. Wrong secret token → 403, no memo created; missing server secret → 503.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -74,9 +74,11 @@ vi.mock("@/lib/inngest/client", () => ({ sendEvent: mockSendEvent }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const TEST_WEBHOOK_SECRET = "unit-test-webhook-secret";
+
 function makeWebhookRequest(
   body: unknown,
-  secretToken?: string
+  secretToken: string = TEST_WEBHOOK_SECRET
 ): NextRequest {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (secretToken) {
@@ -138,7 +140,30 @@ function chainInsertActivity(result: unknown[]) {
 describe("US-017: Telegram webhook → memo pipeline", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", TEST_WEBHOOK_SECRET);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects an unconfigured webhook before database or compile work", async () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", undefined);
+    const { POST } = await import("../webhook/route");
+    const res = await POST(makeWebhookRequest(buildUpdate()));
+    expect(res.status).toBe(503);
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockSendEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing client secret before database or compile work", async () => {
+    const { POST } = await import("../webhook/route");
+    const res = await POST(makeWebhookRequest(buildUpdate(), ""));
+    expect(res.status).toBe(403);
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockSendEvent).not.toHaveBeenCalled();
   });
 
   it("Step 1-5: text message creates memo, logs activity, fires compile event", async () => {
@@ -182,21 +207,22 @@ describe("US-017: Telegram webhook → memo pipeline", () => {
     expect(mockSendEvent).not.toHaveBeenCalled();
   });
 
-  it("Step 7: wrong secret token is silently ignored (no memo created)", async () => {
-    process.env.TELEGRAM_WEBHOOK_SECRET = "correct-secret";
+  it("Step 7: wrong secret token is rejected (no memo created)", async () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "correct-secret");
     mockDb.select.mockReturnValue(chainSelectSources([mockSource]));
 
     const { POST } = await import("../webhook/route");
     const req = makeWebhookRequest(buildUpdate(), "wrong-secret");
     const res = await POST(req);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    expect(mockDb.select).not.toHaveBeenCalled();
     expect(mockDb.insert).not.toHaveBeenCalled();
     expect(mockSendEvent).not.toHaveBeenCalled();
   });
 
   it("correct secret token allows processing", async () => {
-    process.env.TELEGRAM_WEBHOOK_SECRET = "my-secret";
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "my-secret");
     let insertCallCount = 0;
     mockDb.select.mockReturnValue(chainSelectSources([mockSource]));
     mockDb.insert.mockImplementation(() => {

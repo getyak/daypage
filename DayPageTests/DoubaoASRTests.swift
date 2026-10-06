@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Unit tests for the Doubao ASR plumbing: the gzip codec every streaming
 /// frame depends on, and provider selection/fallback.
 ///
@@ -114,3 +115,9 @@ struct DoubaoASRTests {
         #expect(DoubaoStreamASRClient.chunkBytes == bytesPerSecond / 5)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias DoubaoASRTests = DayPageSerialSwiftTests.DoubaoASRTests

@@ -4,6 +4,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// US-023: Trash TTL — files older than 7 days are deleted; recent files survive.
 ///
 /// Serialized because all tests in this suite mutate the global
@@ -88,3 +89,9 @@ struct TrashTTLTests {
         }
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias TrashTTLTests = DayPageSerialSwiftTests.TrashTTLTests

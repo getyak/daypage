@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("SearchHighlight")
 struct SearchHighlightTests {
 
@@ -85,3 +86,9 @@ struct SearchHighlightTests {
         #expect(matchRange == nil)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias SearchHighlightTests = DayPageSerialSwiftTests.SearchHighlightTests

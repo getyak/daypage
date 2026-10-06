@@ -16,6 +16,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite
 struct MemoSyncMapperTests {
 
@@ -150,9 +151,11 @@ struct MemoSyncMapperTests {
         #expect(data.count > 0)
     }
 }
+}
 
 // MARK: - Response parsing
 
+extension DayPageSerialSwiftTests {
 @Suite
 struct MemoSyncResponseTests {
     let id = "550e8400-e29b-41d4-a716-446655440001"
@@ -192,9 +195,11 @@ struct MemoSyncResponseTests {
         }
     }
 }
+}
 
 // MARK: - SyncSettings
 
+extension DayPageSerialSwiftTests {
 @Suite(.serialized)
 struct SyncSettingsTests {
 
@@ -228,3 +233,11 @@ struct SyncSettingsTests {
         }
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias MemoSyncMapperTests = DayPageSerialSwiftTests.MemoSyncMapperTests
+typealias MemoSyncResponseTests = DayPageSerialSwiftTests.MemoSyncResponseTests
+typealias SyncSettingsTests = DayPageSerialSwiftTests.SyncSettingsTests

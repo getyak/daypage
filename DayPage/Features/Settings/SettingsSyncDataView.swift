@@ -542,11 +542,20 @@ struct SettingsSyncDataView: View {
             }
 
             // C3: GDPR right-to-be-forgotten. Local-only by design.
+            // Issue #922: fail-closed guard — refused (and disabled) whenever
+            // the active vault is iCloud-backed, is not the canonical local
+            // vault, or a cloud account is signed in. The same policy is
+            // re-checked immediately before any mutation below.
             Button(role: .destructive, action: { showPurgeAllConfirm = true }) {
                 Label(NSLocalizedString("settings.data.purge_all.button", comment: "Delete all local data button"),
                       systemImage: "trash.fill")
             }
             .accessibilityIdentifier("settings-purge-all-button")
+            .disabled(!resetDecision.isAllowed)
+            .opacity(resetDecision.isAllowed ? 1 : 0.42)
+            .accessibilityHint(resetDecision.isAllowed
+                ? NSLocalizedString("settings.data.purge_all.hint", comment: "What Delete all local data does")
+                : blockedResetExplanation(resetDecision.blockReason))
             .confirmationDialog(
                 NSLocalizedString("settings.data.purge_all.confirm.title", comment: ""),
                 isPresented: $showPurgeAllConfirm,
@@ -563,8 +572,58 @@ struct SettingsSyncDataView: View {
         } header: {
             Text(NSLocalizedString("settings.danger.section", comment: "Danger zone header"))
         } footer: {
-            Text(NSLocalizedString("settings.danger.footer", comment: "Danger zone explainer"))
+            Text(resetDecision.isAllowed
+                 ? NSLocalizedString("settings.danger.footer", comment: "Danger zone explainer")
+                 : blockedResetExplanation(resetDecision.blockReason))
                 .font(.caption)
+        }
+    }
+
+    // MARK: Fail-closed reset guard (issue #922)
+
+    /// Fresh policy verdict for the Clear-local-data action. Rebuilt on every
+    /// read from live state; the enabled/disabled UI is advisory only —
+    /// `purgeAllLocalData()` re-runs the same check immediately before mutation.
+    private var resetDecision: LocalDataResetDecision {
+        LocalDataResetPolicy.evaluate(Self.liveResetContext())
+    }
+
+    /// Live snapshot of everything the policy needs. `VaultInitializer.shared`
+    /// is read (not just `vaultURL`) so an iCloud locator — including the
+    /// transient local fallback while the ubiquity container is unavailable —
+    /// is visible to the policy. A signed-in Supabase session blocks outright.
+    private static func liveResetContext() -> LocalDataResetPolicy.Context {
+        let locator = VaultInitializer.shared
+        let kind: LocalDataResetPolicy.LocatorKind
+        if locator is iCloudVaultLocator {
+            kind = .iCloud
+        } else if locator is LocalVaultLocator {
+            kind = .local
+        } else {
+            kind = .unknown
+        }
+        return LocalDataResetPolicy.Context(
+            activeVaultURL: VaultInitializer.testOverrideURL ?? locator.vaultURL,
+            canonicalLocalVaultURL: LocalVaultLocator().vaultURL,
+            locatorKind: kind,
+            vaultLocationPreference: AppSettings.shared.vaultLocation,
+            hasAuthenticatedCloudAccount: AuthService.shared.session != nil
+        )
+    }
+
+    /// Honest bilingual explanation of WHY the action is currently blocked.
+    private func blockedResetExplanation(_ reason: LocalDataResetBlockReason?) -> String {
+        switch reason {
+        case .iCloudVault:
+            return NSLocalizedString("settings.data.purge_all.blocked.icloud", comment: "Blocked: vault is in iCloud")
+        case .nonCanonicalVault:
+            return NSLocalizedString("settings.data.purge_all.blocked.noncanonical", comment: "Blocked: active vault is not the canonical local vault")
+        case .authenticatedCloudAccount:
+            return NSLocalizedString("settings.data.purge_all.blocked.account", comment: "Blocked: cloud account signed in")
+        case .unresolvedVault:
+            return NSLocalizedString("settings.data.purge_all.blocked.unresolved", comment: "Blocked: vault location cannot be verified")
+        case nil:
+            return NSLocalizedString("settings.danger.footer", comment: "Danger zone explainer")
         }
     }
 
@@ -647,12 +706,35 @@ struct SettingsSyncDataView: View {
 
     // C3 fix (GDPR): wipe local user-generated state. Scope is local-only —
     // cloud account deletion (Supabase) is a separate flow.
+    //
+    // Issue #922: fail-closed. `performIfAllowed` re-evaluates the policy from
+    // FRESH live state immediately before the first mutation, so a stale
+    // enabled-button state (sign-in, iCloud migration, or locator hot-swap
+    // after the view drew) can never delete an iCloud or noncanonical vault or
+    // wipe data while a cloud account is authenticated. Blocked → vault, keys
+    // and preferences are preserved untouched.
     private func purgeAllLocalData() {
+        let decision = LocalDataResetPolicy.performIfAllowed(
+            contextProvider: { Self.liveResetContext() },
+            mutation: { verifiedURL in performPurgeMutations(vaultURL: verifiedURL) }
+        )
+        if !decision.isAllowed {
+            Haptics.warn()
+            bannerCenter.show(AppBannerModel(
+                kind: .error,
+                title: NSLocalizedString("settings.data.purge_all.blocked.title", comment: "Blocked banner title"),
+                subtitle: blockedResetExplanation(decision.blockReason),
+                autoDismiss: false
+            ))
+        }
+    }
+
+    /// Only ever reached through `purgeAllLocalData`'s policy gate.
+    private func performPurgeMutations(vaultURL: URL) {
         let fm = FileManager.default
         var failures: [String] = []
 
         // 1. Vault directory.
-        let vaultURL = VaultInitializer.vaultURL
         if fm.fileExists(atPath: vaultURL.path) {
             do {
                 try fm.removeItem(at: vaultURL)
@@ -687,6 +769,10 @@ struct SettingsSyncDataView: View {
             AppSettings.Keys.graphHiddenTypes,
         ]
         for key in keysToReset { store.removeObject(forKey: key) }
+
+        // 3b. Issue #922 — crash diagnostics consent returns to its default
+        // (off) after a full wipe; the change handler closes the live SDK.
+        DiagnosticsConsent.setOptedIn(false)
 
         // 4. Surface result.
         if failures.isEmpty {

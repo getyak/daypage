@@ -16,6 +16,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite(.serialized)
 struct WeeklyCompilationServiceTests {
@@ -281,3 +282,9 @@ struct WeeklyCompilationServiceTests {
         #expect(WeeklyCompilationService.extractList("entities", from: missing) == [])
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias WeeklyCompilationServiceTests = DayPageSerialSwiftTests.WeeklyCompilationServiceTests

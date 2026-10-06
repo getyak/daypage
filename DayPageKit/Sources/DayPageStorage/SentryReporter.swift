@@ -194,10 +194,36 @@ public enum SentryReporter {
         UserDefaults.standard.set(dsn, forKey: sentryDSNDefaultsKey)
     }
 
+    // MARK: Consent gate (issue #922)
+    //
+    // Remote crash diagnostics are opt-in and default OFF. The app target
+    // registers a gate that reflects the persisted `DiagnosticsConsent` value
+    // and it is re-evaluated at EVENT TIME — not cached — so revoking consent
+    // blocks every future breadcrumb/error/span at this transport boundary even
+    // if an adapter or SDK is still alive. A nil gate (Kit-only contexts, other
+    // app targets) means "not consent-gated here" and preserves legacy behavior.
+
+    nonisolated(unsafe) private static var _eventsGate: (@Sendable () -> Bool)?
+
+    public static func setEventsGate(_ gate: (@Sendable () -> Bool)?) {
+        lock.lock(); defer { lock.unlock() }
+        _eventsGate = gate
+    }
+
+    /// Re-reads the consent gate for every event. Fail closed only when a gate
+    /// exists and refuses — absence of a gate keeps headless/test contexts and
+    /// non-consent app targets working as before.
+    private static func eventsAllowed() -> Bool {
+        lock.lock()
+        let gate = _eventsGate
+        lock.unlock()
+        return gate?() ?? true
+    }
+
     // MARK: Public guard
 
     public static var isSentryEnabled: Bool {
-        adapter.isEnabled
+        adapter.isEnabled && eventsAllowed()
     }
 
     // MARK: Forwarding API
@@ -207,28 +233,25 @@ public enum SentryReporter {
         level: SentryLevel = .info,
         message: String
     ) {
-        let a = adapter
-        guard a.isEnabled else { return }
-        a.breadcrumb(category: category, level: level, message: message)
+        // Legacy callers pass arbitrary note/error/network text. Never forward
+        // that text, even with consent; use OperationalEvent for safe context.
     }
 
     public static func captureError(_ error: Error) {
-        let a = adapter
-        guard a.isEnabled else { return }
-        a.captureError(error)
+        // NSError.userInfo and localized descriptions can contain transcripts,
+        // response bodies, credentials, and account identifiers.
     }
 
     public static func captureOperationalEvent(_ event: OperationalEvent) {
         let a = adapter
-        guard a.isEnabled else { return }
+        guard a.isEnabled, eventsAllowed() else { return }
         a.captureOperationalEvent(event)
     }
 
     /// Start a Sentry transaction span (returns nil when SDK disabled). Use
     /// `defer { span?.finish() }` at the call site.
     public static func startTransaction(name: String, operation: String) -> SentrySpan? {
-        let a = adapter
-        guard a.isEnabled else { return nil }
-        return a.startTransaction(name: name, operation: operation)
+        // Transaction/span names and tags are unconstrained user text.
+        return nil
     }
 }

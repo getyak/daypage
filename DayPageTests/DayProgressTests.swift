@@ -3,6 +3,7 @@ import Foundation
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("DayProgressTests")
 struct DayProgressTests {
 
@@ -41,30 +42,33 @@ struct DayProgressTests {
         #expect(result <= 1.0)
     }
 
-    @Test func fraction_clampsBelowZero() {
-        // Manually crafted: pass a time 1s before startOfDay by giving it exactly startOfDay minus 1s.
-        // We do this by computing startOfDay and subtracting one second.
+    @Test func fraction_beforeMidnightUsesPreviousDay() {
+        // The API chooses the day containing its timestamp, so -1s is the
+        // previous day's last second rather than outside a fixed day interval.
         let noon = date(year: 2024, month: 3, day: 10, hour: 12)
         let start = utc.startOfDay(for: noon)
         let beforeStart = start.addingTimeInterval(-1)
         let result = DayProgress.fraction(at: beforeStart, calendar: utc)
-        #expect(result == 0.0)
+        #expect(abs(result - CGFloat(86399.0 / 86400.0)) < 0.0000001)
     }
 
-    @Test func fraction_clampsAboveOne() {
+    @Test func fraction_afterMidnightUsesNextDay() {
         // Time one second past end-of-day = one second into the next day.
         let noon = date(year: 2024, month: 3, day: 10, hour: 12)
         let start = utc.startOfDay(for: noon)
         let next = utc.date(byAdding: .day, value: 1, to: start)!
         let afterEnd = next.addingTimeInterval(1)
         let result = DayProgress.fraction(at: afterEnd, calendar: utc)
-        #expect(result == 1.0)
+        #expect(abs(result - CGFloat(1.0 / 86400.0)) < 0.0000001)
     }
 
     /// DST spring-forward: US/Eastern 2024-03-10 loses one hour (23-hour day).
-    /// Noon on that day should be slightly past the halfway mark because 12h elapsed
-    /// out of a 23h day → fraction ≈ 12/23 ≈ 0.5217.
-    @Test func fraction_dstSpringForward_noonSlightlyAboveHalf() {
+    /// Noon on that day is slightly *below* the halfway mark: only 11 hours of
+    /// real time elapse between local midnight and local noon (the 02:00→03:00
+    /// jump skips a wall-clock hour), out of a 23h day → fraction = 11/23 ≈ 0.4783.
+    /// `DayProgress.fraction` measures real elapsed ÷ real day length, so the
+    /// spring-forward gap must compress the morning, not inflate it.
+    @Test func fraction_dstSpringForward_noonSlightlyBelowHalf() {
         var eastern = Calendar(identifier: .gregorian)
         eastern.timeZone = TimeZone(identifier: "America/New_York")!
 
@@ -76,7 +80,13 @@ struct DayProgressTests {
         let noon = Calendar(identifier: .gregorian).date(from: c)!
 
         let result = DayProgress.fraction(at: noon, calendar: eastern)
-        let expected = CGFloat(12.0 / 23.0)
+        let expected = CGFloat(11.0 / 23.0)
         #expect(abs(result - expected) < 0.0001)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias DayProgressTests = DayPageSerialSwiftTests.DayProgressTests

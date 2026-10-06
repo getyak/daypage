@@ -76,6 +76,16 @@ struct SettingsAboutView: View {
             .accessibilityIdentifier("settings-build-row")
 
             NavigationLink {
+                SettingsPrivacyView()
+            } label: {
+                SettingsLabel(
+                    title: NSLocalizedString("settings.privacy.entry", comment: "Privacy & data row"),
+                    systemImage: "hand.raised"
+                )
+            }
+            .accessibilityIdentifier("settings-privacy-link")
+
+            NavigationLink {
                 SettingsDiagnosticsView()
             } label: {
                 SettingsLabel(
@@ -444,6 +454,137 @@ struct SettingsDeveloperView: View {
             Text(NSLocalizedString("settings.analytics.footer", comment: "What the board shows"))
                 .font(.caption)
         }
+    }
+}
+
+// MARK: - SettingsPrivacyView
+
+/// "隐私与数据" — the in-app privacy and data explanation (issue #922),
+/// reachable from About. Reuses the Settings list style. This screen is the
+/// app's current privacy/data-flow explanation; it deliberately carries NO
+/// external privacy-policy link (daypage.app/privacy is not published — a 404
+/// link must never ship). Crash diagnostics consent is toggled here.
+@MainActor
+struct SettingsPrivacyView: View {
+
+    @State private var diagnosticsOptIn = DiagnosticsConsent.isOptedIn
+
+    var body: some View {
+        List {
+            Group {
+                dataSection
+                syncSection
+                voiceAISection
+                diagnosticsSection
+            }
+            .listRowBackground(DSColor.surfaceWhite)
+        }
+        .scrollContentBackground(.hidden)
+        .background(DSColor.bgWarm.ignoresSafeArea())
+        .tint(DSColor.accentOnBg)
+        .navigationTitle(NSLocalizedString("settings.privacy.title", comment: "Privacy & data page title"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: Your data
+
+    private var dataSection: some View {
+        Section {
+            privacyRow(
+                icon: "internaldrive",
+                title: NSLocalizedString("settings.privacy.local.title", comment: "Local-first storage row"),
+                body: NSLocalizedString("settings.privacy.local.body", comment: "Notes and attachments are local-first")
+            )
+        } header: {
+            Text(NSLocalizedString("settings.privacy.section.data", comment: "Your data section header"))
+        }
+    }
+
+    // MARK: Optional sync
+
+    private var syncSection: some View {
+        Section {
+            privacyRow(
+                icon: "icloud",
+                title: NSLocalizedString("settings.privacy.icloud.title", comment: "iCloud row"),
+                body: NSLocalizedString("settings.privacy.icloud.body", comment: "iCloud copies the vault")
+            )
+            privacyRow(
+                icon: "person.crop.circle",
+                title: NSLocalizedString("settings.privacy.accountsync.title", comment: "Account sync row"),
+                body: NSLocalizedString("settings.privacy.accountsync.body", comment: "Signed-in sync uploads notes/audio/images; not E2E")
+            )
+        } header: {
+            Text(NSLocalizedString("settings.privacy.section.sync", comment: "Optional sync section header"))
+        }
+    }
+
+    // MARK: Voice & AI
+
+    private var voiceAISection: some View {
+        Section {
+            privacyRow(
+                icon: "mic",
+                title: NSLocalizedString("settings.privacy.voice.title", comment: "Voice transcription row"),
+                body: NSLocalizedString("settings.privacy.voice.body", comment: "Audio goes to Doubao or Whisper when configured")
+            )
+            privacyRow(
+                icon: "sparkles",
+                title: NSLocalizedString("settings.privacy.ai.title", comment: "AI features row"),
+                body: NSLocalizedString("settings.privacy.ai.body", comment: "Selected context goes to the configured AI provider")
+            )
+            privacyRow(
+                icon: "key",
+                title: NSLocalizedString("settings.privacy.keys.title", comment: "API keys row"),
+                body: NSLocalizedString("settings.privacy.keys.body", comment: "Keys optional and billed separately")
+            )
+        } header: {
+            Text(NSLocalizedString("settings.privacy.section.voiceai", comment: "Voice & AI section header"))
+        }
+    }
+
+    // MARK: Crash diagnostics (opt-in)
+
+    private var diagnosticsSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { diagnosticsOptIn },
+                set: { newValue in
+                    Haptics.selection()
+                    diagnosticsOptIn = newValue
+                    // Persisted consent (default off). The registered change
+                    // handler starts/closes the live SDK; the Kit-side event
+                    // gate blocks every future event on revocation.
+                    DiagnosticsConsent.setOptedIn(newValue)
+                }
+            )) {
+                SettingsLabel(
+                    title: NSLocalizedString("settings.privacy.diagnostics.toggle", comment: "Crash diagnostics toggle"),
+                    systemImage: "waveform.path.ecg"
+                )
+            }
+            .accessibilityIdentifier("settings-privacy-diagnostics-toggle")
+            .accessibilityHint(NSLocalizedString("settings.privacy.diagnostics.hint", comment: "Toggle hint"))
+        } header: {
+            Text(NSLocalizedString("settings.privacy.section.diagnostics", comment: "Crash diagnostics section header"))
+        } footer: {
+            Text(NSLocalizedString("settings.privacy.diagnostics.body", comment: "What opt-in diagnostics upload and that revocation cannot recall past events"))
+                .font(.caption)
+                .foregroundColor(DSColor.onSurfaceVariant)
+        }
+    }
+
+    // MARK: Row
+
+    private func privacyRow(icon: String, title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
+            SettingsLabel(title: title, systemImage: icon)
+            Text(body)
+                .font(DSType.labelSM)
+                .foregroundColor(DSColor.onSurfaceVariant)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

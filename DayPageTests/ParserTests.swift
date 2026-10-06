@@ -5,6 +5,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Tests for RawStorage.parse(fileContent:) — multi-memo splitting, YAML body isolation,
 /// and write-then-read concurrency. Acceptance criteria for US-002 (fixtures) and US-003
 /// (parser fix + concurrency).
@@ -141,3 +142,9 @@ struct ParserTests {
         #expect(bodies.contains("gamma"))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias ParserTests = DayPageSerialSwiftTests.ParserTests

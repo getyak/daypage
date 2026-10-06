@@ -14,6 +14,7 @@ import Foundation
 //   • AppNavigationModel.openArchive sets pendingArchiveDate + switches tab
 //   • pendingSearchQuery as a one-shot ObservableObject hand-off
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite("AppIntentsTests", .serialized)
 struct AppIntentsTests {
@@ -125,3 +126,9 @@ struct AppIntentsTests {
         #expect(nav.pendingSearchQuery == nil)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias AppIntentsTests = DayPageSerialSwiftTests.AppIntentsTests

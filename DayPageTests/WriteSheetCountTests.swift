@@ -1,6 +1,7 @@
 import Testing
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 struct WriteSheetCountTests {
 
     @Test func chineseSentence() {
@@ -40,3 +41,9 @@ struct WriteSheetCountTests {
         #expect(WriteSheetView.wordCount(in: "hello北京") == 3)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias WriteSheetCountTests = DayPageSerialSwiftTests.WriteSheetCountTests

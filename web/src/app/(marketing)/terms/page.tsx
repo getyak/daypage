@@ -52,8 +52,8 @@ export default function TermsPage() {
 
       <h2>Acceptable use</h2>
       <ul>
-        <li>Don't use DayPage to harm others.</li>
-        <li>Don't reverse-engineer the AI pipeline to abuse third-party APIs.</li>
+        <li>Don&apos;t use DayPage to harm others.</li>
+        <li>Don&apos;t reverse-engineer the AI pipeline to abuse third-party APIs.</li>
       </ul>
 
       <h2>Changes</h2>

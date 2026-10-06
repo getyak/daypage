@@ -12,6 +12,7 @@ import DayPageModels
 public enum RawStorageError: Error {
     case writeFailed(URL)
     case readFailed(URL)
+    case invalidDayString(String)
 }
 
 // MARK: - RawStorage
@@ -52,6 +53,62 @@ public enum RawStorage {
         return vaultRoot
             .appendingPathComponent("raw")
             .appendingPathComponent("\(dateString).md")
+    }
+
+    /// Resolve a canonical day filename in the same timezone used to read it.
+    /// Device-local midnight can otherwise point at the previous stored day.
+    public static func date(forDayString dayString: String) -> Date? {
+        let formatter = dateFormatter
+        formatter.isLenient = false
+        guard let date = formatter.date(from: dayString),
+              formatter.string(from: date) == dayString else { return nil }
+        return date
+    }
+
+    // MARK: - Canonical owning-day keys
+
+    /// `userInfo` key carrying the validated raw day file key that a
+    /// `.rawStorageDidWrite` notification actually wrote. Consumers must
+    /// prefer this key over reinterpreting the legacy `Date` object through a
+    /// cached formatter when the preferred time zone can change at runtime.
+    public static let writtenDayStringKey = "dayString"
+
+    /// Strict canonical owning-day validator: exact `yyyy-MM-dd` lexical
+    /// shape and a real Gregorian calendar date (rejects `2026-02-30`,
+    /// separators, traversal, and trailing garbage). Evaluated by Gregorian rules — independently of the current preferred zone — so a
+    /// timezone switch or a skipped local midnight can never change whether
+    /// a key is valid.
+    public static func isValidDayString(_ value: String) -> Bool {
+        let bytes = Array(value.utf8)
+        guard bytes.count == 10, bytes[4] == 45, bytes[7] == 45,
+              bytes.enumerated().allSatisfy({ byte in
+                  byte.offset == 4 || byte.offset == 7 || (48...57).contains(byte.element)
+              }),
+              let year = Int(String(decoding: bytes[0..<4], as: UTF8.self)), year > 0,
+              let month = Int(String(decoding: bytes[5..<7], as: UTF8.self)), (1...12).contains(month),
+              let day = Int(String(decoding: bytes[8..<10], as: UTF8.self)), day > 0
+        else { return false }
+        let isLeapYear = year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
+        let daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        return day <= daysInMonth[month - 1]
+    }
+
+    /// Exact raw day-file URL for a canonical owning-day key. The URL is
+    /// selected directly from the validated string — never derived from a
+    /// `Date` through the mutable preferred zone. Fails closed (`nil`) for
+    /// invalid keys, so no path separator or traversal can enter the URL.
+    public static func fileURL(forDayString dayString: String, vaultRoot: URL) -> URL? {
+        guard isValidDayString(dayString) else { return nil }
+        return vaultRoot
+            .appendingPathComponent("raw")
+            .appendingPathComponent("\(dayString).md")
+    }
+
+    /// Legacy Date interop: the canonical owning-day key for `date` under the
+    /// current preferred zone. Callers holding a `Date` should convert ONCE
+    /// (e.g. at route construction) and keep the resulting key.
+    public static func dayString(for date: Date) -> String {
+        dateFormatter.string(from: date)
     }
 
     /// 生成 asset 文件名：`<prefix>_<yyyyMMdd_HHmmss>_<uniq>.<ext>`（本地时区）。
@@ -120,7 +177,10 @@ public enum RawStorage {
             )
 
             WidgetCenter.shared.reloadAllTimelines()
-            notifyDidWrite(for: memo.created)
+            notifyDidWrite(
+                for: memo.created,
+                dayString: url.deletingPathExtension().lastPathComponent
+            )
 
             let sizeBytes = newBlock.utf8.count
             let memoIDString = memo.id.uuidString
@@ -141,12 +201,22 @@ public enum RawStorage {
     // MARK: - Write notification
 
     /// Posted after any raw day-file mutation so caches (e.g. TimelineIndex) can
-    /// update incrementally. The object is the affected day's `Date`. Decoupled
-    /// via NotificationCenter so the storage layer never depends on the index
-    /// layer, and every write path (TodayViewModel rewrite/delete,
-    /// PassiveLocationService, SampleDataSeeder) is covered automatically.
-    public static func notifyDidWrite(for date: Date) {
-        NotificationCenter.default.post(name: .rawStorageDidWrite, object: date)
+    /// update incrementally. The object is the affected day's `Date` (legacy
+    /// compatibility). The actual written raw file key is additionally carried
+    /// under `writtenDayStringKey` in `userInfo` whenever the written URL stem
+    /// passes `isValidDayString`, so cache consumers never have to reinterpret
+    /// a `Date` through a formatter whose zone may have changed. Invalid keys
+    /// are dropped from `userInfo` — the notification still posts.
+    public static func notifyDidWrite(for date: Date, dayString: String? = nil) {
+        var userInfo: [AnyHashable: Any]? = nil
+        if let dayString, isValidDayString(dayString) {
+            userInfo = [writtenDayStringKey: dayString]
+        }
+        NotificationCenter.default.post(
+            name: .rawStorageDidWrite,
+            object: date,
+            userInfo: userInfo
+        )
     }
 
     // MARK: - Serialization
@@ -214,7 +284,10 @@ public enum RawStorage {
                 )
 
                 WidgetCenter.shared.reloadAllTimelines()
-                notifyDidWrite(for: date)
+                notifyDidWrite(
+                    for: date,
+                    dayString: url.deletingPathExtension().lastPathComponent
+                )
                 let deletedPayload = previous.map { ($0.id.uuidString, 0) }
                 Task { @MainActor in
                     if outboxRecorded {
@@ -255,7 +328,10 @@ public enum RawStorage {
             )
 
             WidgetCenter.shared.reloadAllTimelines()
-            notifyDidWrite(for: date)
+            notifyDidWrite(
+                for: date,
+                dayString: url.deletingPathExtension().lastPathComponent
+            )
 
             // R6: enqueue every rewritten memo for offline sync. We don't
             // know which subset actually changed at this layer, so we
@@ -313,7 +389,52 @@ public enum RawStorage {
         let capturedVaultRoot = vaultRoot
         try writeQueue.sync {
             let url = fileURL(for: date, vaultRoot: capturedVaultRoot)
-            let existing: [Memo]
+            try performMutate(
+                at: url,
+                vaultRoot: capturedVaultRoot,
+                notifyDate: date,
+                transform: transform
+            )
+        }
+    }
+
+    /// Canonical owning-day mutation boundary. The exact raw URL is selected
+    /// directly from the validated `YYYY-MM-DD` key and passed into the same
+    /// serialized read-transform-write critical section — never derived from a
+    /// `Date` reinterpreted under a possibly-changed preferred zone, and no
+    /// global time zone is touched. Fails closed on an invalid key before the
+    /// critical section, so no file is read or written.
+    public static func mutate(
+        dayString: String,
+        vaultRoot: URL,
+        transform: ([Memo]) -> [Memo]?
+    ) throws {
+        guard let url = fileURL(forDayString: dayString, vaultRoot: vaultRoot) else {
+            throw RawStorageError.invalidDayString(dayString)
+        }
+        // The Date below is the legacy notification object only; the
+        // authoritative written key travels in userInfo. It is captured here,
+        // before the write — never re-derived from a Date afterwards.
+        let notifyDate = date(forDayString: dayString) ?? Date()
+        try writeQueue.sync {
+            try performMutate(
+                at: url,
+                vaultRoot: vaultRoot,
+                notifyDate: notifyDate,
+                transform: transform
+            )
+        }
+    }
+
+    /// Shared serialized mutation body. Callers select the exact target URL
+    /// (Date-derived or canonical-key-derived) and enter `writeQueue` first.
+    private static func performMutate(
+        at url: URL,
+        vaultRoot capturedVaultRoot: URL,
+        notifyDate: Date,
+        transform: ([Memo]) -> [Memo]?
+    ) throws {
+        let existing: [Memo]
             if FileManager.default.fileExists(atPath: url.path) {
                 let content = try String(contentsOf: url, encoding: .utf8)
                 existing = parse(fileContent: content, sourceFile: url)
@@ -357,7 +478,10 @@ public enum RawStorage {
             )
 
             WidgetCenter.shared.reloadAllTimelines()
-            notifyDidWrite(for: date)
+            notifyDidWrite(
+                for: notifyDate,
+                dayString: url.deletingPathExtension().lastPathComponent
+            )
 
             // R6: enqueue surviving memos for offline sync. Skipping the
             // empty-file branch is intentional: if the user deleted the
@@ -378,7 +502,6 @@ public enum RawStorage {
                 }
                 await SyncQueueService.shared.flushIfOnline()
             }
-        }
     }
 
     /// Returns the current canonical memo for a stable UUID without exposing
@@ -453,7 +576,7 @@ public enum RawStorage {
             var appliedCount = 0
             var deletedCount = 0
             var conflictCopies: [UUID] = []
-            var affectedDates: [Date] = []
+            var writtenDayStrings: Set<String> = []
 
             for change in changes.sorted(by: { $0.changeSequence < $1.changeSequence }) {
                 let located = findMemoOnDisk(
@@ -500,9 +623,12 @@ public enum RawStorage {
                     // each different source version before removing duplicate
                     // IDs, even if this conservatively retains an old version.
                     for source in try memoLocations(id: change.id) where !sameFileLocation(source.file, located.file) {
-                        let preserved = try preserveMovedSource(source.memo, afterWrite: afterWrite)
+                        let preserved = try preserveMovedSource(
+                            source.memo,
+                            writtenDayStrings: &writtenDayStrings,
+                            afterWrite: afterWrite
+                        )
                         conflictCopies.append(preserved.id)
-                        affectedDates.append(preserved.created)
                     }
                 }
                 if let pending, !pendingMatchesRemote, !canonicalMatchesRemote {
@@ -514,7 +640,7 @@ public enum RawStorage {
                     var conflictCopy = findMemoOnDisk(id: pending.operationID)?.memo
                     if conflictCopy == nil, var preserved = localMemo {
                         preserved.id = pending.operationID
-                        try insertMemoOnDisk(preserved)
+                        try insertMemoOnDisk(preserved, writtenDayStrings: &writtenDayStrings)
                         try afterWrite(.conflictCopy)
                         conflictCopy = preserved
                     }
@@ -525,13 +651,15 @@ public enum RawStorage {
                         )
                         try afterWrite(.conflictOutbox)
                         conflictCopies.append(conflictCopy.id)
-                        affectedDates.append(conflictCopy.created)
                     }
                 }
 
-                if let localMemo { affectedDates.append(localMemo.created) }
-                if let remoteMemo { affectedDates.append(remoteMemo.created) }
-                try replaceMemoOnDisk(id: change.id, with: remoteMemo, afterWrite: afterWrite)
+                try replaceMemoOnDisk(
+                    id: change.id,
+                    with: remoteMemo,
+                    writtenDayStrings: &writtenDayStrings,
+                    afterWrite: afterWrite
+                )
                 try SyncOutboxStore.acceptRemoteChange(
                     memo: canonicalRemote ?? remoteMemo,
                     memoID: change.id,
@@ -548,8 +676,15 @@ public enum RawStorage {
             }
 
             WidgetCenter.shared.reloadAllTimelines()
-            for date in Set(affectedDates.map { Calendar.current.startOfDay(for: $0) }) {
-                notifyDidWrite(for: date)
+            // One notification per ACTUAL written raw file key, captured from
+            // the written URLs — never re-derived from a memo Date through the
+            // mutable preferred zone. The Date object stays for legacy
+            // subscribers; the authoritative key travels in userInfo.
+            for dayString in writtenDayStrings.sorted() {
+                notifyDidWrite(
+                    for: date(forDayString: dayString) ?? Date(),
+                    dayString: dayString
+                )
             }
             return SyncRemoteApplyResult(
                 appliedCount: appliedCount,
@@ -587,6 +722,7 @@ public enum RawStorage {
     private static func replaceMemoOnDisk(
         id: UUID,
         with replacement: Memo?,
+        writtenDayStrings: inout Set<String>,
         afterWrite: (RemoteApplyWriteStage) throws -> Void
     ) throws {
         let target = replacement.map { fileURL(for: $0.created) }
@@ -601,6 +737,7 @@ public enum RawStorage {
             var updated = existing.filter { $0.id != id }
             updated.append(replacement)
             try writeRemoteMemoList(updated, to: target)
+            writtenDayStrings.insert(target.deletingPathExtension().lastPathComponent)
             try afterWrite(.canonicalMemo)
         }
 
@@ -620,6 +757,7 @@ public enum RawStorage {
             let updated = existing.filter { $0.id != id }
             guard updated.count != existing.count else { continue }
             try writeRemoteMemoList(updated, to: file)
+            writtenDayStrings.insert(file.deletingPathExtension().lastPathComponent)
             try afterWrite(.canonicalRemoval)
         }
     }
@@ -646,6 +784,7 @@ public enum RawStorage {
 
     private static func preserveMovedSource(
         _ source: Memo,
+        writtenDayStrings: inout Set<String>,
         afterWrite: (RemoteApplyWriteStage) throws -> Void
     ) throws -> Memo {
         // An earlier conflict copy may already preserve this exact preimage.
@@ -674,7 +813,7 @@ public enum RawStorage {
             // A user may have amended that recovery copy since the crash.
             copy = findMemoOnDisk(id: preserved.id)?.memo
             if copy == nil {
-                try insertMemoOnDisk(preserved)
+                try insertMemoOnDisk(preserved, writtenDayStrings: &writtenDayStrings)
                 try afterWrite(.conflictCopy)
                 copy = preserved
             }
@@ -685,7 +824,10 @@ public enum RawStorage {
         return copy
     }
 
-    private static func insertMemoOnDisk(_ memo: Memo) throws {
+    private static func insertMemoOnDisk(
+        _ memo: Memo,
+        writtenDayStrings: inout Set<String>
+    ) throws {
         let target = fileURL(for: memo.created)
         let existing: [Memo]
         if FileManager.default.fileExists(atPath: target.path) {
@@ -697,6 +839,7 @@ public enum RawStorage {
         var updated = existing.filter { $0.id != memo.id }
         updated.append(memo)
         try writeRemoteMemoList(updated, to: target)
+        writtenDayStrings.insert(target.deletingPathExtension().lastPathComponent)
     }
 
     private static func writeRemoteMemoList(_ memos: [Memo], to file: URL) throws {
@@ -719,6 +862,20 @@ public enum RawStorage {
 
     public static func read(for date: Date, vaultRoot: URL) throws -> [Memo] {
         let url = fileURL(for: date, vaultRoot: vaultRoot)
+        return try read(at: url)
+    }
+
+    /// Canonical owning-day read boundary. The exact raw URL is selected
+    /// directly from the validated `YYYY-MM-DD` key — independent of the
+    /// current preferred zone — and fails closed on an invalid key.
+    public static func read(dayString: String, vaultRoot: URL) throws -> [Memo] {
+        guard let url = fileURL(forDayString: dayString, vaultRoot: vaultRoot) else {
+            throw RawStorageError.invalidDayString(dayString)
+        }
+        return try read(at: url)
+    }
+
+    private static func read(at url: URL) throws -> [Memo] {
         guard FileManager.default.fileExists(atPath: url.path) else {
             SentryReporter.breadcrumb(
                 category: "rawstorage",
@@ -971,6 +1128,7 @@ public enum RawStorage {
     // immediately without restarting the app.
     private static var dateFormatter: DateFormatter {
         let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = StorageSettings.currentTimeZone()

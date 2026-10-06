@@ -330,33 +330,38 @@
 
 /* DataFlowPage — P0 privacy disclosure (issue #25) */
 "onboarding.dataflow.title" = "Where your data goes";
-"onboarding.dataflow.subtitle" = "DayPage is local-first. The features below only send data to third-party providers if you configure the matching API key.";
+"onboarding.dataflow.subtitle" = "DayPage is local-first: raw notes and attachments stay on this device. The features below only send data when you enable the matching option or configure a provider.";
 "onboarding.dataflow.voice.feature" = "Voice transcription";
-"onboarding.dataflow.voice.payload" = "Audio recording (M4A)";
-"onboarding.dataflow.voice.destination" = "→ OpenAI Whisper API";
+"onboarding.dataflow.voice.payload" = "Audio recording (M4A) sent to the transcription provider you configure";
+"onboarding.dataflow.voice.destination" = "→ Doubao (Volcano Engine) or OpenAI Whisper, or on-device recognition";
 "onboarding.dataflow.compile.feature" = "AI daily compilation";
-"onboarding.dataflow.compile.payload" = "All memo text for the day (~2–5k tokens)";
+"onboarding.dataflow.compile.payload" = "Selected context (the day's memo text) sent to your configured AI provider";
 "onboarding.dataflow.compile.destination" = "→ DeepSeek / Aliyun DashScope";
 "onboarding.dataflow.weather.feature" = "Weather metadata";
 "onboarding.dataflow.weather.payload" = "Latitude/longitude (only if you grant location)";
 "onboarding.dataflow.weather.destination" = "→ OpenWeatherMap API";
-"onboarding.dataflow.photo.feature" = "Photos";
-"onboarding.dataflow.photo.payload" = "Originals and EXIF stay on device, never uploaded";
-"onboarding.dataflow.photo.destination" = "→ Stays on device";
-"onboarding.dataflow.sentry.feature" = "Crash reports (optional)";
-"onboarding.dataflow.sentry.payload" = "Crash stacks and diagnostic breadcrumbs with no secrets";
-"onboarding.dataflow.sentry.destination" = "→ Sentry";
-"onboarding.dataflow.footer" = "You can clear any API key in Settings at any time; the matching feature will stop making any network call immediately.";
+"onboarding.dataflow.photo.feature" = "Photos & attachments";
+"onboarding.dataflow.photo.payload" = "Stored with your raw notes in the local vault";
+"onboarding.dataflow.photo.destination" = "→ On device; only the sync options below can upload them";
+"onboarding.dataflow.sync.feature" = "Optional sync (iCloud / account)";
+"onboarding.dataflow.sync.payload" = "Notes, audio, and images may be uploaded when you enable iCloud or sign in";
+"onboarding.dataflow.sync.destination" = "→ iCloud Drive / DayPage sync service — not end-to-end encrypted";
+"onboarding.dataflow.sentry.feature" = "Crash reports (opt-in)";
+"onboarding.dataflow.sentry.payload" = "Content-filtered crash reports and limited technical status — no note text or secrets";
+"onboarding.dataflow.sentry.destination" = "→ Sentry (off unless you opt in)";
+"onboarding.dataflow.footer" = "You can clear any API key in Settings at any time; the matching feature will stop making any network call immediately. Crash diagnostics are opt-in and off by default — Settings → About → Privacy & Data explains where your data goes.";
 "onboarding.dataflow.continue" = "I understand, continue";
 
 /* ApiKeysPage */
 "onboarding.apikeys.title" = "Configure API Keys";
-"onboarding.apikeys.subtitle" = "Enter your API keys, or skip to configure them later in Settings.";
+"onboarding.apikeys.subtitle" = "API keys are optional and billed separately by their providers. Without keys, DayPage works locally with on-device features — add yours anytime in Settings.";
 "onboarding.apikeys.deepseek.label" = "DeepSeek (AI Compilation)";
 "onboarding.apikeys.openai.label" = "OpenAI Whisper (Voice Transcription)";
 "onboarding.apikeys.openweather.label" = "OpenWeather (Weather)";
 "onboarding.apikeys.paste" = "Paste";
 "onboarding.apikeys.complete" = "Start Using DayPage";
+"onboarding.apikeys.complete.local" = "Start Writing Locally";
+"onboarding.apikeys.complete.save" = "Save Keys & Start";
 
 /* WelcomeScreen */
 "welcome.slogan" = "Every day deserves a record.";
@@ -505,6 +510,10 @@
 /* Search — filter panel */
 "search.filter.dateRange"         = "Date";
 "search.filter.startDate"         = "Start date";
+"search.filter.endDate" = "End date";
+"search.filter.dateNotSet" = "Not set";
+"search.filter.dateCancel" = "Cancel";
+"search.filter.dateApply" = "Apply";
 "search.filter.type"              = "Type";
 "search.filter.location"          = "Place";
 "search.filter.location.placeholder" = "Filter by place name";
@@ -844,6 +853,12 @@
 "settings.data.purge_all.done"               = "Local data deleted.";
 "settings.data.purge_all.done.subtitle"      = "Your cloud account is untouched. Relaunch DayPage to start fresh.";
 "settings.data.purge_all.partial"            = "Some local data could not be deleted.";
+"settings.data.purge_all.hint"                = "Deletes the local vault, API keys, and onboarding state from this device.";
+"settings.data.purge_all.blocked.title"       = "Local data was not deleted";
+"settings.data.purge_all.blocked.icloud"      = "Clear local data is disabled because your vault is in iCloud. Deleting an iCloud vault here could destroy synced copies of your notes, so nothing was deleted.";
+"settings.data.purge_all.blocked.noncanonical" = "Clear local data is disabled because the active vault is not the standard local vault. Deleting any other folder is never substituted, so nothing was deleted.";
+"settings.data.purge_all.blocked.account"     = "Clear local data is disabled while a cloud account is signed in. Your vault, keys, and preferences were preserved; sign out first if you want to clear this device.";
+"settings.data.purge_all.blocked.unresolved"  = "Clear local data is disabled because the vault location could not be verified. Nothing was deleted.";
 
 /* DSBanner — accessibility */
 "banner.close.a11y"                          = "Close";
@@ -1360,6 +1375,29 @@
 "settings.data.export_full.failed.reason"    = "%@ — most common when disk space is low or iCloud is mid-sync.";
 "settings.danger.section"                    = "Danger Zone";
 "settings.danger.footer"                     = "These actions cannot be undone. Deleting local data does not touch your cloud account.";
+
+/* SettingsPrivacyView — in-app privacy & data explanation (issue #922) */
+"settings.privacy.entry"                      = "Privacy & Data";
+"settings.privacy.title"                      = "Privacy & Data";
+"settings.privacy.section.data"               = "Your Data";
+"settings.privacy.local.title"                = "Local-first notes & attachments";
+"settings.privacy.local.body"                 = "Raw notes and attachments (photos, audio, files) are stored in the app's local vault on this device first. They stay here unless you enable a sync option below.";
+"settings.privacy.section.sync"               = "Optional Sync";
+"settings.privacy.icloud.title"               = "iCloud (optional)";
+"settings.privacy.icloud.body"                = "If you enable iCloud for DayPage, your vault — notes, audio, and images — is stored in your iCloud Drive container and synced by Apple.";
+"settings.privacy.accountsync.title"          = "Account sync (optional)";
+"settings.privacy.accountsync.body"           = "If you sign in, notes, audio, and images may be uploaded to the DayPage sync service to keep your devices in sync. Sync is not end-to-end encrypted.";
+"settings.privacy.section.voiceai"            = "Voice & AI";
+"settings.privacy.voice.title"                = "Voice transcription";
+"settings.privacy.voice.body"                 = "Transcription sends the audio recording to the provider you configure — currently Doubao (Volcano Engine) or OpenAI Whisper — and falls back to on-device recognition without sending audio when no provider is configured.";
+"settings.privacy.ai.title"                   = "AI features";
+"settings.privacy.ai.body"                    = "AI features send selected context, such as the notes for a single day, to the AI provider you configure. Nothing is sent without a configured provider.";
+"settings.privacy.keys.title"                 = "API keys";
+"settings.privacy.keys.body"                  = "API keys are optional and billed separately by their providers. DayPage does not bundle or resell AI or voice credits.";
+"settings.privacy.section.diagnostics"        = "Crash Diagnostics";
+"settings.privacy.diagnostics.toggle"         = "Share crash diagnostics";
+"settings.privacy.diagnostics.hint" = "When on, content-filtered crash reports and limited technical status go to Sentry. Turning it off stops future uploads.";
+"settings.privacy.diagnostics.body" = "Off by default. When on, content-filtered crash reports and limited technical status are sent to Sentry. They exclude note text, attachments, transcripts, and secrets. Turning it off stops future uploads; events already uploaded cannot be recalled from this device.";
 "settings.common.retry"                      = "Try again";
 "settings.common.dismiss"                    = "Not now";
 
@@ -2029,6 +2067,16 @@
 "common.not_selected" = "Not selected";
 "common.confirm" = "OK";
 "daily.metadata.title" = "Edit metadata";
+"daily.metadata.mood.happy" = "😊 Happy";
+"daily.metadata.mood.calm" = "😐 Calm";
+"daily.metadata.mood.low" = "😔 Low";
+"daily.metadata.mood.irritable" = "😤 Irritable";
+"daily.metadata.mood.excited" = "🤩 Excited";
+"daily.metadata.mood.tired" = "😴 Tired";
+"daily.metadata.section.summary" = "SUMMARY";
+"daily.metadata.section.mood" = "MOOD";
+"daily.metadata.section.weather" = "WEATHER";
+"daily.metadata.section.cover" = "COVER IMAGE";
 "daily.metadata.save_failed" = "Couldn't save";
 "daily.metadata.weather.placeholder" = "For example: Sunny, 28°C";
 "daily.metadata.cover.remove" = "Remove cover";
@@ -2166,3 +2214,71 @@
 "today.recovery.conflict" = "This record already contains different content. Your unsaved draft is preserved; review the saved record first.";
 "today.recovery.invalid_attachment" = "An attachment path could not be safely restored. The draft is still preserved.";
 "today.recovery.vault_changed" = "This draft or its attachments belong to another vault. Return to the original vault and remove attachments added elsewhere before saving.";
+"write.sheet.photo_importing" = "Importing photos. Please wait…";
+
+/* Attachment entry points */
+"attachment.menu.camera" = "Camera";
+"attachment.menu.photos" = "Photos";
+"attachment.menu.location" = "Location";
+"attachment.menu.update_location" = "Update";
+"attachment.menu.files" = "Files";
+"attachment.menu.link" = "Link";
+"onboarding.welcome.customize" = "Set up AI and reminders";
+"feedback.privacy.destination" = "Your feedback and selected images are uploaded to GitHub and may be visible to others. Image history may remain after an issue is deleted. Review your text and images before sending; leave out private notes and credentials. If AI triage is configured, your submission and attachments may also be processed by an AI service.";
+"feedback.privacy.diagnostics" = "Include technical diagnostics (optional)";
+
+/* Feedback flow */
+"feedback.header.title" = "Feedback";
+"feedback.header.subtitle" = "Help improve DayPage";
+"feedback.input.label" = "Your feedback";
+"feedback.input.placeholder" = "Describe a problem or an improvement…";
+"feedback.photos" = "Photos";
+"feedback.camera" = "Camera";
+"feedback.image.processing" = "Processing image…";
+"feedback.voice.hint" = "Tap to record feedback · hold to transcribe";
+"feedback.sending" = "Sending…";
+"feedback.send" = "Send";
+"feedback.voice.elapsed" = "%d s · slide up to cancel";
+"feedback.voice.cancel" = "Release to cancel";
+"feedback.voice.transcribe" = "Release to transcribe";
+"feedback.voice.transcribing" = "Transcribing…";
+"feedback.voice.listening" = "Listening…";
+"feedback.history" = "Past submissions";
+"feedback.success.title" = "Your feedback was received";
+"feedback.success.body" = "Thanks for helping us improve DayPage.";
+"feedback.github.review" = "View on GitHub";
+"feedback.another" = "Submit another";
+"feedback.dismiss" = "Dismiss";
+"feedback.error.empty" = "Describe your feedback or attach a screenshot.";
+"feedback.error.voice" = "Transcription did not finish. Check your network and transcription settings.";
+"feedback.error.image.load" = "Could not load that image. Please choose it again.";
+"feedback.error.image.encode" = "Could not process that photo. Please try again.";
+
+// Share card controls and accessibility
+"share_card.title" = "Share card";
+"share_card.close" = "Close";
+"share_card.share" = "Share";
+"share_card.save_to_photos" = "Save to Photos";
+"share_card.style.minimal" = "Minimal";
+"share_card.style.film" = "Film";
+"share_card.style.polaroid" = "Polaroid";
+"share_card.style.journal" = "Journal";
+"share_card.style.postcard" = "Postcard";
+"share_card.style.a11y_label" = "%@ style";
+"share_card.photos.permission_denied" = "Photos access not granted";
+"share_card.photos.saved" = "Saved to Photos";
+"share_card.photos.save_failed" = "Unable to save to Photos";
+"share_card.a11y.memo" = "Memo card: %@%@";
+"share_card.a11y.location" = " in %@";
+"share_card.a11y.daily" = "Daily page card for %@, %ld entries";
+"share_card.a11y.monthly" = "Monthly summary card: %@, %ld entries";
+"share_card.a11y.quote" = "Quote card: %@";
+"share_card.a11y.photo" = "Photo card: %@";
+"share_card.a11y.voice" = "Voice memo card, duration %@";
+"share_card.a11y.collage" = "Collage card with %ld memos from %@";
+
+"search.a11y.resultMemo.hint" = "Double tap to open this memo's details";
+
+// Time zone picker
+"settings.timezone.select" = "Select time zone";
+"settings.timezone.search" = "Search time zones";

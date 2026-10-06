@@ -48,6 +48,90 @@ final class DayDetailViewStateTests: XCTestCase {
         XCTAssertFalse(hasRaw)
     }
 
+    // MARK: - Saved Daily weather and raw fallback
+
+    func testDailyWeatherReadsSavedQuotedWeather() {
+        XCTAssertEqual(DailyPageView.dailyWeather(in: "---\nweather: \"QA local clear R1\"\n---\nBody"), "QA local clear R1")
+        XCTAssertEqual(DailyPageView.dailyWeather(in: "---\nweather: Sunny 28°C\n---\nBody"), "Sunny 28°C")
+    }
+
+    func testDailyWeatherIgnoresNarrativeAndNestedFields() {
+        for content in [
+            "Body\nweather: Narrative",
+            "---\nsummary: Day\n---\nweather: Narrative",
+            "---\nmetadata:\n  weather: Nested\n---\nBody",
+            "---\nmetadata:\n\tweather: Nested\n---\nBody"
+        ] {
+            XCTAssertEqual(DailyPageView.dailyWeather(in: content), "", content)
+        }
+    }
+
+    func testDailyWeatherRejectsUnclosedFrontmatter() {
+        XCTAssertEqual(DailyPageView.dailyWeather(in: "---\nweather: Sunny\nBody"), "")
+    }
+
+    func testDailyWeatherEmptyValuesAllowFallback() {
+        for value in ["", "   ", "\"\"", "\"   \""] {
+            XCTAssertEqual(DailyPageView.dailyWeather(in: "---\nweather: \(value)\n---\nBody"), "")
+        }
+    }
+
+    func testDailyWeatherOverridesRawWithoutChangingOtherTiles() throws {
+        let raw = [
+            MetadataGridView.Tile(label: "WEATHER", value: "28°C", sub: "Sunny"),
+            MetadataGridView.Tile(label: "ENTRIES", value: "2", sub: "MEMOS"),
+            MetadataGridView.Tile(label: "SPAN", value: "10:00", sub: "→ 11:00"),
+            MetadataGridView.Tile(label: "KIND", value: "Text", sub: "2 text")
+        ]
+        let saved = DailyPageView.dailyWeather(in: "---\nweather: \"QA local clear R2\"\n---\nBody")
+        let result = try XCTUnwrap(DayDetailView.applyingDailyWeather(saved, to: raw))
+        XCTAssertEqual(result.count, 4)
+        XCTAssertEqual(result[0].value, "QA local clear R2")
+        XCTAssertNil(result[0].sub)
+        for i in 1..<raw.count {
+            XCTAssertEqual(result[i].label, raw[i].label)
+            XCTAssertEqual(result[i].value, raw[i].value)
+            XCTAssertEqual(result[i].sub, raw[i].sub)
+        }
+        XCTAssertEqual(raw[0].value, "28°C")
+        XCTAssertEqual(raw[0].sub, "Sunny")
+    }
+
+    func testDailyWeatherBlankUsesRawFallback() throws {
+        let raw = [MetadataGridView.Tile(label: "WEATHER", value: "24°C", sub: "Rain")]
+        for daily in [nil, "", " \t\n"] as [String?] {
+            let result = try XCTUnwrap(DayDetailView.applyingDailyWeather(daily, to: raw))
+            XCTAssertEqual(result.count, 1)
+            XCTAssertEqual(result[0].value, "24°C")
+            XCTAssertEqual(result[0].sub, "Rain")
+        }
+    }
+
+    func testDailyWeatherTemperatureUsesExistingCompactFormat() throws {
+        let result = try XCTUnwrap(DayDetailView.applyingDailyWeather(" Cloudy 19°C ", to: nil))
+        XCTAssertEqual(result[0].value, "19°C")
+        XCTAssertEqual(result[0].sub, "Cloudy")
+    }
+
+    func testDailyWeatherWithoutRawDoesNotInventStatistics() throws {
+        let result = try XCTUnwrap(DayDetailView.applyingDailyWeather("Clear", to: nil))
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].label, "WEATHER")
+        XCTAssertEqual(result[0].value, "Clear")
+        XCTAssertNil(DayDetailView.applyingDailyWeather("", to: nil))
+    }
+
+    func testCompiledStateUnreadableDailyKeepsFileExistenceContract() throws {
+        let day = "2025-06-15"
+        let daily = tempVaultURL.appendingPathComponent("wiki/daily/\(day).md")
+        try Data([0xff, 0xfe, 0xff]).write(to: daily)
+        try "raw".write(to: tempVaultURL.appendingPathComponent("raw/\(day).md"), atomically: true, encoding: .utf8)
+        XCTAssertThrowsError(try String(contentsOf: daily, encoding: .utf8))
+        let (state, hasRaw) = DayDetailView.resolveLoadState(dateString: day, vaultURL: tempVaultURL, fileManager: .default)
+        XCTAssertEqual(state, .compiled)
+        XCTAssertTrue(hasRaw)
+    }
+
     // MARK: - .error (invalid dateString format)
 
     func testErrorState_whenDateStringIsInvalidFormat() {

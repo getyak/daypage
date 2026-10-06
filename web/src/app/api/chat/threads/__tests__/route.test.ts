@@ -15,7 +15,7 @@ const mockThread = {
   updated_at: new Date("2026-01-01T00:00:00Z"),
 };
 
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/session", () => ({ auth: vi.fn() }));
 
 const mockDb = {
   select: vi.fn(),
@@ -70,7 +70,7 @@ function mockSelectUserThenResult<T>(result: T[]) {
     return Object.assign(Promise.resolve(result), {
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue(result),
+      orderBy: vi.fn().mockReturnThis(),
       $dynamic: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue(result),
     });

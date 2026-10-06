@@ -51,7 +51,7 @@ export default function AboutPage() {
         Open source pieces will be published once the core stabilises.
       </p>
 
-      <h2>Where it's going</h2>
+      <h2>Where it&apos;s going</h2>
       <ul>
         <li>macOS desktop client out of private beta.</li>
         <li>Better cross-device sync, still local-first.</li>

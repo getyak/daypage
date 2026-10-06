@@ -32,12 +32,18 @@ enum RecordingState: Equatable {
     }
 }
 
+/// Feedback dictation is transient and never enters the diary retry queue.
+enum VoiceRecordingPurpose {
+    case memo
+    case feedback
+}
+
 // MARK: - VoiceRecordingResult
 
 struct VoiceRecordingResult {
-    /// Vault 相对路径，如 "raw/assets/voice_20260415_143000.m4a"
+    /// Vault-relative path for memo audio; feedback only consumes transcript.
     let filePath: String
-    /// 设备上的绝对 URL
+    /// Absolute audio URL. Feedback audio is removed before its callback.
     let fileURL: URL
     /// 时长（秒）
     let duration: TimeInterval
@@ -253,6 +259,7 @@ final class VoiceService: NSObject, ObservableObject {
     /// orphan .m4a and pinning the mic indicator (#826). `startRecording`
     /// consumes the flag after each await and aborts itself.
     private var cancelRequestedDuringStart = false
+    private var recordingPurpose: VoiceRecordingPurpose = .memo
 
     /// True (and consumed) when a cancel arrived mid-start. MainActor
     /// serialization guarantees no cancel can interleave between this
@@ -275,7 +282,8 @@ final class VoiceService: NSObject, ObservableObject {
 
     /// 请求权限、设置音频会话并开始录制。
     /// 成功时将 `state` 设为 `.recording`，失败时设为 `.failed`。
-    func startRecording() async {
+    func startRecording(purpose: VoiceRecordingPurpose = .memo) async {
+        recordingPurpose = purpose
         cancelRequestedDuringStart = false
         state = .requesting
         let granted = await requestMicrophonePermission()
@@ -512,6 +520,9 @@ final class VoiceService: NSObject, ObservableObject {
     ///
     /// 用于用户显式选择"发送"的路径（长按松手→send、录音条→送出）。
     func stopAndSaveAudio() async -> VoiceRecordingResult? {
+        if recordingPurpose == .feedback {
+            return await stopAndTranscribe()
+        }
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")
             return nil
@@ -576,11 +587,22 @@ final class VoiceService: NSObject, ObservableObject {
     /// 转写（此时会阻塞在该 API 上）。网络失败时音频仍会保存,transcript 为 nil。
     /// 仅在没有有效可保存的录音时返回 nil。
     func stopAndTranscribe() async -> VoiceRecordingResult? {
+        let purpose = recordingPurpose
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")
             return nil
         }
 
+        // The callback consumes only text. Delete this exact transient file
+        // after ASR finishes, even when the feedback draft was dismissed while
+        // awaiting transcription. Never delete a newer recording's file.
+        defer {
+            if purpose == .feedback {
+                do { try FileManager.default.removeItem(at: fileURL) }
+                catch { DayPageLogger.shared.warn("Feedback audio cleanup failed") }
+                if currentFileURL == fileURL { currentFileURL = nil }
+            }
+        }
         stopTimer()
         stopMeteringTimer()
 
@@ -630,8 +652,8 @@ final class VoiceService: NSObject, ObservableObject {
                 if NetworkMonitor.shared.isOnline {
                     // Online but transcription failed — surface banner so user knows audio is saved.
                     lastTranscriptFailed = true
-                } else {
-                    // Offline — queue for later retry.
+                } else if purpose == .memo {
+                    // Only diary audio has a matching memo for later retry.
                     VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
                 }
             }
@@ -954,6 +976,12 @@ final class VoiceService: NSObject, ObservableObject {
 
     private func makeAudioFileURL() -> URL {
         let filename = RawStorage.assetFilename(prefix: "voice", ext: "m4a")
+        if recordingPurpose == .feedback {
+            // Keep dictation outside the synchronized diary vault. Temporary
+            // audio is consumed by ASR and removed before returning its text.
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent("daypage-feedback-\(UUID().uuidString).m4a")
+        }
 
         // 确保目录存在
         let assetsURL: URL

@@ -41,8 +41,10 @@ import {
   Hash,
 } from "lucide-react";
 import { Dialog } from "../_components/Dialog";
+import { useSpeechSupported } from "@/hooks/useBrowserCapabilities";
+import { CAPTURE_DRAFT_KEY, draftText, useCaptureDraft } from "@/hooks/useCaptureDraft";
 
-const DRAFT_KEY = "codex.add.draft.v1";
+const DRAFT_KEY = CAPTURE_DRAFT_KEY;
 const URL_RE = /^https?:\/\//;
 const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -87,7 +89,13 @@ async function createMemo(payload: { body: string; type: "text" | "url"; tempId:
 
 export function Composer() {
   const reduced = useReducedMotion();
-  const [body, setBody] = useState("");
+  const storedDraft = useCaptureDraft();
+  const [editedBody, setEditedBody] = useState<string | undefined>(undefined);
+  const body = editedBody ?? draftText(storedDraft);
+  const setBody = useCallback((next: string | ((current: string) => string)) => {
+    setEditedBody((previous) => typeof next === "function"
+      ? next(previous ?? draftText(storedDraft)) : next);
+  }, [storedDraft]);
   const [focused, setFocused] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,30 +108,19 @@ export function Composer() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialFocusHandled = useRef(false);
   const queryClient = useQueryClient();
 
   // ── draft：静默 hydrate + debounce 保存 + 无 draft 时自动 focus (R5) ──────
   useEffect(() => {
-    let hadDraft = false;
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { text?: string };
-        if (parsed.text) {
-          setBody(parsed.text);
-          hadDraft = true;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    if (!hadDraft) {
-      // 无草稿 → 自动 focus，让"打开页面 = 已经在写"
-      queueMicrotask(() => taRef.current?.focus());
-    }
-  }, []);
+    if (storedDraft === undefined || initialFocusHandled.current) return;
+    initialFocusHandled.current = true;
+    if (!draftText(storedDraft)) taRef.current?.focus();
+  }, [storedDraft]);
 
   useEffect(() => {
+    // Hydration alone must never erase or rewrite a persisted draft.
+    if (editedBody === undefined) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       try {
@@ -142,7 +139,7 @@ export function Composer() {
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [body]);
+  }, [body, editedBody]);
 
   // ── 字数：useMemo 缓存 + useDeferredValue 让计数在空闲帧才更新 ─────────────
   // 这样按键的同步路径只触发 textarea 自身重渲，字数显示落到 idle frame。
@@ -267,7 +264,7 @@ export function Composer() {
       const pos = start + text.length;
       ta.setSelectionRange(pos, pos);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   const wrapSelection = useCallback((marker: string) => {
     const ta = taRef.current;
@@ -284,7 +281,7 @@ export function Composer() {
       const innerEnd = innerStart + (selected.length || 2);
       ta.setSelectionRange(innerStart, innerEnd);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   // ── Slash 命令清单 ───────────────────────────────────────────────────────
   // 注意：command 的 run 都用 ref/ callback 在下面用闭包绑定真实 handler，
@@ -335,7 +332,7 @@ export function Composer() {
       const pos = start + prefix.length;
       ta.setSelectionRange(pos, pos);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   // ── Slash：检测 / 触发、清除触发字符、执行命令 ───────────────────────────
   const detectSlash = useCallback((nextBody: string, caret: number) => {
@@ -430,7 +427,7 @@ export function Composer() {
         return;
       }
     }
-  }, [computeStrippedSlash]);
+  }, [computeStrippedSlash, setBody]);
 
   // ── render ──────────────────────────────────────────────────────────────
   return (
@@ -1096,16 +1093,9 @@ function DrawerChip({
 // ── sub: Voice drawer chip (Speech API) ─────────────────────────────────────
 
 function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }) {
-  const [supported, setSupported] = useState(false);
+  const supported = useSpeechSupported();
   const [recording, setRecording] = useState(false);
   const srRef = useRef<unknown>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setSupported(
-      "SpeechRecognition" in window || "webkitSpeechRecognition" in window,
-    );
-  }, []);
 
   const handleClick = useCallback(() => {
     if (!supported) return;

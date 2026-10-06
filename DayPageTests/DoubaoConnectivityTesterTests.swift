@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Pure-logic coverage for the Doubao real-transcription test: the fuzzy
 /// transcript matcher and the error-code → guidance mapping. Network probes
 /// are exercised via the in-app test button, not unit tests.
@@ -76,3 +77,9 @@ struct DoubaoConnectivityTesterTests {
         #expect(pcm.count % 2 == 0)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias DoubaoConnectivityTesterTests = DayPageSerialSwiftTests.DoubaoConnectivityTesterTests

@@ -37,7 +37,7 @@ export default function DownloadPage() {
       <p>
         Requires iOS 16 or later. Private beta via TestFlight while we polish
         sync. Email <a href="mailto:hello@daypage.app">hello@daypage.app</a> for
-        an invite — include a sentence about what you'd journal.
+        an invite — include a sentence about what you&apos;d journal.
       </p>
 
       <h2>macOS</h2>
@@ -53,7 +53,7 @@ export default function DownloadPage() {
         compiled overnight.
       </p>
 
-      <h2>What you'll need</h2>
+      <h2>What you&apos;ll need</h2>
       <ul>
         <li>About 20 raw memos a day. Voice, text, photo, location.</li>
         <li>An OpenAI / DeepSeek / Aliyun API key (your data, your model).</li>

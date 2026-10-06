@@ -92,7 +92,7 @@ ${refBlock}`;
 }
 
 /** Returns true if retrievePages returned no useful results (0 items or all scores below threshold). */
-export function isLowConfidence(refs: RetrievedPage[]): boolean {
+function isLowConfidence(refs: RetrievedPage[]): boolean {
   if (refs.length === 0) return true;
   return refs.every((r) => r.score < LOW_SCORE_THRESHOLD);
 }

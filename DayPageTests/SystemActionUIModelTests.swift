@@ -5,9 +5,25 @@ import DayPageModels
 import DayPageStorage
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite("System action UI model")
 struct SystemActionUIModelTests {
+    #if DEBUG
+    @Test func dedicatedQAIdentitiesUseSeparatePreferenceSuites() {
+        #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-unit") == "group.com.daypage.qa-unit")
+        #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-ui") == "group.com.daypage.qa-ui")
+        #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-unit.DayPageWidget") == "group.com.daypage.qa-unit")
+        #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-ui.DayPageWidget") == "group.com.daypage.qa-ui")
+    }
+
+    @Test func ordinaryIdentitiesKeepExistingPreferenceSuite() {
+        for identity in ["com.daypage.app", "com.daypage.app.qa-ui-other", nil] as [String?] {
+            #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: identity) == "group.com.daypage")
+        }
+    }
+    #endif
+
     @Test func editingCreatesNewRevisionAndPayloadHash() throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let original = try SystemActionProposal(
@@ -1334,6 +1350,7 @@ struct SystemActionUIModelTests {
         return SystemActionCenterModel(ledger: ledger, deviceID: "device-a", commands: commands)
     }
 }
+}
 
 private final class CaptureFilerDouble: SystemActionCaptureFiling, @unchecked Sendable {
     let sourceMemoID: UUID
@@ -1372,3 +1389,8 @@ private actor AsyncCounter {
     func increment() { count += 1 }
     func value() -> Int { count }
 }
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias SystemActionUIModelTests = DayPageSerialSwiftTests.SystemActionUIModelTests

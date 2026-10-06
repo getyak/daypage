@@ -89,7 +89,22 @@ struct SystemActionProposalEntityQuery: EntityStringQuery {
 /// App-group schema intentionally stays tiny and versioned. Main-app UI is the
 /// only writer. Corrupt, future-version or oversized snapshots fail closed.
 enum SystemActionSharedSummaryStore {
-    static let appGroupIdentifier = "group.com.daypage"
+    static let appGroupIdentifier = appGroupIdentifier(for: Bundle.main.bundleIdentifier)
+
+    /// Simulator preferences can resolve named suites without a usable App
+    /// Group entitlement. Dedicated QA identities must never name the user's suite.
+    static func appGroupIdentifier(for bundleIdentifier: String?) -> String {
+        #if DEBUG
+        switch bundleIdentifier {
+        case "com.daypage.app.qa-unit", "com.daypage.app.qa-unit.DayPageWidget":
+            return "group.com.daypage.qa-unit"
+        case "com.daypage.app.qa-ui", "com.daypage.app.qa-ui.DayPageWidget":
+            return "group.com.daypage.qa-ui"
+        default: break
+        }
+        #endif
+        return "group.com.daypage"
+    }
     static let snapshotKey = "system-actions.redacted-summaries.v1"
     static let openCenterRequestKey = "system-actions.open-center-request.v1"
     static let focusDraftRequestKey = "system-actions.focus-draft-request.v1"

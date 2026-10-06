@@ -1,0 +1,28 @@
+Test Suite 'Selected tests' started at 2026-10-02 23:47:11.100
+Test Suite 'Debug.xctest' started at 2026-10-02 23:47:11.101
+Test Suite 'DayPageStorageTests' started at 2026-10-02 23:47:11.102
+/path/to/DayPageKit/Tests/DayPageStorageTests/SupabaseLiveTestConfiguration.swift:24: -[DayPageStorageTests.SupabaseMultiDeviceLiveTests testInterruptedTUSResumesFromServerOffset] : Test skipped - Set DAYPAGE_SYNC_E2E_URL and DAYPAGE_SYNC_E2E_PUBLISHABLE_KEY
+Test Case '-[DayPageStorageTests.SupabaseMultiDeviceLiveTests testInterruptedTUSResumesFromServerOffset]' skipped (0.088 seconds).
+/path/to/DayPageKit/Tests/DayPageStorageTests/SupabaseLiveTestConfiguration.swift:24: -[DayPageStorageTests.SupabaseMultiDeviceLiveTests testTwoVaultsRoundTripCreateEditAndDelete] : Test skipped - Set DAYPAGE_SYNC_E2E_URL and DAYPAGE_SYNC_E2E_PUBLISHABLE_KEY
+Test Case '-[DayPageStorageTests.SupabaseMultiDeviceLiveTests testTwoVaultsRoundTripCreateEditAndDelete]' skipped (0.009 seconds).
+	 Executed 2 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.097 (0.097) seconds
+/path/to/DayPageKit/Tests/DayPageStorageTests/SupabaseLiveTestConfiguration.swift:24: -[DayPageStorageTests.SupabaseSyncLiveTests testLocalVaultCaptureUploadsAndReadsBackFromSupabase] : Test skipped - Set DAYPAGE_SYNC_E2E_URL and DAYPAGE_SYNC_E2E_PUBLISHABLE_KEY
+Test Case '-[DayPageStorageTests.SupabaseSyncLiveTests testLocalVaultCaptureUploadsAndReadsBackFromSupabase]' skipped (0.003 seconds).
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'DayPageStorageTests' passed at 2026-10-02 23:47:11.300
+	 Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.100 (0.101) seconds
+Test Suite 'DayPageKitPackageTests' passed at 2026-10-02 23:47:11.400
+	 Executed 12 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.500 (0.510) seconds
+	 Executed 12 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.500 (0.520) seconds
+◇ Test run started.
+◇ Suite "Daily page formatting" started.
+◇ Test "Noon uses 12-hour formatting" started.
+✔ Test "Noon uses 12-hour formatting" passed after 0.001 seconds.
+◇ Test "Midnight renders as 12 AM" started.
+✔ Test "Midnight renders as 12 AM" passed after 0.001 seconds.
+✔ Suite "Daily page formatting" passed after 0.010 seconds.
+◇ Suite "Entity slug dedup" started.
+◇ Test unknownEventTypesAreSkipped() started.
+✔ Test unknownEventTypesAreSkipped() passed after 0.005 seconds.
+✔ Suite "Entity slug dedup" passed after 0.007 seconds.
+✔ Test run with 8 tests in 2 suites passed after 0.045 seconds.

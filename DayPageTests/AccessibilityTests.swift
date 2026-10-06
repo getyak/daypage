@@ -5,6 +5,7 @@ import DayPageModels
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Accessibility regression tests for Goal C (Motion + Dynamic Type).
 ///
 /// These tests are pragmatic: visual a11y is hard to unit-test, so we lean on
@@ -16,6 +17,22 @@ import DayPageServices
 @MainActor
 @Suite("AccessibilityTests", .serialized)
 struct AccessibilityTests {
+
+    @Test func qaDeepLinkAlias_isAcceptedOnlyByDedicatedDebugUIIdentity() {
+        #if DEBUG
+        #expect(DayPageApp.acceptsDeepLinkScheme("daypage-qa-ui", bundleIdentifier: "com.daypage.app.qa-ui"))
+        #expect(DayPageApp.acceptsDeepLinkScheme("DAYPAGE-QA-UI", bundleIdentifier: "com.daypage.app.qa-ui"))
+        #endif
+        for identity in ["com.daypage.app", "com.daypage.app.qa-unit", "", "com.daypage.app.qa-ui.extra"] {
+            #expect(!DayPageApp.acceptsDeepLinkScheme("daypage-qa-ui", bundleIdentifier: identity))
+        }
+        for identity in ["com.daypage.app", "com.daypage.app.qa-unit", "com.daypage.app.qa-ui"] {
+            #expect(DayPageApp.acceptsDeepLinkScheme("DAYPAGE", bundleIdentifier: identity))
+            for scheme in [nil, "https", "file", "daypage-qa-other", "daypage-qa-ui:"] as [String?] {
+                #expect(!DayPageApp.acceptsDeepLinkScheme(scheme, bundleIdentifier: identity))
+            }
+        }
+    }
 
     // MARK: - Motion contract
 
@@ -198,6 +215,10 @@ struct AccessibilityTests {
             contentsOf: root.appendingPathComponent("DayPage/App/DayPageApp.swift"),
             encoding: .utf8
         )
+        let onboarding = try String(
+            contentsOf: root.appendingPathComponent("DayPage/Features/Onboarding/OnboardingView.swift"),
+            encoding: .utf8
+        )
         let workflow = try String(
             contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
             encoding: .utf8
@@ -206,16 +227,16 @@ struct AccessibilityTests {
         #expect(script.contains("simctl uninstall"), "The audit app container must start empty")
         #expect(script.contains("for fixture in empty memos"), "Empty screenshots must precede seeded screenshots")
         #expect(
-            script.contains("-qaDisableAutoSampleSeed YES"),
-            "Automatic onboarding samples must not contaminate the empty fixture or falsify its CTA"
+            !app.contains("SampleDataSeeder.seedIfNeeded()"),
+            "App startup must never write unrequested sample notes into a fresh local vault"
         )
         #expect(
             script.contains("defaults delete \"$bundle_id\" hasSeededSamples"),
             "A long-lived Simulator must not leak a cached sample-ready claim into an empty vault"
         )
         #expect(
-            app.contains("-qaDisableAutoSampleSeed"),
-            "The audit-only sample suppression argument must be consumed by the app"
+            onboarding.components(separatedBy: "SampleDataSeeder.seedIfNeeded()").count == 2,
+            "Onboarding must retain one explicit sample CTA, without seeding when setup completes"
         )
         #expect(script.contains("-qaSeedTodayMemos YES"), "Memo screenshots need deterministic vault evidence")
         #expect(
@@ -447,7 +468,13 @@ struct AccessibilityTests {
         )
 
         #expect(source.contains("qaOpenMemoDetail"))
-        #expect(source.contains("MemoDetailRef(id: memo.id, day: memo.created, source: .today)"))
+        // The QA route must open detail on the owning raw day actually loaded
+        // by TodayViewModel. Re-deriving the day from `memo.created` is the
+        // retired dynamic-timezone route (E/current397-dynamic-timezone-
+        // navigation-source-audit): the same Date maps to a neighbouring file
+        // after a preferred-time-zone switch.
+        #expect(source.contains("dayString: viewModel.loadedDayString"))
+        #expect(!source.contains("day: memo.created"))
         #expect(source.contains("guard !hasAppliedLaunchPresentationFlags else { return }"))
     }
 
@@ -837,8 +864,14 @@ struct AccessibilityTests {
         return pow((channel + 0.055) / 1.055, 2.4)
     }
 }
+}
 
 private enum AccessibilityTestError: Error {
     case cannotLocateProjectRoot
     case invalidHexColor(String)
 }
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias AccessibilityTests = DayPageSerialSwiftTests.AccessibilityTests

@@ -22,11 +22,35 @@ struct TimeZonePickerView: View {
     }
 
     var body: some View {
-        List(filtered, id: \.self) { id in
+        TimeZoneSearchResults(identifiers: filtered, selected: selected) { timeZone in
+            onSelect(timeZone)
+            dismiss()
+        }
+        .searchable(text: $searchText, prompt: NSLocalizedString("settings.timezone.search", comment: "Time zone picker search"))
+        .navigationTitle(NSLocalizedString("settings.timezone.select", comment: "Time zone picker title"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+
+// Search actions must be read below the searchable modifier, where SwiftUI
+// installs their environment. Keep selection and navigation in that order.
+private struct TimeZoneSearchResults: View {
+    let identifiers: [String]
+    let selected: TimeZone
+    let onSelect: (TimeZone) -> Void
+
+    @Environment(\.dismissSearch) private var dismissSearch
+
+    var body: some View {
+        List(identifiers, id: \.self) { id in
             if let tz = TimeZone(identifier: id) {
                 Button {
+                    // End the borrowed search field before the picker leaves its
+                    // navigation stack. Reading this action above .searchable
+                    // would have no effect.
+                    dismissSearch()
                     onSelect(tz)
-                    dismiss()
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -45,9 +69,6 @@ struct TimeZonePickerView: View {
                 }
             }
         }
-        .searchable(text: $searchText, prompt: "搜索时区")
-        .navigationTitle("选择时区")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

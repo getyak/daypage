@@ -28,6 +28,7 @@ struct FeedbackView: View {
                     } else {
                         feedbackInputSection
                         attachmentsSection
+                        privacySection
                         sendBar
                     }
 
@@ -53,16 +54,19 @@ struct FeedbackView: View {
             }
         }
         .sheet(isPresented: $vm.isShowingVoiceRecorder) {
+            let generation = vm.voiceGeneration
             VoiceRecordingView(
                 onComplete: { result in
-                    vm.handleVoiceRecordingComplete(result: result)
+                    vm.handleVoiceRecordingComplete(result: result, generation: generation)
                 },
                 onCancel: {
                     vm.cancelVoiceRecording()
-                }
+                },
+                purpose: .feedback
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.hidden)
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(
@@ -76,9 +80,7 @@ struct FeedbackView: View {
         .onChange(of: photosPickerItems) { newItems in
             guard !newItems.isEmpty else { return }
             Task {
-                for item in newItems {
-                    await vm.addImage(from: item)
-                }
+                await vm.addImages(from: newItems)
                 photosPickerItems = []
             }
         }
@@ -88,10 +90,10 @@ struct FeedbackView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
-            Text("Feedback")
+            Text(NSLocalizedString("feedback.header.title", comment: ""))
                 .font(.custom("SpaceGrotesk-Bold", size: 22))
                 .foregroundColor(DSColor.onBackgroundPrimary)
-            Text("Describe → AI files it on GitHub for you")
+            Text(NSLocalizedString("feedback.header.subtitle", comment: ""))
                 .font(.custom("Inter-Regular", size: 13))
                 .foregroundColor(DSColor.onBackgroundSubtle)
         }
@@ -103,7 +105,7 @@ struct FeedbackView: View {
 
     private var feedbackInputSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("Your Feedback")
+            sectionLabel(NSLocalizedString("feedback.input.label", comment: ""))
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: DSRadius.sm)
@@ -114,7 +116,7 @@ struct FeedbackView: View {
                     )
 
                 if vm.rawFeedback.isEmpty {
-                    Text("Describe a bug, feature, or improvement…")
+                    Text(NSLocalizedString("feedback.input.placeholder", comment: ""))
                         .font(.custom("Inter-Regular", size: 15))
                         .foregroundColor(DSColor.onBackgroundSubtle)
                         .padding(.horizontal, 14)
@@ -122,6 +124,7 @@ struct FeedbackView: View {
                 }
 
                 TextEditor(text: $vm.rawFeedback)
+                    .disabled(vm.isSending)
                     .font(.custom("Inter-Regular", size: 15))
                     .foregroundColor(DSColor.onBackgroundPrimary)
                     .scrollContentBackground(.hidden)
@@ -145,15 +148,17 @@ struct FeedbackView: View {
                     matching: .images,
                     photoLibrary: .shared()
                 ) {
-                    attachmentChip(icon: "photo.on.rectangle", label: "Photos")
+                    attachmentChip(icon: "photo.on.rectangle", label: NSLocalizedString("feedback.photos", comment: ""))
                 }
+                .disabled(vm.isSending || vm.isProcessingImage)
 
                 Button {
                     showCamera = true
                 } label: {
-                    attachmentChip(icon: "camera", label: "Camera")
+                    attachmentChip(icon: "camera", label: NSLocalizedString("feedback.camera", comment: ""))
                 }
                 .buttonStyle(.plain)
+                .disabled(vm.isSending)
 
                 Spacer()
             }
@@ -171,7 +176,7 @@ struct FeedbackView: View {
             if vm.isProcessingImage {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.7)
-                    Text("Processing image…")
+                    Text(NSLocalizedString("feedback.image.processing", comment: ""))
                         .font(.custom("Inter-Regular", size: 12))
                         .foregroundColor(DSColor.onBackgroundSubtle)
                 }
@@ -219,11 +224,34 @@ struct FeedbackView: View {
                     .background(Circle().fill(DSColor.surfaceWhite))
             }
             .buttonStyle(.plain)
+            .disabled(vm.isSending)
             .offset(x: 4, y: -4)
         }
     }
 
     // MARK: - Send bar (mic + send)
+
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            Text(NSLocalizedString("feedback.privacy.destination", comment: "Feedback upload disclosure"))
+                .font(DSType.caption)
+                .foregroundColor(DSColor.onBackgroundMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle(NSLocalizedString("feedback.privacy.diagnostics", comment: "Optional technical diagnostics"),
+                   isOn: $vm.includeDiagnostics)
+                .font(DSType.bodySM)
+                .disabled(vm.isSending)
+                .accessibilityIdentifier("feedback-include-diagnostics")
+            if vm.includeDiagnostics {
+                Text(vm.diagnosticsPreview)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("feedback-diagnostics-preview")
+            }
+        }
+        .padding(.bottom, DSSpacing.lg)
+    }
 
     private var sendBar: some View {
         HStack(spacing: DSSpacing.md) {
@@ -236,8 +264,9 @@ struct FeedbackView: View {
                 onTapShortRelease: { vm.startVoiceRecording() },
                 size: 44
             )
+            .disabled(vm.isSending)
 
-            Text("Tap to record · hold for quick memo")
+            Text(NSLocalizedString("feedback.voice.hint", comment: ""))
                 .font(.custom("Inter-Regular", size: 12))
                 .foregroundColor(DSColor.onBackgroundSubtle)
 
@@ -263,7 +292,7 @@ struct FeedbackView: View {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 15, weight: .medium))
                 }
-                Text(vm.isSending ? "Sending…" : "Send")
+                Text(vm.isSending ? NSLocalizedString("feedback.sending", comment: "") : NSLocalizedString("feedback.send", comment: ""))
                     .font(.custom("Inter-SemiBold", size: 16))
             }
             .foregroundColor(.white)
@@ -273,7 +302,8 @@ struct FeedbackView: View {
             .background(vm.isSending ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
             .cornerRadius(12)
         }
-        .disabled(vm.isSending)
+        .disabled(vm.isSending || vm.isProcessingImage ||
+                  (vm.rawFeedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.pendingImages.isEmpty))
     }
 
     // MARK: - Voice Overlay
@@ -289,7 +319,7 @@ struct FeedbackView: View {
                     .font(.custom("Inter-SemiBold", size: 14))
                     .foregroundColor(DSColor.onBackgroundPrimary)
                 if vm.pressToTalkPhase == .recording {
-                    Text("\(vm.voiceService.elapsedSeconds)s · slide up to cancel")
+                    Text(String(format: NSLocalizedString("feedback.voice.elapsed", comment: "Recording seconds"), vm.voiceService.elapsedSeconds))
                         .font(.custom("Inter-Regular", size: 12))
                         .foregroundColor(DSColor.onBackgroundSubtle)
                 }
@@ -325,10 +355,10 @@ struct FeedbackView: View {
 
     private var overlayLabel: String {
         switch vm.pressToTalkPhase {
-        case .cancelArmed: return "Release to cancel"
-        case .transcribeArmed: return "Release to transcribe"
-        case .transcribing: return "Transcribing…"
-        default: return "Listening…"
+        case .cancelArmed: return NSLocalizedString("feedback.voice.cancel", comment: "")
+        case .transcribeArmed: return NSLocalizedString("feedback.voice.transcribe", comment: "")
+        case .transcribing: return NSLocalizedString("feedback.voice.transcribing", comment: "")
+        default: return NSLocalizedString("feedback.voice.listening", comment: "")
         }
     }
 
@@ -336,7 +366,7 @@ struct FeedbackView: View {
 
     private var submittedIssuesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("Past Submissions")
+            sectionLabel(NSLocalizedString("feedback.history", comment: ""))
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(vm.submittedIssues) { issue in
@@ -390,12 +420,12 @@ struct FeedbackView: View {
                 .font(.system(size: 48))
                 .foregroundColor(DSColor.successGreen)
 
-            Text("Thanks — your feedback was received.")
+            Text(NSLocalizedString("feedback.success.title", comment: ""))
                 .font(.custom("SpaceGrotesk-Bold", size: 20))
                 .foregroundColor(DSColor.onBackgroundPrimary)
                 .multilineTextAlignment(.center)
 
-            Text("We'll take it from here.")
+            Text(NSLocalizedString("feedback.success.body", comment: ""))
                 .font(.custom("Inter-Regular", size: 14))
                 .foregroundColor(DSColor.onBackgroundMuted)
 
@@ -405,14 +435,14 @@ struct FeedbackView: View {
                         HStack(spacing: DSSpacing.xs) {
                             Image(systemName: "arrow.up.right.square")
                                 .font(.system(size: 12))
-                            Text("Review on GitHub")
+                            Text(NSLocalizedString("feedback.github.review", comment: ""))
                                 .font(.custom("Inter-Medium", size: 13))
                         }
                         .foregroundColor(DSColor.onBackgroundMuted)
                     }
                 }
 
-                Button("Submit another") {
+                Button(NSLocalizedString("feedback.another", comment: "")) {
                     vm.reset()
                 }
                 .font(.custom("Inter-Medium", size: 13))
@@ -435,7 +465,7 @@ struct FeedbackView: View {
                 Text(message)
                     .font(.custom("Inter-Regular", size: 13))
                     .foregroundColor(DSColor.errorRed)
-                Button("Dismiss") {
+                Button(NSLocalizedString("feedback.dismiss", comment: "")) {
                     vm.status = .idle
                 }
                 .font(.custom("Inter-Medium", size: 12))

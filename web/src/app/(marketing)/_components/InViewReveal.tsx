@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import { type ReactNode } from "react";
 
 interface InViewRevealProps {
@@ -31,7 +32,7 @@ export function InViewReveal({
   className,
   as = "div",
 }: InViewRevealProps) {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   if (reduced) {
     const Tag = as;
     return <Tag className={className}>{children}</Tag>;

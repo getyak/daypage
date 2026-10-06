@@ -4,6 +4,7 @@ import DayPageModels
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Focused round-trip tests for `Memo.yamlQuote` / `Memo.unquote` —
 /// guards against the "literal `\n` collapses into a newline" class of bugs
 /// that the chained `replacingOccurrences` implementation was prone to.
@@ -158,3 +159,9 @@ struct MemoYAMLTests {
         #expect(reparsed?.marginNote == nil)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias MemoYAMLTests = DayPageSerialSwiftTests.MemoYAMLTests

@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 
 type Status = "available" | "beta" | "private" | "soon";
 
@@ -79,7 +80,7 @@ const PLATFORMS: Platform[] = [
  * honest status badges. Mobile collapses to a 2x2 grid; desktop stays in a row.
  */
 export function PlatformStrip() {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   return (
     <section

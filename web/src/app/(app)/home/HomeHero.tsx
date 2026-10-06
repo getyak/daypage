@@ -7,8 +7,8 @@
 //
 // Design source: docs/web-design-v9.md §4.
 
-import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useSessionEntrance } from "@/hooks/useSessionEntrance";
 
 interface HomeHeroProps {
   date: string;      // Formatted title, e.g. "2026 · Jul 02"
@@ -21,28 +21,12 @@ interface HomeHeroProps {
 const PLAYED_KEY = "home-hero-played";
 
 export function HomeHero({ date, weekday, sourceCount, pageCount, thisWeekCount }: HomeHeroProps) {
-  const reduced = useReducedMotion();
-  const [shouldAnimate, setShouldAnimate] = useState(false);
-
-  useEffect(() => {
-    // Only play the entrance once per browser session. Falls back to the
-    // static end-state when sessionStorage is unavailable (private mode).
-    try {
-      if (typeof window === "undefined") return;
-      if (sessionStorage.getItem(PLAYED_KEY)) return;
-      sessionStorage.setItem(PLAYED_KEY, "1");
-      setShouldAnimate(true);
-    } catch {
-      // sessionStorage blocked — silently stay in the static state.
-    }
-  }, []);
-
-  const animateIn = shouldAnimate && !reduced;
+  const controls = useSessionEntrance(PLAYED_KEY);
 
   return (
     <motion.header
-      initial={animateIn ? { opacity: 0, y: 12 } : false}
-      animate={animateIn ? { opacity: 1, y: 0 } : undefined}
+      initial={false}
+      animate={controls}
       transition={{
         duration: 0.36,                       // motion.island
         ease: [0.2, 0.8, 0.2, 1],              // motion.spring

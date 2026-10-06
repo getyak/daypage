@@ -1,6 +1,7 @@
 import Testing
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("HapticFeedback")
 @MainActor
 struct HapticFeedbackTests {
@@ -29,3 +30,9 @@ struct HapticFeedbackTests {
         HapticFeedback.error()
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias HapticFeedbackTests = DayPageSerialSwiftTests.HapticFeedbackTests

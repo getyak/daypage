@@ -221,7 +221,9 @@ final class TodayViewModel: ObservableObject {
     @Published var compilationFailedError: String? = nil
 
     /// Staged attachments (photo + voice) accumulated before the next submit.
-    @Published var pendingAttachments: [PendingAttachment] = []
+    @Published var pendingAttachments: [PendingAttachment] = [] {
+        didSet { autoSubmitPhotoImportID = nil }
+    }
 
     /// Whether the voice recording sheet is presented.
     @Published var isShowingVoiceRecorder: Bool = false
@@ -275,6 +277,13 @@ final class TodayViewModel: ObservableObject {
     // MARK: Private
 
     private var date: Date
+
+    /// Canonical owning raw day key of the file `memos` were loaded from,
+    /// captured at load time. Detail routing and today's list mutations use
+    /// THIS key so a preferred-time-zone change after load can never retarget
+    /// the operation to a neighbouring day file. Refreshed (invalidated) by
+    /// the next `load()`.
+    private(set) var loadedDayString: String
     private let locationService = LocationService.shared
     private let weatherService = WeatherService.shared
     private let photoService = PhotoService.shared
@@ -285,9 +294,12 @@ final class TodayViewModel: ObservableObject {
 
     /// Cancellable handles for long-lived async operations; cancelled in deinit.
     private var loadTask: Task<Void, Never>?
-    private var photoTask: Task<Void, Never>?
-    private var cameraPhotoTask: Task<Void, Never>?
-    private var submitTask: Task<Void, Never>?
+    private var photoImportTasks: [UUID: Task<Void, Never>] = [:]
+    private var photoImportGeneration = UUID()
+    private var autoSubmitPhotoImportID: UUID?
+    /// Chained owned-photo cleanups from explicit discard / chip-remove;
+    /// awaited by `waitForPhotoCleanup` to keep regressions deterministic.
+    private var photoCleanupTask: Task<Void, Never>?
     private var submitMemoTask: Task<Void, Never>?
     private var submissionUndoTask: Task<Void, Never>?
     private var locationTask: Task<Void, Never>?
@@ -298,8 +310,12 @@ final class TodayViewModel: ObservableObject {
     private var loadGeneration: UInt = 0
     @MainActor private final class DeletionContext {
         let vaultRoot: URL
+        let dayString: String
         var deletedMemo: Memo?
-        init(vaultRoot: URL) { self.vaultRoot = vaultRoot }
+        init(vaultRoot: URL, dayString: String) {
+            self.vaultRoot = vaultRoot
+            self.dayString = dayString
+        }
     }
     private var deletionContext: DeletionContext?
     private var cancellables = Set<AnyCancellable>()
@@ -308,6 +324,7 @@ final class TodayViewModel: ObservableObject {
 
     init(date: Date = Date(), observeChanges: Bool = true) {
         self.date = date
+        self.loadedDayString = RawStorage.dayString(for: date)
         self.isTimelineReady = TimelineIndex.shared.isReady
         if observeChanges {
             observeCompilationFailure()
@@ -320,9 +337,7 @@ final class TodayViewModel: ObservableObject {
 
     deinit {
         loadTask?.cancel()
-        photoTask?.cancel()
-        cameraPhotoTask?.cancel()
-        submitTask?.cancel()
+        for task in photoImportTasks.values { task.cancel() }
         submitMemoTask?.cancel()
         submissionUndoTask?.cancel()
         locationTask?.cancel()
@@ -387,10 +402,13 @@ final class TodayViewModel: ObservableObject {
             .publisher(for: .rawStorageDidWrite)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
-                guard let self,
-                      let writtenDate = notification.object as? Date,
-                      Calendar.current.isDate(writtenDate, inSameDayAs: self.date)
-                else { return }
+                guard let self else { return }
+                // Known keys refresh only their loaded day. Unknown events
+                // conservatively refresh instead of guessing with device TZ.
+                if let writtenDay = notification.userInfo?[RawStorage.writtenDayStringKey] as? String,
+                   RawStorage.isValidDayString(writtenDay) {
+                    guard writtenDay == self.loadedDayString else { return }
+                }
                 self.load()
             }
             .store(in: &cancellables)
@@ -427,10 +445,15 @@ final class TodayViewModel: ObservableObject {
         }
         Haptics.warn()
         let vaultRoot = VaultInitializer.vaultURL
-        let context = DeletionContext(vaultRoot: vaultRoot)
+        let owningDayString = loadedDayString
+        let context = DeletionContext(vaultRoot: vaultRoot, dayString: owningDayString)
         deletionContext = context
         persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.delete_failed", comment: "")) {
-            let deleted = try await MemoRecordStore.shared.delete(id: memo.id, day: memo.created, vaultRoot: vaultRoot)
+            let deleted = try await MemoRecordStore.shared.delete(
+                id: memo.id,
+                dayString: owningDayString,
+                vaultRoot: vaultRoot
+            )
             await MainActor.run { context.deletedMemo = deleted }
         }
 
@@ -455,15 +478,22 @@ final class TodayViewModel: ObservableObject {
 
         withAnimation(Motion.rise) {
             if context.vaultRoot == VaultInitializer.vaultURL,
-               Calendar.current.isDate(memo.created, inSameDayAs: date),
+               context.dayString == loadedDayString,
                !memos.contains(where: { $0.id == memo.id }) {
                 memos = Self.sortedMemos(memos + [context.deletedMemo ?? memo])
             }
         }
         Haptics.soft()
+        let restoreDayString = context.dayString
         persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.undo_failed", comment: "")) {
             guard let actual = await context.deletedMemo else { return }
-            try await MemoRecordStore.shared.restore(actual, day: actual.created, vaultRoot: context.vaultRoot)
+            // Restore into the exact owning day file the delete targeted —
+            // captured at delete time, never re-derived from `created`.
+            try await MemoRecordStore.shared.restore(
+                actual,
+                dayString: restoreDayString,
+                vaultRoot: context.vaultRoot
+            )
         }
     }
 
@@ -480,8 +510,14 @@ final class TodayViewModel: ObservableObject {
         }
         Haptics.commit()
         let vaultRoot = VaultInitializer.vaultURL
+        let owningDayString = loadedDayString
         persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.save_failed", comment: "")) {
-            _ = try await MemoRecordStore.shared.updateBody(id: memo.id, day: memo.created, body: body, vaultRoot: vaultRoot)
+            _ = try await MemoRecordStore.shared.updateBody(
+                id: memo.id,
+                dayString: owningDayString,
+                body: body,
+                vaultRoot: vaultRoot
+            )
         }
     }
 
@@ -501,8 +537,14 @@ final class TodayViewModel: ObservableObject {
         }
         let vaultRoot = VaultInitializer.vaultURL
         let pinnedAt = pinned.pinnedAt
+        let owningDayString = loadedDayString
         persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.pin_failed", comment: "")) {
-            _ = try await MemoRecordStore.shared.setPinnedAt(id: memo.id, day: memo.created, pinnedAt: pinnedAt, vaultRoot: vaultRoot)
+            _ = try await MemoRecordStore.shared.setPinnedAt(
+                id: memo.id,
+                dayString: owningDayString,
+                pinnedAt: pinnedAt,
+                vaultRoot: vaultRoot
+            )
         }
     }
 
@@ -520,8 +562,14 @@ final class TodayViewModel: ObservableObject {
             memos = Self.sortedMemos(updated)
         }
         let vaultRoot = VaultInitializer.vaultURL
+        let owningDayString = loadedDayString
         persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.unpin_failed", comment: "")) {
-            _ = try await MemoRecordStore.shared.setPinnedAt(id: memo.id, day: memo.created, pinnedAt: nil, vaultRoot: vaultRoot)
+            _ = try await MemoRecordStore.shared.setPinnedAt(
+                id: memo.id,
+                dayString: owningDayString,
+                pinnedAt: nil,
+                vaultRoot: vaultRoot
+            )
         }
     }
 
@@ -604,7 +652,7 @@ final class TodayViewModel: ObservableObject {
     /// Returns a body only when the complete composer is free. The record is
     /// retained while editing; taking it from the queue is not an acknowledgement.
     func restoreNextInflightDraft(composerBody: String) -> String? {
-        guard composerBody.isEmpty, pendingAttachments.isEmpty,
+        guard !isProcessingPhoto, composerBody.isEmpty, pendingAttachments.isEmpty,
               pendingLocation == nil, activeRecoveryDraft == nil else { return nil }
         // A damaged or conflicting entry stays durable without starving the
         // other drafts. If none can be restored, the last error stays visible.
@@ -617,7 +665,7 @@ final class TodayViewModel: ObservableObject {
     /// The view persists this exact URL alongside its scene-specific draft
     /// backup, so a restart can reconnect edited text to the same durable ID.
     func resumeInflightDraft(at url: URL, composerBody: String) -> String? {
-        guard activeRecoveryDraft == nil, pendingAttachments.isEmpty,
+        guard !isProcessingPhoto, activeRecoveryDraft == nil, pendingAttachments.isEmpty,
               let entry = recoverableDrafts.first(where: { $0.url == url }) else { return nil }
         return stageRecovery(entry, composerBody: composerBody.isEmpty ? entry.draft.body : composerBody)
     }
@@ -648,6 +696,9 @@ final class TodayViewModel: ObservableObject {
             activeRecoveryDraft = entry
             pendingAttachments = attachments
             lastFailedBody = nil
+            // Restoring another draft replaces the composer content: results
+            // bound to the replaced draft must not land in the restored one.
+            rotateComposerGenerations()
             return composerBody
         } catch {
             submitError = error.localizedDescription
@@ -657,11 +708,61 @@ final class TodayViewModel: ObservableObject {
 
     /// Called only by the WriteSheet's existing confirmed-discard action.
     func discardActiveInflightDraft() {
+        // Explicit discard destroys the draft: retire the composer
+        // generations so late press-to-talk results cannot write the next one.
+        rotateComposerGenerations()
         guard let entry = activeRecoveryDraft else { return }
         InflightDraftStore.acknowledge(entry)
         activeRecoveryDraft = nil
         lastFailedBody = nil
         recoverInflightDrafts()
+    }
+
+    // MARK: - Cold-start draft reconciliation
+
+    /// Keep the shipping body key; additive metadata belongs to the same scene.
+    static func draftBackupKey(forSceneID sceneID: String) -> String {
+        "today.draftText.backup.\(sceneID)"
+    }
+
+    static func draftDateBackupKey(forSceneID sceneID: String) -> String {
+        "\(draftBackupKey(forSceneID: sceneID)).modifiedAt"
+    }
+
+    private(set) var hasReconciledInitialDraft = false
+
+    /// The mirror wins over a stale SceneStorage snapshot on first appearance.
+    /// Later appearances must leave live typing untouched. Global legacy dates
+    /// cannot prove the age of any one window's draft: preserve unknown ages.
+    func reconcileInitialDraft(
+        sceneID: String,
+        sceneText: String,
+        defaults: UserDefaults = .standard,
+        now: Date = Date()
+    ) -> String? {
+        guard !hasReconciledInitialDraft else { return nil }
+        hasReconciledInitialDraft = true
+        let mirrorKey = Self.draftBackupKey(forSceneID: sceneID)
+        let dateKey = Self.draftDateBackupKey(forSceneID: sceneID)
+        let recovered: String
+        if let mirror = defaults.string(forKey: mirrorKey), !mirror.isEmpty {
+            let savedAt = defaults.double(forKey: dateKey)
+            if savedAt > 0, now.timeIntervalSince1970 - savedAt > 30 * 24 * 3600 {
+                defaults.removeObject(forKey: mirrorKey)
+                defaults.removeObject(forKey: dateKey)
+                recovered = ""
+            } else {
+                recovered = mirror
+            }
+        } else {
+            // Send/discard clear the mirror synchronously. Do not resurrect
+            // their older SceneStorage snapshot or retain orphaned metadata.
+            defaults.removeObject(forKey: dateKey)
+            guard !sceneText.isEmpty else { return nil }
+            recovered = ""
+        }
+        if recovered != sceneText { rotateComposerGenerations() }
+        return recovered
     }
 
     /// Loads today's memos from the raw storage file and checks compiled status.
@@ -676,6 +777,10 @@ final class TodayViewModel: ObservableObject {
 
         // Capture value types before leaving the MainActor.
         let capturedDate = date
+        // The canonical raw day key actually being loaded. Everything that
+        // later mutates these memos targets THIS key, never a day re-derived
+        // from `memo.created` under a possibly-changed preferred zone.
+        let capturedDayString = RawStorage.dayString(for: capturedDate)
         let capturedVaultRoot = VaultInitializer.vaultURL
         let dailyURL = dailyPageURL(for: capturedDate)
         // Capture the on-this-day file path before going off-actor.
@@ -689,7 +794,9 @@ final class TodayViewModel: ObservableObject {
             _ = await pendingPersistence?.value
             guard !Task.isCancelled else { return }
             // --- Off-main disk I/O ---
-            let loadResult = Result { try RawStorage.read(for: capturedDate, vaultRoot: capturedVaultRoot) }
+            let loadResult = Result {
+                try RawStorage.read(dayString: capturedDayString, vaultRoot: capturedVaultRoot)
+            }
 
             let dailyExists = FileManager.default.fileExists(atPath: dailyURL.path)
             let dailySummary: String? = {
@@ -743,6 +850,7 @@ final class TodayViewModel: ObservableObject {
             await MainActor.run {
                 guard self.loadGeneration == generation,
                       capturedVaultRoot == VaultInitializer.vaultURL else { return }
+                self.loadedDayString = capturedDayString
                 switch loadResult {
                 case .success(let loaded):
                     // Newest first; pinned memos float to the top
@@ -802,31 +910,121 @@ final class TodayViewModel: ObservableObject {
     /// Processes a selected PhotosPickerItem and stages it in pendingAttachments.
     /// Does NOT submit a memo — user must tap the submit button.
     func addPhotoAttachment(item: PhotosPickerItem) {
-        isProcessingPhoto = true
-        submitError = nil
-
-        photoTask = Task { @MainActor in
-            defer { isProcessingPhoto = false }
-
-            guard let result = await photoService.processPickerItem(item) else {
-                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
-                return
-            }
-
-            pendingAttachments.append(.photo(result))
+        stagePhotoAttachments { [photoService] in
+            guard let result = await photoService.processPickerItem(item) else { return [] }
+            return [result]
         }
     }
 
-    /// Removes a staged attachment by id.
+    /// Own each import until it completes. Cancellation alone cannot discard a
+    /// result from Photos/iCloud or detached image processing, so a generation
+    /// also binds the result to the draft that requested it.
+    @discardableResult
+    func stagePhotoAttachments(
+        autoSubmit: Bool = false,
+        processing: @escaping @MainActor () async -> [PhotoPickerResult]
+    ) -> Task<Void, Never> {
+        let operationID = UUID()
+        let generation = photoImportGeneration
+        // Automatic camera/batch save is only for an exclusive, empty draft.
+        // Starting any other import revokes that shortcut, in either finish order.
+        autoSubmitPhotoImportID = autoSubmit && photoImportTasks.isEmpty && pendingAttachments.isEmpty
+            ? operationID : nil
+        isProcessingPhoto = true
+        submitError = nil
+        let task = Task { @MainActor [weak self] in
+            let results = await processing()
+            guard let self,
+                  self.photoImportGeneration == generation,
+                  self.photoImportTasks[operationID] != nil else {
+                // The import's draft was destroyed or replaced before its
+                // results arrived. They never stage: clean exactly the owned
+                // runtime files behind them and leave every unowned file
+                // (rejected/restored/unknown/committed) untouched.
+                await PhotoService.shared.discardOwnedDraftPhotos(results)
+                return
+            }
+            self.photoImportTasks.removeValue(forKey: operationID)
+            self.isProcessingPhoto = !self.photoImportTasks.isEmpty
+            guard !Task.isCancelled else {
+                await self.photoService.discardOwnedDraftPhotos(results)
+                return
+            }
+            guard !results.isEmpty else {
+                self.submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
+                return
+            }
+            let mayAutoSubmit = self.autoSubmitPhotoImportID == operationID
+                && self.pendingAttachments.isEmpty
+            self.pendingAttachments.append(contentsOf: results.map(PendingAttachment.photo))
+            // Retire our own loading state before auto-submit. If another
+            // import is still running, leave all results for explicit review.
+            if mayAutoSubmit && !self.isProcessingPhoto {
+                self.submitCombinedMemo(body: "")
+            }
+        }
+        // This MainActor task cannot run until the synchronous registration ends.
+        photoImportTasks[operationID] = task
+        return task
+    }
+
+    /// Removes a staged attachment by id. Removing a chip is an explicit
+    /// discard of that one attachment: its owned runtime draft photo is
+    /// deleted with it, while anything unowned (rejected/restored/unknown/
+    /// committed, audio, files) stays on disk.
     func removePendingAttachment(id: String) {
+        let removed = pendingAttachments.filter { $0.id == id }
         pendingAttachments.removeAll { $0.id == id }
+        discardOwnedStagedPhotos(removed)
     }
 
     /// Drops every staged attachment — the WriteSheet's confirmed-discard
-    /// path. Mirrors removePendingAttachment's semantics (list only; the
-    /// already-saved asset files stay on disk, same as per-chip removal).
+    /// path — and cleans up the owned runtime draft photos it destroyed.
     func clearPendingAttachments() {
+        // The confirmed-discard path empties the composer's staged content:
+        // retire in-flight press-to-talk results bound to the discarded draft.
+        rotateComposerGenerations()
+        let tasks = Array(photoImportTasks.values)
+        photoImportGeneration = UUID()
+        autoSubmitPhotoImportID = nil
+        photoImportTasks.removeAll()
+        isProcessingPhoto = false
+        batchPhotoTotal = 0
+        batchPhotoProgress = 0
+        for task in tasks { task.cancel() }
+        let discarded = pendingAttachments
         pendingAttachments.removeAll()
+        // Explicit discard is a cleanup boundary: the owned runtime draft
+        // photos staged for this draft are deleted now (the startup orphan
+        // sweep stays only as a crash backstop). The owned-only gate preserves
+        // rejected/restored/unknown/committed files and inflight/retry/undo/
+        // recovery files, and never touches audio or file attachments.
+        discardOwnedStagedPhotos(discarded)
+    }
+
+    /// Queues deletion of the owned runtime draft photos behind exactly these
+    /// staged attachments through PhotoService's owned-only cleanup. Capture
+    /// happens at import, so a swapped vault locator or relative path can
+    /// never retarget the delete; everything unowned is preserved. Cleanup
+    /// runs off the main actor and is chained so `waitForPhotoCleanup` is
+    /// deterministic.
+    private func discardOwnedStagedPhotos(_ attachments: [PendingAttachment]) {
+        let photos = attachments.compactMap { attachment -> PhotoPickerResult? in
+            if case .photo(let result) = attachment { return result }
+            return nil
+        }
+        guard !photos.isEmpty else { return }
+        let previous = photoCleanupTask
+        photoCleanupTask = Task { @MainActor [photoService] in
+            await previous?.value
+            await photoService.discardOwnedDraftPhotos(photos)
+        }
+    }
+
+    /// Await every queued owned-draft-photo cleanup. Primarily useful to make
+    /// photo-discard regressions deterministic; normal UI stays fire-and-forget.
+    func waitForPhotoCleanup() async {
+        await photoCleanupTask?.value
     }
 
     // MARK: - Add Voice Attachment (staged)
@@ -842,6 +1040,81 @@ final class TodayViewModel: ObservableObject {
         pendingAttachments.append(.voice(result))
         voiceService.reset()
         submitCombinedMemo(body: "")
+    }
+
+    // MARK: - Composer Generation (late press-to-talk results)
+
+    /// A composer surface. The dock (InputBarV4) and the WriteSheet bind the
+    /// same `draftText`, but each surface owns an independent generation
+    /// token so one surface's callback snapshot is never confused with the
+    /// other's.
+    enum ComposerSurface: CaseIterable {
+        case dock
+        case writeSheet
+    }
+
+    /// Snapshot captured when the View creates a surface's press-to-talk
+    /// callbacks. `id` names the draft generation that was live at capture
+    /// time. A result that arrives later is dropped once its generation has
+    /// been retired (confirmed discard, clearPendingAttachments, successful
+    /// submit, draft restore/replacement). Typing and soft dismissal never
+    /// retire a generation, so the original draft's own results still land.
+    struct ComposerToken: Equatable {
+        let surface: ComposerSurface
+        let id: UUID
+    }
+
+    /// Live generation per composer surface. Rotated only at the explicit
+    /// draft destroy/replace boundaries listed on `rotateComposerGenerations`.
+    /// Both surfaces share one draft, so every boundary retires both.
+    private var composerGenerations: [ComposerSurface: UUID] =
+        Dictionary(uniqueKeysWithValues: ComposerSurface.allCases.map { ($0, UUID()) })
+
+    /// Snapshot token for `surface`, taken when its InputBarV4/WriteSheet
+    /// callbacks are created.
+    func composerToken(for surface: ComposerSurface) -> ComposerToken {
+        ComposerToken(surface: surface, id: composerGenerations[surface] ?? UUID())
+    }
+
+    /// Whether `token` still names the live generation of its surface. The
+    /// press-to-talk callbacks check this on arrival before touching the
+    /// draft text or the staging area.
+    func isComposerTokenCurrent(_ token: ComposerToken) -> Bool {
+        composerGenerations[token.surface] == token.id
+    }
+
+    /// The draft body after a press-to-talk transcribe result lands, or nil
+    /// when the callback is stale and the draft must stay untouched. A stale
+    /// transcript is dropped silently — nothing is re-transcribed, deleted,
+    /// or sent anywhere.
+    func draftByAppendingTranscript(_ transcript: String, to draft: String, token: ComposerToken) -> String? {
+        guard isComposerTokenCurrent(token), !transcript.isEmpty else { return nil }
+        if draft.isEmpty { return transcript }
+        return draft + (draft.hasSuffix(" ") ? "" : " ") + transcript
+    }
+
+    /// Stages a press-to-talk send result for its still-live draft. A stale
+    /// result is dropped WITHOUT resetting or cancelling the shared
+    /// VoiceService (a newer recording may own it) and without touching the
+    /// already-saved audio file.
+    @discardableResult
+    func stageVoiceResult(_ result: VoiceRecordingResult, token: ComposerToken) -> Bool {
+        guard isComposerTokenCurrent(token) else { return false }
+        addVoiceAttachment(result: result)
+        return true
+    }
+
+    /// Retires both composer generations, invalidating every press-to-talk
+    /// callback snapshot taken so far. Call ONLY from explicit boundaries
+    /// that destroy or replace the draft: confirmed Discard,
+    /// clearPendingAttachments, a successful submitCombinedMemo, draft
+    /// restoration, and view-side explicit draft replacement. Never call for
+    /// typing, soft close/swipe/Keep, or a failed submit — those keep the
+    /// draft alive along with its legitimate in-flight results.
+    func rotateComposerGenerations() {
+        for surface in ComposerSurface.allCases {
+            composerGenerations[surface] = UUID()
+        }
     }
 
     // MARK: - Retranscribe (US-014 / US-016)
@@ -934,43 +1207,42 @@ final class TodayViewModel: ObservableObject {
     /// Processes a camera-captured UIImage and immediately submits it as a standalone memo.
     func addCameraPhotoAndSubmit(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-        isProcessingPhoto = true
-        cameraPhotoTask = Task { @MainActor in
-            defer { isProcessingPhoto = false }
-            guard let result = await photoService.processImageDataAsync(data) else {
-                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
-                return
-            }
-            pendingAttachments.append(.photo(result))
-            submitCombinedMemo(body: "")
+        stagePhotoAttachments(autoSubmit: true) { [photoService] in
+            guard let result = await photoService.processImageDataAsync(data) else { return [] }
+            return [result]
         }
     }
 
     /// Processes multiple PhotosPickerItems and immediately submits them as one memo.
     func addPhotosAndSubmit(items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
-        isProcessingPhoto = true
         // US-012: expose batch progress when > 3 photos
         batchPhotoTotal = items.count
         batchPhotoProgress = 0
-        submitTask = Task { @MainActor in
+        let generation = photoImportGeneration
+        stagePhotoAttachments(autoSubmit: true) { [weak self, photoService] in
             defer {
-                isProcessingPhoto = false
-                batchPhotoTotal = 0
-                batchPhotoProgress = 0
-            }
-            var processed = false
-            for (idx, item) in items.enumerated() {
-                guard let result = await photoService.processPickerItem(item) else { continue }
-                pendingAttachments.append(.photo(result))
-                processed = true
-                if batchPhotoTotal > 3 {
-                    batchPhotoProgress = Double(idx + 1) / Double(batchPhotoTotal)
+                if self?.photoImportGeneration == generation {
+                    self?.batchPhotoTotal = 0
+                    self?.batchPhotoProgress = 0
                 }
             }
-            if processed {
-                submitCombinedMemo(body: "")
+            var results: [PhotoPickerResult] = []
+            for (idx, item) in items.enumerated() {
+                let result = await photoService.processPickerItem(item)
+                if let result { results.append(result) }
+                guard !Task.isCancelled, self?.photoImportGeneration == generation else {
+                    // Dropped late/cancelled batch results — including the one
+                    // just created — clean through the owned-only API instead
+                    // of leaking onto disk.
+                    await photoService.discardOwnedDraftPhotos(results)
+                    return []
+                }
+                if items.count > 3 {
+                    self?.batchPhotoProgress = Double(idx + 1) / Double(items.count)
+                }
             }
+            return results
         }
     }
 
@@ -997,6 +1269,9 @@ final class TodayViewModel: ObservableObject {
     /// not even render.
     @discardableResult
     func submitCombinedMemo(body: String) -> Bool {
+        // Do not commit a partial attachment snapshot or let a late photo land
+        // in the next draft. All callers, including voice/camera, share this gate.
+        guard !isProcessingPhoto else { return false }
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasText = !trimmed.isEmpty
         let snapshotAttachments = pendingAttachments
@@ -1121,6 +1396,16 @@ final class TodayViewModel: ObservableObject {
         activeRecoveryDraft = nil
         recoverableDrafts.removeAll { $0.url == inflightEntry.url }
 
+        // Ownership retires only here — AFTER the durable inflight journal now
+        // references these exact files and BEFORE the optimistic clear. From
+        // this point on no later cleanup may delete them: saved memos, retries,
+        // undo-restored drafts and recovery keep their photos. A failed submit
+        // returns above and retains the draft's ownership (and its files).
+        photoService.retireDraftOwnership(snapshotAttachments.compactMap { staged -> PhotoPickerResult? in
+            if case .photo(let result) = staged { return result }
+            return nil
+        })
+
         // Capture the exact pre-submit state before the optimistic clear. The
         // five-second confirmation pill can now perform a real undo instead of
         // merely copying the text back while leaving a duplicate memo behind.
@@ -1143,6 +1428,11 @@ final class TodayViewModel: ObservableObject {
         // --- 2. Clear composer state synchronously. ---
         pendingLocation = nil
         pendingAttachments = []
+        // The submitted draft is gone: retire its press-to-talk callback
+        // snapshots so a late send/transcribe cannot write the next draft.
+        // Every failed-submit path above returns before this point and keeps
+        // the generations — and the draft's in-flight results — valid.
+        rotateComposerGenerations()
         // B4: clear any residual failed-body breadcrumb from a prior attempt so
         // a later onChange of `lastFailedBody` can't restore stale text.
         lastFailedBody = nil
@@ -1283,7 +1573,12 @@ final class TodayViewModel: ObservableObject {
         //    (user pin / photo EXIF already supplied them at commit time).
         let needsLocation = memo.location?.lat == nil
         var resolvedLocation = memo.location
-        if needsLocation {
+        // Saving text is not a request for location access. Only enrich with
+        // an already authorized location; the explicit location action owns
+        // the permission prompt.
+        let locationAuthorized = locationService.authorizationStatus == .authorizedWhenInUse
+            || locationService.authorizationStatus == .authorizedAlways
+        if needsLocation && locationAuthorized {
             resolvedLocation = try? await locationService.currentLocation(timeout: 3)
         }
         let locationChanged = needsLocation && resolvedLocation?.lat != nil

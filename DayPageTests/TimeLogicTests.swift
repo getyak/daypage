@@ -29,6 +29,7 @@ private func rgb(_ color: Color) -> (r: Double, g: Double, b: Double) {
 
 // MARK: - TimeOfDay bucket boundaries
 
+extension DayPageSerialSwiftTests {
 @Suite("TimeLogic — TimeOfDay.bucket")
 struct TimeOfDayBucketTests {
     @Test func hour5IsMorning()    { #expect(TimeOfDay.bucket(hour: 5)  == .morning) }
@@ -41,9 +42,11 @@ struct TimeOfDayBucketTests {
     @Test func hour0IsLateNight()  { #expect(TimeOfDay.bucket(hour: 0)  == .lateNight) }
     @Test func hour4IsLateNight()  { #expect(TimeOfDay.bucket(hour: 4)  == .lateNight) }
 }
+}
 
 // MARK: - TimeOfDay.continuousTint anchor exactness & midnight wrap
 
+extension DayPageSerialSwiftTests {
 @Suite("TimeLogic — TimeOfDay.continuousTint")
 struct ContinuousTintTests {
 
@@ -105,9 +108,11 @@ struct ContinuousTintTests {
         #expect(c.b >= 0.15 - 0.001 && c.b <= 0.60 + 0.001)
     }
 }
+}
 
 // MARK: - DayProgress.fraction
 
+extension DayPageSerialSwiftTests {
 @Suite("TimeLogic — DayProgress.fraction")
 struct DayProgressFractionTests {
 
@@ -132,22 +137,24 @@ struct DayProgressFractionTests {
         }
     }
 
-    @Test func clampedToZeroForBeforeMidnight() {
+    @Test func previousDayEndsNearOne() {
         let start = cal.startOfDay(for: date(hour: 6))
         let result = DayProgress.fraction(at: start.addingTimeInterval(-1), calendar: cal)
-        #expect(result == 0.0)
+        #expect(abs(result - CGFloat(86399.0 / 86400.0)) < 0.0000001)
     }
 
-    @Test func clampedToOneForAfterEndOfDay() {
+    @Test func nextDayStartsNearZero() {
         let start = cal.startOfDay(for: date(hour: 6))
         let nextDay = cal.date(byAdding: .day, value: 1, to: start)!
         let result = DayProgress.fraction(at: nextDay.addingTimeInterval(1), calendar: cal)
-        #expect(result == 1.0)
+        #expect(abs(result - CGFloat(1.0 / 86400.0)) < 0.0000001)
     }
+}
 }
 
 // MARK: - TimeZoneBadge.gmtOffset
 
+extension DayPageSerialSwiftTests {
 @Suite("TimeLogic — TimeZoneBadge.gmtOffset")
 struct TimeZoneBadgeTests {
 
@@ -172,4 +179,141 @@ struct TimeZoneBadgeTests {
         let tz = TimeZone(secondsFromGMT: 5 * 3600 + 45 * 60)!
         #expect(TimeZoneBadge.gmtOffset(for: tz, at: anchor) == "GMT+5:45")
     }
+}
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias ContinuousTintTests = DayPageSerialSwiftTests.ContinuousTintTests
+typealias DayProgressFractionTests = DayPageSerialSwiftTests.DayProgressFractionTests
+typealias TimeOfDayBucketTests = DayPageSerialSwiftTests.TimeOfDayBucketTests
+typealias TimeZoneBadgeTests = DayPageSerialSwiftTests.TimeZoneBadgeTests
+
+// Same absolute capture timestamp, including civil-day and DST boundaries.
+// Actual SwiftUI settings observation is verified separately in the real UI.
+extension DayPageSerialSwiftTests {
+@Suite("Memo detail — preferred-zone timestamp presentation")
+struct MemoDetailTimeZonePresentationTests {
+    private func instant(_ value: String) -> Date {
+        ISO8601DateFormatter().date(from: value)!
+    }
+
+    @Test func fixtureFollowsSelectedZoneAndPreservesAbsoluteInstant() {
+        let date = instant("2026-10-03T17:09:59Z")
+        let unchanged = date
+        let values: [(String, String, String)] = [
+            ("Asia/Shanghai", "2026-10-04 01:09:59", "2026-10-04  01:09"),
+            ("Pacific/Kiritimati", "2026-10-04 07:09:59", "2026-10-04  07:09"),
+            ("America/Los_Angeles", "2026-10-03 10:09:59", "2026-10-03  10:09")
+        ]
+        for (identifier, full, kicker) in values {
+            let zone = TimeZone(identifier: identifier)!
+            #expect(MemoDetailDatePresentation.createdFull(date, timeZone: zone) == full)
+            #expect(MemoDetailDatePresentation.kicker(date, timeZone: zone) == kicker)
+            #expect(date == unchanged)
+        }
+    }
+
+    @Test func returningToAZoneDoesNotReuseAnotherZoneFormatter() {
+        let date = instant("2026-10-03T17:09:59Z")
+        for (id, expected) in [("Pacific/Kiritimati", "2026-10-04 07:09:59"),
+                               ("America/Los_Angeles", "2026-10-03 10:09:59"),
+                               ("Pacific/Kiritimati", "2026-10-04 07:09:59"),
+                               ("Asia/Shanghai", "2026-10-04 01:09:59")] {
+            #expect(MemoDetailDatePresentation.createdFull(date, timeZone: TimeZone(identifier: id)!) == expected)
+        }
+    }
+
+    @Test func losAngelesUsesSeasonalOffsetAtCaptureInstant() {
+        let zone = TimeZone(identifier: "America/Los_Angeles")!
+        #expect(MemoDetailDatePresentation.createdFull(instant("2026-01-15T08:00:00Z"), timeZone: zone) == "2026-01-15 00:00:00")
+        #expect(MemoDetailDatePresentation.createdFull(instant("2026-07-15T07:00:00Z"), timeZone: zone) == "2026-07-15 00:00:00")
+    }
+
+    @Test func daylightSavingSpringGapIsAnInstantConversion() {
+        let zone = TimeZone(identifier: "America/Los_Angeles")!
+        #expect(MemoDetailDatePresentation.createdFull(instant("2026-03-08T09:59:59Z"), timeZone: zone) == "2026-03-08 01:59:59")
+        #expect(MemoDetailDatePresentation.createdFull(instant("2026-03-08T10:00:00Z"), timeZone: zone) == "2026-03-08 03:00:00")
+    }
+
+    @Test func daylightSavingFallRepeatPreservesBothInstants() {
+        let zone = TimeZone(identifier: "America/Los_Angeles")!
+        let first = instant("2026-11-01T08:59:59Z")
+        let second = instant("2026-11-01T09:00:00Z")
+        #expect(first < second)
+        #expect(MemoDetailDatePresentation.createdFull(first, timeZone: zone) == "2026-11-01 01:59:59")
+        #expect(MemoDetailDatePresentation.createdFull(second, timeZone: zone) == "2026-11-01 01:00:00")
+    }
+
+    @Test func fractionalOffsetAndLeapDayCanCrossCivilDay() {
+        let kathmandu = TimeZone(identifier: "Asia/Kathmandu")!
+        #expect(MemoDetailDatePresentation.createdFull(instant("2026-10-03T17:09:59Z"), timeZone: kathmandu) == "2026-10-03 22:54:59")
+        let date = instant("2024-02-29T23:30:00Z")
+        #expect(MemoDetailDatePresentation.createdFull(date, timeZone: TimeZone(identifier: "Pacific/Kiritimati")!) == "2024-03-01 13:30:00")
+        #expect(MemoDetailDatePresentation.createdFull(date, timeZone: TimeZone(identifier: "America/Los_Angeles")!) == "2024-02-29 15:30:00")
+    }
+}
+}
+
+
+// Real card observation and dot-separated rendering are checked separately in UI.
+extension DayPageSerialSwiftTests {
+@MainActor
+@Suite("Memo card — preferred-zone capture clock")
+struct MemoCardTimeZonePresentationTests {
+    private func instant(_ value: String) -> Date {
+        ISO8601DateFormatter().date(from: value)!
+    }
+    private func clock(_ date: Date, _ identifier: String) -> String {
+        MemoCardTimePresentation.shortTime(date, timeZone: TimeZone(identifier: identifier)!)
+    }
+
+    @Test func fixtureFollowsSelectedZoneAndPreservesAbsoluteInstant() {
+        let date = instant("2026-10-03T17:09:59Z")
+        let unchanged = date
+        for (zone, expected) in [("Asia/Shanghai", "01:09"),
+                                 ("Pacific/Kiritimati", "07:09"),
+                                 ("America/Los_Angeles", "10:09")] {
+            #expect(clock(date, zone) == expected)
+            #expect(date == unchanged)
+        }
+    }
+
+    @Test func returningToAZoneUsesItsImmutableFormatter() {
+        let date = instant("2026-10-03T17:09:59Z")
+        for (zone, expected) in [("Pacific/Kiritimati", "07:09"),
+                                 ("America/Los_Angeles", "10:09"),
+                                 ("Pacific/Kiritimati", "07:09"),
+                                 ("Asia/Shanghai", "01:09"),
+                                 ("America/Los_Angeles", "10:09")] {
+            #expect(clock(date, zone) == expected)
+        }
+    }
+
+    @Test func losAngelesUsesSeasonalOffsetAtCaptureInstant() {
+        #expect(clock(instant("2026-01-15T08:00:00Z"), "America/Los_Angeles") == "00:00")
+        #expect(clock(instant("2026-07-15T07:00:00Z"), "America/Los_Angeles") == "00:00")
+    }
+
+    @Test func daylightSavingSpringGapIsAnInstantConversion() {
+        #expect(clock(instant("2026-03-08T09:59:59Z"), "America/Los_Angeles") == "01:59")
+        #expect(clock(instant("2026-03-08T10:00:00Z"), "America/Los_Angeles") == "03:00")
+    }
+
+    @Test func daylightSavingFallRepeatPreservesBothInstants() {
+        let first = instant("2026-11-01T08:59:59Z")
+        let second = instant("2026-11-01T09:00:00Z")
+        #expect(first < second)
+        #expect(clock(first, "America/Los_Angeles") == "01:59")
+        #expect(clock(second, "America/Los_Angeles") == "01:00")
+    }
+
+    @Test func fractionalOffsetAndLeapDayUseCaptureClock() {
+        #expect(clock(instant("2026-10-03T17:09:59Z"), "Asia/Kathmandu") == "22:54")
+        let date = instant("2024-02-29T23:30:00Z")
+        #expect(clock(date, "Pacific/Kiritimati") == "13:30")
+        #expect(clock(date, "America/Los_Angeles") == "15:30")
+    }
+}
 }

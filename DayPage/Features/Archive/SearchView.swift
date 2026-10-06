@@ -242,6 +242,7 @@ struct SearchView: View {
     /// once in `.onAppear`; further user input flows through `vm.query` as
     /// usual.
     var initialQuery: String? = nil
+    var onSelectMemo: ((UUID, String) -> Void)? = nil
 
     private var visibleResults: [SearchResult] {
         activeMatchKinds.isEmpty ? vm.results : vm.results.filter { activeMatchKinds.contains($0.matchKind) }
@@ -527,32 +528,27 @@ struct SearchView: View {
 
                 Spacer()
 
-                DatePicker("", selection: Binding(
-                    get: { filters.startDate ?? Date.distantPast },
-                    set: { filters.startDate = $0 == Date.distantPast ? nil : $0 }
-                ), displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .font(DSFonts.inter(size: 12, relativeTo: .caption))
-                .frame(maxWidth: 120)
-                .overlay(
-                    filters.startDate == nil
-                        ? Text(NSLocalizedString("search.filter.startDate", comment: "Filter panel start date placeholder")).monoLabelStyle(size: 11).foregroundColor(DSColor.inkMuted).allowsHitTesting(false)
-                        : nil
+                SearchOptionalDateControl(
+                    title: NSLocalizedString("search.filter.startDate", comment: "Start date filter"),
+                    selection: Binding(
+                        get: { filters.startDate },
+                        set: { filters.startDate = $0; runSearch(keyword: vm.query) }
+                    ),
+                    identifier: "search-start-date"
                 )
 
                 Text("—")
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.outline)
 
-                DatePicker("", selection: Binding(
-                    get: { filters.endDate ?? Date() },
-                    set: { filters.endDate = $0 }
-                ), displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .font(DSFonts.inter(size: 12, relativeTo: .caption))
-                .frame(maxWidth: 120)
+                SearchOptionalDateControl(
+                    title: NSLocalizedString("search.filter.endDate", comment: "End date filter"),
+                    selection: Binding(
+                        get: { filters.endDate },
+                        set: { filters.endDate = $0; runSearch(keyword: vm.query) }
+                    ),
+                    identifier: "search-end-date"
+                )
 
                 if filters.startDate != nil || filters.endDate != nil {
                     Button(action: {
@@ -1166,7 +1162,11 @@ struct SearchView: View {
         return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
-            onSelect(result.dateString)
+            if let memoID = result.memoID, let onSelectMemo {
+                onSelectMemo(memoID, result.dateString)
+            } else {
+                onSelect(result.dateString)
+            }
         }) {
             VStack(alignment: .leading, spacing: 6) {
                 if showsDate {
@@ -1229,7 +1229,9 @@ struct SearchView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(a11yLabel)
-        .accessibilityHint(NSLocalizedString("search.a11y.resultRow.hint", comment: "Accessibility hint for a search result row"))
+        .accessibilityHint(result.memoID != nil && onSelectMemo != nil
+            ? NSLocalizedString("search.a11y.resultMemo.hint", comment: "Accessibility hint: open matching memo details")
+            : NSLocalizedString("search.a11y.resultRow.hint", comment: "Accessibility hint for a search result day"))
     }
 
     // MARK: - Keyword highlight via AttributedString
@@ -1633,6 +1635,84 @@ private struct SwipeableRecentRow: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Optional date filter
+
+private struct SearchOptionalDateControl: View {
+    let title: String
+    @Binding var selection: Date?
+    let identifier: String
+
+    @State private var isPresented = false
+    @State private var candidate = Date()
+
+    private var dateLabel: String? {
+        selection.map { $0.formatted(date: .abbreviated, time: .omitted) }
+    }
+
+    var body: some View {
+        Button {
+            candidate = selection ?? Date()
+            isPresented = true
+        } label: {
+            Text(dateLabel ?? title)
+                .font(DSFonts.inter(size: 12, relativeTo: .caption))
+                .foregroundColor(selection == nil ? DSColor.inkMuted : DSColor.inkPrimary)
+                .padding(.horizontal, DSSpacing.sm)
+                .frame(minHeight: 44)
+                .frame(maxWidth: 120)
+                .background(DSColor.inkFaint.opacity(0.12), in: Capsule())
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(dateLabel ?? NSLocalizedString("search.filter.dateNotSet", comment: "Date filter has no bound"))
+        .accessibilityIdentifier(identifier)
+        .popover(isPresented: $isPresented) {
+            adaptedPickerContent
+        }
+    }
+
+    @ViewBuilder
+    private var adaptedPickerContent: some View {
+        if #available(iOS 16.4, *) {
+            pickerContent.presentationCompactAdaptation(.popover)
+        } else {
+            pickerContent
+        }
+    }
+
+    private var pickerContent: some View {
+        VStack(spacing: DSSpacing.md) {
+            DatePicker(title, selection: $candidate, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .accessibilityIdentifier("\(identifier)-picker")
+
+            HStack {
+                Button(NSLocalizedString("search.filter.dateCancel", comment: "Cancel date selection")) {
+                    isPresented = false
+                }
+                .accessibilityIdentifier("\(identifier)-cancel")
+
+                Spacer()
+
+                Button(NSLocalizedString("search.filter.dateApply", comment: "Apply date selection")) {
+                    // Explicit commit also supports applying the unchanged
+                    // default day; DatePicker need not deliver a value change.
+                    selection = candidate
+                    isPresented = false
+                }
+                .accessibilityIdentifier("\(identifier)-apply")
+            }
+            .font(DSFonts.inter(size: 15, relativeTo: .body))
+            .tint(DSColor.accentOnBg)
+            .buttonStyle(.bordered)
+        }
+        .padding(DSSpacing.md)
+        .frame(idealWidth: 320)
     }
 }
 

@@ -206,6 +206,12 @@ final class BackgroundCompilationService: ObservableObject {
     /// Caps at `maxBackfillDays` per session to avoid API flooding.
     /// Today's file is always excluded (not yet ready for compilation).
     func backfillIfNeeded() {
+        // UI14 P2: AI OFF (local-only) must gate the automatic backfill BEFORE
+        // the vault scan and before the batch Task exists. Previously a
+        // disabled app still selected yesterday's raw, posted start/end, and
+        // retried `.aiDisabled` behind the 30s/2m/10m backoff while Today
+        // showed a misleading "Preparing your notes 30%" rail.
+        guard Self.isAutomaticCompileEligible else { return }
         let vaultURL = VaultInitializer.vaultURL
         let rawDir = vaultURL.appendingPathComponent("raw", isDirectory: true)
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: rawDir.path) else { return }
@@ -245,6 +251,18 @@ final class BackgroundCompilationService: ObservableObject {
                     DayPageLogger.shared.error("[BGCompile] Backfill halted: AI key not configured")
                     Self.surfaceMissingKeyBannerOnce()
                     break
+                } catch CompilationError.aiDisabled {
+                    // UI14 P2: AI toggled off mid-batch (or at a retry attempt
+                    // boundary) — stop the whole batch silently. Every remaining
+                    // date would fail identically; local-only mode is a user
+                    // choice, not a configuration error, so no banner.
+                    DayPageLogger.shared.info("[BGCompile] Backfill halted: AI features disabled")
+                    break
+                } catch is CancellationError {
+                    // A cancelled Task must end the batch: continuing would
+                    // start doomed compiles behind an already-cancelled task.
+                    DayPageLogger.shared.warn("[BGCompile] Backfill batch cancelled — stopping")
+                    break
                 } catch {
                     DayPageLogger.shared.error("[BGCompile] Backfill failed for \(formatter.string(from: date)): \(error.localizedDescription)")
                     // Continue to next date, don't abort the whole batch
@@ -271,6 +289,9 @@ final class BackgroundCompilationService: ObservableObject {
     ///
     /// 失败路径：静默 + Sentry breadcrumb（用户不需要看到第二条失败通知）。
     func foregroundRetryIfNeeded() async {
+        // UI14 P2: AI OFF (local-only) gates the automatic foreground retry
+        // before any work — same eligibility condition as backfill / BGTask.
+        guard Self.isAutomaticCompileEligible else { return }
         guard let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) else { return }
 
         // shouldCompile covers both "daily missing" and "raw edited after
@@ -327,6 +348,9 @@ final class BackgroundCompilationService: ObservableObject {
     // covered by integration-shape tests, not just the pure helper.
     @MainActor
     internal func tryAutoCompileWeekly() async {
+        // UI14 P2: the weekly auto compile is automatic AI work — gated by the
+        // same eligibility condition before any date/metadata/LLM work.
+        guard Self.isAutomaticCompileEligible else { return }
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = AppSettings.currentTimeZone()
         cal.firstWeekday = 2 // Monday
@@ -367,6 +391,15 @@ final class BackgroundCompilationService: ObservableObject {
         // 为下一夜重新调度
         scheduleIfNeeded()
 
+        // UI14 P2: AI OFF (local-only) — do not create the child compile Task
+        // at all. Complete the BGTask with success (not failure): a disabled
+        // feature is a legitimate no-op, and an unsignaled/failed completion
+        // would only churn iOS's scheduler.
+        guard Self.isAutomaticCompileEligible else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
         let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
 
         guard shouldCompile(for: yesterday) else {
@@ -401,6 +434,14 @@ final class BackgroundCompilationService: ObservableObject {
                 // 仅周一早上触发；内部已做 ≥3 daily / referenceDate 守卫。
                 // 失败静默 — 周回顾是次要产物，不应阻塞 daily 编译完成回执。
                 await self.tryAutoCompileWeekly()
+                return true
+            } catch CompilationError.aiDisabled {
+                // AI toggled off mid-run (the entry guard covers the start).
+                // Local-only mode is not a failure — complete quietly without
+                // the failure notification, matching the disabled-entry path.
+                DayPageLogger.shared.warn("[BGCompile] Background compile stopped: AI features disabled")
+                transaction?.finish(status: .cancelled)
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 return true
             } catch is CancellationError {
                 DayPageLogger.shared.warn("[BGCompile] Background compile cancelled by iOS expiration")
@@ -476,11 +517,19 @@ final class BackgroundCompilationService: ObservableObject {
         var lastError: Error?
         for (attempt, delaySecs) in delays.enumerated() {
             try Task.checkCancellation()
+            // UI14 P2 retry-attempt boundary: observe an AI-OFF toggle before
+            // sleeping, so a disabled run never enters the 30s/2m/10m backoff.
+            guard Self.isAutomaticCompileEligible else { throw CompilationError.aiDisabled }
             if delaySecs > 0 {
                 stage = .cleaning
                 try await Task.sleep(nanoseconds: delaySecs * 1_000_000_000)
             }
             try Task.checkCancellation()
+            // …and again before compiling: a toggle landing during the sleep
+            // ends the run at this boundary. (A sleep already in progress is
+            // NOT interrupted — an old in-flight task ends at its next
+            // boundary; this fix makes no claim of immediate cancellation.)
+            guard Self.isAutomaticCompileEligible else { throw CompilationError.aiDisabled }
             do {
                 stage = .clustering
                 try await CompilationService.shared.compile(for: date, trigger: trigger)
@@ -505,15 +554,31 @@ final class BackgroundCompilationService: ObservableObject {
     }
 
     /// Pure retry classification shared by the foreground and background
-    /// runners. Keep user-actionable configuration failures out of exponential
+    /// runners. Keep user-actionable configuration state out of exponential
     /// backoff; callers already surface the missing-key Settings route.
+    /// `.aiDisabled` (AI OFF / local-only) is an explicit user choice, not a
+    /// transient transport failure — UI14 P2: retrying it behind the
+    /// 30s/2m/10m schedule kept a misleading "Preparing your notes 30%" rail
+    /// alive for ~12.5 minutes.
     nonisolated static func shouldRetryCompilation(after error: Error) -> Bool {
         guard let compilationError = error as? CompilationError else { return true }
         if case .missingApiKey = compilationError { return false }
+        if case .aiDisabled = compilationError { return false }
         return true
     }
 
     // MARK: - Private: Compile Eligibility Check
+
+    /// Shared AI-enabled eligibility gate for every AUTOMATIC compile entry
+    /// point — backfill scan/batch, foreground auto-retry, BGTask child work,
+    /// and the weekly auto compile — plus the retry attempt boundaries.
+    /// Manual compile buttons carry their own UI gating; this condition must
+    /// run BEFORE any scan, task creation, stage change, notification, or LLM
+    /// call so AI OFF (local-only mode) stays silent and idle.
+    /// `internal` so tests can pin the gate against the global toggle.
+    nonisolated static var isAutomaticCompileEligible: Bool {
+        AppSettings.aiFeaturesEnabled
+    }
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()

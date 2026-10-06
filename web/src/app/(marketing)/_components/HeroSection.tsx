@@ -3,19 +3,20 @@
 import { useRef } from "react";
 import {
   motion,
-  useReducedMotion,
   useScroll,
   useTransform,
 } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import { DeviceConstellation } from "./DeviceConstellation";
 import { ShaderBackground } from "./ShaderBackground";
 import { SplitText } from "./SplitText";
 
 export function HeroSection() {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
+    layoutEffect: false,
     offset: ["start start", "end start"],
   });
   // Subtle scroll-linked parallax: iPhone drifts up + tilts slightly as user scrolls.

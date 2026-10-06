@@ -15,6 +15,25 @@ enum AttachmentDownloadState: Equatable {
     case failed
 }
 
+// The card reads the completed preferred-zone value on each render. Each
+// cached formatter is configured once and never mutated after publication.
+@MainActor
+enum MemoCardTimePresentation {
+    private static var formatters: [String: DateFormatter] = [:]
+
+    static func shortTime(_ date: Date, timeZone: TimeZone) -> String {
+        let key = timeZone.identifier
+        if let formatter = formatters[key] { return formatter.string(from: date) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm"
+        formatters[key] = formatter
+        return formatter.string(from: date)
+    }
+}
+
 // MARK: - MemoCardView
 
 /// A single Memo rendered as a Liquid Glass card in the Today timeline.
@@ -25,6 +44,7 @@ struct MemoCardView: View {
     // US-014: called when user retries transcription for a failed voice attachment
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
+    @ObservedObject private var appSettings = AppSettings.shared
     @State private var showLocationSheet: Bool = false
     /// Which photo attachment the full-screen viewer is showing (nil = closed).
     /// item-based so each photo in a multi-photo memo opens its own viewer.
@@ -41,15 +61,6 @@ struct MemoCardView: View {
     /// (`navigationTransition(.zoom)`). The cover is presented from this
     /// view, so the namespace lives here. Inert on iOS 16–17.
     @Namespace private var photoZoomNamespace
-
-    /// Precise 24h time for the content-first card meta line (rendered as "15·23").
-    private static let cardTimeFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
-        return f
-    }()
 
     // MARK: - iCloud helpers
 
@@ -423,7 +434,7 @@ struct MemoCardView: View {
                 // Single line of metadata: precise 24h time as "15·23".
                 let photoFlag = memo.attachments.contains { $0.kind == "photo" }
                 let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
-                Text(Self.cardTimeFmt.string(from: memo.created).replacingOccurrences(of: ":", with: "·"))
+                Text(MemoCardTimePresentation.shortTime(memo.created, timeZone: appSettings.preferredTimeZone).replacingOccurrences(of: ":", with: "·"))
                     .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     // Tracking pulled from 1.6 → 1.2: the wide letter-spacing
                     // read as a terminal readout on a serif card (§4 type

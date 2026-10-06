@@ -75,8 +75,9 @@ struct DailyPageSummarySection: View {
     /// state.
     @ViewBuilder
     private func evidenceRow(_ memoIDs: [UUID]) -> some View {
-        if let first = memoIDs.first, let memoDay {
-            NavigationLink(value: MemoDetailRef(id: first, day: memoDay, source: .daily)) {
+        if let first = memoIDs.first,
+           let reference = MemoDetailRef(id: first, dayString: model.dateString, source: .daily) {
+            NavigationLink(value: reference) {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
                         .font(.system(size: 10, weight: .medium))

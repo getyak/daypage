@@ -20,6 +20,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite(.serialized)
 struct OnThisDayIntegrationTests {
@@ -187,3 +188,9 @@ struct OnThisDayIntegrationTests {
         UserDefaults.standard.removeObject(forKey: "ff.onThisDay")
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias OnThisDayIntegrationTests = DayPageSerialSwiftTests.OnThisDayIntegrationTests

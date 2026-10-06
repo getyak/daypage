@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, eq } from "drizzle-orm";
-import { Opik, SpanType } from "opik";
+import { Opik, OpikSpanType as SpanType } from "opik";
 import { db } from "@/lib/db/client";
 import {
   agent_artifacts,

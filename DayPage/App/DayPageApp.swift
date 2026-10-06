@@ -95,16 +95,58 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
 
 // MARK: - DayPageApp
 
+#if DAYPAGE_ISOLATED_TEST_HOST
+#if !DEBUG
+#error("The isolated unit test host requires Debug configuration")
+#endif
+#endif
+
+/// Select the unit host before any production App property or initializer runs.
+/// A missing QA identity must stop here rather than launch personal services.
 @main
+private enum DayPageEntryPoint {
+    @MainActor
+    static func main() {
+        #if DAYPAGE_ISOLATED_TEST_HOST
+        guard Bundle.main.bundleIdentifier == "com.daypage.app.qa-unit" else {
+            fatalError("Isolated unit host requires its dedicated bundle identity")
+        }
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["XCTestConfigurationFilePath"] != nil
+                || environment["XCTestBundlePath"] != nil
+                || NSClassFromString("XCTestCase") != nil else {
+            fatalError("Isolated unit host requires XCTest injection")
+        }
+        print("[DayPage QA] isolated unit host; production startup disabled")
+        DayPageUnitTestHostApp.main()
+        #else
+        guard Bundle.main.bundleIdentifier != "com.daypage.app.qa-unit" else {
+            fatalError("QA unit identity requires the isolated unit host build marker")
+        }
+        DayPageApp.main()
+        #endif
+    }
+}
+
+#if DAYPAGE_ISOLATED_TEST_HOST
+private struct DayPageUnitTestHostApp: App {
+    var body: some Scene {
+        WindowGroup { Color.clear }
+    }
+}
+#endif
 struct DayPageApp: App {
 
-    private static let readOnlyEntityDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = AppSettings.currentTimeZone()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
+    /// A dedicated Debug UI identity avoids ambiguous system routing when the
+    /// production app and isolated unit host share the normal public scheme.
+    static func acceptsDeepLinkScheme(_ scheme: String?, bundleIdentifier: String) -> Bool {
+        if scheme?.lowercased() == "daypage" { return true }
+        #if DEBUG
+        if bundleIdentifier == "com.daypage.app.qa-ui",
+           scheme?.lowercased() == "daypage-qa-ui" { return true }
+        #endif
+        return false
+    }
 
     // MARK: - UI Test Launch Bridge
 
@@ -130,7 +172,7 @@ struct DayPageApp: App {
         // every screenshot route because Today remains mounted behind Archive,
         // Graph, and Settings. Keep this explicit instead of teaching QA to
         // mutate the simulator's preference domain out of band.
-        "inputBarTutorialCompleted"
+        InputBarTutorialOverlay.completionKey
     ]
 
     /// Parses `-key value` and `key=value` pairs from `ProcessInfo.arguments`
@@ -250,44 +292,16 @@ struct DayPageApp: App {
         // US-006: auto-clear stale draft (>30 days old) before any view reads SceneStorage
         DraftStorage.clearIfExpired()
 
-        // 初始化 Sentry 崩溃报告（DSN 为空时无操作）
-        if !Secrets.sentryDSN.isEmpty {
-            SentrySDK.start { options in
-                options.dsn = Secrets.sentryDSN
-                options.tracesSampleRate = ProcessInfo.processInfo.environment["DEBUG"] != nil ? 1.0 : 0.2
-                options.enableCrashHandler = true
-                options.sendDefaultPii = false
-                // Issue #26: do NOT auto-capture screenshots or view
-                // hierarchy. DayPage screens often display the user's
-                // memo text, API-key entry fields, and named locations
-                // — none of which should be uploaded with a crash event.
-                options.attachScreenshot = false
-                options.attachViewHierarchy = false
-                // Issue #26: redact secrets/PII from every payload before
-                // it leaves the device. Applies to both event messages and
-                // breadcrumb messages. Failure cases (nil event, no
-                // message field) pass through unchanged.
-                options.beforeSend = { event in
-                    // SentryMessage.formatted is read-only; the writable
-                    // field is `message`. Sentry's web UI falls back to
-                    // `message` when `formatted` is absent, so scrubbing
-                    // `message` is sufficient.
-                    if let m = event.message?.message {
-                        event.message?.message = SentryRedactor.redact(m) ?? m
-                    }
-                    if let crumbs = event.breadcrumbs {
-                        for crumb in crumbs {
-                            crumb.message = SentryRedactor.redact(crumb.message)
-                        }
-                    }
-                    return event
-                }
-                options.beforeBreadcrumb = { crumb in
-                    crumb.message = SentryRedactor.redact(crumb.message)
-                    return crumb
-                }
-            }
+        // Issue #922 — 崩溃诊断为 opt-in（默认关闭）。Sentry SDK 只有在
+        // 用户持久化同意（DiagnosticsConsent）且 DSN 已配置时才会启动；
+        // 撤销同意会关闭 SDK，且 Kit 侧事件门在事件生成时拒绝一切新事件。
+        SentryReporter.setEventsGate { DiagnosticsConsent.isOptedIn }
+        DiagnosticsConsent.changeHandler = { optedIn in
+            // Cut off HTTP synchronously, before Sentry.close's cached flush.
+            if !optedIn { DiagnosticsTransportGate.shared.revoke() }
+            Task { @MainActor in SentryLive.applyCurrentConsent() }
         }
+        SentryLive.startIfConsented()
         // Issue #29: must run synchronously before the first SwiftUI body
         // — otherwise Font.custom(...) falls back to system fonts for the
         // first frame and "jumps" when registration finishes async.
@@ -367,7 +381,14 @@ struct DayPageApp: App {
                 .environmentObject(authService)
                 .environmentObject(navModel)
                 .onOpenURL { url in
-                    guard url.scheme?.lowercased() == "daypage" else { return }
+                    guard Self.acceptsDeepLinkScheme(
+                        url.scheme, bundleIdentifier: Bundle.main.bundleIdentifier ?? ""
+                    ) else { return }
+                    #if DEBUG
+                    if url.scheme?.lowercased() == "daypage-qa-ui" {
+                        DayPageLogger.shared.info("[QA owned URL] accepted by dedicated UI bundle")
+                    }
+                    #endif
 
                     // System-level Quick Capture entry points (Widget / Control
                     // Center / Siri / Shortcuts / AppIntent) open the App via
@@ -401,9 +422,12 @@ struct DayPageApp: App {
                        let idString = components.queryItems?.first(where: { $0.name == "id" })?.value,
                        let id = UUID(uuidString: idString),
                        let dateString = components.queryItems?.first(where: { $0.name == "date" })?.value,
-                       let day = Self.readOnlyEntityDateFormatter.date(from: dateString) {
+                       // Validate and PRESERVE the incoming day key. Never run
+                       // it through a static cached parser whose time zone can
+                       // go stale after a preferred-time-zone change.
+                       let ref = MemoDetailRef(id: id, dayString: dateString, source: .daily) {
                         navModel.navigate(to: .archive)
-                        navModel.push(MemoDetailRef(id: id, day: day, source: .daily), in: .archive)
+                        navModel.push(ref, in: .archive)
                         return
                     }
 
@@ -600,38 +624,9 @@ struct DayPageApp: App {
                         }
                     }
                     #endif
-                    // Issue #20 / Gate A fix (2026-07-03): 请求本地通知权限
-                    // (用于 2am 编译完成回执)。原实现在 RootView.onAppear 无条件
-                    // 触发，导致 onboarding 的 Welcome 页刚露头就弹系统授权框，
-                    // 遮挡首屏价值主张 (Gate A 报告的 Medium 缺陷)。修复：
-                    //   1) 只有 onboarding 完成 (hasOnboarded == true) 才触发，
-                    //      让 PermissionsPage 保持通知权限请求的唯一权威入口。
-                    //   2) 保留 hasRequestedNotifications guard，避免冷启动重复
-                    //      弹 (RootView.onAppear 会在场景切换时重入)。
-                    let defaults = UserDefaults.standard
-                    #if DEBUG
-                    // Screenshot/E2E audits run in freshly-created simulators,
-                    // where notification authorization is intentionally
-                    // undetermined. Keep the product condition authoritative
-                    // while allowing those isolated runs to inspect the UI
-                    // without a system-owned alert covering it.
-                    let qaSkipsNotificationPrompt = ProcessInfo.processInfo.arguments
-                        .contains("-qaSkipNotificationPrompt")
-                    #else
-                    let qaSkipsNotificationPrompt = false
-                    #endif
-                    if defaults.bool(forKey: AppSettings.Keys.hasOnboarded),
-                       !qaSkipsNotificationPrompt,
-                       !defaults.bool(forKey: AppSettings.Keys.hasRequestedNotifications) {
-                        defaults.set(true, forKey: AppSettings.Keys.hasRequestedNotifications)
-                        UNUserNotificationCenter.current().requestAuthorization(
-                            options: [.alert, .sound, .badge]
-                        ) { _, _ in
-                            // 用户拒绝时 BGCompile.sendSuccessNotification 的
-                            // center.add() 会静默失败 (log 一行 error), 不影响
-                            // 主流程；不需要在此处理 granted 状态。
-                        }
-                    }
+                    // Notification permission is requested only when the user
+                    // chooses reminders/notifications in onboarding or Settings.
+                    // Launching into a local journal must never trigger a prompt.
                     // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
                     // 加载"历史上的今天"索引。Detached so the first-launch vault
@@ -650,20 +645,8 @@ struct DayPageApp: App {
                     Task.detached(priority: .userInitiated) {
                         await OnThisDayIndex.shared.loadIndex()
                     }
-                    // 在首次启动且完成引导后填充示例数据。Visual/E2E audits
-                    // can suppress this one automatic side effect without
-                    // pretending the sample is already installed — doing the
-                    // latter made the empty-state CTA falsely say “Ready”.
-                    #if DEBUG
-                    let qaDisablesSampleSeed = ProcessInfo.processInfo.arguments
-                        .contains("-qaDisableAutoSampleSeed")
-                    #else
-                    let qaDisablesSampleSeed = false
-                    #endif
-                    if UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded),
-                       !qaDisablesSampleSeed {
-                        SampleDataSeeder.seedIfNeeded()
-                    }
+                    // Sample journal content is written only when the user
+                    // explicitly chooses it, never as a launch side effect.
                 }
                 .onChange(of: scenePhase) { phase in
                     // Returning to the foreground may follow an external vault
@@ -700,4 +683,126 @@ struct DayPageApp: App {
         }
     }
 
+}
+
+// MARK: - SentryLive (issue #922)
+
+/// Owns live Sentry SDK initialization for the iOS app target, extracted from
+/// `DayPageApp.init` so the Privacy & data screen can start/stop the SDK on
+/// consent changes without duplicating the options block. Stays in this app
+/// file deliberately: Kit must not import Sentry (see
+/// `DayPageStorage/SentryReporter.swift` for the adapter boundary).
+///
+/// Fail-closed contract:
+///   - Startup verifies current consent epoch and DSN. SDK calls run outside
+///     the consent lock so startup-crash recovery can finish background flushes.
+///   - Revocation synchronously cuts off transport before scheduling SDK close.
+///     A revoke racing SDK initialization is checked again after start and
+///     closes the SDK; its HTTP requests are already refused by the final gate.
+///     Events already uploaded cannot be recalled from the device.
+@MainActor
+enum SentryLive {
+    private static var activeEpoch: UUID?
+
+    /// Starts the SDK iff consent + DSN are both present. Idempotent.
+    static func startIfConsented() {
+        if activeEpoch != nil {
+            if DiagnosticsConsent.withCurrentEpoch({ $0 == activeEpoch }) == true { return }
+            // SDK.close can wait for background transport callbacks. Revoke
+            // first, then close outside the consent permit to avoid deadlock.
+            close()
+        }
+        let prepared = DiagnosticsConsent.withCurrentEpoch { epoch -> (UUID, URLSession, URL)? in
+            guard !Secrets.sentryDSN.isEmpty,
+                  var parts = URLComponents(string: Secrets.sentryDSN), parts.scheme == "https",
+                  let publicKey = parts.user, !publicKey.isEmpty else { return nil }
+            let components = parts.path.split(separator: "/")
+            guard let project = components.last else { return nil }
+            let prefix = components.dropLast().map(String.init).joined(separator: "/")
+            parts.path = "/" + (prefix.isEmpty ? "" : prefix + "/") + "api/\(project)/envelope/"
+            parts.user = nil; parts.password = nil; parts.query = nil; parts.fragment = nil
+            guard let endpoint = parts.url,
+                  let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+            let cache = cacheRoot.appendingPathComponent("DayPageDiagnostics", isDirectory: true)
+                .appendingPathComponent(epoch.uuidString, isDirectory: true)
+            guard (try? FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)) != nil else { return nil }
+            let session = DiagnosticsTransportGate.shared.makeSession(
+                endpoint: endpoint,
+                authHeader: "Sentry sentry_version=7,sentry_client=sentry.cocoa/8.58.4,sentry_key=\(publicKey)",
+                consent: { DiagnosticsConsent.isOptedIn && DiagnosticsConsent.epoch() == epoch }
+            )
+            return (epoch, session, cache)
+        }
+        guard let prepared, let (epoch, session, cache) = prepared else { return }
+        guard DiagnosticsConsent.epoch() == epoch else {
+            DiagnosticsTransportGate.shared.revoke()
+            return
+        }
+        activeEpoch = epoch
+
+        // Never hold the consent permit across start: SDK startup-crash recovery
+        // may flush for five seconds and wait for the background protocol gate.
+        // A concurrent revoke cuts HTTP off synchronously; then we close below.
+        SentrySDK.start { options in
+            options.dsn = Secrets.sentryDSN
+            options.urlSession = session
+            options.cacheDirectoryPath = cache.path
+            options.tracesSampleRate = 0
+            options.enableAutoPerformanceTracing = false
+            options.enableAutoBreadcrumbTracking = false
+            options.enableNetworkBreadcrumbs = false
+            options.enableCaptureFailedRequests = false
+            options.enableAutoSessionTracking = false
+            options.maxBreadcrumbs = 0
+            options.enableCrashHandler = true
+            options.sendDefaultPii = false
+            // Issue #26: do NOT auto-capture screenshots or view
+            // hierarchy. DayPage screens often display the user's
+            // memo text, API-key entry fields, and named locations
+            // — none of which should be uploaded with a crash event.
+            options.attachScreenshot = false
+            options.attachViewHierarchy = false
+            // Remove unstructured event fields before caching. The final
+            // transport allowlist also protects pre-existing cached envelopes.
+            options.beforeSend = { event in
+                guard DiagnosticsConsent.isOptedIn, DiagnosticsConsent.epoch() == epoch else { return nil }
+                event.message = nil
+                event.error = nil
+                event.user = nil
+                event.request = nil
+                event.context = nil
+                event.extra = nil
+                event.breadcrumbs = nil
+                event.transaction = nil
+                event.logger = nil
+                event.serverName = nil
+                event.fingerprint = nil
+                event.modules = nil
+                // The final envelope allowlist also removes dynamic exception,
+                // frame, image, and tag text, including from pre-existing cache.
+                return event
+            }
+            options.beforeBreadcrumb = { _ in nil }
+            options.beforeSendSpan = { _ in nil }
+        }
+        if DiagnosticsConsent.epoch() != epoch { close() }
+    }
+
+    /// Applies a consent change: enable → start (if DSN present);
+    /// disable → close the SDK and its transport.
+    static func applyCurrentConsent() {
+        if DiagnosticsConsent.isOptedIn {
+            startIfConsented()
+        } else {
+            close()
+        }
+    }
+
+    /// Closes the live SDK so no queued or future event can leave the device.
+    static func close() {
+        DiagnosticsTransportGate.shared.revoke()
+        guard activeEpoch != nil else { return }
+        activeEpoch = nil
+        SentrySDK.close()
+    }
 }

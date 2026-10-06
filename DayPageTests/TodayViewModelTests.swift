@@ -1,10 +1,12 @@
 import Testing
 import Foundation
+import UIKit
 import DayPageModels
 import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// US-020: Unit tests for TodayViewModel core paths: addMemo, deleteMemo, toggleFavorite (pin/unpin).
 ///
 /// TodayViewModel reads/writes via RawStorage which uses VaultInitializer.testOverrideURL.
@@ -380,7 +382,509 @@ struct TodayViewModelTests {
         #expect(vm.signalCount == 3)
     }
 
+    @Test func photoImportsBlockPartialSubmissionUntilEveryResultArrives() async throws {
+        defer { cleanup() }
+        let first = PhotoResultGate()
+        let second = PhotoResultGate()
+        let firstTask = vm.stagePhotoAttachments { await first.value() }
+        let secondTask = vm.stagePhotoAttachments { await second.value() }
+        #expect(vm.isProcessingPhoto)
+        #expect(!vm.submitCombinedMemo(body: "Keep both photos"))
+        second.resolve([try photoResult("second.jpg")])
+        await secondTask.value
+        #expect(vm.pendingAttachments.count == 1)
+        #expect(vm.isProcessingPhoto)
+        #expect(!vm.submitCombinedMemo(body: "Keep both photos"))
+        #expect(vm.memos.isEmpty)
+        first.resolve([try photoResult("first.jpg")])
+        await firstTask.value
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.submitCombinedMemo(body: "Keep both photos"))
+        await vm.waitForSubmissionPersistence()
+        let saved = try #require(try RawStorage.read(for: Date(), vaultRoot: tempDir).first)
+        #expect(saved.body == "Keep both photos")
+        #expect(Set(saved.attachments.map(\.file)) == ["raw/assets/first.jpg", "raw/assets/second.jpg"])
+    }
+
+    @Test func discardedPhotoCannotEnterANewDraftOrClearItsLoadingState() async throws {
+        defer { cleanup() }
+        let old = PhotoResultGate()
+        let oldTask = vm.stagePhotoAttachments(autoSubmit: true) { await old.value() }
+        vm.clearPendingAttachments()
+        let current = PhotoResultGate()
+        let currentTask = vm.stagePhotoAttachments { await current.value() }
+        old.resolve([try photoResult("discarded.jpg")])
+        await oldTask.value
+        #expect(vm.isProcessingPhoto)
+        #expect(vm.pendingAttachments.isEmpty)
+        #expect(vm.memos.isEmpty)
+        #expect(vm.submitError == nil)
+        current.resolve([try photoResult("current.jpg")])
+        await currentTask.value
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.pendingAttachments.map(\.attachment.file) == ["raw/assets/current.jpg"])
+    }
+
+    @Test func failedPhotoImportRetiresLoadingAndCanBeRetried() async throws {
+        defer { cleanup() }
+        let failed = vm.stagePhotoAttachments { [] }
+        await failed.value
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.submitError != nil)
+        let result = try photoResult("retry.jpg")
+        let retry = vm.stagePhotoAttachments { [result] }
+        await retry.value
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.submitError == nil)
+        #expect(vm.pendingAttachments.count == 1)
+    }
+
+    @Test func automaticPhotoSubmitRetiresItsOwnImportBeforeSaving() async throws {
+        defer { cleanup() }
+        let result = try photoResult("camera.jpg")
+        let task = vm.stagePhotoAttachments(autoSubmit: true) { [result] }
+        await task.value
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.memos.count == 1)
+        await vm.waitForSubmissionPersistence()
+        let saved = try #require(try RawStorage.read(for: Date(), vaultRoot: tempDir).first)
+        #expect(saved.attachments.map(\.file) == ["raw/assets/camera.jpg"])
+    }
+
+    @Test(arguments: [true, false])
+    func automaticPhotoSubmitDoesNotCommitAnotherImportPartially(cameraFinishesFirst: Bool) async throws {
+        defer { cleanup() }
+        let camera = PhotoResultGate()
+        let picker = PhotoResultGate()
+        let cameraTask = vm.stagePhotoAttachments(autoSubmit: true) { await camera.value() }
+        let pickerTask = vm.stagePhotoAttachments { await picker.value() }
+        if cameraFinishesFirst {
+            camera.resolve([try photoResult("camera-pending.jpg")])
+            await cameraTask.value
+            #expect(vm.memos.isEmpty)
+            #expect(vm.isProcessingPhoto)
+            picker.resolve([try photoResult("picked.jpg")])
+            await pickerTask.value
+        } else {
+            picker.resolve([try photoResult("picked.jpg")])
+            await pickerTask.value
+            #expect(vm.memos.isEmpty)
+            #expect(vm.isProcessingPhoto)
+            camera.resolve([try photoResult("camera-pending.jpg")])
+            await cameraTask.value
+        }
+        await vm.waitForSubmissionPersistence()
+        #expect(!vm.isProcessingPhoto)
+        #expect(vm.memos.isEmpty)
+        #expect(vm.pendingAttachments.count == 2)
+    }
+
+    @Test func automaticPhotoSubmitLeavesExistingAttachmentsForConfirmation() async throws {
+        defer { cleanup() }
+        vm.pendingAttachments = [.photo(try photoResult("existing-draft.jpg"))]
+        let camera = try photoResult("camera-with-draft.jpg")
+        let task = vm.stagePhotoAttachments(autoSubmit: true) { [camera] }
+        await task.value
+        await vm.waitForSubmissionPersistence()
+        #expect(vm.memos.isEmpty)
+        #expect(vm.pendingAttachments.count == 2)
+    }
+
+    // MARK: - Composer generation (late press-to-talk voice results)
+
+    @Test func lateVoiceResultsAfterConfirmedDiscardCannotWriteANewDraft() throws {
+        defer { cleanup() }
+        let token = vm.composerToken(for: .writeSheet)
+        // TodayView.onDiscard's exact VM sequence — the draft is destroyed.
+        vm.discardActiveInflightDraft()
+        vm.clearPendingAttachments()
+        // The ASR/save results return only after the discard: the transcript
+        // must not write the fresh composer and the send must not stage in it.
+        #expect(vm.draftByAppendingTranscript("late transcript", to: "", token: token) == nil)
+        let dropped = try voiceResult("discarded-late.m4a")
+        #expect(!vm.stageVoiceResult(dropped, token: token))
+        #expect(vm.pendingAttachments.isEmpty)
+        #expect(vm.memos.isEmpty)
+        // A rejected result is dropped untouched — the saved audio stays on
+        // disk and the shared VoiceService is neither reset nor cancelled.
+        #expect(FileManager.default.fileExists(atPath: dropped.fileURL.path))
+    }
+
+    @Test func lateVoiceResultsAfterSuccessSubmitCannotPolluteTheNextDraft() async throws {
+        defer { cleanup() }
+        let token = vm.composerToken(for: .dock)
+        #expect(vm.submitCombinedMemo(body: "sent from the dock"))
+        // The successful submit cleared the composer: results belonging to
+        // the submitted draft must not write or stage into the next one.
+        #expect(vm.draftByAppendingTranscript("late transcript", to: "", token: token) == nil)
+        let dropped = try voiceResult("after-submit.m4a")
+        #expect(!vm.stageVoiceResult(dropped, token: token))
+        #expect(vm.pendingAttachments.isEmpty)
+        await vm.waitForSubmissionPersistence()
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.body == "sent from the dock")
+    }
+
+    @Test func currentVoiceResultsStillLandInTheLiveDraft() throws {
+        defer { cleanup() }
+        let dock = vm.composerToken(for: .dock)
+        let sheet = vm.composerToken(for: .writeSheet)
+        // Typing never rotates the generation: current results from either
+        // surface complete into the same live draft (empty and append forms).
+        #expect(vm.draftByAppendingTranscript("voice words", to: "", token: dock) == "voice words")
+        #expect(vm.draftByAppendingTranscript("voice words", to: "typed ", token: sheet) == "typed voice words")
+        let staged = try voiceResult("live.m4a")
+        #expect(vm.stageVoiceResult(staged, token: dock))
+        #expect(vm.pendingAttachments.map(\.attachment.file) == ["raw/assets/live.m4a"])
+        #expect(vm.memos.isEmpty)
+    }
+
+    @Test func failedSubmitKeepsTheComposerGenerationForInFlightVoiceResults() throws {
+        defer { cleanup() }
+        let token = vm.composerToken(for: .writeSheet)
+        // A staged asset from outside the active vault fails the submit with
+        // the whole draft preserved (vault-changed guard).
+        vm.pendingAttachments = [.photo(PhotoPickerResult(
+            filePath: "raw/assets/foreign.jpg",
+            fileURL: URL(fileURLWithPath: "/outside-the-vault/foreign.jpg"),
+            exif: nil,
+            thumbnail: nil
+        ))]
+        #expect(!vm.submitCombinedMemo(body: "keep editing"))
+        #expect(vm.memos.isEmpty)
+        // A failed submit is not a draft boundary: the in-flight results still
+        // belong to this composer and may complete into it.
+        #expect(vm.draftByAppendingTranscript("still welcome", to: "keep editing ", token: token) == "keep editing still welcome")
+        let late = try voiceResult("after-failed-submit.m4a")
+        #expect(vm.stageVoiceResult(late, token: token))
+        #expect(vm.pendingAttachments.count == 2)
+    }
+
+    @Test func softKeepAndOrdinaryEditsPreserveTheComposerGeneration() throws {
+        defer { cleanup() }
+        let dock = vm.composerToken(for: .dock)
+        let sheet = vm.composerToken(for: .writeSheet)
+        // Soft close / swipe dismissal / Keep editing never touch the VM's
+        // draft lifecycle; neither do ordinary composer edits (staging,
+        // removing, location).
+        vm.pendingAttachments = [.photo(try photoResult("kept.jpg"))]
+        vm.removePendingAttachment(id: vm.pendingAttachments[0].id)
+        vm.setPendingLocation(Memo.Location(name: "here", lat: 1, lng: 2))
+        vm.clearPendingLocation()
+        // The original draft's own late results stay legitimate.
+        #expect(vm.draftByAppendingTranscript("after soft close", to: "kept typing ", token: sheet) == "kept typing after soft close")
+        let staged = try voiceResult("kept.m4a")
+        #expect(vm.stageVoiceResult(staged, token: dock))
+        #expect(vm.pendingAttachments.map(\.attachment.file) == ["raw/assets/kept.m4a"])
+        #expect(vm.memos.isEmpty)
+    }
+
+    @Test func restoringAnotherDraftRetiresThePreviousGeneration() throws {
+        defer { cleanup() }
+        let token = vm.composerToken(for: .dock)
+        _ = try InflightDraftStore.persist(
+            InflightDraft(id: UUID(), body: "restored draft", enqueuedAt: Date(), attachmentPaths: []),
+            vaultRoot: tempDir
+        )
+        vm.recoverInflightDrafts()
+        #expect(vm.restoreNextInflightDraft(composerBody: "") == "restored draft")
+        // Restoring another draft replaces the composer content: results
+        // captured for the replaced draft must not land in the restored one.
+        #expect(vm.draftByAppendingTranscript("late transcript", to: "restored draft ", token: token) == nil)
+        let dropped = try voiceResult("after-restore.m4a")
+        #expect(!vm.stageVoiceResult(dropped, token: token))
+        #expect(vm.pendingAttachments.isEmpty)
+    }
+
+    // MARK: - Cold-start draft reconciliation (once per Today instance/scene)
+
+    /// Isolated UserDefaults suite for the draft journal. The keys are written
+    /// LITERALLY in these tests on purpose: `today.draftText.backup.<sceneID>`
+    /// and `today.draftDate` are a frozen persistence contract with shipping
+    /// builds, and the reconciliation must keep reading exactly these keys.
+    private func draftDefaults() throws -> (defaults: UserDefaults, suite: String) {
+        let suite = "TodayDraftRecovery-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        return (defaults, suite)
+    }
+
+    @Test func staleSceneSnapshotLosesToTheNewerSceneMirrorOnColdStart() throws {
+        defer { cleanup() }
+        // Regression for the verified cold-recovery failure: after a force
+        // stop/launch, SceneStorage restored an OLD R1 snapshot while the
+        // per-scene mirror journal held the current R2. The journal wins.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        defaults.set("QA draft4 R2 - Keep draft.", forKey: "today.draftText.backup.\(sceneID)")
+        defaults.set(Date().timeIntervalSince1970 - 60, forKey: "today.draftDate")
+
+        let coldLaunch = TodayViewModel(date: Date(), observeChanges: false)
+        #expect(coldLaunch.reconcileInitialDraft(
+            sceneID: sceneID,
+            sceneText: "QA draft4 R1 - stale snapshot",
+            defaults: defaults
+        ) == "QA draft4 R2 - Keep draft.")
+    }
+
+    @Test func emptySceneStorageRestoresTheSceneMirrorJournal() throws {
+        defer { cleanup() }
+        // Classic R4-B2 case: SceneStorage came back empty after a process
+        // kill and only the journal knows the in-flight draft.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        defaults.set("restored from the scene journal", forKey: "today.draftText.backup.\(sceneID)")
+        defaults.set(Date().timeIntervalSince1970 - 60, forKey: "today.draftDate")
+
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults)
+                == "restored from the scene journal")
+    }
+
+    @Test func missingMirrorClearsTheStaleSceneSnapshot() throws {
+        defer { cleanup() }
+        // The mirror is the journal: send and confirmed discard clear it
+        // synchronously. Its absence must drop the stale snapshot — never
+        // resurrect a draft the user already destroyed.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+
+        #expect(vm.reconcileInitialDraft(
+            sceneID: sceneID,
+            sceneText: "already sent or discarded",
+            defaults: defaults
+        ) == "")
+    }
+
+    @Test func emptyMirrorAlsoClearsTheStaleSceneSnapshot() throws {
+        defer { cleanup() }
+        // An explicitly emptied journal is the same clear decision.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        defaults.set("", forKey: "today.draftText.backup.\(sceneID)")
+
+        #expect(vm.reconcileInitialDraft(
+            sceneID: sceneID,
+            sceneText: "stale snapshot",
+            defaults: defaults
+        ) == "")
+    }
+
+    @Test func laterPresentationsKeepLiveTypingInsteadOfReplayingTheMirror() throws {
+        defer { cleanup() }
+        // Only the FIRST presentation reconciles. Returning from a detail
+        // page must not overwrite what the user typed since — the mirror is
+        // debounced and can still hold the older text.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        defaults.set("QA draft4 R2", forKey: "today.draftText.backup.\(sceneID)")
+        defaults.set(Date().timeIntervalSince1970 - 60, forKey: "today.draftDate")
+
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "QA draft4 R1", defaults: defaults) == "QA draft4 R2")
+        #expect(vm.hasReconciledInitialDraft)
+        // Typing happened; the debounce has not flushed the mirror yet.
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "QA draft4 R2 - typing right now", defaults: defaults) == nil)
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "QA draft4 R2 - typing right now", defaults: defaults) == nil)
+    }
+
+    @Test func reconciliationNeverReadsAnotherScenesMirror() throws {
+        defer { cleanup() }
+        // Multi-window safety: exactly this scene's key is consulted, never
+        // any other scene's journal entry.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        let otherSceneID = UUID().uuidString
+        defaults.set("another window's draft", forKey: "today.draftText.backup.\(otherSceneID)")
+        defaults.set(Date().timeIntervalSince1970 - 60, forKey: "today.draftDate")
+
+        // No journal for THIS scene: the other scene's draft must not leak in.
+        #expect(vm.reconcileInitialDraft(
+            sceneID: sceneID,
+            sceneText: "stale snapshot",
+            defaults: defaults
+        ) == "")
+        // With a journal of its own, this scene recovers its own draft.
+        defaults.set("my scene's draft", forKey: "today.draftText.backup.\(sceneID)")
+        let coldLaunch = TodayViewModel(date: Date(), observeChanges: false)
+        #expect(coldLaunch.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults) == "my scene's draft")
+    }
+
+    @Test func expiredBackupIsNotResurrectedWhenSceneStorageComesBackEmpty() throws {
+        defer { cleanup() }
+        // US-006 judged on the recovery result: an expired backup must not be
+        // resurrected just because SceneStorage came back empty. The discard
+        // is durable — the stale journal entry is removed so no later launch
+        // can revive it either.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        let mirrorKey = "today.draftText.backup.\(sceneID)"
+        defaults.set("31-day-old unsent draft", forKey: mirrorKey)
+        defaults.set(Date().timeIntervalSince1970 - (30 * 24 * 3600 + 3600), forKey: "\(mirrorKey).modifiedAt")
+
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults) == "")
+        #expect(defaults.string(forKey: mirrorKey) == nil)
+        let relaunch = TodayViewModel(date: Date(), observeChanges: false)
+        #expect(relaunch.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults) == nil)
+    }
+
+    @Test func backupJustInsideThirtyDaysStillRestores() throws {
+        defer { cleanup() }
+        // Boundary: the 30-day limit is strictly-greater, exactly like
+        // DraftStorage.clearIfExpired — just inside it the draft survives.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        defaults.set("just-inside-the-limit draft", forKey: "today.draftText.backup.\(sceneID)")
+        defaults.set(Date().timeIntervalSince1970 - (30 * 24 * 3600 - 60), forKey: "today.draftText.backup.\(sceneID).modifiedAt")
+
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults) == "just-inside-the-limit draft")
+    }
+
+    @Test func unstampedLegacyJournalPreservesUnknownAgeAcrossLaunches() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("keep the unknown-age draft", forKey: "today.draftText.backup.scene-A")
+        // Another window may clear the global date; absence proves no age.
+        #expect(vm.reconcileInitialDraft(sceneID: "scene-A", sceneText: "old", defaults: defaults) == "keep the unknown-age draft")
+        #expect(defaults.string(forKey: "today.draftText.backup.scene-A") == "keep the unknown-age draft")
+        let relaunched = TodayViewModel(date: Date(), observeChanges: false)
+        #expect(relaunched.reconcileInitialDraft(sceneID: "scene-A", sceneText: "", defaults: defaults) == "keep the unknown-age draft")
+    }
+
+    @Test func anotherEmptyWindowCannotExpireThisScenesJournal() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        defaults.set("window A live draft", forKey: "today.draftText.backup.A")
+        defaults.set(now.timeIntervalSince1970 - 60, forKey: "today.draftText.backup.A.modifiedAt")
+        defaults.set(0, forKey: "today.draftDate")
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "old", defaults: defaults, now: now) == "window A live draft")
+        #expect(defaults.double(forKey: "today.draftText.backup.A.modifiedAt") == now.timeIntervalSince1970 - 60)
+    }
+
+    @Test func exactThirtyDayBoundaryPreservesDraftAndItsOriginalAge() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let savedAt = now.timeIntervalSince1970 - 30 * 24 * 3600
+        defaults.set("boundary draft", forKey: "today.draftText.backup.A")
+        defaults.set(savedAt, forKey: "today.draftText.backup.A.modifiedAt")
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "", defaults: defaults, now: now) == "boundary draft")
+        #expect(defaults.double(forKey: "today.draftText.backup.A.modifiedAt") == savedAt)
+    }
+
+    @Test func freshGlobalDateCannotResurrectExpiredSceneOrDeleteOtherScene() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        defaults.set("expired A", forKey: "today.draftText.backup.A")
+        defaults.set(now.timeIntervalSince1970 - 30 * 24 * 3600 - 1, forKey: "today.draftText.backup.A.modifiedAt")
+        defaults.set("live B", forKey: "today.draftText.backup.B")
+        defaults.set(now.timeIntervalSince1970, forKey: "today.draftText.backup.B.modifiedAt")
+        defaults.set(now.timeIntervalSince1970, forKey: "today.draftDate")
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "expired A", defaults: defaults, now: now) == "")
+        #expect(defaults.object(forKey: "today.draftText.backup.A") == nil)
+        #expect(defaults.object(forKey: "today.draftText.backup.A.modifiedAt") == nil)
+        #expect(defaults.string(forKey: "today.draftText.backup.B") == "live B")
+        #expect(defaults.double(forKey: "today.draftText.backup.B.modifiedAt") == now.timeIntervalSince1970)
+    }
+
+    @Test func coldReplacementRetiresVoiceButLaterAppearanceKeepsNewGeneration() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("new journal draft", forKey: "today.draftText.backup.A")
+        let oldDock = vm.composerToken(for: .dock)
+        let oldSheet = vm.composerToken(for: .writeSheet)
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "old", defaults: defaults) == "new journal draft")
+        #expect(!vm.isComposerTokenCurrent(oldDock))
+        #expect(!vm.isComposerTokenCurrent(oldSheet))
+        let live = vm.composerToken(for: .writeSheet)
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "new typing", defaults: defaults) == nil)
+        #expect(vm.isComposerTokenCurrent(live))
+    }
+
+    @Test func expiredGlobalLegacyDateAloneCannotDeleteAnUnstampedJournal() throws {
+        defer { cleanup() }
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("legacy journal", forKey: "today.draftText.backup.A")
+        defaults.set(1, forKey: "today.draftDate")
+        #expect(vm.reconcileInitialDraft(sceneID: "A", sceneText: "old", defaults: defaults) == "legacy journal")
+        #expect(defaults.string(forKey: "today.draftText.backup.A") == "legacy journal")
+    }
+
+    @Test func explicitSendClearIsNotResurrectedByTheNextLaunch() throws {
+        defer { cleanup() }
+        // Lifecycle: the draft is journaled, then the user sends it and the
+        // clear runs synchronously (TodayView.submitComposer removes the
+        // journal key in the same turn). A relaunch over a stale snapshot
+        // must show nothing — the sent draft stays gone.
+        let (defaults, suite) = try draftDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sceneID = UUID().uuidString
+        let mirrorKey = "today.draftText.backup.\(sceneID)"
+        defaults.set("QA draft4 R2 - sent", forKey: mirrorKey)
+        defaults.set(Date().timeIntervalSince1970 - 60, forKey: "today.draftDate")
+        #expect(vm.reconcileInitialDraft(sceneID: sceneID, sceneText: "", defaults: defaults) == "QA draft4 R2 - sent")
+        // ...the user sends it (explicit synchronous clear of the journal):
+        defaults.removeObject(forKey: mirrorKey)
+
+        let relaunch = TodayViewModel(date: Date(), observeChanges: false)
+        #expect(relaunch.reconcileInitialDraft(
+            sceneID: sceneID,
+            sceneText: "QA draft4 R2 - sent",
+            defaults: defaults
+        ) == "")
+        #expect(defaults.string(forKey: mirrorKey) == nil)
+    }
+
     // MARK: - Helpers
+
+    @MainActor private final class PhotoResultGate {
+        private var resolved: [PhotoPickerResult]?
+        private var continuation: CheckedContinuation<[PhotoPickerResult], Never>?
+
+        func value() async -> [PhotoPickerResult] {
+            if let resolved { return resolved }
+            return await withCheckedContinuation { continuation = $0 }
+        }
+
+        func resolve(_ value: [PhotoPickerResult]) {
+            resolved = value
+            continuation?.resume(returning: value)
+            continuation = nil
+        }
+    }
+
+    private func photoResult(_ name: String) throws -> PhotoPickerResult {
+        let relative = "raw/assets/\(name)"
+        let url = tempDir.appendingPathComponent(relative)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.gray.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        try #require(image.jpegData(compressionQuality: 0.8)).write(to: url)
+        return PhotoPickerResult(filePath: relative, fileURL: url, exif: nil, thumbnail: nil)
+    }
+
+    private func voiceResult(_ name: String, transcript: String? = nil) throws -> VoiceRecordingResult {
+        let relative = "raw/assets/\(name)"
+        let url = tempDir.appendingPathComponent(relative)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([0x00, 0x01, 0x02]).write(to: url)
+        return VoiceRecordingResult(filePath: relative, fileURL: url, duration: 3, transcript: transcript)
+    }
 
     private func makeMemo(body: String, created: Date = Date()) -> Memo {
         Memo(
@@ -391,3 +895,6 @@ struct TodayViewModelTests {
         )
     }
 }
+}
+
+typealias TodayViewModelTests = DayPageSerialSwiftTests.TodayViewModelTests

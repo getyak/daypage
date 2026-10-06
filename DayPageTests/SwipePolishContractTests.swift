@@ -4,6 +4,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Regression contract for the 100-分 polish landed on 2026-07-02.
 ///
 /// These tests do NOT simulate touches — they lock down the *tokens* and
@@ -258,3 +259,9 @@ struct SwipePolishContractTests {
         _ = uploader
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias SwipePolishContractTests = DayPageSerialSwiftTests.SwipePolishContractTests

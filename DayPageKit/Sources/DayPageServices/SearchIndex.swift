@@ -103,9 +103,9 @@ public final class SearchIndex {
         let writeToken = NotificationCenter.default.addObserver(
             forName: .rawStorageDidWrite, object: nil, queue: .main
         ) { [weak self] note in
-            let date = note.object as? Date
+            let dayString = note.userInfo?[RawStorage.writtenDayStringKey] as? String
             MainActor.assumeIsolated {
-                self?.handleDidWrite(date: date)
+                self?.handleDidWrite(dayString: dayString)
             }
         }
         let conflictToken = NotificationCenter.default.addObserver(
@@ -218,12 +218,14 @@ public final class SearchIndex {
 
     // MARK: - Incremental updates
 
-    private func handleDidWrite(date: Date?) {
-        guard let date else {
+    private func handleDidWrite(dayString: String?) {
+        // The writer captured this key from the actual raw file URL. A Date
+        // can mean a different stored day after the preferred zone changes.
+        // Legacy or malformed notifications conservatively refresh all files.
+        guard let stem = dayString, RawStorage.isValidDayString(stem) else {
             scheduleRebuild(rebuildAgainIfRunning: true)
             return
         }
-        let stem = Self.dateFormatter.string(from: date)
         guard isBuilt, rebuildTask == nil else {
             pendingWriteDates.insert(stem)
             if rebuildTask == nil { scheduleRebuild() }
@@ -318,15 +320,8 @@ public final class SearchIndex {
     // MARK: - Helpers
 
     nonisolated private static func isValidDateString(_ s: String) -> Bool {
-        dateFormatter.date(from: s) != nil
+        RawStorage.isValidDayString(s)
     }
-
-    nonisolated private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
 
     // MARK: - Test support
 
@@ -346,6 +341,19 @@ public final class SearchIndex {
         isBuilt = true
         rebuildRequestedAfterCurrent = false
         pendingWriteDates.removeAll()
+    }
+
+    /// Test-only: await incremental updates as well as rebuild/refresh work.
+    /// Call after notification delivery has registered the affected day task.
+    public func waitUntilIdleForTesting() async {
+        while true {
+            let tasks = [rebuildTask, refreshTask].compactMap { $0 }
+                + Array(dayUpdateTasks.values)
+            guard !tasks.isEmpty else { return }
+            for task in tasks {
+                await task.value
+            }
+        }
     }
 
     /// Test-only: reset to the never-built state.

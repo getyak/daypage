@@ -316,6 +316,25 @@
 		SA000B026 /* SystemActionContextComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SA000F026 /* SystemActionContextComposerView.swift */; };
 		SA000B027 /* SystemActionUIModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SA000F027 /* SystemActionUIModelTests.swift */; };
 		SA000B028 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
+		ORP000001 /* CJKTextPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100001 /* CJKTextPolishTests.swift */; };
+		ORP000002 /* DailyPageParserEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100002 /* DailyPageParserEvidenceTests.swift */; };
+		ORP000003 /* DayProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100003 /* DayProgressTests.swift */; };
+		ORP000004 /* DSFontsSerifTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100004 /* DSFontsSerifTests.swift */; };
+		ORP000005 /* EntitySlugDedupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100005 /* EntitySlugDedupTests.swift */; };
+		ORP000006 /* GraphViewModelFilterCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100006 /* GraphViewModelFilterCacheTests.swift */; };
+		ORP000007 /* MarkdownExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100007 /* MarkdownExportServiceTests.swift */; };
+		ORP000008 /* MemoSerializationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100008 /* MemoSerializationTests.swift */; };
+		ORP000009 /* ParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100009 /* ParserTests.swift */; };
+		ORP000010 /* PhotoServiceBackgroundTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100010 /* PhotoServiceBackgroundTests.swift */; };
+		ORP000011 /* SearchHighlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100011 /* SearchHighlightTests.swift */; };
+		SCL1000001 /* ShareCardLocationIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCL2000001 /* ShareCardLocationIntegrityTests.swift */; };
+		ORP000012 /* SmokeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100012 /* SmokeTest.swift */; };
+		ORP000013 /* TimeLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100013 /* TimeLogicTests.swift */; };
+		ORP000014 /* TimeOfDayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100014 /* TimeOfDayTests.swift */; };
+		ORP000015 /* TrashTTLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100015 /* TrashTTLTests.swift */; };
+		ORP000016 /* WeatherServiceCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100016 /* WeatherServiceCacheTests.swift */; };
+		ORP000017 /* WeeklyRecapRangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100017 /* WeeklyRecapRangeTests.swift */; };
+		ORP000018 /* WriteSheetCountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ORF100018 /* WriteSheetCountTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -667,6 +686,25 @@
 		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
 		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
 		WS1000001 /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreen.swift; sourceTree = "<group>"; };
+		ORF100001 /* CJKTextPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolishTests.swift; sourceTree = "<group>"; };
+		ORF100002 /* DailyPageParserEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageParserEvidenceTests.swift; sourceTree = "<group>"; };
+		ORF100003 /* DayProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayProgressTests.swift; sourceTree = "<group>"; };
+		ORF100004 /* DSFontsSerifTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSFontsSerifTests.swift; sourceTree = "<group>"; };
+		ORF100005 /* EntitySlugDedupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitySlugDedupTests.swift; sourceTree = "<group>"; };
+		ORF100006 /* GraphViewModelFilterCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphViewModelFilterCacheTests.swift; sourceTree = "<group>"; };
+		ORF100007 /* MarkdownExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownExportServiceTests.swift; sourceTree = "<group>"; };
+		ORF100008 /* MemoSerializationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSerializationTests.swift; sourceTree = "<group>"; };
+		ORF100009 /* ParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserTests.swift; sourceTree = "<group>"; };
+		ORF100010 /* PhotoServiceBackgroundTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoServiceBackgroundTests.swift; sourceTree = "<group>"; };
+		ORF100011 /* SearchHighlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHighlightTests.swift; sourceTree = "<group>"; };
+		SCL2000001 /* ShareCardLocationIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardLocationIntegrityTests.swift; sourceTree = "<group>"; };
+		ORF100012 /* SmokeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTest.swift; sourceTree = "<group>"; };
+		ORF100013 /* TimeLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeLogicTests.swift; sourceTree = "<group>"; };
+		ORF100014 /* TimeOfDayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDayTests.swift; sourceTree = "<group>"; };
+		ORF100015 /* TrashTTLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashTTLTests.swift; sourceTree = "<group>"; };
+		ORF100016 /* WeatherServiceCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherServiceCacheTests.swift; sourceTree = "<group>"; };
+		ORF100017 /* WeeklyRecapRangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapRangeTests.swift; sourceTree = "<group>"; };
+		ORF100018 /* WriteSheetCountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteSheetCountTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1428,6 +1466,25 @@
 				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
 				SA000F018 /* SystemActionAppleAdapterTests.swift */,
 				SA000F027 /* SystemActionUIModelTests.swift */,
+				ORF100001 /* CJKTextPolishTests.swift */,
+				ORF100002 /* DailyPageParserEvidenceTests.swift */,
+				ORF100003 /* DayProgressTests.swift */,
+				ORF100004 /* DSFontsSerifTests.swift */,
+				ORF100005 /* EntitySlugDedupTests.swift */,
+				ORF100006 /* GraphViewModelFilterCacheTests.swift */,
+				ORF100007 /* MarkdownExportServiceTests.swift */,
+				ORF100008 /* MemoSerializationTests.swift */,
+				ORF100009 /* ParserTests.swift */,
+				ORF100010 /* PhotoServiceBackgroundTests.swift */,
+				ORF100011 /* SearchHighlightTests.swift */,
+				SCL2000001 /* ShareCardLocationIntegrityTests.swift */,
+				ORF100012 /* SmokeTest.swift */,
+				ORF100013 /* TimeLogicTests.swift */,
+				ORF100014 /* TimeOfDayTests.swift */,
+				ORF100015 /* TrashTTLTests.swift */,
+				ORF100016 /* WeatherServiceCacheTests.swift */,
+				ORF100017 /* WeeklyRecapRangeTests.swift */,
+				ORF100018 /* WriteSheetCountTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1979,6 +2036,25 @@
 				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,
 				SA000B018 /* SystemActionAppleAdapterTests.swift in Sources */,
 				SA000B027 /* SystemActionUIModelTests.swift in Sources */,
+				ORP000001 /* CJKTextPolishTests.swift in Sources */,
+				ORP000002 /* DailyPageParserEvidenceTests.swift in Sources */,
+				ORP000003 /* DayProgressTests.swift in Sources */,
+				ORP000004 /* DSFontsSerifTests.swift in Sources */,
+				ORP000005 /* EntitySlugDedupTests.swift in Sources */,
+				ORP000006 /* GraphViewModelFilterCacheTests.swift in Sources */,
+				ORP000007 /* MarkdownExportServiceTests.swift in Sources */,
+				ORP000008 /* MemoSerializationTests.swift in Sources */,
+				ORP000009 /* ParserTests.swift in Sources */,
+				ORP000010 /* PhotoServiceBackgroundTests.swift in Sources */,
+				ORP000011 /* SearchHighlightTests.swift in Sources */,
+				SCL1000001 /* ShareCardLocationIntegrityTests.swift in Sources */,
+				ORP000012 /* SmokeTest.swift in Sources */,
+				ORP000013 /* TimeLogicTests.swift in Sources */,
+				ORP000014 /* TimeOfDayTests.swift in Sources */,
+				ORP000015 /* TrashTTLTests.swift in Sources */,
+				ORP000016 /* WeatherServiceCacheTests.swift in Sources */,
+				ORP000017 /* WeeklyRecapRangeTests.swift in Sources */,
+				ORP000018 /* WriteSheetCountTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2046,12 +2122,12 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).DayPageWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.DayPageWidget";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EXTENSION";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2080,7 +2156,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).DayPageWidget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.DayPageWidget";
 				SDKROOT = iphoneos;
@@ -2111,7 +2187,7 @@
 				);
 				MARKETING_VERSION = 0.0.1;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.watchkitapp";
 				SDKROOT = watchos;
@@ -2320,8 +2396,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(DAYPAGE_UNIT_TEST_CONDITIONS)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2347,7 +2424,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -2372,7 +2449,7 @@
 				);
 				MARKETING_VERSION = 0.0.1;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.watchkitapp";
 				SDKROOT = watchos;
@@ -2400,8 +2477,9 @@
 					"@loader_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.DayPageTests;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.DayPageTests$(DAYPAGE_QA_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(DAYPAGE_UNIT_TEST_CONDITIONS)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2425,7 +2503,7 @@
 					"@loader_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.DayPageTests;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.DayPageTests$(DAYPAGE_QA_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;

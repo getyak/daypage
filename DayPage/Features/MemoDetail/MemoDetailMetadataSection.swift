@@ -2,9 +2,32 @@ import SwiftUI
 import DayPageModels
 import DayPageServices
 
+// Absolute capture time is displayed in the selected zone. Raw file ownership
+// remains the validated route key supplied separately by MemoDetailHost.
+enum MemoDetailDatePresentation {
+    static func createdFull(_ date: Date, timeZone: TimeZone) -> String {
+        string(date, pattern: "yyyy-MM-dd HH:mm:ss", timeZone: timeZone)
+    }
+
+    static func kicker(_ date: Date, timeZone: TimeZone) -> String {
+        string(date, pattern: "yyyy-MM-dd  HH:mm", timeZone: timeZone).uppercased()
+    }
+
+    private static func string(_ date: Date, pattern: String, timeZone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = pattern
+        return formatter.string(from: date)
+    }
+}
+
 struct MemoDetailMetadataSection: View {
     let memo: Memo
     let photoMetadataByFile: [String: PhotoMetadata]
+    var owningFileKey: String? = nil
+    @ObservedObject private var appSettings = AppSettings.shared
 
     private struct BodyStats {
         let wordCount: Int
@@ -13,11 +36,7 @@ struct MemoDetailMetadataSection: View {
     }
 
     private var createdFull: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        return formatter.string(from: memo.created)
+        MemoDetailDatePresentation.createdFull(memo.created, timeZone: appSettings.preferredTimeZone)
     }
 
     private var bodyStats: BodyStats {
@@ -51,7 +70,7 @@ struct MemoDetailMetadataSection: View {
                 .padding(.bottom, DSSpacing.xs)
 
             row(NSLocalizedString("memo.detail.meta.created", comment: ""), createdFull)
-            row(NSLocalizedString("memo.detail.meta.file", comment: ""), "vault/raw/\(DateFormatters.isoDate.string(from: memo.created)).md")
+            row(NSLocalizedString("memo.detail.meta.file", comment: ""), "vault/raw/\(owningFileKey ?? DateFormatters.isoDate.string(from: memo.created)).md")
             row(NSLocalizedString("memo.detail.meta.kind", comment: ""), memo.type.rawValue.capitalized)
 
             if !memo.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

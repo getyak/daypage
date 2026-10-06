@@ -6,14 +6,15 @@ import DayPageServices
 // MARK: - RawMemoView
 
 /// 显示某一天的所有原始 memo，按时间排序。
-/// 用于某天有 memo 但尚无已编译的 Daily Page 时。
+/// 用于原始 memo 标签页；是否尚无 Daily Page 由父视图解析。
 struct RawMemoView: View {
 
     let dateString: String
+    let showsUncompiledBadge: Bool
 
+    @EnvironmentObject private var nav: AppNavigationModel
     @State private var memos: [Memo] = []
     @State private var isLoading: Bool = true
-    @Environment(\.dismiss) private var dismiss
 
     private var formattedDate: String {
         guard let date = DateFormatters.isoDate.date(from: dateString) else { return dateString }
@@ -24,32 +25,23 @@ struct RawMemoView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DSColor.background.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    header
-                    Divider().background(DSColor.outline)
-                    content
-                }
+        // DayDetailView owns the navigation stack and back gesture. Nesting
+        // another stack here can leave raw-only days blank on first display.
+        ZStack {
+            DSColor.background.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                Divider().background(DSColor.outline)
+                content
             }
-            .navigationBarHidden(true)
         }
-        .onAppear { loadMemos() }
+        .task(id: dateString) { loadMemos() }
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button(action: { dismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundColor(DSColor.onSurface)
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain)
-
             VStack(alignment: .leading, spacing: 2) {
                 // intentionally-untranslated: archival tag (FINDING-010 —
                 // English mono caps are reserved for archival labels)
@@ -64,7 +56,9 @@ struct RawMemoView: View {
 
             Spacer()
 
-            StatusBadge(label: "UNCOMPILED", style: .metadata)
+            if showsUncompiledBadge {
+                StatusBadge(label: "UNCOMPILED", style: .metadata)
+            }
         }
         .padding(.horizontal, 16)
         .frame(height: 56)
@@ -96,7 +90,19 @@ struct RawMemoView: View {
                     ForEach(Array(memos.enumerated()), id: \.element.id) { idx, memo in
                         TimelineRow(
                             memo: memo,
-                            isLast: idx == memos.count - 1
+                            isLast: idx == memos.count - 1,
+                            onOpen: {
+                                // Resolve in the day file being displayed, even
+                                // when a historical memo's timestamp differs.
+                                // The owning raw day key is already known and
+                                // preserved; never re-derive it from `created`.
+                                guard let ref = MemoDetailRef(
+                                    id: memo.id,
+                                    dayString: dateString,
+                                    source: .raw
+                                ) else { return }
+                                nav.push(ref, in: nav.selectedTab)
+                            }
                         )
                         .padding(.horizontal, 20)
                     }
@@ -111,7 +117,7 @@ struct RawMemoView: View {
 
     private func loadMemos() {
         isLoading = true
-        guard let date = DateFormatters.isoDate.date(from: dateString) else {
+        guard RawStorage.isValidDayString(dateString) else {
             DayPageLogger.shared.error("RawMemoView: invalid dateString '\(dateString)'")
             memos = []
             isLoading = false
@@ -130,7 +136,7 @@ struct RawMemoView: View {
 
         let loaded: [Memo]
         do {
-            loaded = try RawStorage.read(for: date)
+            loaded = try RawStorage.read(dayString: dateString, vaultRoot: VaultInitializer.vaultURL)
         } catch {
             DayPageLogger.shared.error("RawMemoView: read \(url.path) errno=\(errno): \(error)")
             loaded = []

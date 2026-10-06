@@ -57,6 +57,7 @@ struct DayDetailView: View {
     @State private var selectedTab: Tab = .daily
     /// 当天真实元数据瓦片（天气/条数/跨度/类型），无 raw 数据时为 nil 并隐藏。
     @State private var metaTiles: [MetadataGridView.Tile]? = nil
+    @State private var dailyWeather: (day: String, value: String)? = nil
 
     /// Finger-tracked horizontal offset for interactive paging. `@GestureState`
     /// auto-resets when the gesture ends or is cancelled; the reset transaction
@@ -300,7 +301,10 @@ struct DayDetailView: View {
             // v8 detail.jsx:258-271 — 4-column metadata tile row pinned above
             // the compiled daily page (WEATHER / HUMIDITY / LIGHT / KIND).
             VStack(spacing: 0) {
-                if let tiles = metaTiles {
+                if let tiles = Self.applyingDailyWeather(
+                    dailyWeather?.day == currentDate ? dailyWeather?.value : nil,
+                    to: metaTiles
+                ) {
                     MetadataGridView(tiles: tiles)
                         .padding(.horizontal, 22)
                         .padding(.top, 16)
@@ -309,6 +313,10 @@ struct DayDetailView: View {
                 DailyPageView(
                     dateString: currentDate,
                     onViewOriginalFlow: { selectedTab = .raw },
+                    onWeatherChange: { day, weather in
+                        guard day == currentDate else { return }
+                        dailyWeather = (day, weather)
+                    },
                     isEmbedded: true
                 )
             }
@@ -341,7 +349,10 @@ struct DayDetailView: View {
     @ViewBuilder
     private var rawContent: some View {
         if hasRawFile {
-            RawMemoView(dateString: currentDate)
+            RawMemoView(
+                dateString: currentDate,
+                showsUncompiledBadge: state == .rawOnly
+            )
         } else {
             VStack(spacing: 16) {
                 Spacer()
@@ -463,6 +474,31 @@ struct DayDetailView: View {
         } else {
             metaTiles = nil
         }
+    }
+
+    /// Prefer the saved Daily weather without changing the raw-derived fallback.
+    static func applyingDailyWeather(
+        _ dailyWeather: String?,
+        to tiles: [MetadataGridView.Tile]?
+    ) -> [MetadataGridView.Tile]? {
+        let weather = (dailyWeather ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !weather.isEmpty else { return tiles }
+        var value = weather
+        var sub: String? = nil
+        let parts = weather.split(separator: " ")
+        if let temperature = parts.first(where: { $0.contains("°") }) {
+            value = String(temperature)
+            sub = parts.first(where: { !$0.contains("°") }).map(String.init)
+        }
+        let override = MetadataGridView.Tile(label: "WEATHER", value: value, sub: sub)
+        var result = tiles ?? []
+        if let index = result.firstIndex(where: { $0.label == "WEATHER" }) {
+            result[index] = override
+        } else {
+            result.insert(override, at: 0)
+        }
+        return result
     }
 
     /// 从当天 raw memos 推导 4 块元数据（天气 / 条数 / 时间跨度 / 类型）。

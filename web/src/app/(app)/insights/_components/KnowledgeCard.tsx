@@ -19,9 +19,10 @@ function rangeToMs(range: string): number {
   }
 }
 
-export async function KnowledgeCard({ range }: { range: string }) {
+export async function loadKnowledgeData({ range }: { range: string }) {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   let daily: { date: string; count: number }[] = [];
   let total = 0;
@@ -29,7 +30,7 @@ export async function KnowledgeCard({ range }: { range: string }) {
   let busiest = { date: "", count: 0 };
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(asOfMs - rangeToMs(range));
     try {
       const rows = await db
         .select({
@@ -51,6 +52,11 @@ export async function KnowledgeCard({ range }: { range: string }) {
     }
   }
 
+  return { asOfMs, daily, total, avg, busiest };
+}
+
+export async function KnowledgeCard({ range }: { range: string }) {
+  const { daily, total, avg, busiest } = await loadKnowledgeData({ range });
   const maxCount = Math.max(...daily.map((r) => r.count), 1);
 
   return (

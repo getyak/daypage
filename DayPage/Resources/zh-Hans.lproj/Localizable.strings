@@ -330,33 +330,38 @@
 
 /* DataFlowPage — P0 privacy disclosure (issue #25) */
 "onboarding.dataflow.title" = "你的数据去哪儿";
-"onboarding.dataflow.subtitle" = "DayPage 本地优先。以下功能在你配置对应 Key 后才会向第三方发送数据。";
+"onboarding.dataflow.subtitle" = "DayPage 本地优先：原始笔记与附件默认只保存在本机。以下功能仅在你开启对应选项或配置了服务后才会发送数据。";
 "onboarding.dataflow.voice.feature" = "语音转写";
-"onboarding.dataflow.voice.payload" = "录音文件（M4A）";
-"onboarding.dataflow.voice.destination" = "→ OpenAI Whisper API";
+"onboarding.dataflow.voice.payload" = "录音文件（M4A）发送给你配置的转写服务";
+"onboarding.dataflow.voice.destination" = "→ 豆包（火山引擎）或 OpenAI Whisper，也可本机识别";
 "onboarding.dataflow.compile.feature" = "AI 日记编译";
-"onboarding.dataflow.compile.payload" = "当天所有 memo 文本（约 2–5k tokens）";
+"onboarding.dataflow.compile.payload" = "选中的上下文（当天 memo 文本）发送给你配置的 AI 服务";
 "onboarding.dataflow.compile.destination" = "→ DeepSeek / 阿里云 DashScope";
 "onboarding.dataflow.weather.feature" = "天气元数据";
 "onboarding.dataflow.weather.payload" = "经纬度（仅当你授权了定位）";
 "onboarding.dataflow.weather.destination" = "→ OpenWeatherMap API";
-"onboarding.dataflow.photo.feature" = "照片";
-"onboarding.dataflow.photo.payload" = "原图与 EXIF 仅存本地，不会上传任何服务器";
-"onboarding.dataflow.photo.destination" = "→ 不出设备";
-"onboarding.dataflow.sentry.feature" = "崩溃报告（可选）";
-"onboarding.dataflow.sentry.payload" = "崩溃堆栈和不含密钥的诊断面包屑";
-"onboarding.dataflow.sentry.destination" = "→ Sentry";
-"onboarding.dataflow.footer" = "你可以随时在设置里清除任意 Key，对应功能将立刻停止任何网络请求。";
+"onboarding.dataflow.photo.feature" = "照片与附件";
+"onboarding.dataflow.photo.payload" = "与原始笔记一起保存在本地笔记库";
+"onboarding.dataflow.photo.destination" = "→ 仅存本机；只有下面的同步选项会上传它们";
+"onboarding.dataflow.sync.feature" = "可选同步（iCloud / 账户）";
+"onboarding.dataflow.sync.payload" = "开启 iCloud 或登录后，笔记、音频和图片可能会被上传";
+"onboarding.dataflow.sync.destination" = "→ iCloud Drive / DayPage 同步服务——非端到端加密";
+"onboarding.dataflow.sentry.feature" = "崩溃报告（可选开启）";
+"onboarding.dataflow.sentry.payload" = "经过内容过滤的崩溃报告与有限技术状态——不含笔记内容或密钥";
+"onboarding.dataflow.sentry.destination" = "→ Sentry（默认关闭，需你主动开启）";
+"onboarding.dataflow.footer" = "你可以随时在设置里清除任意 Key，对应功能将立刻停止任何网络请求。崩溃诊断需主动开启且默认关闭——「设置 → 关于 → 隐私与数据」说明了数据去向。";
 "onboarding.dataflow.continue" = "我了解了，继续";
 
 /* ApiKeysPage */
 "onboarding.apikeys.title" = "配置 API Key";
-"onboarding.apikeys.subtitle" = "填入你的 API Key，或跳过稍后在设置中配置";
+"onboarding.apikeys.subtitle" = "API Key 均为可选，费用由各服务商单独收取。不填 Key 也可使用本机功能，之后随时可在设置中补充。";
 "onboarding.apikeys.deepseek.label" = "DeepSeek（AI 编译）";
 "onboarding.apikeys.openai.label" = "OpenAI Whisper（语音转写）";
 "onboarding.apikeys.openweather.label" = "OpenWeather（天气）";
 "onboarding.apikeys.paste" = "粘贴";
 "onboarding.apikeys.complete" = "开始使用";
+"onboarding.apikeys.complete.local" = "本地开始记录";
+"onboarding.apikeys.complete.save" = "保存 Key 并开始";
 
 /* WelcomeScreen */
 "welcome.slogan" = "每一天，都值得留下来";
@@ -567,6 +572,10 @@
 /* Search — filter panel */
 "search.filter.dateRange"         = "日期范围";
 "search.filter.startDate"         = "开始日期";
+"search.filter.endDate" = "结束日期";
+"search.filter.dateNotSet" = "未设置";
+"search.filter.dateCancel" = "取消";
+"search.filter.dateApply" = "应用";
 "search.filter.type"              = "类型";
 "search.filter.location"          = "地点";
 "search.filter.location.placeholder" = "过滤地点名称";
@@ -851,6 +860,12 @@
 "settings.data.purge_all.done"               = "本机数据已删除。";
 "settings.data.purge_all.done.subtitle"      = "云端账户未受影响。重启 DayPage 以从全新状态开始。";
 "settings.data.purge_all.partial"            = "部分本机数据未能删除。";
+"settings.data.purge_all.hint"                = "删除本机的笔记库、API Key 与引导状态。";
+"settings.data.purge_all.blocked.title"       = "本机数据未被删除";
+"settings.data.purge_all.blocked.icloud"      = "已禁用「删除本机所有数据」：你的笔记库位于 iCloud。在此删除 iCloud 笔记库可能毁掉已同步的笔记副本，因此未删除任何内容。";
+"settings.data.purge_all.blocked.noncanonical" = "已禁用「删除本机所有数据」：当前笔记库不是标准本地笔记库。不会以删除其他目录代替，因此未删除任何内容。";
+"settings.data.purge_all.blocked.account"     = "已禁用「删除本机所有数据」：当前已登录云端账户。你的笔记库、Key 与偏好均已保留；如需清空本机请先退出登录。";
+"settings.data.purge_all.blocked.unresolved"  = "已禁用「删除本机所有数据」：无法确认笔记库位置，未删除任何内容。";
 
 /* DSBanner — accessibility */
 "banner.close.a11y"                          = "关闭";
@@ -1367,6 +1382,29 @@
 "settings.data.export_full.failed.reason"    = "%@ —— 磁盘空间不足或 iCloud 正在同步时最常见。";
 "settings.danger.section"                    = "危险区";
 "settings.danger.footer"                     = "以下操作不可撤销。删除本地数据不会影响你的云端账户。";
+
+/* SettingsPrivacyView — 应用内隐私与数据说明（issue #922） */
+"settings.privacy.entry"                      = "隐私与数据";
+"settings.privacy.title"                      = "隐私与数据";
+"settings.privacy.section.data"               = "你的数据";
+"settings.privacy.local.title"                = "本地优先的笔记与附件";
+"settings.privacy.local.body"                 = "原始笔记与附件（照片、音频、文件）默认保存在本机的本地笔记库中。除非开启下面的同步选项，它们只留在本机。";
+"settings.privacy.section.sync"               = "可选同步";
+"settings.privacy.icloud.title"               = "iCloud（可选）";
+"settings.privacy.icloud.body"                = "若为 DayPage 开启 iCloud，你的笔记库——笔记、音频与图片——会存入 iCloud Drive 容器并由 Apple 同步。";
+"settings.privacy.accountsync.title"          = "账户同步（可选）";
+"settings.privacy.accountsync.body"           = "登录后，笔记、音频与图片可能会上传到 DayPage 同步服务以保持多设备同步。同步不是端到端加密。";
+"settings.privacy.section.voiceai"            = "语音与 AI";
+"settings.privacy.voice.title"                = "语音转写";
+"settings.privacy.voice.body"                 = "转写会将录音发送给你配置的服务——目前支持豆包（火山引擎）与 OpenAI Whisper；未配置服务时回退到本机识别，不发送音频。";
+"settings.privacy.ai.title"                   = "AI 功能";
+"settings.privacy.ai.body"                    = "AI 功能会将选中的上下文（例如某一天的笔记）发送给你配置的 AI 服务。未配置服务时不会发送任何内容。";
+"settings.privacy.keys.title"                 = "API Key";
+"settings.privacy.keys.body"                  = "API Key 均为可选，费用由各服务商单独收取。DayPage 不捆绑或转售 AI / 语音额度。";
+"settings.privacy.section.diagnostics"        = "崩溃诊断";
+"settings.privacy.diagnostics.toggle"         = "共享崩溃诊断";
+"settings.privacy.diagnostics.hint" = "开启后，经过内容过滤的崩溃报告与有限技术状态会发送到 Sentry。关闭后停止后续上传。";
+"settings.privacy.diagnostics.body" = "默认关闭。开启后，经过内容过滤的崩溃报告与有限技术状态会发送到 Sentry，不包含笔记内容、附件、转写文本或密钥。关闭后停止后续上传；已上传的事件无法从本机撤回。";
 "settings.common.retry"                      = "再试一次";
 "settings.common.dismiss"                    = "先算了";
 
@@ -2036,6 +2074,16 @@
 "common.not_selected" = "未选中";
 "common.confirm" = "确定";
 "daily.metadata.title" = "编辑元数据";
+"daily.metadata.mood.happy" = "😊 开心";
+"daily.metadata.mood.calm" = "😐 平静";
+"daily.metadata.mood.low" = "😔 低落";
+"daily.metadata.mood.irritable" = "😤 烦躁";
+"daily.metadata.mood.excited" = "🤩 兴奋";
+"daily.metadata.mood.tired" = "😴 疲惫";
+"daily.metadata.section.summary" = "摘要";
+"daily.metadata.section.mood" = "心情";
+"daily.metadata.section.weather" = "天气";
+"daily.metadata.section.cover" = "封面图片";
 "daily.metadata.save_failed" = "保存失败";
 "daily.metadata.weather.placeholder" = "例如：晴 28°C";
 "daily.metadata.cover.remove" = "移除封面";
@@ -2173,3 +2221,71 @@
 "today.recovery.conflict" = "这条记录已有不同内容。未保存的草稿仍已保留，请先检查原记录。";
 "today.recovery.invalid_attachment" = "附件路径无法安全恢复，草稿仍已保留。";
 "today.recovery.vault_changed" = "这份草稿或附件来自另一个资料库。请切回原资料库，移除在其他资料库添加的附件后再保存。";
+"write.sheet.photo_importing" = "正在导入照片，请稍候…";
+
+/* Attachment entry points */
+"attachment.menu.camera" = "拍照";
+"attachment.menu.photos" = "相册";
+"attachment.menu.location" = "位置";
+"attachment.menu.update_location" = "更新位置";
+"attachment.menu.files" = "附件";
+"attachment.menu.link" = "链接";
+"onboarding.welcome.customize" = "设置 AI 与记录提醒";
+"feedback.privacy.destination" = "反馈和所选图片将上传到 GitHub，可能被其他人查看。删除问题后，图片历史也可能保留。发送前请检查文字和图片，不要包含私人记录或密钥。 如启用了 AI 分流，提交内容及附件还可能由 AI 服务处理。";
+"feedback.privacy.diagnostics" = "附加技术诊断（可选）";
+
+/* Feedback flow */
+"feedback.header.title" = "反馈";
+"feedback.header.subtitle" = "帮助我们改进 DayPage";
+"feedback.input.label" = "你的反馈";
+"feedback.input.placeholder" = "描述遇到的问题或希望改进的地方…";
+"feedback.photos" = "照片";
+"feedback.camera" = "拍照";
+"feedback.image.processing" = "正在处理图片…";
+"feedback.voice.hint" = "点击录音反馈 · 长按快速转写";
+"feedback.sending" = "正在发送…";
+"feedback.send" = "发送";
+"feedback.voice.elapsed" = "%d 秒 · 上滑取消";
+"feedback.voice.cancel" = "松开取消";
+"feedback.voice.transcribe" = "松开转写";
+"feedback.voice.transcribing" = "正在转写…";
+"feedback.voice.listening" = "正在录音…";
+"feedback.history" = "历史反馈";
+"feedback.success.title" = "反馈已收到";
+"feedback.success.body" = "谢谢你帮助我们改进 DayPage。";
+"feedback.github.review" = "在 GitHub 查看";
+"feedback.another" = "继续反馈";
+"feedback.dismiss" = "关闭";
+"feedback.error.empty" = "请描述反馈内容，或添加截图。";
+"feedback.error.voice" = "语音转写未完成，请检查网络和转写服务设置。";
+"feedback.error.image.load" = "无法读取图片，请重新选择。";
+"feedback.error.image.encode" = "无法处理照片，请重试。";
+
+// Share card controls and accessibility
+"share_card.title" = "分享卡片";
+"share_card.close" = "关闭";
+"share_card.share" = "分享";
+"share_card.save_to_photos" = "保存到相册";
+"share_card.style.minimal" = "极简";
+"share_card.style.film" = "胶片";
+"share_card.style.polaroid" = "拍立得";
+"share_card.style.journal" = "手账";
+"share_card.style.postcard" = "明信片";
+"share_card.style.a11y_label" = "%@ 风格";
+"share_card.photos.permission_denied" = "无相册权限";
+"share_card.photos.saved" = "已保存到相册";
+"share_card.photos.save_failed" = "保存失败";
+"share_card.a11y.memo" = "记录卡片：%@%@";
+"share_card.a11y.location" = "，地点：%@";
+"share_card.a11y.daily" = "%@ 的日记卡片，%ld 条记录";
+"share_card.a11y.monthly" = "月度总结卡片：%@，%ld 条记录";
+"share_card.a11y.quote" = "摘录卡片：%@";
+"share_card.a11y.photo" = "照片卡片：%@";
+"share_card.a11y.voice" = "语音记录卡片，时长 %@";
+"share_card.a11y.collage" = "拼贴卡片：%ld 条记录，日期 %@";
+
+"search.a11y.resultMemo.hint" = "双击打开这条记录的详情";
+
+// Time zone picker
+"settings.timezone.select" = "选择时区";
+"settings.timezone.search" = "搜索时区";

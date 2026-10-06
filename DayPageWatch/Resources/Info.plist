@@ -27,7 +27,7 @@
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.daypage.app</string>
+	<string>com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
 </dict>

@@ -42,9 +42,10 @@ function rangeLabel(range: string): string {
   }
 }
 
-export async function DigitalFootprintCard({ range }: { range: string }) {
+export async function loadDigitalFootprintData({ range }: { range: string }) {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   // Lifetime aggregates
   let lifetimeMemos = 0;
@@ -56,7 +57,7 @@ export async function DigitalFootprintCard({ range }: { range: string }) {
   let heatmap: { date: string; count: number }[] = [];
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(asOfMs - rangeToMs(range));
 
     try {
       // Lifetime counts
@@ -96,6 +97,11 @@ export async function DigitalFootprintCard({ range }: { range: string }) {
     }
   }
 
+  return { asOfMs, lifetimeMemos, lifetimePages, lifetimeAnnotations, daysActive, heatmap };
+}
+
+export async function DigitalFootprintCard({ range }: { range: string }) {
+  const { asOfMs, lifetimeMemos, lifetimePages, lifetimeAnnotations, daysActive, heatmap } = await loadDigitalFootprintData({ range });
   const maxCount = Math.max(...heatmap.map((r) => r.count), 1);
 
   return (
@@ -146,7 +152,7 @@ export async function DigitalFootprintCard({ range }: { range: string }) {
         {heatmap.length === 0 ? (
           <EmptyState range={range} />
         ) : (
-          <CalendarHeatmap data={heatmap} maxCount={maxCount} range={range} />
+          <CalendarHeatmap data={heatmap} maxCount={maxCount} range={range} asOfMs={asOfMs} />
         )}
       </div>
     </div>
@@ -183,14 +189,16 @@ function CalendarHeatmap({
   data,
   maxCount,
   range,
+  asOfMs,
 }: {
   data: { date: string; count: number }[];
   maxCount: number;
   range: string;
+  asOfMs: number;
 }) {
   // For 1y range, render week-columns (GitHub-style); otherwise render day bars
   if (range === "1y") {
-    return <WeekHeatmap data={data} maxCount={maxCount} />;
+    return <WeekHeatmap data={data} maxCount={maxCount} asOfMs={asOfMs} />;
   }
   return <DayBars data={data} maxCount={maxCount} />;
 }
@@ -257,15 +265,17 @@ function DayBars({
 function WeekHeatmap({
   data,
   maxCount,
+  asOfMs,
 }: {
   data: { date: string; count: number }[];
   maxCount: number;
+  asOfMs: number;
 }) {
   // Build a map date→count
   const byDate = new Map<string, number>(data.map((d) => [d.date, d.count]));
 
   // Build full year grid: 53 weeks × 7 days
-  const today = new Date();
+  const today = new Date(asOfMs);
   const yearAgo = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000);
   // Start on Sunday of the week containing yearAgo
   const startDate = new Date(yearAgo);
@@ -275,7 +285,7 @@ function WeekHeatmap({
   const GAP = 3;
 
   const weeks: { date: string; count: number }[][] = [];
-  let current = new Date(startDate);
+  const current = new Date(startDate);
 
   while (current <= today) {
     const week: { date: string; count: number }[] = [];

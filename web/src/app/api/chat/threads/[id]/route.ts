@@ -4,7 +4,6 @@ import { db } from "@/lib/db/client";
 import { users, chat_threads, chat_messages } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { llm } from "@/lib/ai";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -123,41 +122,4 @@ export async function DELETE(
   if (!deleted) return notFound();
 
   return new NextResponse(null, { status: 204 });
-}
-
-// Auto-title helper: schedule a qwen call to summarize first user message into <60 chars.
-// Called internally when a user message is added to a thread that still has the default title.
-export async function autoTitleThread(
-  threadId: string,
-  userId: string,
-  firstUserMessage: string
-): Promise<void> {
-  try {
-    const [thread] = await db
-      .select({ title: chat_threads.title })
-      .from(chat_threads)
-      .where(and(eq(chat_threads.id, threadId), eq(chat_threads.user_id, userId)))
-      .limit(1);
-
-    if (!thread || thread.title !== "New conversation") return;
-
-    const { content } = await llm.chat([
-      {
-        role: "system",
-        content:
-          "Generate a concise title (under 60 characters, no quotes) that summarizes the user's message. Reply with only the title text.",
-      },
-      { role: "user", content: firstUserMessage },
-    ]);
-
-    const title = content.trim().slice(0, 59);
-    if (title) {
-      await db
-        .update(chat_threads)
-        .set({ title })
-        .where(and(eq(chat_threads.id, threadId), eq(chat_threads.user_id, userId)));
-    }
-  } catch {
-    // Auto-title is best-effort — don't fail the message write if it errors
-  }
 }

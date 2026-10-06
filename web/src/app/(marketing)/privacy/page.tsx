@@ -44,7 +44,7 @@ export default function PrivacyPage() {
       <h2>What goes over the network</h2>
       <ul>
         <li>
-          <strong>AI compilation</strong>: at 2am the day's raw text (no audio,
+          <strong>AI compilation</strong>: at 2am the day&apos;s raw text (no audio,
           no images) is sent to your configured LLM provider (OpenAI, DeepSeek,
           or Aliyun DashScope). You bring your own key.
         </li>

@@ -3,7 +3,8 @@ import Foundation
 import DayPageServices
 
 enum DayProgress {
-    /// Fraction of the current local day elapsed: 0.0 at midnight, 1.0 at next midnight.
+    /// Fraction of the day containing `now`: 0 at midnight, approaching 1
+    /// before the next midnight, then resetting to 0 for the next day.
     /// Uses the actual day length so DST transitions (23h/25h days) are handled correctly.
     static func fraction(at now: Date, calendar: Calendar = .current) -> CGFloat {
         let start = calendar.startOfDay(for: now)

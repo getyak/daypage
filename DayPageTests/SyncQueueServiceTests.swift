@@ -17,6 +17,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 struct SyncQueueServiceTests {
 
@@ -358,3 +359,9 @@ struct SyncQueueServiceTests {
         UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias SyncQueueServiceTests = DayPageSerialSwiftTests.SyncQueueServiceTests

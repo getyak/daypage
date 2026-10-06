@@ -58,6 +58,9 @@ struct WriteSheetView: View {
     /// Pending attachments (photo / voice / file). Shown as chips above the
     /// text area when non-empty.
     var pendingAttachments: [PendingAttachment] = []
+    /// Imported photos still belong to this draft while their bytes are loading.
+    var isProcessingPhoto: Bool = false
+    var submissionError: String? = nil
     /// Remove a pending attachment by id (xmark button on each chip).
     var onRemoveAttachment: (String) -> Void = { _ in }
     /// Photo library picker tile.
@@ -107,6 +110,7 @@ struct WriteSheetView: View {
     /// home-indicator inset needed) and the SAVED TO VAULT caption folds away.
     @State private var keyboardVisible: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
     @State private var showRailHint: Bool = false
@@ -164,7 +168,7 @@ struct WriteSheetView: View {
     /// discard-confirmation gate.
     private var isDirty: Bool {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return hasText || !pendingAttachments.isEmpty
+        return hasText || !pendingAttachments.isEmpty || isProcessingPhoto
     }
 
     /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
@@ -325,6 +329,23 @@ struct WriteSheetView: View {
                 attachmentPreviewRow
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            if isProcessingPhoto {
+                ProgressView(NSLocalizedString("write.sheet.photo_importing", comment: "Photo import in progress"))
+                    .font(.caption)
+                    .tint(DSColor.amberAccent)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .accessibilityIdentifier("write-sheet-photo-importing")
+            }
+            if let submissionError {
+                Text(submissionError)
+                    .font(.caption)
+                    .foregroundStyle(DSColor.error)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .accessibilityIdentifier("write-sheet-error")
+            }
             textArea
             footerRail
             if showRailHint && pendingLocation == nil {
@@ -333,7 +354,7 @@ struct WriteSheetView: View {
             if confirmingDiscard {
                 discardConfirmBar
                     .transition(.opacity)
-            } else if !keyboardVisible {
+            } else if !keyboardVisible && !dynamicTypeSize.isAccessibilitySize {
                 // The archival caption is a "quiet moment" flourish — while the
                 // keyboard is up every point of height belongs to the draft.
                 destinationCaption
@@ -428,16 +449,21 @@ struct WriteSheetView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            let dateLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 10))
+            dateLayout {
                 Text(weekday)
                     .font(DSFonts.serif(size: 18, weight: .semibold, relativeTo: .headline))
                     .tracking(-0.2)
                     .foregroundColor(DSColor.inkPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(stamp)
                     .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
                     .tracking(1.6)
                     .foregroundColor(DSColor.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
@@ -481,6 +507,7 @@ struct WriteSheetView: View {
                     .font(DSFonts.serif(size: 18, italic: true, relativeTo: .headline))
                     .foregroundColor(DSColor.inkSubtle.opacity(0.6))
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
 
             TextField("", text: $text, axis: .vertical)
@@ -492,6 +519,7 @@ struct WriteSheetView: View {
                 .lineLimit(3...10)
                 .focused($isFocused)
                 .accessibilityIdentifier("write-sheet-input")
+                .accessibilityLabel(NSLocalizedString("write.sheet.placeholder", comment: "Diary text input"))
         }
         .padding(.horizontal, 22)
         .padding(.top, 20)
@@ -858,6 +886,8 @@ struct WriteSheetView: View {
         .pressScale(scale: 0.96, animation: .easeInOut(duration: 0.12))
         .accessibilityIdentifier("write-sheet-save")
         .accessibilityLabel(NSLocalizedString("write.sheet.send", comment: "发送"))
+        .disabled(isProcessingPhoto)
+        .opacity(isProcessingPhoto ? 0.45 : 1)
         .onAppear {
             // The button only mounts once the draft turned dirty — greet the
             // first character with the same soft amber pulse the pill had.
@@ -894,10 +924,8 @@ struct WriteSheetView: View {
 
     private var discardConfirmBar: some View {
         HStack(spacing: 8) {
-            // Warm warning ink + slightly larger type: the previous 9pt muted
-            // caption was invisible next to the X the user just tapped, so the
-            // "tap again to discard" affordance went unnoticed within its 4s
-            // window.
+            // Keep the choices visible until the user decides. Reading the
+            // prompt or reaching it with assistive navigation takes time.
             Text(NSLocalizedString("write.sheet.discard.prompt", comment: "Discard this draft?"))
                 .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold, relativeTo: .caption2))
                 .tracking(1.2)
@@ -961,7 +989,7 @@ struct WriteSheetView: View {
     //     parent's SceneStorage-backed draft and reappears in the dock
     //     composer, which is itself the visible proof nothing was lost.
     //   • attemptDiscard — ✕ / ghost cancel. Destroying content is the ONLY
-    //     action in the sheet that asks for confirmation (inline bar, 4s).
+    //     action in the sheet that asks for confirmation (persistent inline bar).
 
     /// Soft dismissal: hide the sheet, keep the draft. Never prompts.
     private func dismissKeepingDraft() {
@@ -972,18 +1000,15 @@ struct WriteSheetView: View {
 
     /// Explicit cancel: confirm before destroying a dirty draft; a clean
     /// sheet (empty, or location-only — location is ambient, not content)
-    /// closes silently. A second ✕ while the bar is up counts as "confirm".
+    /// closes silently. Repeating ✕ keeps the prompt visible; only the
+    /// explicit Discard action destroys the draft.
     private func attemptDiscard() {
-        if isDirty && !confirmingDiscard {
-            Haptics.warn()
-            withAnimation(Motion.spring) { confirmingDiscard = true }
-            isFocused = false
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(4))
-                withAnimation(Motion.spring) { confirmingDiscard = false }
+        if isDirty {
+            if !confirmingDiscard {
+                Haptics.warn()
+                withAnimation(Motion.spring) { confirmingDiscard = true }
             }
-        } else if isDirty {
-            performDiscard()
+            isFocused = false
         } else {
             dismissKeepingDraft()
         }
@@ -1000,7 +1025,7 @@ struct WriteSheetView: View {
     }
 
     private func handleSave() {
-        guard isDirty else { return }
+        guard isDirty, !isProcessingPhoto else { return }
         // No tap-time haptic: submitCombinedMemo fires the single authoritative
         // `.successNotification()` on the same frame it inserts the memo
         // (optimistic commit), so a commit-on-tap buzz would double up.

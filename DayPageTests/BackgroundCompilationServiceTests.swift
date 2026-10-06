@@ -17,6 +17,12 @@ import DayPageServices
 ///   • `foregroundRetryDelays` / `backgroundRetryDelays` — pinned so that a
 ///     future contributor cannot accidentally swap an aggressive foreground
 ///     schedule into the BGTask path (which has a ~30s budget).
+///
+///   • `isAutomaticCompileEligible` + entry-point guards (UI14 P2) — the
+///     AI OFF (local-only) gate in front of the automatic backfill, foreground
+///     retry, and weekly auto compile, with yesterday's raw seeded in an
+///     isolated temp vault; plus the retry classifier's non-retryable
+///     configuration states (`.aiDisabled`, `.missingApiKey`).
 final class BackgroundCompilationServiceTests: XCTestCase {
 
     private var tempDir: URL!
@@ -247,6 +253,207 @@ final class BackgroundCompilationServiceTests: XCTestCase {
         )
         XCTAssertTrue(
             BackgroundCompilationService.shouldRetryCompilation(after: CompilationError.networkTimeout),
+            "Transient transport failures should retain the documented retry policy"
+        )
+    }
+
+    // MARK: - AI OFF (local-only) eligibility — UI14 P2 regression
+    //
+    // Incident: with the global AI toggle OFF, `backfillIfNeeded()` still
+    // selected yesterday's raw, ran the batch, and `aiDisabled` was classified
+    // as retryable — so the runner slept 30/120/600s while Today showed a
+    // misleading "Preparing your notes 30%" rail. These tests pin: (a) the
+    // retry classifier treats `.aiDisabled` as non-retryable user state, and
+    // (b) the automatic entry points gate on the shared AI-enabled condition
+    // before any work — no compile start/end notifications, idle stage, raw
+    // vault untouched, no daily written.
+
+    /// Flips the process-global `AppSettings` AI toggle and returns a closure
+    /// restoring the exact previous state (including "key was absent"). The
+    /// toggle is UserDefaults-global — every caller MUST run the restore in
+    /// `defer` so the rest of the serialized suite sees the original value.
+    private func setAIFeaturesEnabled(_ enabled: Bool) -> () -> Void {
+        let defaults = UserDefaults.standard
+        let key = AppSettings.Keys.aiFeaturesEnabled
+        let previous = defaults.object(forKey: key)
+        defaults.set(enabled, forKey: key)
+        return {
+            if let previous {
+                defaults.set(previous, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+    }
+
+    /// Real yesterday in the production eligibility calendar — the date the
+    /// automatic entries (backfill / foreground retry / BGTask) target.
+    /// Returned as a pair so the file name and Date can never straddle a
+    /// midnight rollover independently.
+    private var yesterdayPair: (date: Date, dayString: String) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = AppSettings.currentTimeZone()
+        let date = cal.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = AppSettings.currentTimeZone()
+        return (date, f.string(from: date))
+    }
+
+    /// Writes a raw memo file for real yesterday (raw exists, daily missing →
+    /// `shouldCompile` is true in the temp vault) and returns the file URL,
+    /// written content, and yyyy-MM-dd key.
+    private func writeYesterdayRaw() throws -> (url: URL, content: String, dayString: String) {
+        let (date, dayString) = yesterdayPair
+        let memo = Memo(type: .text, created: date, body: "UI14 regression: yesterday note")
+        let content = memo.toMarkdown()
+        let url = rawDir.appendingPathComponent("\(dayString).md")
+        try content.write(to: url, atomically: true, encoding: .utf8)
+        return (url, content, dayString)
+    }
+
+    /// Counts the notifications the automatic compile paths post around a
+    /// run: during `body` plus a short window afterwards. The AI-off guards
+    /// must prevent work from starting at all; a regressed entry point posts
+    /// `.compilationDidStart` as its first side effect inside that window.
+    private func captureCompileNotifications(
+        _ body: () async -> Void
+    ) async -> (start: Int, end: Int, foregroundSuccess: Int, weeklyRecap: Int) {
+        var start = 0, end = 0, foregroundSuccess = 0, weeklyRecap = 0
+        let t1 = NotificationCenter.default.addObserver(
+            forName: .compilationDidStart, object: nil, queue: .main
+        ) { _ in start += 1 }
+        let t2 = NotificationCenter.default.addObserver(
+            forName: .compilationDidEnd, object: nil, queue: .main
+        ) { _ in end += 1 }
+        let t3 = NotificationCenter.default.addObserver(
+            forName: .compileSucceededForeground, object: nil, queue: .main
+        ) { _ in foregroundSuccess += 1 }
+        let t4 = NotificationCenter.default.addObserver(
+            forName: .weeklyRecapAvailable, object: nil, queue: .main
+        ) { _ in weeklyRecap += 1 }
+        defer {
+            NotificationCenter.default.removeObserver(t1)
+            NotificationCenter.default.removeObserver(t2)
+            NotificationCenter.default.removeObserver(t3)
+            NotificationCenter.default.removeObserver(t4)
+        }
+        await body()
+        // Regression window: let any stray Task a regressed entry point may
+        // have spawned reach its first observable side effect.
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        return (start, end, foregroundSuccess, weeklyRecap)
+    }
+
+    /// UI14 P2 core regression: AI OFF must gate the automatic backfill BEFORE
+    /// the vault scan and batch Task creation. Yesterday's raw is present and
+    /// needs a compile — nothing may run, post, or change.
+    @MainActor
+    func testAIOff_backfillEntry_doesNotStartBackfillForYesterday() async throws {
+        let restoreAI = setAIFeaturesEnabled(false)
+        defer { restoreAI() }
+        XCTAssertFalse(BackgroundCompilationService.isAutomaticCompileEligible,
+            "test setup: the shared gate must read the global toggle")
+
+        let (rawURL, rawContent, dayString) = try writeYesterdayRaw()
+
+        let counts = await captureCompileNotifications {
+            await BackgroundCompilationService.shared.backfillIfNeeded()
+        }
+
+        XCTAssertEqual(counts.start, 0,
+            "AI-off backfill must not post .compilationDidStart — the incident ran a live batch")
+        XCTAssertEqual(counts.end, 0,
+            "AI-off backfill must not post .compilationDidEnd")
+        XCTAssertEqual(BackgroundCompilationService.shared.stage, .idle,
+            "AI-off backfill must keep Today's progress rail idle — the incident showed a fake 30%")
+        XCTAssertFalse(BackgroundCompilationService.shared.isPresentingStage)
+        XCTAssertEqual(try String(contentsOf: rawURL, encoding: .utf8), rawContent,
+            "raw vault content must remain byte-identical")
+        XCTAssertFalse(
+            fm.fileExists(atPath: dailyDir.appendingPathComponent("\(dayString).md").path),
+            "no daily page may be written while AI is off"
+        )
+    }
+
+    /// UI14 P2: the automatic foreground retry (scenePhase catch-up targeting
+    /// yesterday) must be gated before any compile work when AI is off.
+    @MainActor
+    func testAIOff_foregroundRetryEntry_doesNotStartYesterdaysCompile() async throws {
+        let restoreAI = setAIFeaturesEnabled(false)
+        defer { restoreAI() }
+
+        let (rawURL, rawContent, dayString) = try writeYesterdayRaw()
+
+        let counts = await captureCompileNotifications {
+            await BackgroundCompilationService.shared.foregroundRetryIfNeeded()
+        }
+
+        XCTAssertEqual(counts.start, 0, "AI-off foreground retry must not start a compile")
+        XCTAssertEqual(counts.end, 0, "AI-off foreground retry must not post .compilationDidEnd")
+        XCTAssertEqual(counts.foregroundSuccess, 0,
+            "no .compileSucceededForeground toast may fire while AI is off")
+        XCTAssertEqual(BackgroundCompilationService.shared.stage, .idle,
+            "AI-off foreground retry must keep the progress rail idle")
+        XCTAssertFalse(BackgroundCompilationService.shared.isPresentingStage)
+        XCTAssertEqual(try String(contentsOf: rawURL, encoding: .utf8), rawContent,
+            "raw vault content must remain byte-identical")
+        XCTAssertFalse(
+            fm.fileExists(atPath: dailyDir.appendingPathComponent("\(dayString).md").path),
+            "no daily page may be written while AI is off"
+        )
+    }
+
+    /// UI14 P2: the weekly automatic compile shares the same eligibility gate
+    /// and must return without side effects while AI is off.
+    @MainActor
+    func testAIOff_weeklyAutoCompileEntry_runsNoWork() async {
+        let restoreAI = setAIFeaturesEnabled(false)
+        defer { restoreAI() }
+
+        let counts = await captureCompileNotifications {
+            await BackgroundCompilationService.shared.tryAutoCompileWeekly()
+        }
+
+        XCTAssertEqual(counts.weeklyRecap, 0,
+            "AI-off must gate the weekly auto compile before any work")
+        XCTAssertEqual(counts.start, 0, "no compile work may start while AI is off")
+        XCTAssertEqual(BackgroundCompilationService.shared.stage, .idle)
+    }
+
+    /// Positive control: the shared gate reflects the global toggle in both
+    /// directions — the AI-off tests above must not pass against a gate that
+    /// is permanently closed.
+    func testAutomaticCompileEligibility_reflectsGlobalToggle() {
+        let restoreAI = setAIFeaturesEnabled(true)
+        defer { restoreAI() }
+        XCTAssertTrue(BackgroundCompilationService.isAutomaticCompileEligible,
+            "AI ON must leave the automatic compile gate open (positive control)")
+
+        UserDefaults.standard.set(false, forKey: AppSettings.Keys.aiFeaturesEnabled)
+        XCTAssertFalse(BackgroundCompilationService.isAutomaticCompileEligible,
+            "AI OFF must close the automatic compile gate")
+    }
+
+    /// Retry classification contract (UI14 P2): `.aiDisabled` and
+    /// `.missingApiKey` are non-retryable user/configuration state; transient
+    /// transport failures keep the documented retry policy.
+    func testRetryClassification_aiDisabled_missingKey_transient() {
+        XCTAssertFalse(
+            BackgroundCompilationService.shouldRetryCompilation(after: CompilationError.aiDisabled),
+            "AI OFF is a deliberate user choice — retrying it kept a fake 30% rail alive for ~12.5 minutes (UI14 P2)"
+        )
+        XCTAssertFalse(
+            BackgroundCompilationService.shouldRetryCompilation(after: CompilationError.missingApiKey),
+            "Missing credentials must reach the actionable Settings banner immediately"
+        )
+        XCTAssertTrue(
+            BackgroundCompilationService.shouldRetryCompilation(after: CompilationError.networkTimeout),
+            "Transient transport failures should retain the documented retry policy"
+        )
+        XCTAssertTrue(
+            BackgroundCompilationService.shouldRetryCompilation(after: CompilationError.networkError("connection reset")),
             "Transient transport failures should retain the documented retry policy"
         )
     }
