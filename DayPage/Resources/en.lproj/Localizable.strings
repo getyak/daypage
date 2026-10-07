@@ -535,7 +535,7 @@
 
 /* Search — empty query state */
 "search.empty.prompt"             = "Type a keyword to search all archived content";
-"search.empty.hint"               = "Supports memo text, place names, and dates";
+"search.empty.hint"               = "Searches memo text, voice transcripts, place names, and dates";
 "search.empty.trySuggestion"      = "Try searching";
 
 /* Search — empty result state */
@@ -2282,3 +2282,73 @@
 // Time zone picker
 "settings.timezone.select" = "Select time zone";
 "settings.timezone.search" = "Search time zones";
+
+// Flomo-native refinement — swipe insight/related actions
+"memo.swipe.insight" = "Insight";
+"memo.swipe.related" = "Related records";
+"memo.a11y.action.insight" = "Open insight";
+"memo.a11y.action.related" = "Open related records";
+"memo.menu.moreActions" = "More Actions";
+
+// Flomo-native refinement — memo chat entry modes
+"memo.chat.suggest.related" = "What else was happening around this entry?";
+
+// Flomo-native refinement — insight lenses (洞察视角)
+"insight.chooser.title" = "Insight lens";
+"insight.strategy.new" = "New lens";
+"insight.strategy.edit" = "Edit lens";
+"insight.strategy.delete" = "Delete lens";
+"insight.strategy.select.hint" = "Select this insight lens (local only, nothing is sent)";
+"insight.start" = "Start insight";
+"insight.start.hint" = "Looks at this memo through the selected lens; nothing is sent automatically";
+"insight.editor.title.new" = "New lens";
+"insight.editor.title.edit" = "Edit lens";
+"insight.editor.field.title" = "Lens name";
+"insight.editor.field.instructions" = "How should I look at this entry?";
+"insight.editor.save" = "Save";
+"insight.editor.cancel" = "Cancel";
+"insight.editor.delete" = "Delete lens";
+"insight.error.emptyTitle" = "Give the lens a name";
+"insight.error.emptyInstructions" = "Write how I should look at this entry";
+"insight.error.titleTooLong" = "Lens name is limited to %d characters";
+"insight.error.instructionsTooLong" = "Instructions are limited to %d characters";
+"insight.strategy.patterns.title" = "Recurring patterns";
+"insight.strategy.patterns.body" = "Look across my dated records for genuine repetitions or shifts around this entry. Only call something a pattern when several dated records support it, and say so when the evidence is thin.";
+"insight.strategy.challenge.title" = "Challenge the assumption";
+"insight.strategy.challenge.body" = "Find the assumption this entry rests on, then offer at least one plausible alternative reading grounded in my records. Keep facts and interpretation clearly separate.";
+"insight.strategy.nextStep.title" = "One small next step";
+"insight.strategy.nextStep.body" = "Turn this reflection into one small, concrete step I could try before the week ends, plus one question that would tell me whether the step was worth it.";
+"insight.strategy.prompt.label" = "Insight lens";
+
+// Flomo-native refinement — sidebar calm first screen
+"sidebar.traces" = "Writing traces";
+"sidebar.traces.hint" = "Shows or hides the activity heatmap and recent days";
+"sidebar.tools" = "Tools";
+"sidebar.tools.hint" = "Shows or hides the action center and schedule";
+"sidebar.tools.system_actions" = "Action center";
+"sidebar.tools.system_actions.hint" = "Review and approve DayPage's system action proposals";
+
+// Flomo-native refinement — archive month header + list rows
+"archive.mode.toggle.calendar" = "Calendar";
+"archive.mode.toggle.list" = "List";
+"archive.month.meta.photos" = "%d photos";
+"archive.month.meta.voiceMin" = "%d min voice";
+"archive.month.meta.places" = "%d places";
+"archive.row.meta.photos" = "%d photos";
+"archive.row.meta.locations" = "%d places";
+"archive.row.meta.voiceMin" = "%d min voice";
+
+// Flomo-native refinement — search quick scopes + filter count
+"search.a11y.filter.enabled.count" = "%d filters active";
+"search.quick.dates" = "Dates";
+"search.quick.types" = "Types";
+"search.quick.today" = "Today";
+"search.quick.thisWeek" = "This week";
+"search.quick.thisMonth" = "This month";
+"search.quick.scope.hint" = "Filters records by date range";
+
+"memo.chat.insight.title" = "Insight into this memory";
+"memo.chat.related.title" = "Related memories";
+"memo.chat.topic.label" = "Keyword";
+"memo.chat.topic.placeholder" = "e.g. attention";
+"memo.chat.topic.hint" = "Exact keyword matching, up to 40 characters";

@@ -215,6 +215,24 @@ final class AppNavigationModel: ObservableObject {
     /// re-fires the navigation.
     @Published var pendingSearchQuery: String? = nil
 
+    /// In-app search cancellation returns to its launching destination.
+    /// External search links leave this nil and continue to use Archive.
+    private(set) var searchReturnTab: AppTab?
+
+    func openGlobalSearch() {
+        searchReturnTab = selectedTab
+        selectedTab = .archive
+        pendingSearchQuery = ""
+    }
+
+    func finishGlobalSearch(selectedResult: Bool) {
+        let returnTab = searchReturnTab
+        searchReturnTab = nil
+        if !selectedResult, let returnTab {
+            selectedTab = returnTab
+        }
+    }
+
     /// Pre-filled question delivered via `daypage://ask?q=…` (from `AskTodayIntent`).
     /// RootView observes this, presents the "和过去对话" chat sheet seeded with the
     /// question, and clears it so re-firing the same shortcut re-opens the sheet.

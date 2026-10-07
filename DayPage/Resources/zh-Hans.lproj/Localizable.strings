@@ -597,7 +597,7 @@
 
 /* Search — empty query state */
 "search.empty.prompt"             = "输入关键词检索所有归档内容";
-"search.empty.hint"               = "支持 memo 正文、位置名、日期";
+"search.empty.hint"               = "检索 memo 正文、语音转写、位置名、日期";
 "search.empty.trySuggestion"      = "试试搜索";
 
 /* Search — empty result state */
@@ -2289,3 +2289,73 @@
 // Time zone picker
 "settings.timezone.select" = "选择时区";
 "settings.timezone.search" = "搜索时区";
+
+// Flomo-native refinement — swipe insight/related actions
+"memo.swipe.insight" = "洞察";
+"memo.swipe.related" = "相关记录";
+"memo.a11y.action.insight" = "打开洞察";
+"memo.a11y.action.related" = "打开相关记录";
+"memo.menu.moreActions" = "更多操作";
+
+// Flomo-native refinement — memo chat entry modes
+"memo.chat.suggest.related" = "这条记录前后还发生过什么相关的事？";
+
+// Flomo-native refinement — insight lenses (洞察视角)
+"insight.chooser.title" = "洞察视角";
+"insight.strategy.new" = "新建视角";
+"insight.strategy.edit" = "编辑视角";
+"insight.strategy.delete" = "删除视角";
+"insight.strategy.select.hint" = "选择这个洞察视角（仅本地，不会发送）";
+"insight.start" = "开始洞察";
+"insight.start.hint" = "用所选视角分析这条记录；不会自动发送";
+"insight.editor.title.new" = "新建视角";
+"insight.editor.title.edit" = "编辑视角";
+"insight.editor.field.title" = "视角名称";
+"insight.editor.field.instructions" = "想让我怎么看待这条记录？";
+"insight.editor.save" = "保存";
+"insight.editor.cancel" = "取消";
+"insight.editor.delete" = "删除视角";
+"insight.error.emptyTitle" = "请给视角起个名字";
+"insight.error.emptyInstructions" = "请写下想让我怎么看待这条记录";
+"insight.error.titleTooLong" = "视角名称最多 %d 个字符";
+"insight.error.instructionsTooLong" = "指令最多 %d 个字符";
+"insight.strategy.patterns.title" = "重复模式";
+"insight.strategy.patterns.body" = "在带日期的记录里寻找这条记录前后真实的重复或变化。只有多条带日期的记录支撑时才称之为模式，证据不足时要明说。";
+"insight.strategy.challenge.title" = "挑战假设";
+"insight.strategy.challenge.body" = "找出这条记录背后的假设，再基于我的记录给出至少一种合理的替代解读。事实与解读要清晰分开。";
+"insight.strategy.nextStep.title" = "下一个小步骤";
+"insight.strategy.nextStep.body" = "把这次反思变成一个本周内可以尝试的小而具体的步骤，再加一个能检验这个步骤是否值得的问题。";
+"insight.strategy.prompt.label" = "洞察视角";
+
+// Flomo-native refinement — sidebar calm first screen
+"sidebar.traces" = "记录足迹";
+"sidebar.traces.hint" = "显示或隐藏活动足迹与最近记录";
+"sidebar.tools" = "工具";
+"sidebar.tools.hint" = "显示或隐藏动作中心与调度";
+"sidebar.tools.system_actions" = "动作中心";
+"sidebar.tools.system_actions.hint" = "查看并审批 DayPage 的系统动作提案";
+
+// Flomo-native refinement — archive month header + list rows
+"archive.mode.toggle.calendar" = "日历";
+"archive.mode.toggle.list" = "记录";
+"archive.month.meta.photos" = "%d 张照片";
+"archive.month.meta.voiceMin" = "%d 分钟语音";
+"archive.month.meta.places" = "%d 个地点";
+"archive.row.meta.photos" = "%d 张照片";
+"archive.row.meta.locations" = "%d 个地点";
+"archive.row.meta.voiceMin" = "%d 分钟语音";
+
+// Flomo-native refinement — search quick scopes + filter count
+"search.a11y.filter.enabled.count" = "%d 个筛选生效";
+"search.quick.dates" = "日期";
+"search.quick.types" = "类型";
+"search.quick.today" = "今天";
+"search.quick.thisWeek" = "本周";
+"search.quick.thisMonth" = "本月";
+"search.quick.scope.hint" = "按日期范围筛选记录";
+
+"memo.chat.insight.title" = "洞察这条记录";
+"memo.chat.related.title" = "寻找相关记录";
+"memo.chat.topic.label" = "关联关键词";
+"memo.chat.topic.placeholder" = "例如：注意力";
+"memo.chat.topic.hint" = "按关键词匹配相关记录，最多 40 个字符";

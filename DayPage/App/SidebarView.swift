@@ -19,9 +19,11 @@ struct SidebarView: View {
     @StateObject private var reminderService = CaptureReminderService.shared
     @StateObject private var flagStore = FeatureFlagStore.shared
 
-    /// Disclosure state for the Recent jump list — collapsed by default so
-    /// the drawer opens to a single, calm screen (heatmap + stats + nav).
-    @AppStorage("sidebar.recentExpanded") private var recentExpanded = false
+    /// Disclosure state for the grouped activity + recent-days section
+    /// (「记录足迹」) and the utilities group (「工具」) — both collapsed by
+    /// default so the drawer opens to a single, calm screen.
+    @AppStorage("sidebar.tracesExpanded") private var tracesExpanded = false
+    @AppStorage("sidebar.toolsExpanded") private var toolsExpanded = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -47,17 +49,20 @@ struct SidebarView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
                         profileRow
-                        if hasActivity {
-                            heatmapSection
-                        }
 
                         navSection
                             .padding(.top, DSSpacing.xl2)
 
-                        if !sidebarVM.recentDays.isEmpty {
-                            recentSection
-                                .padding(.top, DSSpacing.sm)
-                        }
+                        // 活动热力图 + 最近记录折叠进同一个「记录足迹」
+                        // 折叠组（默认收起），让首屏只剩身份 + 导航。
+                        tracesSection
+                            .padding(.top, DSSpacing.sm)
+
+                        // 动作中心 + 调度折叠进同一个「工具」组（默认
+                        // 收起），计数在折叠行上仍然可见。
+                        toolsSection
+                            .padding(.top, DSSpacing.sm)
+
                         if dynamicTypeSize.isAccessibilitySize {
                             bottomSection
                         }
@@ -77,24 +82,15 @@ struct SidebarView: View {
         .task {
             sidebarVM.bind(authService: authService)
         }
-        .onChange(of: nav.isSidebarOpen) { isOpen in
-            // Refresh the recent-day list every time the drawer opens so the
-            // user sees the latest activity without having to relaunch.
-            //
-            // Defer the vault scan until AFTER the 0.28s slide animation
-            // completes. Firing it on the opening frame used to publish four
-            // @Published updates (recentDays / streakDays / heatmapCounts /
-            // stats) into the middle of the slide, which re-invalidated the
-            // drawer subtree and produced the "一闪一闪" that the user reported.
-            // Waiting a beat lets the panel finish sliding first, then the
-            // stats fade in without fighting the transform.
-            if isOpen {
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 320_000_000)
-                    guard nav.isSidebarOpen else { return }
-                    sidebarVM.refreshRecentDays()
-                }
-            }
+        .task(id: nav.isSidebarOpen) {
+            // Covers the drawer's first presentation as well as later opens.
+            // Wait for the slide to settle; SwiftUI cancels this scan if the
+            // drawer closes before the delay completes.
+            guard nav.isSidebarOpen else { return }
+            do { try await Task.sleep(nanoseconds: 320_000_000) }
+            catch { return }
+            guard !Task.isCancelled, nav.isSidebarOpen else { return }
+            await sidebarVM.refreshRecentDaysAsync()
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -214,6 +210,8 @@ struct SidebarView: View {
             || sidebarVM.totalWordCount > 0
     }
 
+    /// Activity heatmap — lives inside the collapsed 「记录足迹」 disclosure,
+    /// whose container already applies the drawer's row inset.
     private var heatmapSection: some View {
         SidebarHeatmapView(
             counts: sidebarVM.heatmapCounts,
@@ -223,13 +221,15 @@ struct SidebarView: View {
             totalPages: sidebarVM.totalPages,
             totalWordCount: sidebarVM.totalWordCount
         )
-        .padding(.horizontal, DSSpacing.xl)
+        .padding(.horizontal, DSSpacing.xs)
         .padding(.top, DSSpacing.md)
     }
 
     // MARK: - Nav Items
 
     /// Primary nav: Today / Archive / Graph + the "Ask the past" agent (D1).
+    /// Global Search lives in the Today / Archive headers (one unified
+    /// SearchView) — the drawer's old duplicate search row is gone.
     private var navSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             navItem(tab: .today, icon: "square.and.pencil",
@@ -249,19 +249,7 @@ struct SidebarView: View {
             Color.clear
                 .frame(height: 6)
                 .accessibilityHidden(true)
-            // Issue #16 (2026-07-03): global-search row. Between the
-            // structured tabs (Today/Archive/Graph) and the memory-chat
-            // agent so the sidebar reads as a top-down "cite → filter →
-            // ask" ladder.
-            searchRow
             askRow
-            systemActionsRow
-            // Schedule hub — capture-reminder CRUD lives here. Gated by the
-            // same feature flag as the reminder scheduler, so it disappears
-            // entirely when the flag is off (kill switch parity).
-            if flagStore.isEnabled(.captureReminder) {
-                scheduleRow
-            }
         }
         .padding(.horizontal, DSSpacing.md)
     }
@@ -280,19 +268,10 @@ struct SidebarView: View {
                     .font(.system(size: 15, weight: .medium))
                     .frame(width: 26, height: 26)
                     .foregroundColor(DSColor.inkMuted)
-                Text("动作中心")
+                Text(NSLocalizedString("sidebar.tools.system_actions", value: "动作中心", comment: "System action center row"))
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
                 Spacer(minLength: DSSpacing.sm)
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text("REVIEW")
-                        .font(DSType.mono9)
-                        .tracking(1.1)
-                        .foregroundColor(DSColor.accentOnBg)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(DSColor.amberSoft, in: Capsule())
-                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 9)
@@ -301,11 +280,11 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("sidebar.system-actions")
-        .accessibilityLabel("动作中心")
-        .accessibilityHint("查看并审批 DayPage 的系统动作提案")
+        .accessibilityLabel(NSLocalizedString("sidebar.tools.system_actions", value: "动作中心", comment: "System action center row"))
+        .accessibilityHint(NSLocalizedString("sidebar.tools.system_actions.hint", value: "查看并审批 DayPage 的系统动作提案", comment: "System action center hint"))
     }
 
-    /// Entry to the "调度中心" (ScheduleHubView). Mirrors `askRow`/`searchRow`
+    /// Entry to the "调度中心" (ScheduleHubView). Mirrors `askRow`
     /// styling, plus a mono badge showing how many reminders will fire next so
     /// the drawer surfaces at-a-glance scheduling state. Closes the drawer,
     /// then presents the hub as a sheet (Settings-style).
@@ -333,27 +312,6 @@ struct SidebarView: View {
             ? String(format: NSLocalizedString("sidebar.schedule.upcoming", value: "%d 条即将触发", comment: "Upcoming reminders count"), upcomingCount)
             : "")
         .accessibilityHint(NSLocalizedString("sidebar.schedule.hint", value: "打开调度中心", comment: "Schedule hub hint"))
-    }
-
-    /// Issue #16 (2026-07-03): entry to the app-wide SearchView. Reuses
-    /// AppNavigationModel.pendingSearchQuery — the same rail the URL
-    /// scheme `daypage://search?q=` already flows through — so a single
-    /// downstream consumer keeps its authority.
-    private var searchRow: some View {
-        Button {
-            Haptics.light()
-            nav.closeSidebar()
-            nav.selectedTab = .archive
-            nav.pendingSearchQuery = ""
-        } label: {
-            sidebarRowLabel(
-                icon: "magnifyingglass",
-                label: NSLocalizedString("sidebar.nav.search", comment: "Search nav row")
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("sidebar.search")
-        .accessibilityLabel(NSLocalizedString("sidebar.nav.search.a11y", comment: "Global search a11y label"))
     }
 
     /// In-app entry point for the D1 "和过去对话" memory-chat agent. Without
@@ -469,58 +427,38 @@ struct SidebarView: View {
         .contentShape(Rectangle())
     }
 
-    // MARK: - Recent Section
+    // MARK: - Collapsed Groups (记录足迹 / 工具)
 
-    /// "Commit history" style list: the most recent days that actually have
-    /// memos, tapping a row jumps straight to that day's detail view in
-    /// Archive. Refreshed on every sidebar open via `refreshRecentDays()`.
-    ///
-    /// Collapsed by default — the heatmap above already tells the "recent
-    /// activity" story at a glance, so seven always-on list rows were
-    /// redundant weight that forced the drawer to scroll. The disclosure
-    /// state persists across launches for users who want the jump list open.
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            recentDisclosureRow
-
-            if recentExpanded {
-                ForEach(sidebarVM.recentDays) { day in
-                    recentRow(day: day)
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .padding(.horizontal, DSSpacing.md)
-        .clipped()  // keep collapsing rows from sliding over the section below
-    }
-
-    /// Section header doubling as the expand/collapse control: mono label +
-    /// day count + rotating chevron, styled like `sectionLabel` so the
-    /// museum-aesthetic ladder stays intact.
-    private var recentDisclosureRow: some View {
-        Button {
-            Haptics.soft()
-            withAnimation(Motion.respectReduceMotion(Motion.expand)) {
-                recentExpanded.toggle()
-            }
-        } label: {
+    /// Shared disclosure header for the two collapsed groups below the
+    /// primary navigation: quiet label + optional count badge + rotating
+    /// chevron. 44pt touch target, VoiceOver toggle state (expanded /
+    /// collapsed), and a localized title/hint pair for locale parity.
+    private func disclosureRow(
+        title: String,
+        hint: String,
+        badge: String?,
+        isExpanded: Bool,
+        onToggle: @escaping () -> Void
+    ) -> some View {
+        Button(action: onToggle) {
             HStack(spacing: 6) {
-                Text("Recent")
+                Text(title)
                     .font(DSType.mono9)
                     .foregroundColor(DSColor.inkMuted)
                     .tracking(1.2)
-                    .textCase(.uppercase)
-                Text("\(sidebarVM.recentDays.count)")
-                    .font(DSType.mono9)
-                    .foregroundColor(DSColor.inkMuted)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(DSColor.amberSoft, in: Capsule())
+                if let badge {
+                    Text(badge)
+                        .font(DSType.mono9)
+                        .foregroundColor(DSColor.inkMuted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(DSColor.amberSoft, in: Capsule())
+                }
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
-                    .rotationEffect(.degrees(recentExpanded ? 0 : -90))
+                    .rotationEffect(.degrees(isExpanded ? 0 : -90))
             }
             .padding(.leading, 48)  // align with nav text column (10 + 26 + 12)
             .padding(.trailing, DSSpacing.lg)
@@ -530,12 +468,81 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(NSLocalizedString("sidebar.recent", comment: "Recent section toggle"))
-        .accessibilityValue(recentExpanded
+        .accessibilityLabel(title)
+        .accessibilityValue(isExpanded
             ? NSLocalizedString("a11y.expanded", comment: "Disclosure expanded state")
             : NSLocalizedString("a11y.collapsed", comment: "Disclosure collapsed state"))
-        .accessibilityHint(NSLocalizedString("sidebar.recent.hint", comment: "Recent toggle hint"))
+        .accessibilityHint(hint)
         .accessibilityAddTraits(.isButton)
+    }
+
+    /// 「记录足迹」— the activity heatmap and the recent-day jump list in ONE
+    /// collapsed group below the primary navigation (default closed). The
+    /// recent rows keep their "commit history" behavior: tapping jumps to
+    /// that day's detail view in Archive.
+    private var tracesSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            disclosureRow(
+                title: NSLocalizedString("sidebar.traces", value: "记录足迹", comment: "Traces disclosure: activity heatmap + recent days"),
+                hint: NSLocalizedString("sidebar.traces.hint", value: "显示或隐藏活动足迹与最近记录", comment: "Traces disclosure hint"),
+                badge: sidebarVM.recentDays.isEmpty ? nil : "\(sidebarVM.recentDays.count)",
+                isExpanded: tracesExpanded
+            ) {
+                Haptics.soft()
+                withAnimation(Motion.respectReduceMotion(Motion.expand)) {
+                    tracesExpanded.toggle()
+                }
+            }
+
+            if tracesExpanded {
+                VStack(alignment: .leading, spacing: 2) {
+                    if hasActivity {
+                        heatmapSection
+                    }
+                    ForEach(sidebarVM.recentDays) { day in
+                        recentRow(day: day)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, DSSpacing.md)
+        .clipped()  // keep collapsing rows from sliding over the section below
+    }
+
+    /// 「工具」— action center + schedule hub in ONE collapsed group (default
+    /// closed). Pending visibility is preserved: the collapsed row keeps the
+    /// upcoming-reminder count badge, and the action center (approvals) stays
+    /// one tap away inside — never hidden irretrievably.
+    private var toolsSection: some View {
+        let upcomingCount = flagStore.isEnabled(.captureReminder)
+            ? reminderService.upcoming(limit: 99).count
+            : 0
+        return VStack(alignment: .leading, spacing: 2) {
+            disclosureRow(
+                title: NSLocalizedString("sidebar.tools", value: "工具", comment: "Utilities disclosure: action center + schedule"),
+                hint: NSLocalizedString("sidebar.tools.hint", value: "显示或隐藏动作中心与调度", comment: "Utilities disclosure hint"),
+                badge: upcomingCount > 0 ? "\(upcomingCount)" : nil,
+                isExpanded: toolsExpanded
+            ) {
+                Haptics.soft()
+                withAnimation(Motion.respectReduceMotion(Motion.expand)) {
+                    toolsExpanded.toggle()
+                }
+            }
+
+            if toolsExpanded {
+                VStack(alignment: .leading, spacing: 2) {
+                    systemActionsRow
+                    if flagStore.isEnabled(.captureReminder) {
+                        scheduleRow
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, DSSpacing.md)
+        .clipped()
     }
 
     /// Ledger-style jump row: relative date + one-line teaser, bare mono

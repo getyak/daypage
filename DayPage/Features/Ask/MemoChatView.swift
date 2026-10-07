@@ -2,6 +2,33 @@ import SwiftUI
 import DayPageModels
 import DayPageServices
 
+// MARK: - MemoChatEntryMode
+
+/// How the memo-anchored chat sheet was opened (flomo-native refinement).
+///
+/// - `.insight`: the swipe's 「洞察」 action — the sheet opens with the
+///   insight-lens (「洞察视角」) chooser expanded. Nothing is sent until the
+///   user taps 「开始洞察」.
+/// - `.related`: the swipe's 「相关记录」 action — the sheet opens with a
+///   suggested question prefilled into the input. It is NEVER auto-submitted:
+///   no fabricated results, no silent cloud calls.
+enum MemoChatEntryMode: Equatable {
+    case insight
+    case related(question: String)
+}
+
+// MARK: - MemoChatSheetRequest
+
+/// Identifiable anchor for `.sheet(item:)` presentation of ``MemoChatView``
+/// from a memo row (TimelineRow), so the chat is always anchored to the exact
+/// memo that was swiped.
+struct MemoChatSheetRequest: Identifiable {
+    let id = UUID()
+    let memo: Memo
+    let mode: MemoChatEntryMode
+    var entityDisplayNames: [String: String] = [:]
+}
+
 // MARK: - MemoChatView
 
 /// Memo 锚定的 AI 对话 sheet（issue #837）。
@@ -20,15 +47,29 @@ struct MemoChatView: View {
     /// 喂给 `.retrieving` 阶段文案与建议问题。
     let entityDisplayNames: [String: String]
     let onClose: () -> Void
+    /// Optional entry mode (flomo-native refinement). nil keeps the plain
+    /// free-chat entry used by MemoDetailView.
+    var initialMode: MemoChatEntryMode? = nil
 
     @StateObject private var chat = MemoryChatService()
+    /// 洞察视角的本地偏好存储（注入式 UserDefaults；只存 title +
+    /// instructions + 选择 ID，永不存 memo 正文/证据/凭据）。
+    @StateObject private var insightStore = InsightStrategyStore()
     /// 这条 memo 的过往对话（长河的锚定支流）：只显示锚定到同一条
     /// memo 的封存会话——全量历史在 AskPastView 的主河里。
     @StateObject private var river = ChatRiverModel()
     @State private var draft: String = ""
+    @State private var retrievalTopic: String = ""
     @State private var didAttach = false
     @State private var pinnedTurnIDs: Set<UUID> = []
     @State private var caretVisible = true
+    /// 洞察视角选择器的展开状态（默认紧凑收起）。
+    @State private var insightExpanded = false
+    /// 自定义策略编辑器（新建 / 编辑），`nil` = 关闭。
+    @State private var insightEditor: InsightStrategyEditorTarget?
+    /// 当前 in-flight 聊天任务句柄：sheet 关闭 / 消失时 cancel，确保被丢弃
+    /// 的对话绝不会迟到触发云端调用或落盘隐藏结果。
+    @State private var chatTask: Task<Void, Never>? = nil
     @FocusState private var inputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -50,6 +91,9 @@ struct MemoChatView: View {
                 memoryChip
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+            if initialMode != nil, chat.attachedMemo != nil {
+                retrievalTopicEditor
+            }
             inputBar
         }
         .background(DSColor.bgWarm.ignoresSafeArea())
@@ -58,14 +102,52 @@ struct MemoChatView: View {
             guard !didAttach else { return }
             didAttach = true
             chat.attach(memo: memo, clues: clues)
+            if initialMode == .insight { insightExpanded = true }
+            if initialMode != nil {
+                let topic = await chat.suggestedRetrievalQuery()
+                guard !Task.isCancelled else { return }
+                if retrievalTopic.isEmpty { retrievalTopic = topic }
+            }
             // --continue：同一天再次打开同一条 memo 的对话，接上原会话
             // 而不是碎片化成多段。
-            chat.resumeTodaySession()
+            //
+            // 例外（review P1）：.insight 入口不 resume——已有的历史回合会
+            // 隐藏空对话里的「洞察视角」选择器。原会话仍沉在下面的长河里；
+            // 普通自由提问保持原有 resume 行为。
+            if initialMode != .insight {
+                chat.resumeTodaySession()
+            }
             river.filter = { [memoID = memo.id] summary in
                 summary.entry == .memo && summary.anchorMemoID == memoID
             }
             river.refresh(excluding: chat.sessionRef?.id)
-            inputFocused = true
+            // 入口模式（均不会自动发起任何 AI 调用）：
+            // - .insight → 展开「洞察视角」选择器，等用户点「开始洞察」；
+            //   **不**自动弹键盘，否则选择器被键盘遮住。
+            // - .related → 预填建议问题到输入框，绝不自动提交。
+            switch initialMode {
+            case .insight:
+                withAnimation(Motion.respectReduceMotion(Motion.expand)) {
+                    insightExpanded = true
+                }
+            case .related(let question):
+                draft = question
+                inputFocused = true
+            case nil:
+                inputFocused = true
+            }
+        }
+        .onDisappear {
+            // Sheet dismissal cancels any in-flight ask/retry/insight run.
+            chatTask?.cancel()
+            chatTask = nil
+        }
+        .sheet(item: $insightEditor) { target in
+            InsightStrategyEditor(
+                store: insightStore,
+                target: target,
+                onClose: { insightEditor = nil }
+            )
         }
         .sheet(isPresented: Binding(
             get: { river.shareURLs != nil },
@@ -74,6 +156,52 @@ struct MemoChatView: View {
             if let urls = river.shareURLs {
                 ShareSheet(activityItems: urls)
             }
+        }
+    }
+
+    private var entryTitle: String {
+        switch initialMode {
+        case .insight:
+            return NSLocalizedString("memo.chat.insight.title", value: "Insight into this memory", comment: "Insight entry title")
+        case .related:
+            return NSLocalizedString("memo.chat.related.title", value: "Related memories", comment: "Related entry title")
+        case nil:
+            return NSLocalizedString("memo.chat.title", value: "Ask this memory", comment: "Memo chat title")
+        }
+    }
+
+    /// A suggested local keyword is visible and editable; it never changes the lens.
+    private var retrievalTopicEditor: some View {
+        HStack(spacing: 10) {
+            Text(NSLocalizedString("memo.chat.topic.label", value: "Keyword", comment: "Editable retrieval keyword"))
+                .font(DSType.labelSM)
+                .foregroundColor(DSColor.inkMuted)
+            TextField(NSLocalizedString("memo.chat.topic.placeholder", value: "e.g. attention", comment: "Keyword placeholder"), text: $retrievalTopic)
+                .font(DSType.bodySM)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .disabled(chat.isResponding)
+                .accessibilityLabel(NSLocalizedString("memo.chat.topic.label", value: "Keyword", comment: "Editable retrieval keyword"))
+                .accessibilityHint(NSLocalizedString("memo.chat.topic.hint", value: "Exact keyword matching, up to 40 characters", comment: "Keyword field hint"))
+                .accessibilityIdentifier("memo-chat-retrieval-topic")
+                .onChange(of: retrievalTopic) { value in
+                    if value.count > 40 { retrievalTopic = String(value.prefix(40)) }
+                }
+        }
+        .frame(minHeight: 44)
+        .padding(.horizontal, 20)
+    }
+
+    private func askFromEntry(_ question: String) async {
+        if initialMode != nil, chat.attachedMemo != nil {
+            let topic = retrievalTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+            let query: String
+            if topic.isEmpty { query = await chat.suggestedRetrievalQuery() }
+            else { query = topic }
+            guard !Task.isCancelled else { return }
+            await chat.ask(question, retrievalQuery: query)
+        } else {
+            await chat.ask(question)
         }
     }
 
@@ -89,17 +217,14 @@ struct MemoChatView: View {
                     .font(DSType.mono10)
                     .tracking(1.2)
                     .foregroundColor(DSColor.inkMuted)
-                Text(NSLocalizedString(
-                    "memo.chat.title",
-                    value: "Ask this memory",
-                    comment: "Memo chat — sheet title"
-                ))
+                Text(entryTitle)
                 .font(DSType.serifBody20)
                 .foregroundColor(DSColor.inkPrimary)
             }
             Spacer()
             Button {
                 Haptics.soft()
+                chatTask?.cancel()
                 onClose()
             } label: {
                 Image(systemName: "xmark")
@@ -108,6 +233,8 @@ struct MemoChatView: View {
                     .frame(width: 30, height: 30)
                     .background(DSColor.surfaceContainerHigh)
                     .clipShape(Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .accessibilityLabel(NSLocalizedString(
                 "memo.chat.a11y.close",
@@ -129,13 +256,16 @@ struct MemoChatView: View {
                     // 这条 memo 的过往对话——沉在当前对话上游。
                     ChatRiverSection(river: river) { loaded in
                         withAnimation(Motion.respectReduceMotion(Motion.spring)) {
+                            chatTask?.cancel()
+                            chatTask = nil
                             chat.resume(loaded)
                             river.exitSelection()
                             river.refresh(excluding: loaded.summary.id)
                         }
                     }
                     if chat.turns.isEmpty && !chat.isResponding {
-                        suggestions
+                        if chat.attachedMemo != nil { insightChooser }
+                        if initialMode != .insight || chat.attachedMemo == nil { suggestions }
                     }
                     ForEach(chat.turns) { turn in
                         turnRow(turn).id(turn.id)
@@ -389,7 +519,7 @@ struct MemoChatView: View {
             ForEach(suggestedQuestions, id: \.self) { q in
                 Button {
                     Haptics.soft()
-                    Task { await chat.ask(q) }
+                    runChat { await askFromEntry(q) }
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkle")
@@ -412,6 +542,212 @@ struct MemoChatView: View {
         .padding(.top, 8)
     }
 
+    // MARK: - Insight lens (洞察视角)
+
+    /// 紧凑可展开的「洞察视角」选择器——只在空对话时出现。
+    ///
+    /// 契约（flomo-native refinement）：
+    /// - 默认收起，只露当前视角一行。
+    /// - 3 个内置视角（重复模式 / 挑战假设 / 下一小步）+ 自定义视角的
+    ///   新建 / 编辑 / 删除。
+    /// - 选择 / 编辑 / 删除视角都只是本地偏好操作，**不发起任何 AI 调用**；
+    ///   唯一的出口是显式的「开始洞察」按钮。
+    private var insightChooser: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                Haptics.soft()
+                withAnimation(Motion.respectReduceMotion(Motion.expand)) {
+                    insightExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(DSColor.accentOnBg)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(NSLocalizedString(
+                            "insight.chooser.title",
+                            value: "洞察视角",
+                            comment: "Insight lens chooser — section title"
+                        ))
+                        .font(DSType.mono10)
+                        .tracking(1.0)
+                        .foregroundColor(DSColor.inkMuted)
+                        Text(insightStore.selectedStrategy.title)
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkPrimary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(DSColor.inkMuted)
+                        .rotationEffect(.degrees(insightExpanded ? 0 : -90))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(DSColor.surfaceContainerHigh)
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(NSLocalizedString(
+                "insight.chooser.title",
+                value: "洞察视角",
+                comment: "Insight lens chooser — section title"
+            ))
+            .accessibilityValue(insightStore.selectedStrategy.title)
+            .accessibilityHint(insightExpanded
+                ? NSLocalizedString("a11y.expanded", comment: "Disclosure expanded state")
+                : NSLocalizedString("a11y.collapsed", comment: "Disclosure collapsed state"))
+
+            if insightExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(insightStore.allStrategies) { strategy in
+                        insightRow(strategy)
+                    }
+
+                    Button {
+                        Haptics.soft()
+                        insightEditor = InsightStrategyEditorTarget(
+                            id: nil, title: "", instructions: "")
+                    } label: {
+                        Label(
+                            NSLocalizedString(
+                                "insight.strategy.new",
+                                value: "新建视角",
+                                comment: "Create a custom insight strategy"
+                            ),
+                            systemImage: "plus"
+                        )
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.accentOnBg)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Haptics.tapConfirm()
+                        let strategy = insightStore.selectedStrategy
+                        runChat { await chat.ask(insight: strategy, retrievalTopic: retrievalTopic) }
+                    } label: {
+                        Text(NSLocalizedString(
+                            "insight.start",
+                            value: "开始洞察",
+                            comment: "Explicit action: run the selected insight lens on the anchored memo"
+                        ))
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.onAmber)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(DSColor.amberDeep, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chat.isResponding)
+                    .accessibilityHint(NSLocalizedString(
+                        "insight.start.hint",
+                        value: "用所选视角分析这条记录；不会自动发送",
+                        comment: "Insight start button hint"
+                    ))
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    /// One strategy row: tap selects (local only), trailing controls edit /
+    /// delete custom strategies. Builtin rows carry no edit affordance.
+    private func insightRow(_ strategy: InsightStrategy) -> some View {
+        let isSelected = insightStore.selectedID == strategy.id
+        return HStack(spacing: 8) {
+            Button {
+                Haptics.soft()
+                insightStore.select(strategy.id)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(isSelected ? DSColor.accentOnBg : DSColor.inkSubtle)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(strategy.title)
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkPrimary)
+                            .lineLimit(1)
+                        Text(strategy.instructions)
+                            .font(DSType.caption)
+                            .foregroundColor(DSColor.inkMuted)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(strategy.title)
+            .accessibilityValue(isSelected
+                ? NSLocalizedString("common.selected", comment: "Selection state")
+                : NSLocalizedString("common.not_selected", comment: "Selection state"))
+            .accessibilityHint(NSLocalizedString(
+                "insight.strategy.select.hint",
+                value: "选择这个洞察视角（仅本地，不会发送）",
+                comment: "Insight strategy row select hint"
+            ))
+
+            if strategy.kind == .custom {
+                Button {
+                    Haptics.soft()
+                    insightEditor = InsightStrategyEditorTarget(
+                        id: strategy.id,
+                        title: strategy.title,
+                        instructions: strategy.instructions
+                    )
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel(NSLocalizedString(
+                    "insight.strategy.edit",
+                    value: "编辑视角",
+                    comment: "Edit a custom insight strategy"
+                ))
+
+                Button {
+                    Haptics.warn()
+                    insightStore.deleteCustom(id: strategy.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(DSColor.errorRed)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel(NSLocalizedString(
+                    "insight.strategy.delete",
+                    value: "删除视角",
+                    comment: "Delete a custom insight strategy"
+                ))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
+                .fill(isSelected ? DSColor.amberSoft : Color.clear)
+        )
+    }
+
     // MARK: - Error
 
     private func errorRow(_ message: String) -> some View {
@@ -421,7 +757,7 @@ struct MemoChatView: View {
                 .foregroundColor(DSColor.inkSecondary)
             Button {
                 Haptics.soft()
-                Task { await chat.retryLast() }
+                runChat { await chat.retryLast() }
             } label: {
                 Text(NSLocalizedString(
                     "memo.chat.retry",
@@ -453,7 +789,7 @@ struct MemoChatView: View {
                     .font(DSType.mono9)
                     .tracking(1.0)
                     .foregroundColor(DSColor.inkMuted)
-                Text(MemoMarkdown.plainText(memo.body).replacingOccurrences(of: "\n", with: " "))
+                Text(MemoMarkdown.plainText(for: memo).replacingOccurrences(of: "\n", with: " "))
                     .font(DSFonts.serif(size: 13, weight: .regular, relativeTo: .footnote))
                     .foregroundColor(DSColor.inkSecondary)
                     .lineLimit(2)
@@ -469,6 +805,8 @@ struct MemoChatView: View {
                     .frame(width: 22, height: 22)
                     .background(DSColor.surfaceContainerHigh)
                     .clipShape(Circle())
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel(NSLocalizedString(
                 "memo.chat.a11y.detach",
@@ -516,6 +854,8 @@ struct MemoChatView: View {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 28))
                     .foregroundColor(canSend ? DSColor.accentOnBg : DSColor.inkSubtle)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .disabled(!canSend)
             .accessibilityLabel(NSLocalizedString(
@@ -536,7 +876,18 @@ struct MemoChatView: View {
         let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !chat.isResponding else { return }
         draft = ""
-        Task { await chat.ask(question) }
+        runChat { await askFromEntry(question) }
+    }
+
+    // MARK: - In-flight chat task
+
+    /// Runs one chat operation (ask / retry / insight) under a retained Task
+    /// handle. Closing the sheet or `.onDisappear` cancels it, so a dismissed
+    /// conversation never fires a late cloud call or persists hidden output
+    /// (MemoryChatService additionally gates on cancellation + run generation).
+    private func runChat(_ operation: @escaping @MainActor () async -> Void) {
+        chatTask?.cancel()
+        chatTask = Task { await operation() }
     }
 
     // MARK: - Navigation out
@@ -545,6 +896,7 @@ struct MemoChatView: View {
     /// dismiss-then-post 模式：先收 sheet（与详情页一起让位），再发通知。
     private func openArchive(at dateString: String) {
         Haptics.soft()
+        chatTask?.cancel()
         onClose()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             NotificationCenter.default.post(
@@ -552,6 +904,183 @@ struct MemoChatView: View {
                 object: nil,
                 userInfo: ["date": dateString]
             )
+        }
+    }
+}
+
+// MARK: - InsightStrategyEditorTarget
+
+/// Editing target for ``InsightStrategyEditor``. `id == nil` creates a new
+/// custom strategy; non-nil edits the custom strategy with that ID.
+private struct InsightStrategyEditorTarget: Identifiable {
+    let id: String?
+    let title: String
+    let instructions: String
+
+    var isEditing: Bool { id != nil }
+}
+
+// MARK: - InsightStrategyEditor
+
+/// Create / edit / delete sheet for one custom insight strategy.
+///
+/// Validation is the shared `InsightStrategyDraft.validated` rule (trim,
+/// non-empty, length caps) so the UI can never persist a lens the service
+/// layer would reject. Only title + instructions are stored — the editor
+/// deliberately has nowhere to put memo text, evidence, or credentials.
+private struct InsightStrategyEditor: View {
+
+    @ObservedObject var store: InsightStrategyStore
+    let target: InsightStrategyEditorTarget
+    let onClose: () -> Void
+
+    @State private var title: String
+    @State private var instructions: String
+    @State private var errorMessage: String?
+    @FocusState private var titleFocused: Bool
+
+    init(
+        store: InsightStrategyStore,
+        target: InsightStrategyEditorTarget,
+        onClose: @escaping () -> Void
+    ) {
+        self.store = store
+        self.target = target
+        self.onClose = onClose
+        _title = State(initialValue: target.title)
+        _instructions = State(initialValue: target.instructions)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(
+                        NSLocalizedString(
+                            "insight.editor.field.title",
+                            value: "视角名称",
+                            comment: "Insight strategy editor — title field label"
+                        ),
+                        text: $title
+                    )
+                    .focused($titleFocused)
+                    .accessibilityLabel(NSLocalizedString(
+                        "insight.editor.field.title",
+                        value: "视角名称",
+                        comment: "Insight strategy editor — title field label"
+                    ))
+                }
+                Section {
+                    TextField(
+                        NSLocalizedString(
+                            "insight.editor.field.instructions",
+                            value: "想让我怎么看待这条记录？",
+                            comment: "Insight strategy editor — instructions field placeholder"
+                        ),
+                        text: $instructions,
+                        axis: .vertical
+                    )
+                    .lineLimit(3...8)
+                    .accessibilityLabel(NSLocalizedString(
+                        "insight.editor.field.instructions",
+                        value: "想让我怎么看待这条记录？",
+                        comment: "Insight strategy editor — instructions field label"
+                    ))
+                }
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .font(DSType.caption)
+                            .foregroundColor(DSColor.errorRed)
+                    }
+                }
+                if target.isEditing {
+                    Section {
+                        Button(role: .destructive) {
+                            Haptics.warn()
+                            if let id = target.id { store.deleteCustom(id: id) }
+                            onClose()
+                        } label: {
+                            Text(NSLocalizedString(
+                                "insight.editor.delete",
+                                value: "删除视角",
+                                comment: "Insight strategy editor — delete button"
+                            ))
+                        }
+                    }
+                }
+            }
+            .navigationTitle(NSLocalizedString(
+                target.isEditing ? "insight.editor.title.edit" : "insight.editor.title.new",
+                value: target.isEditing ? "编辑视角" : "新建视角",
+                comment: "Insight strategy editor — sheet title"
+            ))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString(
+                        "insight.editor.cancel",
+                        value: "取消",
+                        comment: "Insight strategy editor — cancel button"
+                    )) {
+                        onClose()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString(
+                        "insight.editor.save",
+                        value: "保存",
+                        comment: "Insight strategy editor — save button"
+                    )) {
+                        save()
+                    }
+                    .bold()
+                }
+            }
+        }
+        .onAppear { titleFocused = true }
+    }
+
+    private func save() {
+        do {
+            _ = try store.saveCustom(id: target.id, title: title, instructions: instructions)
+            Haptics.tapConfirm()
+            onClose()
+        } catch let error as InsightStrategyValidationError {
+            errorMessage = message(for: error)
+            Haptics.warn()
+        } catch {
+            errorMessage = error.localizedDescription
+            Haptics.warn()
+        }
+    }
+
+    private func message(for error: InsightStrategyValidationError) -> String {
+        switch error {
+        case .emptyTitle:
+            return NSLocalizedString(
+                "insight.error.emptyTitle",
+                value: "请给视角起个名字",
+                comment: "Insight strategy validation — empty title"
+            )
+        case .emptyInstructions:
+            return NSLocalizedString(
+                "insight.error.emptyInstructions",
+                value: "请写下想让我怎么看待这条记录",
+                comment: "Insight strategy validation — empty instructions"
+            )
+        case .titleTooLong:
+            return String(format: NSLocalizedString(
+                "insight.error.titleTooLong",
+                value: "视角名称最多 %d 个字符",
+                comment: "Insight strategy validation — title too long; %d = limit"
+            ), InsightStrategy.maxTitleLength)
+        case .instructionsTooLong:
+            return String(format: NSLocalizedString(
+                "insight.error.instructionsTooLong",
+                value: "指令最多 %d 个字符",
+                comment: "Insight strategy validation — instructions too long; %d = limit"
+            ), InsightStrategy.maxInstructionsLength)
         }
     }
 }

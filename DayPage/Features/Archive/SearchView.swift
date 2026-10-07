@@ -248,6 +248,14 @@ struct SearchView: View {
         activeMatchKinds.isEmpty ? vm.results : vm.results.filter { activeMatchKinds.contains($0.matchKind) }
     }
 
+    /// Number of active filter dimensions — shown on the filter affordance so
+    /// the collapsed state still reports that (and how much) filtering is on.
+    private var activeFilterCount: Int {
+        (filters.startDate != nil || filters.endDate != nil ? 1 : 0)
+            + (filters.types.isEmpty ? 0 : 1)
+            + (filters.locationQuery.trimmingCharacters(in: .whitespaces).isEmpty ? 0 : 1)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -377,8 +385,6 @@ struct SearchView: View {
                 vm.isSearching = false
                 appearedIDs = []
                 activeMatchKinds = []
-                let willBeEmpty = trimmed.isEmpty && !capturedFilters.isActive
-                if willBeEmpty { appearedRecents = [] }
                 vm.results = hits
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
                 if hits.isEmpty && vm.hasSearched {
@@ -493,11 +499,31 @@ struct SearchView: View {
                     .foregroundColor(filters.isActive ? DSColor.accentOnBg : DSColor.inkMuted)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
+                    // Active-filter count on the affordance itself — the
+                    // collapsed control reports what's on without opening the
+                    // advanced panel.
+                    .overlay(alignment: .topTrailing) {
+                        if activeFilterCount > 0 {
+                            Text("\(activeFilterCount)")
+                                .font(DSType.mono9)
+                                .foregroundColor(DSColor.onAmber)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(DSColor.amberDeep, in: Capsule())
+                                .offset(x: 6, y: -2)
+                                .accessibilityHidden(true)
+                        }
+                    }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("search.a11y.filter", comment: "Accessibility label for the filter button"))
             .accessibilityHint(NSLocalizedString("search.a11y.filter.hint", comment: "Accessibility hint for the filter button"))
-            .accessibilityValue(filters.isActive ? NSLocalizedString("search.a11y.filter.enabled", comment: "Filter active state") : NSLocalizedString("search.a11y.filter.disabled", comment: "Filter inactive state"))
+            .accessibilityValue(filters.isActive
+                ? String(format: NSLocalizedString(
+                    "search.a11y.filter.enabled.count",
+                    value: "%d 个筛选生效",
+                    comment: "Filter active state with count; %d = active filter count"), activeFilterCount)
+                : NSLocalizedString("search.a11y.filter.disabled", comment: "Filter inactive state"))
 
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("search.cancel", comment: "Cancel button in search bar"))
@@ -657,14 +683,17 @@ struct SearchView: View {
                 Image(systemName: type.iconName)
                     .font(.system(size: 10))
                 Text(type.displayName)
-                    .monoLabelStyle(size: 10)
+                    .font(DSType.labelSM)
             }
             .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkMuted)
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .frame(minHeight: 44)
             .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(type.displayName)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     // MARK: - Content
@@ -705,8 +734,12 @@ struct SearchView: View {
             ))
     }
 
-    // MARK: - Empty-query state (recent searches + frequent entities)
+    // MARK: - Empty-query state (recent searches + quick scopes + frequent entities)
 
+    /// Empty-query starter state (flomo-native refinement): useful recents,
+    /// quick date/type scopes, and frequent entities — all in wrapped rows.
+    /// The old design stacked competing horizontal rails (starters + entity
+    /// frequency bars); this keeps exactly one calm vertical ladder.
     private var emptyQueryState: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -721,11 +754,11 @@ struct SearchView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 6)
 
-                // W1: the "QUICK SEARCH" starter row is gone from the
-                // populated state — it stacked a fourth equal-weight section
-                // above the user's own history and mostly duplicated the
-                // entity chips below. Starters still carry the true-empty
-                // state further down.
+                Text(NSLocalizedString("search.empty.hint", comment: "Searchable content scope"))
+                    .font(DSType.caption)
+                    .foregroundColor(DSColor.inkTertiaryAA)
+                    .padding(.horizontal, DSSpacing.xl)
+                    .padding(.bottom, DSSpacing.sm)
 
                 if !recent.isEmpty {
                     sectionHeader(title: NSLocalizedString("search.section.recentSearches", comment: "Recent searches section header"), trailing: AnyView(
@@ -745,6 +778,11 @@ struct SearchView: View {
                     }
                 }
 
+                // Useful scopes: date shortcuts + memo-type toggles write
+                // straight into the existing filter model (identical
+                // semantics to the advanced panel) and run the search.
+                quickScopeSections
+
                 if !entities.isEmpty || vm.isLoadingEntities {
                     sectionHeader(title: NSLocalizedString("search.section.topEntities", comment: "Top entities section header"), trailing: AnyView(EmptyView()))
 
@@ -754,15 +792,19 @@ struct SearchView: View {
                                 .transition(.opacity)
                         } else {
                             let maxCount = entities.map(\.count).max() ?? 1
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: DSSpacing.sm) {
-                                    ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
-                                        entityChipWithCount(entity, maxCount: maxCount, index: idx)
-                                    }
+                            // Wrapped grid, not a scrollable rail — one calm
+                            // layout instead of competing horizontal strips.
+                            LazyVGrid(
+                                columns: [GridItem(.adaptive(minimum: 120), spacing: DSSpacing.sm, alignment: .leading)],
+                                alignment: .leading,
+                                spacing: DSSpacing.sm
+                            ) {
+                                ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
+                                    entityChipWithCount(entity, maxCount: maxCount, index: idx)
                                 }
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.vertical, 10)
                             }
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.vertical, 10)
                             .transition(.opacity)
                         }
                     }
@@ -770,7 +812,7 @@ struct SearchView: View {
                 }
 
                 if recent.isEmpty && entities.isEmpty && !vm.isLoadingEntities {
-                    VStack(spacing: DSSpacing.xl) {
+                    VStack(spacing: DSSpacing.lg) {
                         VStack(spacing: DSSpacing.md) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 32, weight: .regular))
@@ -778,38 +820,104 @@ struct SearchView: View {
                             Text(NSLocalizedString("search.empty.prompt", comment: "Empty search state main prompt"))
                                 .bodySMStyle()
                                 .foregroundColor(DSColor.inkMuted)
-                            Text(NSLocalizedString("search.empty.hint", comment: "Empty search state hint text"))
-                                .monoLabelStyle(size: 10)
-                                // This explains the searchable scope; it is
-                                // semantic helper copy, not a decorative rule.
-                                .foregroundColor(DSColor.inkTertiaryAA)
-                        }
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(NSLocalizedString("search.empty.trySuggestion", comment: "Try a suggestion label in empty search state"))
-                                .monoLabelStyle(size: 10)
-                                .foregroundColor(DSColor.inkMuted)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, DSSpacing.xl)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: DSSpacing.sm) {
-                                    ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
-                                        entityChip(suggestion)
-                                    }
-                                }
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.vertical, DSSpacing.xs)
-                            }
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 80)
+                    .padding(.top, 32)
                 }
             }
             .padding(.bottom, DSSpacing.xl2)
         }
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    // MARK: - Quick scopes (empty-query)
+
+    /// Date shortcuts (今天 / 本周 / 本月) + memo-type toggles. Every chip
+    /// routes through the SAME `SearchFilters` the advanced panel uses —
+    /// no new semantics, no remote calls. Wrapped rows, ≥44pt targets.
+    private var quickScopeSections: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            Text(NSLocalizedString("search.quick.dates", value: "日期", comment: "Quick date scope chips label"))
+                .monoLabelStyle(size: 10)
+                .foregroundColor(DSColor.inkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 92), spacing: DSSpacing.sm, alignment: .leading)],
+                alignment: .leading,
+                spacing: DSSpacing.sm
+            ) {
+                quickDateChip(
+                    NSLocalizedString("search.quick.today", value: "今天", comment: "Quick date scope: today"),
+                    start: Calendar.current.startOfDay(for: Date())
+                )
+                quickDateChip(
+                    NSLocalizedString("search.quick.thisWeek", value: "本周", comment: "Quick date scope: this week"),
+                    start: Calendar.current.date(
+                        from: Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+                    ) ?? Calendar.current.startOfDay(for: Date())
+                )
+                quickDateChip(
+                    NSLocalizedString("search.quick.thisMonth", value: "本月", comment: "Quick date scope: this month"),
+                    start: Calendar.current.date(
+                        from: Calendar.current.dateComponents([.year, .month], from: Date())
+                    ) ?? Calendar.current.startOfDay(for: Date())
+                )
+            }
+
+            Text(NSLocalizedString("search.quick.types", value: "类型", comment: "Quick memo-type scope chips label"))
+                .monoLabelStyle(size: 10)
+                .foregroundColor(DSColor.inkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, DSSpacing.xs)
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 92), spacing: DSSpacing.sm, alignment: .leading)],
+                alignment: .leading,
+                spacing: DSSpacing.sm
+            ) {
+                ForEach(Memo.MemoType.filterOptions, id: \.self) { type in
+                    typeChip(type)
+                }
+            }
+        }
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.md)
+    }
+
+    /// One quick date scope: sets `filters.startDate` to the scope's start
+    /// with an upper bound at today and runs the same filtered search.
+    private func quickDateChip(_ title: String, start: Date) -> some View {
+        let end = Calendar.current.startOfDay(for: Date())
+        let isSelected = filters.startDate == start && filters.endDate == end
+        return Button(action: {
+            Haptics.soft()
+            if isSelected {
+                filters.startDate = nil
+                filters.endDate = nil
+            } else {
+                filters.startDate = start
+                filters.endDate = end
+            }
+            runSearch(keyword: vm.query)
+        }) {
+            Text(title)
+                .font(DSType.labelSM)
+                .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkMuted)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(NSLocalizedString(
+            "search.quick.scope.hint",
+            value: "按日期范围筛选记录",
+            comment: "Quick date scope chip hint"
+        ))
     }
 
     /// "1 RESULTS" fix — mono archival label, code-side singular (the label
@@ -963,9 +1071,9 @@ struct SearchView: View {
                 // A "no results" state should stay quiet. It used to stack TWO
                 // independent horizontal chip rails (recent searches + top
                 // entities), which crowded the empty state and fought for the
-                // eye. Only the entity rail survives — entities are real nodes in
-                // the knowledge graph, so they guide toward content that exists,
-                // whereas recent queries just replay dead ends.
+                // eye. Only entity suggestions survive — entities are real
+                // nodes in the knowledge graph, so they guide toward content
+                // that exists — laid out as a wrapped grid, not a rail.
                 let entitySuggestions = vm.topEntities.prefix(6).map(\.name).filter { $0 != vm.query }
                 if !entitySuggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
@@ -975,15 +1083,17 @@ struct SearchView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, DSSpacing.xl)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: DSSpacing.sm) {
-                                ForEach(entitySuggestions, id: \.self) { name in
-                                    entityChip(name)
-                                }
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 100), spacing: DSSpacing.sm, alignment: .leading)],
+                            alignment: .leading,
+                            spacing: DSSpacing.sm
+                        ) {
+                            ForEach(entitySuggestions, id: \.self) { name in
+                                entityChip(name)
                             }
-                            .padding(.horizontal, DSSpacing.xl)
-                            .padding(.vertical, DSSpacing.xs)
                         }
+                        .padding(.horizontal, DSSpacing.xl)
+                        .padding(.vertical, DSSpacing.xs)
                     }
                 }
             }
@@ -1336,19 +1446,6 @@ struct SearchView: View {
 
         return attributed
     }
-
-    // MARK: - Starter suggestions (shown only when no history and no indexed entities)
-
-    /// Localized starter chips, parsed from a comma-separated string so each locale supplies
-    /// terms users in that language would actually type. Falls back to the English defaults.
-    private static let starterSuggestions: [String] = {
-        let raw = NSLocalizedString("search.starterSuggestions", comment: "Comma-separated starter search suggestions")
-        let parsed = raw
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        return parsed.isEmpty ? ["Today", "This Week", "This Month", "Place", "Photo", "Voice"] : parsed
-    }()
 
     // MARK: - Formatting helpers
 

@@ -15,6 +15,22 @@ import Foundation
 /// the vault. Unmatched delimiters stay literal (`**oops` renders as-is).
 public enum MemoMarkdown {
 
+    /// Read-only text for memo previews and AI evidence. Voice-only records
+    /// may store their words solely in audio attachment transcripts.
+    public static func plainText(for memo: Memo) -> String {
+        var parts: [String] = []
+        let body = plainText(memo.body).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !body.isEmpty { parts.append(body) }
+        for attachment in memo.attachments where attachment.kind == "audio" {
+            guard let raw = attachment.transcript else { continue }
+            let transcript = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !transcript.isEmpty,
+                  !parts.contains(where: { $0.contains(transcript) }) else { continue }
+            parts.append(transcript)
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
     // MARK: - Model
 
     /// A styled slice of inline text. Flags compose (bold + italic + strike).

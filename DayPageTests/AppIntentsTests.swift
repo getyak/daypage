@@ -112,6 +112,34 @@ struct AppIntentsTests {
         #expect(nav.selectedTab == .archive)
     }
 
+    @Test func cancelGlobalSearch_returnsToLaunchingTab() {
+        let nav = AppNavigationModel()
+        nav.selectedTab = .today
+        nav.openGlobalSearch()
+        #expect(nav.selectedTab == .archive)
+        nav.finishGlobalSearch(selectedResult: false)
+        #expect(nav.selectedTab == .today)
+        #expect(nav.searchReturnTab == nil)
+    }
+
+    @Test func selectGlobalSearchResult_staysInArchive() {
+        let nav = AppNavigationModel()
+        nav.selectedTab = .today
+        nav.openGlobalSearch()
+        nav.finishGlobalSearch(selectedResult: true)
+        nav.finishGlobalSearch(selectedResult: false)
+        #expect(nav.selectedTab == .archive)
+        #expect(nav.searchReturnTab == nil)
+    }
+
+    @Test func externalSearchDismissal_keepsArchiveDestination() {
+        let nav = AppNavigationModel()
+        nav.selectedTab = .archive
+        nav.pendingSearchQuery = "quiet"
+        nav.finishGlobalSearch(selectedResult: false)
+        #expect(nav.selectedTab == .archive)
+    }
+
     @Test func pendingSearchQuery_isOneShotHandoff() {
         let nav = AppNavigationModel()
         #expect(nav.pendingSearchQuery == nil)

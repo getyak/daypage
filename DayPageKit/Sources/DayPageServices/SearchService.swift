@@ -58,8 +58,10 @@ public struct SearchFilters: Equatable {
 // MARK: - SearchService
 
 /// 本地 vault 的内存搜索。
-/// MVP：扫描所有 ``vault/raw/*.md`` 文件和编译的日记页面，大小写不敏感的 ``contains``。
-/// 结果按日期分组，上限 100 以保持 UI 响应。
+/// 范围（与 UI 文案保持一致，勿夸大）：`vault/raw/*.md` 里的 memo 正文、
+/// 语音附件转写（attachment transcript）、地点名与日期字符串；大小写/
+/// 变音符/全半角不敏感的 `contains`。编译后的日记页（`wiki/daily/`）**只**
+/// 用于「已编译」标记，其正文不在搜索范围内。结果按日期分组，上限 100 以保持 UI 响应。
 public enum SearchService {
 
     // MARK: - Public API
