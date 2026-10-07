@@ -34,7 +34,9 @@ struct SwipePolishContractTests {
     // MARK: - SwipeSnapLogic release resolution (full-swipe commit)
 
     /// 冲高过 commitThreshold 后松手 = 直接执行最外侧动作：左滑(trailing)
-    /// 提交分享，右滑(leading) 提交置顶。这是 Mail 式 full-swipe 的核心契约。
+    /// 提交分享，右滑(leading) 提交「洞察」——注意右滑的提交只打开洞察
+    /// 选择器（sheet），绝不触发 AI 调用或静默持久化。这是 Mail 式
+    /// full-swipe 的核心契约。
     @Test("release past commitThreshold commits the outer action")
     func fullSwipeCommitsOuterAction() {
         let c = SwipePhysics.commitThreshold
@@ -135,6 +137,29 @@ struct SwipePolishContractTests {
         let rawNeeded = SwipePhysics.panelWidth
             + (SwipePhysics.commitThreshold - SwipePhysics.panelWidth) / SwipePhysics.overdragDamping
         #expect(rawNeeded > 240 && rawNeeded < 270)
+    }
+
+    // MARK: - Flomo-native refinement: insight / related drawer contract
+    //
+    // 右滑抽屉的两个动作是「洞察」（安静强调）+「相关记录」（中性）；
+    // full-swipe 的提交只能打开洞察选择器，绝不能自己调 AI 或落盘。
+
+    @Test("right-swipe commit maps to insight, left-swipe to share")
+    func commitActionKindsAreInsightAndShare() {
+        #expect(SwipeableMemoCard.leadingActionPlan == [.insight, .related],
+                "right-swipe drawer must be insight (outermost) + related")
+        #expect(SwipeableMemoCard.trailingActionPlan == [.share, .delete],
+                "left-swipe drawer keeps share (outermost) + delete")
+        #expect(SwipeableMemoCard.commitActionKind(for: .leading) == .insight)
+        #expect(SwipeableMemoCard.commitActionKind(for: .trailing) == .share)
+    }
+
+    /// 每个抽屉动作列 ≥44pt 触达，两个动作的总宽 = panelWidth，
+    /// 且面板两列都完整露出（「洞察」/「相关记录」整词标签）。
+    @Test("swipe action columns keep >=44pt hit targets")
+    func actionWidthKeepsHitTargets() {
+        #expect(SwipePhysics.actionWidth >= 44)
+        #expect(SwipePhysics.panelWidth == SwipePhysics.actionWidth * 2)
     }
 
     // MARK: - Direction lock (velocity gate)

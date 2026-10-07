@@ -28,8 +28,8 @@ enum SwipePhysics {
     static let actionWidth: CGFloat = 76
 
     /// Total reveal width on each side. Each side now exposes TWO actions
-    /// (left: share + delete, right: pin + more), so the panel is two action
-    /// columns wide. A half-swipe still opens; a full swipe rests here.
+    /// (left: share + delete, right: insight + related), so the panel is two
+    /// action columns wide. A half-swipe still opens; a full swipe rests here.
     static let panelWidth: CGFloat = actionWidth * 2  // 152
 
     /// Translation past which a release snaps open (vs. snap back closed).
@@ -67,7 +67,7 @@ enum SwipePhysics {
     static let terminalOvershoot: CGFloat = 56
 
     /// Visual offset past which releasing the finger commits the OUTERMOST
-    /// action directly (trailing → share, leading → pin), Mail-style.
+    /// action directly (trailing → share, leading → insight chooser), Mail-style.
     /// 236pt ≈ 65% of the 362pt card, requiring ~250pt of finger travel
     /// through the damped zone — a deliberate, uncancellable-feeling pull
     /// that is still comfortably reachable one-handed.
@@ -210,7 +210,9 @@ enum SwipeSnapLogic {
         case open(CardSwipeSide)
         case close
         /// Execute the OUTERMOST action of the given side immediately
-        /// (trailing → share, leading → pin). Fired only from a full swipe.
+        /// (trailing → share, leading → insight chooser). Fired only from a
+        /// full swipe. The leading commit only OPENS the insight chooser —
+        /// it must never call an AI backend or persist anything silently.
         case commitOuter(CardSwipeSide)
     }
 
@@ -265,10 +267,12 @@ enum SwipeSnapLogic {
 // progresses, the icon scales up, and the label only resolves once the
 // open threshold is crossed.
 //
-//  - Left swipe → trailing SHARE action (accent amber) — the prominent,
-//    content-first action surfaced by the museum-aesthetic redesign.
-//  - Right swipe → leading MORE action (sunken neutral) — opens the fuller
-//    set (pin / delete / …) so secondary chrome stays hidden by default.
+//  - Left swipe → trailing SHARE + DELETE (accent amber share, destructive
+//    delete) — the content-first actions of the museum-aesthetic redesign.
+//  - Right swipe → leading INSIGHT + RELATED (quiet accent + neutral) —
+//    both open the memo-anchored chat sheet; the full swipe only opens the
+//    insight chooser, it never calls an AI backend or persists anything.
+//    Pin / more stay in the row's long-press menu and its dialog.
 //
 // Gesture model:
 //  - settledOffset is the resting position; dragDelta rides on top 1:1.
@@ -292,8 +296,16 @@ struct SwipeableMemoCard: View {
     var onPin: (() -> Void)? = nil
     /// Left-swipe SHARE action (museum-aesthetic primary).
     var onShare: (() -> Void)? = nil
-    /// Right-swipe MORE action — parent presents the fuller action set.
+    /// Kept for the VoiceOver action list (pin / more remain reachable via
+    /// the row's long-press menu and dialog; they no longer occupy the swipe
+    /// drawer). `onMore` also opens the row's confirmation dialog.
     var onMore: (() -> Void)? = nil
+    /// Right-swipe INSIGHT action — opens the memo-anchored insight chooser
+    /// (sheet). Pure presentation: no AI call, no persistence here.
+    var onInsight: (() -> Void)? = nil
+    /// Right-swipe RELATED action — opens the same anchored sheet with a
+    /// suggested question prefilled (never auto-submitted).
+    var onRelated: (() -> Void)? = nil
     /// Tap on the card body → open the memo detail. Because the swipe
     /// recognizer's host view hit-tests to self (so it can see touches), the
     /// tap can no longer rely on a SwiftUI NavigationLink underneath; the
@@ -364,7 +376,7 @@ struct SwipeableMemoCard: View {
     }
 
     /// Normalized reveal progress used by the panel choreography. Positive
-    /// when the leading (right-swipe → pin) panel is being revealed and
+    /// when the leading (right-swipe → insight) panel is being revealed and
     /// negative for the trailing (left-swipe → delete) panel. Lightly
     /// over-clamped at ±1.4 so a small rubber-band overdrag still nudges
     /// scale/opacity without blowing them out.
@@ -478,10 +490,27 @@ struct SwipeableMemoCard: View {
         // a card preview. VoiceOver users keep every action via the
         // accessibilityActions below.
         .accessibilityLabel(accessibilityMemoLabel)
+        .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.insight", comment: "VoiceOver action: open insight chooser"))) { onInsight?() }
+        .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.related", comment: "VoiceOver action: open related records chat"))) { onRelated?() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.share", comment: "Share memo accessibility action"))) { onShare?() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.more", comment: "More memo accessibility action"))) { onMore?() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.delete", comment: "Delete memo accessibility action"))) { onDelete?() }
         .accessibilityAction(named: Text(NSLocalizedString(memo.pinnedAt != nil ? "memo.a11y.action.unpin" : "memo.a11y.action.pin", comment: "Pin memo accessibility action"))) { onPin?() }
+        .onAppear {
+            #if DEBUG
+            // Simulator HID cannot reliably emit pan moves. This local-QA
+            // visual-state hook exercises the real drawer and button path;
+            // it is not evidence of a successful physical swipe.
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-qaForceLocalVault"),
+               let index = args.firstIndex(of: "-qaPreviewLeadingMemo"),
+               args.indices.contains(index + 1),
+               UUID(uuidString: args[index + 1]) == memo.id,
+               !isSelectionMode {
+                snapOpen(.leading)
+            }
+            #endif
+        }
         // Entering selection mode mid-swipe (panel revealed) would leave a
         // dangling open panel that the user can't close — selection-mode
         // gestures don't reach the close overlay. Force-close on transition
@@ -508,33 +537,47 @@ struct SwipeableMemoCard: View {
     // MARK: - Swipe action definitions
     //
     // Each side exposes two actions. Left-swipe (trailing) surfaces the
-    // content-first SHARE plus DELETE; right-swipe (leading) surfaces PIN plus
-    // MORE. Building them as data lets SwipeActionPanel lay out N buttons
-    // generically and keeps the choreography in one place.
+    // content-first SHARE plus DELETE; right-swipe (leading) surfaces the
+    // quiet-accent INSIGHT plus the neutral RELATED — both open the
+    // memo-anchored chat sheet and neither touches the network on its own.
+    // The plan is static + pure so SwipePolishContractTests can lock the
+    // outermost (full-swipe commit) mapping; the instance closures below
+    // build the runnable actions from it.
 
-    /// Right-swipe panel — pin (toggle) + more.
+    /// Primary-first action identity for each side. Index 0 is the OUTERMOST
+    /// action — the one a full swipe commits.
+    static let leadingActionPlan: [SwipeAction.Kind] = [.insight, .related]
+    static let trailingActionPlan: [SwipeAction.Kind] = [.share, .delete]
+
+    /// The action a full swipe commits on each side. Leading (right-swipe)
+    /// always resolves to `.insight`: it only opens the chooser — a full
+    /// swipe must never call an AI backend or persist silently.
+    static func commitActionKind(for side: CardSwipeSide) -> SwipeAction.Kind {
+        side == .trailing ? trailingActionPlan[0] : leadingActionPlan[0]
+    }
+
+    /// Right-swipe panel — insight (quiet accent) + related (neutral).
     private var leadingActions: [SwipeAction] {
-        var items: [SwipeAction] = []
-        items.append(SwipeAction(
-            id: .pin,
-            label: memo.pinnedAt != nil
-                ? NSLocalizedString("memo.swipe.unpin", comment: "Swipe action: unpin memo")
-                : NSLocalizedString("memo.swipe.pin",   comment: "Swipe action: pin memo"),
-            systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin",
-            tone: .neutral,
-            run: { runAction { onPin?() } },
-            // R4 a11y — actor + object named for VoiceOver.
-            a11yLabel: memo.pinnedAt != nil ? "取消置顶 memo" : "置顶 memo"
-        ))
-        items.append(SwipeAction(
-            id: .more,
-            label: NSLocalizedString("memo.swipe.more", comment: "Swipe action: more options"),
-            systemImage: "ellipsis",
-            tone: .neutral,
-            run: { runAction(haptic: .soft) { onMore?() } },
-            a11yLabel: "更多操作"
-        ))
-        return items
+        [
+            SwipeAction(
+                id: .insight,
+                label: NSLocalizedString("memo.swipe.insight", comment: "Swipe action: open insight chooser for memo"),
+                systemImage: "sparkles",
+                tone: .accentQuiet,
+                // Opening the chooser is a presentation action — soft tick,
+                // close the drawer, then let the parent present the sheet.
+                run: { runAction(haptic: .soft) { onInsight?() } },
+                a11yLabel: NSLocalizedString("memo.a11y.action.insight", comment: "VoiceOver action: open insight chooser")
+            ),
+            SwipeAction(
+                id: .related,
+                label: NSLocalizedString("memo.swipe.related", comment: "Swipe action: open related-records chat for memo"),
+                systemImage: "text.bubble",
+                tone: .neutral,
+                run: { runAction(haptic: .soft) { onRelated?() } },
+                a11yLabel: NSLocalizedString("memo.a11y.action.related", comment: "VoiceOver action: open related records chat")
+            ),
+        ]
     }
 
     /// Left-swipe panel — share (primary) + delete (destructive).
@@ -643,9 +686,12 @@ struct SwipeableMemoCard: View {
             commitArmedSide = nil
             snapClose(from: visualOffset, velocity: velocity)
         case .commitOuter(let side):
-            // Run the OUTERMOST action (trailing → share, leading → pin).
+            // Run the OUTERMOST action (trailing → share, leading → insight).
             // run() already carries the haptic + animated close + settle delay.
-            let outer = (side == .trailing ? trailingActions : leadingActions).first
+            // Leading resolves to INSIGHT: it only opens the chooser sheet — a
+            // full swipe must never fire an AI call or persist anything.
+            let actions = side == .trailing ? trailingActions : leadingActions
+            let outer = actions.first { $0.id == Self.commitActionKind(for: side) } ?? actions.first
             outer?.run()
             // Keep the expanded single-button layout through the close
             // animation so the drawer doesn't pop back to two columns
@@ -754,8 +800,11 @@ struct SwipeableMemoCard: View {
 /// One revealable action inside a swipe drawer. `id` only drives the a11y
 /// label and SF-symbol fallback; `run` carries the close-then-fire behavior.
 struct SwipeAction: Identifiable {
-    enum Kind { case share, delete, pin, more }
-    enum Tone { case accent, destructive, neutral }
+    enum Kind { case share, delete, pin, more, insight, related }
+    /// `.accentQuiet` is the restrained accent used for the insight action:
+    /// same amber family, the deeper `accentAmber` tone instead of the loud
+    /// primary `amberAccent`, so the right-swipe drawer stays calm.
+    enum Tone { case accent, accentQuiet, destructive, neutral }
 
     let id: Kind
     let label: String
@@ -787,7 +836,7 @@ struct SwipeAction: Identifiable {
 //
 // Each button is a full-height tap target so a revealed action is easy to
 // hit. Buttons are ordered outer-edge-first so the most prominent action
-// (share / pin) sits nearest the screen edge the finger travels toward.
+// (share / insight) sits nearest the screen edge the finger travels toward.
 private struct SwipeActionPanel: View {
 
     enum Edge { case leading, trailing }
@@ -946,8 +995,8 @@ private struct SwipeActionButton: View {
     }
 
     /// Tone depth for the current reveal. Neutral tones keep a higher floor
-    /// so their pale surface stays legible; accent / destructive start lower
-    /// and deepen as the reveal progresses.
+    /// so their pale surface stays legible; accent / accent-quiet /
+    /// destructive start lower and deepen as the reveal progresses.
     private var tintDepth: Double {
         let floor: CGFloat = (action.tone == .neutral ? 0.78 : 0.42)
         return Double(floor + (1 - floor) * min(1, progress))
@@ -983,11 +1032,13 @@ private struct SwipeActionButton: View {
 
             Text(action.label)
                 .font(.custom("Inter-Medium", size: 10.5))
-                .lineLimit(1)
-                // Natural width, never "Sh…": in a still-compressed column the
-                // full label stays centered and the panel's .clipped() lets it
-                // emerge from the edge as the column grows (Mail's reveal).
-                .fixedSize()
+                // Full localized labels ("Related records" / "相关记录") must
+                // stay COMPLETE: two centered lines inside the 76pt column,
+                // never a clipped one-liner. Panel/action widths and every
+                // gesture threshold stay exactly as before.
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .foregroundColor(foreground)
                 .opacity(labelOpacity)
         }
@@ -1002,6 +1053,9 @@ private struct SwipeActionButton: View {
         // is the warm-cream "primary action" amber the rest of the v4
         // language uses for active state.
         case .accent:      return DSColor.amberAccent
+        // Quiet accent (INSIGHT): the deep archival amber — warm, clearly
+        // accent-toned, but not shouting next to the neutral column.
+        case .accentQuiet: return DSColor.accentAmber
         // R3 — DELETE uses the existing semantic `errorRed` (#A23A2E) —
         // already the spec'd destructive token, no new color needed.
         case .destructive: return DSColor.errorRed
@@ -1016,6 +1070,8 @@ private struct SwipeActionButton: View {
         // amber substrate) instead of raw `Color.white`. Keeps amber +
         // red surfaces token-driven and dark-mode-correct.
         case .accent, .destructive: return DSColor.onRecording
+        // Deep-amber surface carries the archival near-white `onAmber`.
+        case .accentQuiet:          return DSColor.onAmber
         case .neutral:              return DSColor.inkPrimary
         }
     }

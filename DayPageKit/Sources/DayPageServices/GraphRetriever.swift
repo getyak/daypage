@@ -230,9 +230,8 @@ public enum GraphRetriever {
     }
 
     private static func snippet(from memo: Memo) -> String {
-        let source = memo.body.isEmpty
-            ? (memo.location?.name ?? "")
-            : memo.body
+        let text = MemoMarkdown.plainText(for: memo)
+        let source = text.isEmpty ? (memo.location?.name ?? "") : text
         let oneLine = source.replacingOccurrences(of: "\n", with: " ")
         return String(oneLine.prefix(160))
     }

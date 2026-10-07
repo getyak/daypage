@@ -5,7 +5,7 @@ import DayPageServices
 
 // MARK: - ArchiveMode
 
-enum ArchiveMode {
+enum ArchiveMode: String {
     case calendar
     case list
 }
@@ -474,7 +474,15 @@ struct ArchiveView: View {
 
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var viewModel = ArchiveViewModel()
-    @State private var mode: ArchiveMode = .calendar
+    /// View mode with a simple local preference so the chosen mode survives
+    /// relaunch (flomo-native refinement default: the timeline list).
+    /// `nonmutating set` because the toggle closures are escaping — the
+    /// @AppStorage wrapper's setter never mutates `self`.
+    @AppStorage("archive.viewMode") private var modeRaw: String = ArchiveMode.list.rawValue
+    private var mode: ArchiveMode {
+        get { ArchiveMode(rawValue: modeRaw) ?? .list }
+        nonmutating set { modeRaw = newValue.rawValue }
+    }
     /// The historical day pushed onto Archive's NavigationStack as a
     /// DayDetailView. Replaces the former `selectedDateString` + `showDayDetail`
     /// bool that drove a `fullScreenCover`; pushing gives the day a system back
@@ -592,13 +600,13 @@ struct ArchiveView: View {
                                                       abs(w) > DSGesture.monthSwipeCommitDistance else { return }
                                                 if w < 0 {
                                                     monthNavDirection = .trailing
-                                                    withAnimation(Motion.spring) { viewModel.goToNextMonth() }
+                                                    withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToNextMonth() }
                                                 } else {
                                                     monthNavDirection = .leading
-                                                    withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
+                                                    withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToPreviousMonth() }
                                                 }
                                                 Haptics.rigid(intensity: 0.4)
-                                                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                                                UIAccessibility.post(notification: .announcement, argument: localizedMonthTitle)
                                             }
                                     )
 
@@ -699,13 +707,16 @@ struct ArchiveView: View {
             // The edge-strip `activeStackCanPop` signal is now driven purely by
             // `archivePath` being non-empty (see AppNavigationModel) — no manual
             // per-tab flag needed once every push runs through the path.
-            .sheet(isPresented: $showSearch) {
+            .sheet(isPresented: $showSearch, onDismiss: {
+                nav.finishGlobalSearch(selectedResult: false)
+            }) {
                 SearchView(
                     onSelect: { dateStr in
                         // Close the search sheet, then push the day once it has
                         // dismissed. A push while the sheet is still animating
                         // out gets swallowed, so defer by one runloop hop — much
                         // shorter than the old 0.25s cover-vs-sheet workaround.
+                        nav.finishGlobalSearch(selectedResult: true)
                         showSearch = false
                         DispatchQueue.main.async {
                             nav.push(DayNavTarget(dateString: dateStr), in: .archive)
@@ -719,6 +730,7 @@ struct ArchiveView: View {
                         guard let ref = MemoDetailRef(
                             id: memoID, dayString: dateString, source: .archive
                         ) else { return }
+                        nav.finishGlobalSearch(selectedResult: true)
                         showSearch = false
                         DispatchQueue.main.async {
                             nav.push(ref, in: .archive)
@@ -741,7 +753,7 @@ struct ArchiveView: View {
                                 viewModel.goToMonth(year: year, month: month)
                             }
                             withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
-                            UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                            UIAccessibility.post(notification: .announcement, argument: localizedMonthTitle)
                         },
                         onClose: {
                             withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
@@ -862,11 +874,20 @@ struct ArchiveView: View {
 
             Spacer()
 
-            // CAL / LIST view-mode toggle — page-level chrome, so it lives in
-            // the header instead of floating mid-content.
+            // 记录 / 日历 view-mode toggle — page-level chrome, so it lives in
+            // the header instead of floating mid-content. Localized labels
+            // (zh: 记录/日历) — no more untranslated CAL/LIST in Chinese.
             HStack(spacing: 2) {
-                toggleButton("CAL", isSelected: mode == .calendar) { mode = .calendar }
-                toggleButton("LIST", isSelected: mode == .list) { mode = .list }
+                toggleButton(
+                    NSLocalizedString("archive.mode.toggle.calendar", value: "日历", comment: "Archive calendar mode toggle label"),
+                    a11yLabel: NSLocalizedString("archive.mode.calendar", comment: "Archive calendar view"),
+                    isSelected: mode == .calendar
+                ) { mode = .calendar }
+                toggleButton(
+                    NSLocalizedString("archive.mode.toggle.list", value: "记录", comment: "Archive list mode toggle label"),
+                    a11yLabel: NSLocalizedString("archive.mode.list", comment: "Archive list view"),
+                    isSelected: mode == .list
+                ) { mode = .list }
             }
             .padding(3)
             // #771: CAL/LIST view-mode toggle → glass engine (.pill).
@@ -931,10 +952,12 @@ struct ArchiveView: View {
         return Self.monthHeaderFormatter.string(from: date)
     }
 
-    /// One quiet mono line under the headline: "N days · M entries", plus an
-    /// inline "back to this month" affordance when browsing history — always
-    /// present, so its appearance never reflows the row (the old floating
-    /// TODAY capsule made the whole bar jump).
+    /// One quiet mono line under the headline — the month's single concise
+    /// stats header ("N days · M entries · …"), replacing the duplicated
+    /// digest pillars that used to repeat these numbers twice per mode. Plus
+    /// an inline "back to this month" affordance when browsing history —
+    /// always present, so its appearance never reflows the row (the old
+    /// floating TODAY capsule made the whole bar jump).
     private var monthMetaLine: some View {
         let days = viewModel.activeDayCount
         let entries = viewModel.totalEntries
@@ -947,8 +970,24 @@ struct ArchiveView: View {
         let entryPart = String(format: NSLocalizedString(
             entries == 1 ? "archive.month.meta.entries.one" : "archive.month.meta.entries",
             comment: "Month meta line entry part"), entries)
+        var parts = [dayPart, entryPart]
+        if viewModel.totalPhotos > 0 {
+            parts.append(String(format: NSLocalizedString(
+                "archive.month.meta.photos", comment: "Month meta line photos part"),
+                viewModel.totalPhotos))
+        }
+        if viewModel.totalVoiceMinutes > 0 {
+            parts.append(String(format: NSLocalizedString(
+                "archive.month.meta.voiceMin", comment: "Month meta line voice-minutes part"),
+                viewModel.totalVoiceMinutes))
+        }
+        if viewModel.totalLocations > 0 {
+            parts.append(String(format: NSLocalizedString(
+                "archive.month.meta.places", comment: "Month meta line places part"),
+                viewModel.totalLocations))
+        }
         return HStack(spacing: DSSpacing.sm) {
-            Text("\(dayPart) · \(entryPart)")
+            Text(parts.joined(separator: " · "))
             .font(DSType.mono10)
             .tracking(0.8)
             .foregroundColor(DSColor.inkMuted)
@@ -964,7 +1003,7 @@ struct ArchiveView: View {
                     let isFuture = (viewModel.currentYear, viewModel.currentMonth) > (targetYear, targetMonth)
                     monthNavDirection = isFuture ? .leading : .trailing
                     withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToCurrentMonth() }
-                    UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                    UIAccessibility.post(notification: .announcement, argument: localizedMonthTitle)
                 }) {
                     Text(NSLocalizedString("archive.today", comment: "Today button"))
                         .font(DSType.mono10)
@@ -985,8 +1024,8 @@ struct ArchiveView: View {
             Button(action: {
                 Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .leading
-                withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
-                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToPreviousMonth() }
+                UIAccessibility.post(notification: .announcement, argument: localizedMonthTitle)
             }) {
                 Image(systemName: "chevron.left")
                     .font(DSType.bodySM)
@@ -1024,7 +1063,7 @@ struct ArchiveView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), viewModel.currentMonthTitle))
+                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), localizedMonthTitle))
                 .accessibilityHint(NSLocalizedString("archive.picker.open.hint", comment: "Opens the month picker"))
                 .accessibilityIdentifier("archive-month-picker-button")
 
@@ -1036,8 +1075,8 @@ struct ArchiveView: View {
             Button(action: {
                 Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .trailing
-                withAnimation(Motion.spring) { viewModel.goToNextMonth() }
-                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToNextMonth() }
+                UIAccessibility.post(notification: .announcement, argument: localizedMonthTitle)
             }) {
                 Image(systemName: "chevron.right")
                     .font(DSType.bodySM)
@@ -1053,7 +1092,7 @@ struct ArchiveView: View {
         .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isViewingCurrentMonth)
     }
 
-    private func toggleButton(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private func toggleButton(_ label: String, a11yLabel: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button {
             // Selection tick only when actually switching mode — tapping the
             // already-selected segment shouldn't fire feedback.
@@ -1071,11 +1110,7 @@ struct ArchiveView: View {
                 .background(isSelected ? DSColor.amberDeep : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(
-            label == "CAL"
-                ? NSLocalizedString("archive.mode.calendar", comment: "Archive calendar view")
-                : NSLocalizedString("archive.mode.list", comment: "Archive list view")
-        )
+        .accessibilityLabel(a11yLabel)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
@@ -1091,6 +1126,13 @@ struct ArchiveView: View {
         return (1...7).map { symbols[$0 % 7] }               // Monday-first
     }()
     private var weekdaySymbols: [String] { Self.weekdaySymbols }
+
+    /// Fixed day-tile height — the old square `aspectRatio(1, .fit)` tiles
+    /// grew huge on wide screens (the "empty beige tiles" complaint). Even
+    /// 7-column geometry is preserved by `maxWidth: .infinity`; 48pt keeps
+    /// vertical targets generous. No inner horizontal inset: at a 375pt
+    /// viewport the 24pt page margins and 24pt gutters leave 46.7pt per day.
+    private static let calendarCellHeight: CGFloat = 48
 
     private var calendarGrid: some View {
         // 4pt gutters + 8pt inset: with the previous 1pt gaps the amber cell
@@ -1120,17 +1162,16 @@ struct ArchiveView: View {
                 }
             }
 
-            // #827: the density legend lives INSIDE the calendar panel as
-            // its footer — it annotates the grid above it, so floating it
-            // outside the glass surface made it read as a separate section.
+            // #827: the density legend annotates the grid above it — it stays
+            // as the grid's quiet footer (no enclosing tinted panel).
             legendRow
                 .padding(.horizontal, DSSpacing.xs)
                 .padding(.top, 6)
         }
-        .padding(DSSpacing.sm)
-        // #771: month calendar grid → glass engine (.panel). Engine owns rim.
-        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.vertical, DSSpacing.sm)
+        // Flomo-native refinement: the tinted enclosing glass panel is gone —
+        // the calendar is just its grid on the ambient ground. The old
+        // amber-tinted slab fused with the day tiles into one beige field.
         // Calendar geometry must remain seven equal columns. Date glyphs and
         // the density legend are chrome with full VoiceOver labels, so cap
         // them before they inflate the grid beyond the viewport.
@@ -1169,7 +1210,9 @@ struct ArchiveView: View {
                 switch data {
                 case .compiled: return DSColor.amberDeep
                 case .rawOnly:  return DSColor.heatmapLow
-                case .none:     return DSColor.surfaceWhite.opacity(0.38)
+                // Flomo-native refinement: quiet future/empty days — a
+                // whisper of surface, never the old beige slab.
+                case .none:     return DSColor.surfaceWhite.opacity(0.22)
                 }
             }()
 
@@ -1236,7 +1279,7 @@ struct ArchiveView: View {
                             .padding(DSSpacing.xs)
                     }
                 }
-                .aspectRatio(1, contentMode: .fit)
+                .frame(height: Self.calendarCellHeight)
             }
             .buttonStyle(CalendarCellButtonStyle())
             .modifier(ArchiveDayZoomSource(id: dateStr, namespace: dayZoomNamespace))
@@ -1245,9 +1288,12 @@ struct ArchiveView: View {
             .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
             .accessibilityHint(NSLocalizedString("archive.a11y.day.hint", comment: "A11y hint: calendar day cell opens the day detail"))
         } else {
+            // Empty leading/trailing cell: same even 7-column geometry and
+            // height as a real day, but no surface at all — future/empty
+            // days stay quiet.
             RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                 .fill(Color.clear)
-                .aspectRatio(1, contentMode: .fit)
+                .frame(height: Self.calendarCellHeight)
                 .frame(maxWidth: .infinity)
         }
     }
@@ -1290,7 +1336,7 @@ struct ArchiveView: View {
 
             // First swatch mirrors the quiet empty-cell fill, then the ramp.
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(DSColor.surfaceWhite.opacity(0.38))
+                .fill(DSColor.surfaceWhite.opacity(0.22))
                 .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                 .frame(width: 10, height: 10)
@@ -1340,30 +1386,10 @@ struct ArchiveView: View {
                 .accessibilityLabel(NSLocalizedString("archive.summary.menu.a11y", comment: "A11y: monthly summary actions menu"))
             }
 
-            HStack(alignment: .top, spacing: 0) {
-                digestStat(value: "\(viewModel.totalEntries)",
-                           label: NSLocalizedString("archive.stat.entries", comment: "Stat pillar label: entries"),
-                           accent: true)
-                if viewModel.totalPhotos > 0 {
-                    digestDivider
-                    digestStat(value: "\(viewModel.totalPhotos)",
-                               label: NSLocalizedString("archive.stat.photos", comment: "Stat pillar label: photos"),
-                               accent: false)
-                }
-                if viewModel.totalVoiceMinutes > 0 {
-                    digestDivider
-                    digestStat(value: "\(viewModel.totalVoiceMinutes)",
-                               label: NSLocalizedString("archive.stat.voiceMin", comment: "Stat pillar label: voice minutes"),
-                               accent: false)
-                }
-                if viewModel.totalLocations > 0 {
-                    digestDivider
-                    digestStat(value: "\(viewModel.totalLocations)",
-                               label: NSLocalizedString("archive.stat.places", comment: "Stat pillar label: places"),
-                               accent: false)
-                }
-            }
-
+            // Stats live in ONE place now — the month header's meta line —
+            // so no digest pillars repeat them here. The summary keeps only
+            // what the header can't carry: the export overflow and the
+            // filterable day list.
             // Filter chips
             HStack(spacing: DSSpacing.sm) {
                 ForEach(MonthlySummaryFilter.allCases, id: \.rawValue) { filter in
@@ -1430,7 +1456,7 @@ struct ArchiveView: View {
         let isSelected = summaryFilter == filter
         return Button(action: {
             Haptics.soft()
-            withAnimation(Motion.spring) { summaryFilter = filter }
+            withAnimation(reduceMotion ? nil : Motion.spring) { summaryFilter = filter }
         }) {
             Text(filter.localizedLabel)
                 .monoLabelStyle(size: 10)
@@ -1438,7 +1464,7 @@ struct ArchiveView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
-                .animation(Motion.spring, value: isSelected)
+                .animation(reduceMotion ? nil : Motion.spring, value: isSelected)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(filter.localizedLabel)
@@ -1492,18 +1518,17 @@ struct ArchiveView: View {
                 }
                 .padding(.top, 40)
             } else {
-                // R7 — Weekly Recap entry card, hoisted above the month digest.
+                // R7 — Weekly Recap entry card, hoisted above the ledger rows.
                 // Gated on `.weeklyRecap` flag + ≥3 compiled daily pages this
                 // week so the entry doesn't tease an empty AI experience.
                 weeklyRecapEntryCard
                     .padding(.bottom, DSSpacing.xs)
 
-                // Compact monthly digest — list mode otherwise drops all the
-                // month-level context that calendar mode shows in its summary
-                // grid. (#archive-list-digest)
-                monthDigestStrip
-                    .padding(.bottom, DSSpacing.xs)
-
+                // Flomo-native refinement: the duplicated month digest card
+                // is gone — the month header above carries the one concise
+                // stats line. The list is month-scoped (the current month
+                // navigation drives which month loads), and the rows below
+                // are exactly that month's days.
                 ForEach(viewModel.groupedByMonth, id: \.monthKey) { group in
                     Section {
                         ForEach(group.days, id: \.dateString) { stats in
@@ -1511,7 +1536,13 @@ struct ArchiveView: View {
                                 .id(stats.dateString)
                         }
                     } header: {
-                        monthSectionHeader(monthKey: group.monthKey, dayCount: group.days.count)
+                        // A month title only makes sense when the list spans
+                        // more than one month; with the single month the
+                        // header row above already names it (no duplicated
+                        // counts).
+                        if viewModel.groupedByMonth.count > 1 {
+                            monthSectionHeader(monthKey: group.monthKey)
+                        }
                     }
                 }
             }
@@ -1521,9 +1552,9 @@ struct ArchiveView: View {
 
     // MARK: - Month Section Header (list mode, Issue #13)
     //
-    // Renders "YYYY 年 M 月" on the left and "<count> 天" on the right. Uses
-    // `.ultraThinMaterial` as the background since `DSColor.bgCard` is not
-    // defined in this design system.
+    // Renders "YYYY 年 M月" — only when the ledger spans more than one month.
+    // The day/entry counts live in the single month-header meta line above,
+    // so they are deliberately NOT repeated here.
     /// Locale-aware "yyyy-MM" → month header ("2026年7月" / "July 2026").
     /// Formatters are cached statically so section renders stay cheap.
     private static let monthKeyParser: DateFormatter = {
@@ -1538,16 +1569,9 @@ struct ArchiveView: View {
         return f
     }()
 
-    private func monthSectionHeader(monthKey: String, dayCount: Int) -> some View {
+    private func monthSectionHeader(monthKey: String) -> some View {
         let headerTitle = Self.monthKeyParser.date(from: monthKey)
             .map { Self.monthHeaderFormatter.string(from: $0) } ?? monthKey
-        let dayCountText = String(
-            format: NSLocalizedString(
-                dayCount == 1 ? "archive.section.dayCount.one" : "archive.section.dayCount",
-                comment: "Month section header trailing label: %d days with entries"
-            ),
-            dayCount
-        )
 
         // Quiet ledger chapter head — mono caption + hairline, no material
         // slab (W1: three container styles in one list was two too many).
@@ -1559,95 +1583,13 @@ struct ArchiveView: View {
             Rectangle()
                 .fill(DSColor.inkFaint)
                 .frame(height: 0.5)
-            Text(dayCountText)
-                .font(DSType.mono10)
-                .foregroundColor(DSColor.inkMuted)
         }
         .padding(.horizontal, DSSpacing.xs)
         .padding(.top, DSSpacing.lg)
         .padding(.bottom, DSSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(headerTitle), \(dayCountText)")
-    }
-
-    // MARK: - Month Digest Strip (list mode)
-
-    /// A single horizontally-scannable card that mirrors the calendar-mode
-    /// monthly summary, condensed for the dense list. Leads with the metric
-    /// that's absent everywhere else — active (logged) days this month — then
-    /// entries / photos / voice / locations. Numbers stay in sync with the
-    /// rows below because both derive from `dayStats`.
-    private var monthDigestStrip: some View {
-        let activeDays = viewModel.activeDayCount
-        let entries = viewModel.totalEntries
-        let photos = viewModel.totalPhotos
-        let voice = viewModel.totalVoiceMinutes
-        let locations = viewModel.totalLocations
-
-        return VStack(alignment: .leading, spacing: DSSpacing.md) {
-            Text("\(viewModel.currentMonthTitle) · DIGEST")
-                .monoLabelStyle(size: 10)
-                .foregroundColor(DSColor.inkMuted)
-
-            HStack(alignment: .top, spacing: 0) {
-                digestStat(value: "\(activeDays)",
-                           label: NSLocalizedString("archive.stat.days", comment: "Stat pillar label: active days"),
-                           accent: true)
-                digestDivider
-                digestStat(value: "\(entries)",
-                           label: NSLocalizedString("archive.stat.entries", comment: "Stat pillar label: entries"),
-                           accent: false)
-                if photos > 0 {
-                    digestDivider
-                    digestStat(value: "\(photos)",
-                               label: NSLocalizedString("archive.stat.photos", comment: "Stat pillar label: photos"),
-                               accent: false)
-                }
-                if voice > 0 {
-                    digestDivider
-                    digestStat(value: "\(voice)",
-                               label: NSLocalizedString("archive.stat.voiceMin", comment: "Stat pillar label: voice minutes"),
-                               accent: false)
-                }
-                if locations > 0 {
-                    digestDivider
-                    digestStat(value: "\(locations)",
-                               label: NSLocalizedString("archive.stat.places", comment: "Stat pillar label: places"),
-                               accent: false)
-                }
-            }
-        }
-        .padding(.horizontal, DSSpacing.lg)
-        .padding(.vertical, DSSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSRadius.md)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(String(
-            format: NSLocalizedString("archive.list.digest.a11y", comment: "Month digest summary"),
-            viewModel.currentMonthTitle, activeDays, entries, photos, voice, locations
-        ))
-    }
-
-    private func digestStat(value: String, label: String, accent: Bool) -> some View {
-        VStack(alignment: .center, spacing: DSSpacing.xs) {
-            Text(value)
-                .font(DSType.serifDisplay28)
-                .foregroundColor(accent ? DSColor.accentOnBg : DSColor.inkPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            Text(label)
-                .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.inkMuted)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var digestDivider: some View {
-        Rectangle()
-            .fill(DSColor.inkFaint)
-            .frame(width: 0.5, height: 28)
+        .accessibilityLabel(headerTitle)
     }
 
     // MARK: - Weekly Recap Entry Card (R7)
@@ -1732,11 +1674,11 @@ struct ArchiveView: View {
         RelativeDate.label(for: dateString, style: .caps)
     }
 
-    /// Journal-ledger row (W1): date column + one-line teaser + bare count.
-    /// Replaces the shouting per-day glass card — twice the days per screen,
-    /// and the scroll reads like flipping a ledger. Compiled days speak in
-    /// primary ink and an amber date; metadata-only days stay muted. Zero
-    /// photo/voice counters no longer occupy space (they said nothing).
+    /// Journal-ledger row (W1 + flomo-native refinement): date column + a
+    /// readable two-line excerpt + a quiet metadata line (only counts that
+    /// add information) + bare memo count. No decorative card stack, no
+    /// duplicated counts. Raw and compiled excerpts use the same readable
+    /// ink; compilation is indicated by the date, never by fading the words.
     private func archiveListRow(stats: DayStats) -> some View {
         let isCompiled = stats.isDailyPageCompiled
         let teaser: String? = {
@@ -1746,6 +1688,20 @@ struct ArchiveView: View {
         let stateLabel = isCompiled
             ? NSLocalizedString("archive.a11y.day.compiled", comment: "A11y: day has a compiled daily page")
             : NSLocalizedString("archive.a11y.day.rawOnly", comment: "A11y: day has raw memos only")
+        var metaParts: [String] = []
+        if stats.photoCount > 0 {
+            metaParts.append(String(format: NSLocalizedString(
+                "archive.row.meta.photos", comment: "Day row metadata: photo count"), stats.photoCount))
+        }
+        if stats.uniqueLocations > 0 {
+            metaParts.append(String(format: NSLocalizedString(
+                "archive.row.meta.locations", comment: "Day row metadata: location count"), stats.uniqueLocations))
+        }
+        if stats.voiceMinutes > 0 {
+            metaParts.append(String(format: NSLocalizedString(
+                "archive.row.meta.voiceMin", comment: "Day row metadata: voice minutes"), stats.voiceMinutes))
+        }
+        let metaLine = metaParts.joined(separator: " · ")
 
         return Button(action: {
             handleDateTap(dateStr: stats.dateString)
@@ -1757,11 +1713,20 @@ struct ArchiveView: View {
                     .foregroundColor(isCompiled ? DSColor.accentOnBg : DSColor.inkMuted)
                     .frame(width: 64, alignment: .leading)
 
-                Text(teaser ?? "—")
-                    .font(DSType.bodySM)
-                    .foregroundColor(isCompiled ? DSColor.inkPrimary : DSColor.inkMuted)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(teaser ?? "—")
+                        .font(DSFonts.serif(size: 15, weight: .regular, relativeTo: .body))
+                        .foregroundColor(teaser == nil ? DSColor.inkMuted : DSColor.inkPrimary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .multilineTextAlignment(.leading)
+                    if !metaLine.isEmpty {
+                        Text(metaLine)
+                            .font(DSType.mono9)
+                            .foregroundColor(DSColor.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer(minLength: DSSpacing.sm)
 
@@ -1783,7 +1748,11 @@ struct ArchiveView: View {
         }
         .modifier(ArchiveDayZoomSource(id: stats.dateString, namespace: dayZoomNamespace))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(relativeDateLabel(stats.dateString))，\(stateLabel)，\(stats.memoCount)")
+        .accessibilityLabel([
+            relativeDateLabel(stats.dateString),
+            teaser.map { String(MemoMarkdown.plainText($0).prefix(160)) } ?? "",
+            stateLabel, "\(stats.memoCount)", metaLine
+        ].filter { !$0.isEmpty }.joined(separator: "，"))
         .accessibilityHint(NSLocalizedString("archive.a11y.day.hint", comment: "A11y hint: calendar day cell opens the day detail"))
     }
 

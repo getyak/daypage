@@ -3058,8 +3058,7 @@ struct TodayView: View {
                 // the `daypage://search?q=` URL scheme already use.
                 Button {
                     Haptics.soft()
-                    nav.selectedTab = .archive
-                    nav.pendingSearchQuery = ""
+                    nav.openGlobalSearch()
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .medium))

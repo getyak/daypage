@@ -1,5 +1,6 @@
 import SwiftUI
 import DayPageModels
+import DayPageStorage
 import DayPageServices
 
 // MARK: - Today timeline components
@@ -316,7 +317,17 @@ struct TimelineRow: View {
     var onOpen: (() -> Void)? = nil
 
     /// Drives the right-swipe MORE confirmation dialog (pin / delete / …).
+    /// Since the swipe drawer's leading side became insight/related, this
+    /// dialog is now opened from the long-press menu's 「更多操作」 item —
+    /// pin/more stay reachable in the long-press menu and this dialog.
     @State private var showMoreActions = false
+
+    /// Anchored memo-chat sheet (flomo-native refinement): non-nil while the
+    /// insight chooser / related-question sheet should be presented. Hosted
+    /// on the row so every TimelineRow surface (Today / Archive / Daily) gets
+    /// the same anchored chat without per-surface wiring.
+    @State private var chatRequest: MemoChatSheetRequest?
+    @State private var chatOpeningTask: Task<Void, Never>?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -368,7 +379,21 @@ struct TimelineRow: View {
                 onDelete: onDelete,
                 onPin: onPin,
                 onShare: onShare,            // left-swipe SHARE → share-as-card
-                onMore: { showMoreActions = true }, // right-swipe MORE → dialog
+                // Pin / more no longer ride the swipe drawer (right-swipe is
+                // insight/related); the dialog stays open from the long-press
+                // menu's 「更多操作」 item so the action set stays complete.
+                onMore: { showMoreActions = true },
+                // Right-swipe INSIGHT → anchored chat with the insight-lens
+                // chooser expanded. Presentation only — no AI call, no
+                // persistence happens until the user acts inside the sheet.
+                onInsight: {
+                    openChat(related: false)
+                },
+                // Right-swipe RELATED → same anchored sheet with a suggested
+                // question prefilled. Never auto-submitted.
+                onRelated: {
+                    openChat(related: true)
+                },
                 // Card-body tap: in selection mode toggle membership, else open
                 // detail. Both flow through the card's UIKit tap recognizer so
                 // they never fight the swipe gesture's self-hit-testing host.
@@ -407,6 +432,82 @@ struct TimelineRow: View {
         ) {
             moreActionsButtons
         }
+        // The memo-anchored chat sheet (insight chooser / related question).
+        // sheet(item:) so the presentation is anchored to the exact swiped
+        // memo and re-triggers cleanly on every swipe.
+        .sheet(item: $chatRequest) { request in
+            MemoChatView(
+                memo: request.memo,
+                entityDisplayNames: request.entityDisplayNames,
+                onClose: { chatRequest = nil },
+                initialMode: request.mode
+            )
+            .presentationDetents([.fraction(0.85), .large])
+            .presentationDragIndicator(.visible)
+        }
+        .onDisappear {
+            chatOpeningTask?.cancel()
+            chatOpeningTask = nil
+        }
+    }
+
+    private func openChat(related: Bool) {
+        guard !isSelectionMode else { return }
+        chatOpeningTask?.cancel()
+        let anchor = memo
+        let slugs = memo.entityMentions
+        let wikiBase = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+        chatOpeningTask = Task { @MainActor in
+            let names = await Task.detached(priority: .userInitiated) {
+                Self.derivedEntityNames(slugs: slugs, wikiBase: wikiBase)
+            }.value
+            guard !Task.isCancelled else { return }
+            let mode: MemoChatEntryMode = related
+                ? .related(question: relatedQuestion(names: names)) : .insight
+            chatRequest = MemoChatSheetRequest(memo: anchor, mode: mode, entityDisplayNames: names)
+            chatOpeningTask = nil
+        }
+    }
+
+    /// The suggested question the RELATED action prefills into the chat
+    /// input — entity-aware when names resolve, a neutral temporal question
+    /// otherwise. It is prefilled only; the user sends it (or edits it).
+    private func relatedQuestion(names: [String: String]) -> String {
+        if let name = names.values.sorted().first {
+            return String(format: NSLocalizedString(
+                "memo.chat.suggest.entity",
+                value: "What else have I said about “%@”?",
+                comment: "Memo chat — suggested question 2; %@ is an entity name"
+            ), name)
+        }
+        return NSLocalizedString(
+            "memo.chat.suggest.related",
+            value: "What else was happening around this entry?",
+            comment: "Memo chat — related-suggestion question when no entity names resolve"
+        )
+    }
+
+    /// Best-effort entity display names for the chat sheet: resolves wiki
+    /// frontmatter `name:` for the memo's entity mentions. Falls back to an
+    /// empty dictionary when nothing resolves (MemoChatView tolerates that —
+    /// the memo row has no pre-resolved names of its own).
+    private nonisolated static func derivedEntityNames(slugs: [String], wikiBase: URL) -> [String: String] {
+        var names: [String: String] = [:]
+        for slug in Set(slugs).filter({ !$0.isEmpty }).sorted() {
+            let safeSlug = EntityPageService.sanitizeSlug(slug)
+            for type in ["places", "people", "themes"] {
+                let url = wikiBase
+                    .appendingPathComponent(type)
+                    .appendingPathComponent("\(safeSlug).md")
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                if let name = FrontmatterParser.extractField("name", from: content),
+                   !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                    names[slug] = name
+                    break
+                }
+            }
+        }
+        return names
     }
 
     /// Single merged long-press menu: pin + both share forms + multi-select,
@@ -471,6 +572,16 @@ struct TimelineRow: View {
                 Label(NSLocalizedString("memo.menu.multiselect", comment: "contextMenu: enter multi-select mode"),
                       systemImage: "checkmark.circle")
             }
+        }
+        // Pin / more live in the long-press surface and this dialog (the
+        // swipe drawer's leading side is now insight/related), so the menu
+        // needs one explicit route into the fuller action set.
+        Button {
+            Haptics.selection()
+            showMoreActions = true
+        } label: {
+            Label(NSLocalizedString("memo.menu.moreActions", comment: "contextMenu: open the more-actions dialog"),
+                  systemImage: "ellipsis")
         }
         if let onDelete {
             Divider()

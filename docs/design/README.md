@@ -5,6 +5,13 @@ They are review artifacts, not current requirements, accepted architecture decis
 or implementation plans. The examples are anonymized and illustrative; they do not
 contain or read a user vault.
 
+One current document lives alongside them:
+
+- `flomo-native-refinement.md`: design, acceptance mapping, explicit current limits
+  and verification commands for the user-requested native refinement (swipe
+  insight/related actions, memo-anchored insight chat, sidebar/archive/search
+  refinement). It describes shipped local behavior in this branch, not a proposal.
+
 - `architecture-review.html`: capture/compile separation, skill pipelines, derived
   indexing, and feed hypotheses. SQLite and runtime choices remain proposals.
 - `interaction-mockups.html`: mobile interaction sketches for capture, explicit
