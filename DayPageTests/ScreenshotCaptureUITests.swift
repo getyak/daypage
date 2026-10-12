@@ -213,6 +213,51 @@ struct ScreenshotCaptureUITests {
             _ = try await ScreenshotCaptureStore(vaultRoot: tempDir).manifest(for: manifestA.id)
         }
     }
+
+    @Test("Rapid deletion waits for the previous raw delete before removing screenshot files")
+    func rapidDeletionWaitsForDurablePredecessor() async throws {
+        defer { cleanup() }
+        let (vm, manifestA) = try await makeTodayWithCapture()
+        let memoA = try #require(vm.memos.first { $0.id == manifestA.memoID })
+        let memoB = Memo(id: UUID(), type: .text, created: manifestA.createdAt, attachments: [], body: "second")
+        try RawStorage.mutate(dayString: manifestA.memoDayString, vaultRoot: tempDir) { $0 + [memoB] }
+        vm.memos.append(memoB)
+        let coordinator = makeCoordinator()
+        vm.finalizeScreenshotDeletionOverride = { id, root in
+            try await coordinator.finalizeDeletionIfMemoMissing(captureID: id, vaultRoot: root)
+        }
+
+        // Pause the existing persistence queue, without replacing the real
+        // deletion implementation. A and B must wait behind this predecessor.
+        let predecessor = FinalizeRecorder()
+        defer { Task { await predecessor.release() } }
+        _ = vm.enqueueMemoPersistence { await predecessor.hold() }
+        let admissionDeadline = Date().addingTimeInterval(3)
+        while await !predecessor.entered && Date() < admissionDeadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let entered = await predecessor.entered
+        try #require(entered)
+        vm.deleteMemo(memoA)
+        vm.deleteMemo(memoB)
+        vm.undoDelete()
+        // Let the earlier finalizer attempt run while A still exists on disk.
+        try await Task.sleep(nanoseconds: 250_000_000)
+        #expect(try RawStorage.read(dayString: manifestA.memoDayString, vaultRoot: tempDir).contains { $0.id == memoA.id })
+        await predecessor.release()
+        await vm.waitForMemoPersistence()
+
+        let reader = ScreenshotCaptureStore(vaultRoot: tempDir)
+        let completionDeadline = Date().addingTimeInterval(3)
+        while (try? await reader.manifest(for: manifestA.id)) != nil && Date() < completionDeadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        await #expect(throws: (any Error).self) { _ = try await reader.manifest(for: manifestA.id) }
+        #expect(!FileManager.default.fileExists(atPath: tempDir.appendingPathComponent(manifestA.originalPath).path))
+        let memos = try RawStorage.read(dayString: manifestA.memoDayString, vaultRoot: tempDir)
+        #expect(memos.allSatisfy { $0.id != memoA.id })
+        #expect(memos.contains { $0.id == memoB.id }, "the newer deletion remains undoable")
+    }
 }
 
 }

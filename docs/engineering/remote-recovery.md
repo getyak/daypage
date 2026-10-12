@@ -75,13 +75,16 @@ passing — `DayPageKit/Tests/DayPageServicesTests/ScreenshotRecoveryTests.swift
    traversal, no symlink escapes) before any read or delete.
 2. **Stale consent completions.** A provider response arriving after
    `keepLocal`/consent revocation (per-capture or global) is discarded, never
-   accepted; the capture stays local-only. No provider request starts for a
-   capture whose durable consent snapshot is cleared, and concurrent passes
-   cannot issue duplicate requests for one capture.
+   accepted; the capture stays local-only. The epoch is captured before awaited
+   preflight work; durable consent and live policy are checked after the last
+   preflight await, immediately before dispatch. Response authorization is
+   checked inside the atomic manifest mutation. Concurrent passes cannot issue
+   duplicate requests for one capture.
 3. **Crash-phase recovery.** Recovery adopts every state a crash can leave —
    `stored`/`ingestPending` memo gaps (including the memo-before-manifest
    window) and `ingested`/`extracting`/`understanding` gaps — idempotently by
-   exact memo UUID. Repeated foreground passes deliver exactly one memo.
+   exact memo UUID. Foreground passes and explicit retries repair the memo gap
+   before evidence extraction can advance the phase, delivering exactly one memo.
 4. **Canonical wire/UI kind.** New captures use the standard `photo`
    attachment kind (accepted by the existing sync attachment schema and
    Memo Detail rendering); the manifest/memo UUID supplies screenshot
@@ -110,6 +113,11 @@ passing — `DayPageKit/Tests/DayPageServicesTests/ScreenshotRecoveryTests.swift
 9. **Opt-in processing stays off by default.** `screenshot.cloudAnalysisEnabled`
    defaults to off and is gated behind the AI master switch; no provider
    credential or default AI service was changed.
+10. **Cross-instance mutation and deletion ownership.** Bound store instances
+    serialize complete read/mutate/write and deletion operations, preventing
+    lost updates or a late update recreating a deleted manifest. A rapid second
+    deletion retains the first deletion's persistence task and waits for its raw
+    write before finalizing that screenshot; the newer record remains undoable.
 
 ## Verification performed (local, this recovery)
 
@@ -119,21 +127,27 @@ passing — `DayPageKit/Tests/DayPageServicesTests/ScreenshotRecoveryTests.swift
   `tests/test_ci_scripts.py` alongside current-main `scripts/tests`
   discovery).
 - `swift test --package-path DayPageKit` (bounded `--jobs 2 --no-parallel`)
-  — 342 XCTest + 75 Swift Testing host tests, 0 failures (3 pre-existing
+  — 349 XCTest + 75 Swift Testing host tests, 0 failures (3 pre-existing
   skips). Screenshot regression tests cover the items above with
   synthetic 1×1 PNG fixtures only — no personal vault, auth, live provider or
   network call, or permission prompt.
 - Isolated `DayPage` Debug build-for-testing and affected Simulator tests:
-  187 tests / 188 parameter executions, 0 failures and 0 skips. This includes
+  the initial broad pass ran 187 tests / 188 parameter executions, with 0 failures
+  and 0 skips. This includes
   screenshot/Undo, four migration cases, LLM/Thread, Doubao, Whisper, diagnostics,
   Today, App Intents, accessibility and swipe contracts. Test host and embedded
   extension identities were checked against the QA namespace. Native manifests
   are compared to the persisted source and exact JSON bytes, accounting for the
   existing ISO8601 timestamp precision.
+  The final ordering/atomicity fixes were rebuilt and verified with 58 affected
+  tests / 59 parameter executions (Screenshot, Today and migration), again with
+  0 failures and 0 skips; overlapping tests are not added to the broad-pass total.
 - Independent review found and closed screenshot result-admission inversion,
   migration destination symlink mutation, incorrect native test boundary scripts,
   and Thread secret/test-vault coupling. Stronger gated Undo tests also exposed
-  and closed canceled-finalizer orphaning. Failed regressions and final passing
+  and closed canceled-finalizer orphaning. The final review also closed awaited
+  consent revocation, cross-store mutation, interrupted retry and rapid deletion
+  defects with observed failing regressions followed by passing results. Failed regressions and final passing
   receipts are retained privately; neither a worker checkpoint nor an unmatched
   test selector was counted as acceptance.
 - Primary iPhone Simulator smoke used the dedicated `com.daypage.app.qa-ui-928`
@@ -144,9 +158,12 @@ passing — `DayPageKit/Tests/DayPageServicesTests/ScreenshotRecoveryTests.swift
   separator, and the unchanged original-image digest. This is UI/rendering and
   storage evidence; seeded data is not Share or Action Button ingress evidence.
   Existing QA app data on Primary and Compact were preserved; no Compact layout
-  acceptance is claimed. The final consent-copy correction is source-checked;
-  its final compilation is deferred to current-head CI. Prior local UI screenshots are not evidence of the
-  corrected wording. All raw evidence stays outside version control.
+  acceptance is claimed. A fresh final-source build additionally verified actual
+  screenshot deletion removes the memo, original and manifest, real text deletion
+  Undo restores exactly one record, and the corrected consent copy is visible
+  while both AI switches remain off. Screenshot Undo preservation is covered by
+  the native suite; a late manual Undo attempt is not counted as a successful
+  screenshot restoration. All raw evidence stays outside version control.
 
 ## Remaining acceptance and genuine limitations
 
@@ -163,9 +180,8 @@ passing — `DayPageKit/Tests/DayPageServicesTests/ScreenshotRecoveryTests.swift
   "app-group unavailable" and never touches production.
 - Issue #332 covers far more than the one behavior-preserving cleanup item
   delivered here; it remains open. No new TestFlight release is included.
-- Xcode build, `DayPageTests`, and Simulator UI gates are parent-owned and run
-  after this integration; only Swift package host tests and the light
-  repository gates above were run here.
+- Remote CI binds the pushed PR head and is recorded on [PR #929](https://github.com/getyak/daypage/pull/929).
+  Local passing results do not substitute for that head's remote checks.
 
 ## Second bounded privacy batch (#928, request-time AI switch enforcement)
 

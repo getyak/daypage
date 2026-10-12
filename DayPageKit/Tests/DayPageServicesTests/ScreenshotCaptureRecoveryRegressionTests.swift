@@ -94,6 +94,77 @@ private struct RevokingCaptureProvider: ScreenshotUnderstandingProvider {
 }
 
 final class ScreenshotResultAdmissionTests: XCTestCase {
+    private func checkRevocationBeforeProvider(keepLocal: Bool) async throws {
+        let root = try ReplayFixtures.makeVault("preflight-revocation")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let policy = MutableCaptureConsent()
+        let gate = PreflightGate()
+        defer { gate.releaseAll() }
+        let store = ScreenshotCaptureStore(vaultRoot: root)
+        let provider = CountingProvider()
+        let coordinator = ScreenshotCaptureCoordinator(store: store,
+            evidenceExtractor: OkExtractor(), understandingProvider: provider,
+            cloudConsent: policy, preflightGate: { await gate.hold() })
+        let outcome = try await coordinator.ingest(data: ReplayFixtures.onePixelPNG,
+            declaredContentType: "image/png", source: .appImport, cloudAnalysisAllowed: true)
+        let pass = Task { await coordinator.processPending(cloudAnalysisAllowed: true) }
+        let deadline = Date().addingTimeInterval(3)
+        while !gate.isWaiting && Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+        guard gate.isWaiting else {
+            gate.releaseAll()
+            await pass.value
+            XCTFail("The actual request preflight must be reached")
+            return
+        }
+        if keepLocal { try await coordinator.keepLocal(captureID: outcome.manifest.id) }
+        else { policy.revoke() }
+        gate.releaseAll()
+        await pass.value
+        XCTAssertEqual(provider.calls, 0, "Revocation before request must prevent provider invocation")
+        let result = try await store.manifest(for: outcome.manifest.id)
+        XCTAssertEqual(result.phase, .localOnly)
+        XCTAssertNil(result.understanding)
+    }
+
+    func testKeepLocalDuringPreflightPreventsProviderRequest() async throws {
+        try await checkRevocationBeforeProvider(keepLocal: true)
+    }
+
+    func testLivePolicyOffDuringPreflightPreventsProviderRequest() async throws {
+        try await checkRevocationBeforeProvider(keepLocal: false)
+    }
+
+    func testRevocationAtResponseCommitDiscardsPreviouslyAuthorizedResult() async throws {
+        let root = try ReplayFixtures.makeVault("response-commit-revocation")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let gate = PreflightGate()
+        defer { gate.releaseAll() }
+        let store = ScreenshotCaptureStore(vaultRoot: root)
+        let provider = CountingProvider()
+        let coordinator = ScreenshotCaptureCoordinator(store: store,
+            evidenceExtractor: OkExtractor(), understandingProvider: provider,
+            cloudConsent: AllowAllAIConsent(), resultCommitGate: { await gate.hold() })
+        let outcome = try await coordinator.ingest(data: ReplayFixtures.onePixelPNG,
+            declaredContentType: "image/png", source: .appImport, cloudAnalysisAllowed: true)
+        let pass = Task { await coordinator.processPending(cloudAnalysisAllowed: true) }
+        let deadline = Date().addingTimeInterval(3)
+        while !gate.isWaiting && Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+        guard gate.isWaiting else {
+            gate.releaseAll(); await pass.value
+            XCTFail("The response commit boundary must be reached")
+            return
+        }
+        // Represents OFF→ON after earlier admission reads. Live policy is ON
+        // again and the manifest is unchanged; only the epoch rejects it.
+        await coordinator.noteCloudConsentRevoked()
+        gate.releaseAll()
+        await pass.value
+        XCTAssertEqual(provider.calls, 1)
+        let result = try await store.manifest(for: outcome.manifest.id)
+        XCTAssertEqual(result.phase, .localOnly)
+        XCTAssertNil(result.understanding)
+    }
+
     func testAllowedSuccessBecomesReadyAndRetainsUnderstanding() async throws {
         let root = try ReplayFixtures.makeVault("admission-allowed")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -134,6 +205,7 @@ private final class PreflightGate: @unchecked Sendable {
     private let lock = NSLock()
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private var released = false
+    var isWaiting: Bool { lock.lock(); defer { lock.unlock() }; return !waiters.isEmpty }
 
     func hold() async {
         lock.lock()
@@ -162,6 +234,84 @@ private final class PreflightGate: @unchecked Sendable {
 }
 
 // MARK: - Suites
+
+private final class MutationBarrier: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var count = 0
+    func meet() {
+        condition.lock()
+        count += 1
+        if count == 1 { _ = condition.wait(until: Date().addingTimeInterval(0.25)) }
+        else { condition.broadcast() }
+        condition.unlock()
+    }
+}
+
+private final class HeldMutation: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var entered = false
+    private var released = false
+    var isWaiting: Bool { condition.lock(); defer { condition.unlock() }; return entered && !released }
+    func hold() {
+        condition.lock(); entered = true
+        let deadline = Date().addingTimeInterval(3)
+        while !released && Date() < deadline { _ = condition.wait(until: deadline) }
+        condition.unlock()
+    }
+    func release() { condition.lock(); released = true; condition.broadcast(); condition.unlock() }
+}
+
+final class ScreenshotBoundStoreMutationTests: XCTestCase {
+    func testTwoBoundStoresCannotLoseAReadModifyWrite() async throws {
+        let root = try ReplayFixtures.makeVault("bound-update")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ScreenshotCaptureStore(vaultRoot: root)
+        let outcome = try await store.receive(data: ReplayFixtures.onePixelPNG,
+            declaredContentType: "image/png", source: .appImport, cloudConsentAtCapture: false)
+        let first = await store.bound(to: root)
+        let second = await store.bound(to: root)
+        let barrier = MutationBarrier()
+        async let a = first.update(outcome.manifest.id) { value in
+            barrier.meet(); value.failureReason = String((Int(value.failureReason ?? "0") ?? 0) + 1)
+        }
+        async let b = second.update(outcome.manifest.id) { value in
+            barrier.meet(); value.failureReason = String((Int(value.failureReason ?? "0") ?? 0) + 1)
+        }
+        _ = try await (a, b)
+        let result = try await store.manifest(for: outcome.manifest.id)
+        XCTAssertEqual(result.failureReason, "2")
+    }
+
+    func testDeleteCannotBeUndoneByAnotherBoundStoresLateUpdate() async throws {
+        let root = try ReplayFixtures.makeVault("bound-delete")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ScreenshotCaptureStore(vaultRoot: root)
+        let outcome = try await store.receive(data: ReplayFixtures.onePixelPNG,
+            declaredContentType: "image/png", source: .appImport, cloudConsentAtCapture: false)
+        let first = await store.bound(to: root)
+        let second = await store.bound(to: root)
+        let gate = HeldMutation()
+        defer { gate.release() }
+        let update = Task {
+            try await first.update(outcome.manifest.id) { value in
+                gate.hold(); value.failureReason = "synthetic-late-update"
+            }
+        }
+        let deadline = Date().addingTimeInterval(2)
+        while !gate.isWaiting && Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+        guard gate.isWaiting else { gate.release(); _ = try await update.value; XCTFail("Update gate not reached"); return }
+        let deletion = Task { try await second.deleteFiles(for: outcome.manifest.id) }
+        // With serialization, deletion waits. Without it, deletion finishes
+        // and the suspended update recreates its JSON sidecar afterward.
+        try await Task.sleep(nanoseconds: 100_000_000)
+        gate.release()
+        _ = try await update.value
+        try await deletion.value
+        do { _ = try await store.manifest(for: outcome.manifest.id); XCTFail("Deleted sidecar was resurrected") }
+        catch let error as ScreenshotCaptureError { XCTAssertEqual(error, .manifestMissing) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(outcome.manifest.originalPath).path))
+    }
+}
 
 /// Independent-review P1 (share handoff replay): the staged item's stable UUID
 /// is the durable capture identity. A crash after durable ingest but before
@@ -607,6 +757,41 @@ final class ScreenshotEvidencePrerequisiteTests: XCTestCase {
         let reader = ScreenshotCaptureStore(vaultRoot: vault)
         let manifest = try await reader.manifest(for: outcome.manifest.id)
         XCTAssertEqual(manifest.phase, .stored, "no memo appended ⇒ never marked ingested")
+    }
+
+    func testRetryStoredCaptureRestoresItsMemoBeforeExtractingEvidence() async throws {
+        try await assertRetryRestoresInterruptedMemo(phase: .stored)
+    }
+
+    func testRetryIngestPendingCaptureRestoresItsMemoBeforeExtractingEvidence() async throws {
+        try await assertRetryRestoresInterruptedMemo(phase: .ingestPending)
+    }
+
+    private func assertRetryRestoresInterruptedMemo(phase: ScreenshotCapturePhase) async throws {
+        let store = ScreenshotCaptureStore(vaultRoot: vault)
+        let received = try await store.receive(
+            data: ReplayFixtures.onePixelPNG,
+            declaredContentType: "image/png",
+            source: .appImport,
+            cloudConsentAtCapture: false
+        )
+        _ = try await store.update(received.manifest.id) { $0.phase = phase }
+        let coordinator = ScreenshotCaptureCoordinator(
+            store: store,
+            evidenceExtractor: OkExtractor(),
+            understandingProvider: nil,
+            cloudConsent: AllowAllAIConsent()
+        )
+
+        _ = await coordinator.retry(captureID: received.manifest.id, cloudAnalysisAllowed: false)
+        _ = await coordinator.retry(captureID: received.manifest.id, cloudAnalysisAllowed: false)
+
+        let memos = try RawStorage.read(dayString: received.manifest.memoDayString, vaultRoot: vault)
+        XCTAssertEqual(memos.filter { $0.id == received.manifest.memoID }.count, 1)
+        let manifest = try await store.manifest(for: received.manifest.id)
+        XCTAssertEqual(manifest.phase, .localOnly)
+        XCTAssertNotNil(manifest.evidence)
+        XCTAssertEqual(memos.first?.attachments.first?.file, manifest.originalPath)
     }
 
     private func rewriteLegacySidecar(

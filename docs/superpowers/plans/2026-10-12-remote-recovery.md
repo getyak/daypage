@@ -57,7 +57,7 @@
 - [x] Inspect exact-byte ingest, deduplication, reconciliation, limits, consent revocation, retries and delete/undo.
 - [x] Add behavioral regression tests for confirmed defects and watch them fail before fixing.
 - [x] Keep cloud processing off by default, label generated drafts and require user confirmation for suggested actions.
-- [x] Run all DayPageKit host tests (342 XCTest + 75 Swift Testing, 0 failures, 3 existing skips).
+- [x] Run all DayPageKit host tests (349 XCTest + 75 Swift Testing, 0 failures, 3 existing skips).
 - [x] Run affected native suites, app build and isolated Simulator smoke.
 
 ## Task 4: Independent review and remote delivery
@@ -66,10 +66,9 @@
 **Interfaces:** Reviewed commit, current-head GitHub CI, linked PR.
 
 - [x] Obtain a fresh independent review and resolve all confirmed P0/P1 findings.
-- [ ] Save non-sensitive gate evidence with actual pass/fail/skipped results.
-- [ ] Stage only reviewed source/document paths, commit, push a dedicated branch and create a linked PR.
-- [ ] Inspect all current-head CI results and repair change-related failures; read back the remote commit/PR.
-- [ ] Preserve source, formal evidence and device-only limitations; remove only this task's rebuildable transient artifacts after delivery.
+- [x] Save non-sensitive gate conclusions; retain actual raw receipts privately.
+- [x] Stage only reviewed source/document paths, push `codex/928-remote-recovery`, and create [PR #929](https://github.com/getyak/daypage/pull/929).
+- Remote CI verdict and final delivery/cleanup receipts are recorded on PR #929 and in the private task handoff, bound to the commit created after this source checkpoint.
 
 ## Task 5: Bounded privacy recovery batch (#928) and screenshot follow-ups
 
@@ -101,5 +100,10 @@ capture identity, single-flight preflight reservation.
 - [x] Selective canonical-directory inventory for migration copy and verification,
   per-manifest hashes, destination preflight and isolated native migration fixtures.
 - [x] Fresh independent final review and affected Xcode/Simulator gates.
-- [ ] Commit/push/PR and current-head remote gates (follow the linked PR for
-  delivery state after this source checkpoint).
+- [x] Final bounded review also closes awaited preflight/response consent
+  revocation, cross-bound-store lost updates/deleted sidecar resurrection,
+  interrupted retry memo gaps and rapid-delete durability with RED→GREEN.
+- [x] Rebuild final source and run 58 affected native tests / 59 parameter
+  executions, plus a fresh isolated UI pass for deletion, Undo and consent copy.
+- [x] Commit/push/PR checkpoint established; follow PR #929 for the final
+  pushed commit and current-head remote gate verdict.

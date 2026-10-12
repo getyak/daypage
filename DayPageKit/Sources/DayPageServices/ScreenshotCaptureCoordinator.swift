@@ -2,6 +2,15 @@ import Foundation
 import DayPageModels
 import DayPageStorage
 
+/// Shared with synchronous store commits so revocation remains observable
+/// after a hop from the coordinator to a bound store actor.
+private final class ScreenshotConsentEpoch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var version = 0
+    var current: Int { lock.lock(); defer { lock.unlock() }; return version }
+    func advance() { lock.lock(); version &+= 1; lock.unlock() }
+}
+
 public extension Notification.Name {
     static let screenshotCaptureDidUpdate = Notification.Name("daypage.screenshotCaptureDidUpdate")
 }
@@ -28,11 +37,13 @@ public actor ScreenshotCaptureCoordinator {
     /// Test-only seam awaited immediately before irreversible deletion
     /// finalization. nil in production.
     private let finalizeGate: (@Sendable () async -> Void)?
+    /// Test-only seam before the awaited response commit. nil in production.
+    private let resultCommitGate: (@Sendable () async -> Void)?
 
     /// Bumped whenever cloud processing is observed disabled or a capture's
     /// consent is revoked. Provider completions started under an older epoch
     /// are stale and get discarded instead of accepted.
-    private var cloudConsentEpoch = 0
+    private let cloudConsentEpoch = ScreenshotConsentEpoch()
     /// In-flight provider work keyed by (resolved Vault root, capture ID) so
     /// concurrent recovery/retry passes cannot double-request, while a copied
     /// capture UUID in a different Vault processes independently.
@@ -48,7 +59,8 @@ public actor ScreenshotCaptureCoordinator {
         understandingProvider: (any ScreenshotUnderstandingProvider)? = nil,
         cloudConsent: AIConsentChecking = LiveScreenshotCloudConsent(),
         preflightGate: (@Sendable () async -> Void)? = nil,
-        finalizeGate: (@Sendable () async -> Void)? = nil
+        finalizeGate: (@Sendable () async -> Void)? = nil,
+        resultCommitGate: (@Sendable () async -> Void)? = nil
     ) {
         self.store = store
         self.evidenceExtractor = evidenceExtractor
@@ -56,6 +68,7 @@ public actor ScreenshotCaptureCoordinator {
         self.cloudConsent = cloudConsent
         self.preflightGate = preflightGate
         self.finalizeGate = finalizeGate
+        self.resultCommitGate = resultCommitGate
     }
 
     public func configure(understandingProvider: (any ScreenshotUnderstandingProvider)?) {
@@ -67,7 +80,7 @@ public actor ScreenshotCaptureCoordinator {
     /// epoch so late completions are discarded without waiting for a
     /// foreground event.
     public func noteCloudConsentRevoked() {
-        cloudConsentEpoch += 1
+        cloudConsentEpoch.advance()
     }
 
     // MARK: - Vault binding
@@ -130,7 +143,7 @@ public actor ScreenshotCaptureCoordinator {
         cloudAnalysisAllowed: Bool,
         stableID: UUID? = nil
     ) async throws -> ScreenshotCaptureOutcome {
-        if !cloudAnalysisAllowed { cloudConsentEpoch += 1 }
+        if !cloudAnalysisAllowed { cloudConsentEpoch.advance() }
         let bound = await binding(vaultRoot: nil)
         var outcome = try await bound.store.receive(
             data: data,
@@ -186,7 +199,7 @@ public actor ScreenshotCaptureCoordinator {
     /// `extracting` evidence gaps, and `understanding` provider gaps — using
     /// the exact memo UUID so recovery is idempotent and exactly-once.
     public func processPending(cloudAnalysisAllowed: Bool) async {
-        if !cloudAnalysisAllowed { cloudConsentEpoch += 1 }
+        if !cloudAnalysisAllowed { cloudConsentEpoch.advance() }
         let bound = await binding(vaultRoot: nil)
         await reconcilePendingMemoIngests(
             bound: bound,
@@ -222,22 +235,27 @@ public actor ScreenshotCaptureCoordinator {
         captureID: UUID,
         cloudAnalysisAllowed: Bool
     ) async -> ScreenshotCaptureManifest? {
-        if !cloudAnalysisAllowed { cloudConsentEpoch += 1 }
+        if !cloudAnalysisAllowed { cloudConsentEpoch.advance() }
         let bound = await binding(vaultRoot: nil)
         guard var manifest = try? await bound.store.manifest(for: captureID) else { return nil }
+        // Evidence extraction changes phase. Repair the durable memo gap
+        // first, or a crash-interrupted capture would become terminal without
+        // ever delivering its memo to Today.
+        if manifest.phase == .ingestPending || manifest.phase == .stored {
+            await reconcilePendingMemoIngests(
+                bound: bound,
+                cloudAnalysisAllowed: cloudAnalysisAllowed
+            )
+            guard let recovered = try? await bound.store.manifest(for: captureID) else { return nil }
+            guard recovered.phase != .ingestPending, recovered.phase != .stored else { return recovered }
+            manifest = recovered
+        }
         if manifest.evidence == nil {
             manifest = await extractLocalEvidence(
                 captureID: captureID,
                 vaultRoot: bound.vaultRoot,
                 cloudAnalysisAllowed: cloudAnalysisAllowed
             )
-        }
-        guard manifest.phase != .ingestPending, manifest.phase != .stored else {
-            await reconcilePendingMemoIngests(
-                bound: bound,
-                cloudAnalysisAllowed: cloudAnalysisAllowed
-            )
-            return try? await bound.store.manifest(for: captureID)
         }
         return await process(
             captureID: captureID,
@@ -278,7 +296,7 @@ public actor ScreenshotCaptureCoordinator {
     }
 
     public func keepLocal(captureID: UUID) async throws {
-        cloudConsentEpoch += 1
+        cloudConsentEpoch.advance()
         let bound = await binding(vaultRoot: nil)
         let manifest = try await bound.store.update(captureID) { value in
             value.cloudConsentAtCapture = false
@@ -395,6 +413,7 @@ public actor ScreenshotCaptureCoordinator {
         }
         inFlightUnderstanding.insert(key)
         defer { inFlightUnderstanding.remove(key) }
+        let epochAtRequest = cloudConsentEpoch.current
 
         let store = await store.bound(to: vaultRoot)
         guard cloudAnalysisAllowed else {
@@ -449,6 +468,7 @@ public actor ScreenshotCaptureCoordinator {
             let derivative = try ScreenshotAnalysisImage.makeJPEG(from: original)
             manifest = try await store.persistAnalysisDerivative(derivative, for: captureID)
             manifest = try await store.update(captureID) { value in
+                guard value.cloudConsentAtCapture, value.phase != .localOnly, value.phase != .ready else { return }
                 value.phase = .understanding
                 value.failureReason = nil
             }
@@ -457,16 +477,26 @@ public actor ScreenshotCaptureCoordinator {
             // Live policy re-check immediately before the request: a pass that
             // captured cloudAnalysisAllowed earlier must not send after the
             // user turned the switches off (issue #928).
-            try cloudConsent.authorize()
             if let preflightGate { await preflightGate() }
-            let epochAtRequest = cloudConsentEpoch
+            let current = try await store.manifest(for: captureID)
+            guard cloudConsentEpoch.current == epochAtRequest,
+                  current.phase == .understanding, current.cloudConsentAtCapture,
+                  let requestEvidence = current.evidence, requestEvidence.riskIndicators.isEmpty else {
+                let value = try await store.update(captureID) { value in
+                    if value.phase == .understanding { value.phase = .localOnly; value.failureReason = nil }
+                }
+                postUpdate(value)
+                return value
+            }
+            // No await remains between this live check and provider invocation.
+            try cloudConsent.authorize()
             let understanding: ScreenshotUnderstandingResult
             do {
                 let request = ScreenshotUnderstandingRequest(
                     captureID: captureID,
                     imageData: derivative,
                     imageMIMEType: "image/jpeg",
-                    evidence: manifest.evidence ?? ScreenshotEvidence(),
+                    evidence: requestEvidence,
                     localeIdentifier: Locale.current.identifier
                 )
                 understanding = try await provider.understand(request)
@@ -478,22 +508,18 @@ public actor ScreenshotCaptureCoordinator {
             // or a global cloud disable) while the request was in flight. A
             // late response is discarded, never accepted — including when the
             // live setting is off without any foreground event.
-            let liveAllowed = (try? cloudConsent.authorize()) != nil
-            guard liveAllowed,
-                  cloudConsentEpoch == epochAtRequest,
-                  let current = try? await store.manifest(for: captureID),
-                  current.phase == .understanding,
-                  current.cloudConsentAtCapture else {
-                let value = try? await store.update(captureID) { manifest in
-                    if manifest.phase == .understanding {
-                        manifest.phase = .localOnly
-                        manifest.failureReason = nil
-                    }
-                }
-                if let value { postUpdate(value) }
-                return value
-            }
+            if let resultCommitGate { await resultCommitGate() }
+            let epoch = cloudConsentEpoch
+            let consent = cloudConsent
             manifest = try await store.update(captureID) { value in
+                // Check the latest durable state INSIDE the atomic store
+                // mutation, after every asynchronous response/commit boundary.
+                guard epoch.current == epochAtRequest,
+                      (try? consent.authorize()) != nil,
+                      value.phase == .understanding, value.cloudConsentAtCapture else {
+                    if value.phase == .understanding { value.phase = .localOnly; value.failureReason = nil }
+                    return
+                }
                 value.understanding = understanding
                 value.phase = .ready
                 value.failureReason = nil

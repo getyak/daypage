@@ -478,15 +478,22 @@ final class TodayViewModel: ObservableObject {
         if submissionUndoPayload?.memo.id == memo.id {
             submissionUndoPayload = nil
         }
-        // A previous deletion whose undo window expired still owns a pending
-        // screenshot capture. Finalize that one against its own capture before
-        // starting this deletion so the two can never share state.
+        // Starting a new deletion closes the preceding Undo window. Its raw
+        // deletion may still be queued: retain that persistence task before
+        // enqueueing this deletion, and only then finalize its own capture.
         if let previousCapture = pendingDeletedScreenshotCapture {
+            let previousDurableDeletion = memoPersistenceTask
+            let finalizer = finalizeScreenshotDeletionOverride
             Task {
-                try? await ScreenshotCaptureCoordinator.shared.finalizeDeletionIfMemoMissing(
-                    captureID: previousCapture.captureID,
-                    vaultRoot: previousCapture.vaultRoot
-                )
+                _ = await previousDurableDeletion?.value
+                if let finalizer {
+                    try? await finalizer(previousCapture.captureID, previousCapture.vaultRoot)
+                } else {
+                    try? await ScreenshotCaptureCoordinator.shared.finalizeDeletionIfMemoMissing(
+                        captureID: previousCapture.captureID,
+                        vaultRoot: previousCapture.vaultRoot
+                    )
+                }
             }
         }
         let remaining = memos.filter { $0.id != memo.id }

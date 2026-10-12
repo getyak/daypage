@@ -47,11 +47,11 @@ public actor ScreenshotCaptureStore {
     private let now: @Sendable () -> Date
     private let fileManager: FileManager
 
-    /// Serializes the receive dedupe-check + write critical section across ALL
-    /// store instances. Operations run through per-operation bound stores, so
-    /// instance-level actor isolation alone cannot keep two concurrent
-    /// identical receives from both passing the duplicate window check.
-    private static let receiveLock = NSLock()
+    /// Bound stores are separate actors. Synchronous read/mutate/write and
+    /// deletion must share one critical section across every instance.
+    /// Recursive acquisition supports derivative updates without any await
+    /// while held; it also serializes the shared JSON encoder/decoder.
+    private static let mutationLock = NSRecursiveLock()
 
     public init(
         vaultRoot: URL? = nil,
@@ -77,8 +77,8 @@ public actor ScreenshotCaptureStore {
         cloudConsentAtCapture: Bool,
         stableID: UUID? = nil
     ) throws -> ScreenshotCaptureOutcome {
-        Self.receiveLock.lock()
-        defer { Self.receiveLock.unlock() }
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         let capturedVaultRoot = vaultRoot
         let metadata = try validate(data: data, declaredContentType: declaredContentType)
         let digest = Self.sha256(data)
@@ -177,7 +177,9 @@ public actor ScreenshotCaptureStore {
     }
 
     public func manifest(for captureID: UUID) throws -> ScreenshotCaptureManifest {
-        try manifest(for: captureID, in: vaultRoot)
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        return try manifest(for: captureID, in: vaultRoot)
     }
 
     private func manifest(
@@ -198,11 +200,15 @@ public actor ScreenshotCaptureStore {
     }
 
     public func manifest(forMemoID memoID: UUID) throws -> ScreenshotCaptureManifest? {
-        try allManifests(in: vaultRoot).first(where: { $0.memoID == memoID })
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        return try allManifests(in: vaultRoot).first(where: { $0.memoID == memoID })
     }
 
     public func allManifests() throws -> [ScreenshotCaptureManifest] {
-        try allManifests(in: vaultRoot)
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        return try allManifests(in: vaultRoot)
     }
 
     private func allManifests(in capturedVaultRoot: URL) throws -> [ScreenshotCaptureManifest] {
@@ -285,6 +291,8 @@ public actor ScreenshotCaptureStore {
         in capturedVaultRoot: URL,
         mutate: (inout ScreenshotCaptureManifest) -> Void
     ) throws -> ScreenshotCaptureManifest {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         var value = try manifest(for: captureID, in: capturedVaultRoot)
         mutate(&value)
         value.updatedAt = now()
@@ -293,6 +301,8 @@ public actor ScreenshotCaptureStore {
     }
 
     public func originalData(for captureID: UUID) throws -> Data {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         let capturedVaultRoot = vaultRoot
         let value = try manifest(for: captureID, in: capturedVaultRoot)
         let url = try screenshotAssetURL(
@@ -308,6 +318,8 @@ public actor ScreenshotCaptureStore {
     }
 
     public func originalURL(for captureID: UUID) throws -> URL {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         let capturedVaultRoot = vaultRoot
         let value = try manifest(for: captureID, in: capturedVaultRoot)
         let url = try screenshotAssetURL(
@@ -327,7 +339,10 @@ public actor ScreenshotCaptureStore {
         for captureID: UUID,
         fileExtension: String = "jpg"
     ) throws -> ScreenshotCaptureManifest {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         let capturedVaultRoot = vaultRoot
+        _ = try manifest(for: captureID, in: capturedVaultRoot)
         let relative = "raw/assets/screenshots/analysis_\(captureID.uuidString.lowercased()).\(fileExtension)"
         let url = try screenshotAssetURL(
             forRelativePath: relative,
@@ -343,6 +358,8 @@ public actor ScreenshotCaptureStore {
     }
 
     public func deleteFiles(for captureID: UUID) throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         let capturedVaultRoot = vaultRoot
         let value = try manifest(for: captureID, in: capturedVaultRoot)
         // Validate every declared path before removing anything: a tampered or
