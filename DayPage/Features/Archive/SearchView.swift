@@ -565,7 +565,7 @@ struct SearchView: View {
 
                 Text("—")
                     .monoLabelStyle(size: 11)
-                    .foregroundColor(DSColor.outline)
+                    .foregroundColor(DSColor.glassRim)
 
                 SearchOptionalDateControl(
                     title: NSLocalizedString("search.filter.endDate", comment: "End date filter"),
@@ -816,7 +816,7 @@ struct SearchView: View {
                         VStack(spacing: DSSpacing.md) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 32, weight: .regular))
-                                .foregroundColor(DSColor.outlineVariant)
+                                .foregroundColor(DSColor.inkFaint)
                             Text(NSLocalizedString("search.empty.prompt", comment: "Empty search state main prompt"))
                                 .bodySMStyle()
                                 .foregroundColor(DSColor.inkMuted)
@@ -955,7 +955,7 @@ struct SearchView: View {
         )
         Divider()
             .padding(.leading, 52)
-            .background(DSColor.outlineVariant.opacity(0.5))
+            .background(DSColor.inkFaint.opacity(0.5))
     }
 
     private func selectSuggestion(_ term: String) {
@@ -1010,7 +1010,7 @@ struct SearchView: View {
                 VStack(spacing: DSSpacing.md) {
                     Image(systemName: "tray")
                         .font(.system(size: 32, weight: .regular))
-                        .foregroundColor(DSColor.outlineVariant)
+                        .foregroundColor(DSColor.inkFaint)
                     if vm.query.isEmpty && filters.isActive {
                         Text(NSLocalizedString("search.empty.noMatchFiltered", comment: "No results with active filters and no query"))
                             .bodySMStyle()
@@ -1063,7 +1063,7 @@ struct SearchView: View {
                             .foregroundColor(DSColor.inkMuted)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
-                            .background(Capsule().stroke(DSColor.outlineVariant, lineWidth: 1))
+                            .background(Capsule().stroke(DSColor.inkFaint, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -1518,7 +1518,7 @@ private struct EntityFrequencyChip: View {
                         .foregroundColor(DSColor.inkMuted)
                         .padding(.horizontal, DSSpacing.xs)
                         .padding(.vertical, 2)
-                        .background(DSColor.outlineVariant.opacity(0.4))
+                        .background(DSColor.inkFaint.opacity(0.4))
                         .clipShape(Capsule())
                 }
 
@@ -1527,7 +1527,7 @@ private struct EntityFrequencyChip: View {
                     let chipWidth = geo.size.width
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(DSColor.outlineVariant.opacity(0.25))
+                            .fill(DSColor.inkFaint.opacity(0.25))
                             .frame(width: chipWidth, height: 3)
 
                         Capsule()
@@ -1588,7 +1588,7 @@ private struct EntityChipSkeleton: View {
             HStack(spacing: DSSpacing.sm) {
                 ForEach(0..<4, id: \.self) { _ in
                     Capsule()
-                        .fill(DSColor.surfaceContainer)
+                        .fill(DSColor.glassStd)
                         .frame(width: 80, height: 28)
                         .opacity(pulsing ? 0.45 : 0.85)
                 }
@@ -1655,7 +1655,7 @@ private struct SwipeableRecentRow: View {
                     .foregroundColor(.white)
                     .frame(width: revealWidth)
                     .frame(maxHeight: .infinity)
-                    .background(DSColor.error)
+                    .background(DSColor.errorRed)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -1665,7 +1665,7 @@ private struct SwipeableRecentRow: View {
             HStack {
                 Image(systemName: "clock")
                     .font(.system(size: 12))
-                    .foregroundColor(DSColor.outline)
+                    .foregroundColor(DSColor.glassRim)
 
                 Button(action: {
                     if revealed {
@@ -1687,7 +1687,7 @@ private struct SwipeableRecentRow: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11))
-                        .foregroundColor(DSColor.outline)
+                        .foregroundColor(DSColor.glassRim)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
@@ -1696,7 +1696,7 @@ private struct SwipeableRecentRow: View {
             }
             .padding(.horizontal, DSSpacing.xl)
             .padding(.vertical, 10)
-            .background(DSColor.background)
+            .background(DSColor.bgWarm)
             .offset(x: currentOffset)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 10)

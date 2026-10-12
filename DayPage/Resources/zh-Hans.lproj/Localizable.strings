@@ -833,6 +833,8 @@
 
 /* AI 主开关 */
 "settings.ai.enabled"                        = "启用 AI 功能";
+"ai.consent.error.disabled"                  = "AI 功能已关闭，可在设置中开启。";
+"ai.consent.error.screenshot_disabled"       = "截图云端分析已关闭，截图保留在本机。";
 "compile.error.ai_disabled"                  = "已在设置中关闭 AI 功能，请开启后再编译。";
 "compile.dock.ai_disabled"                   = "AI 功能已关闭 · 可在设置中开启";
 

@@ -31,9 +31,9 @@ struct VoiceRecordingView: View {
     /// reads against the light surface.
     private var timerColor: Color {
         switch RecordingLimits.stage(for: voiceService.elapsedSeconds) {
-        case .critical: return DSColor.error
+        case .critical: return DSColor.errorRed
         case .warning:  return DSColor.accentAmber
-        case .normal:   return DSColor.onSurface
+        case .normal:   return DSColor.inkPrimary
         }
     }
 
@@ -41,18 +41,18 @@ struct VoiceRecordingView: View {
         VStack(spacing: 0) {
             // Drag handle
             RoundedRectangle(cornerRadius: 2)
-                .fill(DSColor.outline)
+                .fill(DSColor.glassRim)
                 .frame(width: 36, height: 4)
                 .padding(.top, 12)
 
             // Title
             Text(NSLocalizedString("voice.recording.title", comment: "Voice memo title"))
                 .headlineCapsStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
                 .padding(.top, 20)
 
             Divider()
-                .background(DSColor.outline)
+                .background(DSColor.glassRim)
                 .padding(.top, 16)
 
             Spacer()
@@ -73,7 +73,7 @@ struct VoiceRecordingView: View {
             } else {
                 Text(NSLocalizedString("voice.recording.autoTranscribe", value: "停止后自动转写", comment: "Voice recording — hint shown beneath waveform"))
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant.opacity(0.7))
+                    .foregroundColor(DSColor.inkMuted.opacity(0.7))
                     .padding(.top, 12)
             }
 
@@ -89,7 +89,7 @@ struct VoiceRecordingView: View {
                 .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity)
-        .background(DSColor.surface)
+        .background(DSColor.bgWarm)
         .onAppear {
             didWarnLong = false
             // Guard against re-entry: a fast double-tap on the mic-hero, or a
@@ -130,11 +130,11 @@ struct VoiceRecordingView: View {
             // Pulsing recording indicator
             if voiceService.state == .recording {
                 Circle()
-                    .fill(DSColor.error)
+                    .fill(DSColor.errorRed)
                     .frame(width: 12, height: 12)
                     .overlay(
                         Circle()
-                            .stroke(DSColor.error.opacity(0.4), lineWidth: 8)
+                            .stroke(DSColor.errorRed.opacity(0.4), lineWidth: 8)
                             .scaleEffect(1.5)
                     )
                     .animation(reduceMotion ? nil : Motion.sustain.repeatForever(autoreverses: true),
@@ -142,10 +142,10 @@ struct VoiceRecordingView: View {
             } else if voiceService.state == .paused {
                 Image(systemName: "pause.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             } else {
                 Circle()
-                    .fill(DSColor.surfaceContainerHigh)
+                    .fill(DSColor.glassHi)
                     .frame(width: 12, height: 12)
             }
 
@@ -184,8 +184,8 @@ struct VoiceRecordingView: View {
                      : voiceService.liveTranscript)
                     .bodySMStyle()
                     .foregroundColor(voiceService.liveTranscript.isEmpty
-                                     ? DSColor.onSurfaceVariant.opacity(0.7)
-                                     : DSColor.onSurface)
+                                     ? DSColor.inkMuted.opacity(0.7)
+                                     : DSColor.inkPrimary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .id(liveTranscriptAnchor)
@@ -235,15 +235,15 @@ struct VoiceRecordingView: View {
         case .requesting:
             Text(NSLocalizedString("voice.recording.requestingMic", value: "请求麦克风权限…", comment: "Voice recording — status while requesting mic permission"))
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         case .recording:
             Text(NSLocalizedString("voice.recording.status.recording", value: "正在录音", comment: "Voice recording — active status"))
                 .bodySMStyle()
-                .foregroundColor(DSColor.error)
+                .foregroundColor(DSColor.errorRed)
         case .paused:
             Text(NSLocalizedString("voice.recording.status.paused", value: "已暂停", comment: "Voice recording — paused status"))
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         case .interrupted:
             // System interruption (call / Siri / alarm). Surface the
             // localized message produced by VoiceService so the user knows
@@ -254,25 +254,25 @@ struct VoiceRecordingView: View {
                 comment: "Fallback shown when interruption message is missing"
             ))
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         case .processing:
             HStack(spacing: 8) {
                 ProgressView()
-                    .tint(DSColor.onSurfaceVariant)
+                    .tint(DSColor.inkMuted)
                 Text(NSLocalizedString("voice.recording.status.transcribing", value: "正在转写…", comment: "Voice recording — Whisper transcribing status"))
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
         case .done:
             Text(NSLocalizedString("voice.recording.status.done", comment: "Voice transcription completed"))
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
         case .failed(let msg):
             Text(msg)
                 .bodySMStyle()
-                .foregroundColor(DSColor.error)
+                .foregroundColor(DSColor.errorRed)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         case .idle:
@@ -306,10 +306,10 @@ struct VoiceRecordingView: View {
                             : NSLocalizedString("voice.recording.resume", value: "继续", comment: "Voice recording — resume button"))
                             .monoLabelStyle(size: 12)
                     }
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                 }
                 .buttonStyle(.plain)
                 .cornerRadius(0)
@@ -332,10 +332,10 @@ struct VoiceRecordingView: View {
             }) {
                 Text(NSLocalizedString("voice.recording.discard", comment: "Discard recording"))
                     .monoLabelStyle(size: 14)
-                    .foregroundColor(isProcessing ? DSColor.onSurfaceVariant : DSColor.onSurface)
+                    .foregroundColor(isProcessing ? DSColor.inkMuted : DSColor.inkPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
             .disabled(isProcessing)
@@ -358,10 +358,10 @@ struct VoiceRecordingView: View {
             }) {
                 Text(NSLocalizedString("voice.recording.save", value: "保存", comment: "Save recording"))
                     .monoLabelStyle(size: 14)
-                    .foregroundColor(canSave ? DSColor.onPrimary : DSColor.onSurfaceVariant)
+                    .foregroundColor(canSave ? Color.white : DSColor.inkMuted)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(canSave ? DSColor.primary : DSColor.surfaceContainerLow)
+                    .background(canSave ? DSColor.amberDeep : DSColor.glassLo)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
             .disabled(!canSave)

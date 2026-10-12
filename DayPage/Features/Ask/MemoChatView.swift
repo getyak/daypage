@@ -231,7 +231,7 @@ struct MemoChatView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 30, height: 30)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(Circle())
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
@@ -394,7 +394,7 @@ struct MemoChatView: View {
                     .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
@@ -533,7 +533,7 @@ struct MemoChatView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -586,7 +586,7 @@ struct MemoChatView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(DSColor.surfaceContainerHigh)
+                .background(DSColor.glassHi)
                 .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 .contentShape(Rectangle())
             }
@@ -771,7 +771,7 @@ struct MemoChatView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(DSColor.surfaceContainerHigh)
+        .background(DSColor.glassHi)
         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 
@@ -803,7 +803,7 @@ struct MemoChatView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 22, height: 22)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(Circle())
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
@@ -846,7 +846,7 @@ struct MemoChatView: View {
             .lineLimit(1...4)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(DSColor.surfaceContainerHigh)
+            .background(DSColor.glassHi)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .onSubmit(submit)
 

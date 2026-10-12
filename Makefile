@@ -7,6 +7,23 @@ PROJECT ?= DayPage.xcodeproj
 SIMULATOR_FALLBACK ?= iPhone 16
 DERIVED_DATA ?= build/DD
 
+# Reasons are literal audit text, including dollar expressions. Freeze the raw
+# input before Make recursively expands environment or command-line variables.
+override DEV_IOS_REASON := $(value DEV_IOS_REASON)
+
+# Export the iOS gate inputs only for the two iOS targets. Make passes these
+# through the process environment verbatim (spaces and shell metacharacters are
+# data), and no recipe line re-interpolates them into a shell command.
+check-ios build-ios: export PROJECT := $(PROJECT)
+check-ios build-ios: export SCHEME := $(SCHEME)
+check-ios build-ios: export DERIVED_DATA := $(DERIVED_DATA)
+check-ios build-ios: export PYTHON := $(PYTHON)
+check-ios build-ios: export SIMULATOR_FALLBACK := $(SIMULATOR_FALLBACK)
+check-ios build-ios: export DEV_IOS_PROFILE := $(DEV_IOS_PROFILE)
+check-ios build-ios: export DEV_IOS_REASON := $(DEV_IOS_REASON)
+check-ios build-ios: export IOS_ONLY_TESTING := $(IOS_ONLY_TESTING)
+check-ios build-ios: export IOS_RESULT_BUNDLE_PATH := $(IOS_RESULT_BUNDLE_PATH)
+
 .PHONY: \
 	doctor check check-agent check-scripts check-kit check-web check-android check-mcp check-contracts \
 	check-agentry check-localization check-tokens check-ios build-ios \
@@ -83,19 +100,11 @@ simulator-destination:
 	@xcrun simctl list devices available --json \
 		| $(PYTHON) scripts/ci/select_simulator.py --format destination --fallback-name "$(SIMULATOR_FALLBACK)"
 
+# Local iOS gates. Both route through scripts/ci/ios-local.sh so a macOS host
+# with the shared device-session helper serializes against one owner. The
+# required inputs are exported above; nothing is interpolated into the recipe.
 check-ios:
-	@test -f DayPage/Config/GeneratedSecrets.swift || bash scripts/ci/write_placeholder_secrets.sh
-	@DEST="$$(xcrun simctl list devices available --json \
-		| $(PYTHON) scripts/ci/select_simulator.py --format destination --fallback-name "$(SIMULATOR_FALLBACK)")"; \
-	echo "Using simulator: $$DEST"; \
-	xcodebuild test -project "$(PROJECT)" -scheme "$(SCHEME)" \
-		-destination "$$DEST" -configuration Debug CODE_SIGNING_ALLOWED=NO
+	@bash scripts/ci/ios-local.sh check
 
 build-ios:
-	@test -f DayPage/Config/GeneratedSecrets.swift || bash scripts/ci/write_placeholder_secrets.sh
-	@DEST="$$(xcrun simctl list devices available --json \
-		| $(PYTHON) scripts/ci/select_simulator.py --format destination --fallback-name "$(SIMULATOR_FALLBACK)")"; \
-	echo "Using simulator: $$DEST"; \
-	xcodebuild -project "$(PROJECT)" -scheme "$(SCHEME)" \
-		-destination "$$DEST" CODE_SIGNING_ALLOWED=NO \
-		COMPILER_CONTENT_PROTECTION=NO -derivedDataPath "$(DERIVED_DATA)" build
+	@bash scripts/ci/ios-local.sh build

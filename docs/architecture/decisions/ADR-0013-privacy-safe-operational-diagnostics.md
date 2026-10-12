@@ -55,3 +55,26 @@ Set `SENTRY_DSN` empty in a non-release local build to restore the no-op adapter
 or revert the event call sites while retaining the local diagnostic snapshot.
 Release validation intentionally fails TestFlight/App Store archives without a
 valid DSN so production observability cannot disappear silently again.
+
+## Amendment (2026-10-13): epoch start floor for deferred raw-crash admission
+
+The pinned Sentry 8.58.4 chain can convert a queued raw crash (captured under
+an earlier consent epoch) inside a NEW epoch's Hub after revoke → regrant,
+preserving the original crash timestamp. This is a source-proven race, not an
+observed production upload. Incrementally added, without changing the existing
+lifecycle/transport decisions above:
+
+- `DiagnosticsConsent` persists an immutable `(epoch UUID, startedAt floor)`
+  pair inside the existing serialized transition. Repeated grants and
+  relaunches reuse the pair; revocation removes both; legacy or malformed
+  pairs rotate conservatively. Cache isolation remains keyed by the UUID.
+- The real `options.beforeSend` is constructed by `SentryLive.makeBeforeSend`
+  (a testable production seam) and runs `DiagnosticsEventGate.admit` BEFORE the
+  unchanged field scrubber: live consent, epoch match, and a non-nil finite
+  event timestamp at or after the persistent floor (no pre-floor grace window,
+  since the SDK truncates crash times to seconds).
+- The floor is the persistent epoch creation time — never the SDK start time —
+  so prior-launch crashes under continuous consent remain eligible.
+- MainActor lifecycle, SDK start/close outside consent locks, fixed endpoint,
+  no redirects, cache-epoch isolation, the transport gate, and the envelope
+  allowlist are unchanged. No SDK cache or event data is read or deleted.

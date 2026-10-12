@@ -174,7 +174,7 @@ struct AskPastView: View {
                     .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
@@ -276,7 +276,7 @@ struct AskPastView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -302,7 +302,7 @@ struct AskPastView: View {
             .foregroundColor(DSColor.inkSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(DSColor.surfaceContainerHigh)
+            .background(DSColor.glassHi)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 
@@ -316,7 +316,7 @@ struct AskPastView: View {
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(DSColor.surfaceContainerHigh)
+                .background(DSColor.glassHi)
                 .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 .onSubmit(submit)
 
@@ -329,7 +329,7 @@ struct AskPastView: View {
             } label: {
                 Image(systemName: isRecordingVoice ? "waveform.circle.fill" : "mic.circle")
                     .font(.system(size: 26))
-                    .foregroundColor(isRecordingVoice ? DSColor.error : DSColor.inkMuted)
+                    .foregroundColor(isRecordingVoice ? DSColor.errorRed : DSColor.inkMuted)
                     // Simple recording pulse — matches the composer's mic
                     // affordance without depending on iOS 17's symbolEffect.
                     .scaleEffect(!reduceMotion && isRecordingVoice ? 1.08 : 1.0)
@@ -454,7 +454,7 @@ private struct FlowChips: View {
             .foregroundColor(DSColor.inkSecondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(DSColor.surfaceContainerHigh)
+            .background(DSColor.glassHi)
             .clipShape(Capsule())
     }
 

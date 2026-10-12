@@ -80,7 +80,7 @@ final class LLMClientTests: XCTestCase {
         let transport = FakeTransport([
             .init(data: okBody(content: "  hello world  "), statusCode: 200, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         let result = try await client.complete(messages: [.user("hi")])
         XCTAssertEqual(result, "hello world", "Response content must be returned trimmed")
         XCTAssertEqual(transport.requests.count, 1)
@@ -90,7 +90,7 @@ final class LLMClientTests: XCTestCase {
         let transport = FakeTransport([
             .init(data: okBody(content: "ok"), statusCode: 200, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         _ = try await client.complete(messages: [.user("ping")])
         let req = transport.requests.first!
         XCTAssertEqual(req.httpMethod, "POST")
@@ -106,7 +106,7 @@ final class LLMClientTests: XCTestCase {
             .init(data: Data("internal error".utf8), statusCode: 500, error: nil),
             .init(data: okBody(content: "recovered"), statusCode: 200, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         let policy = RetryPolicy(maxAttempts: 2, backoffSeconds: [0])
         let result = try await client.complete(
             messages: [.user("ping")],
@@ -121,7 +121,7 @@ final class LLMClientTests: XCTestCase {
             .init(data: Data("unauthorized".utf8), statusCode: 401, error: nil),
             .init(data: okBody(content: "should not see this"), statusCode: 200, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         let policy = RetryPolicy(maxAttempts: 3, backoffSeconds: [0, 0])
         do {
             _ = try await client.complete(messages: [.user("ping")], policy: policy)
@@ -140,7 +140,7 @@ final class LLMClientTests: XCTestCase {
             .init(data: Data("rate limit".utf8), statusCode: 429, error: nil),
             .init(data: Data("rate limit".utf8), statusCode: 429, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         let policy = RetryPolicy(maxAttempts: 3, backoffSeconds: [0, 0])
         do {
             _ = try await client.complete(messages: [.user("ping")], policy: policy)
@@ -161,7 +161,7 @@ final class LLMClientTests: XCTestCase {
         let transport = FakeTransport([
             .init(data: badData, statusCode: 200, error: nil)
         ])
-        let client = LLMClient(config: makeConfig(), transport: transport)
+        let client = LLMClient(config: makeConfig(), transport: transport, consent: AllowAllAIConsent())
         do {
             _ = try await client.complete(messages: [.user("ping")])
             XCTFail("Missing content field must throw")

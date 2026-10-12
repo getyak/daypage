@@ -1144,7 +1144,7 @@ struct ArchiveView: View {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, day in
                     Text(day)
                         .monoLabelStyle(size: 9)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .frame(maxWidth: .infinity)
                         .frame(height: 24)
                 }
@@ -1404,7 +1404,7 @@ struct ArchiveView: View {
                 if filtered.isEmpty {
                     Text(NSLocalizedString("archive.summary.noMatch", comment: "Monthly summary: no days match the active filter"))
                         .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .padding(.vertical, DSSpacing.sm)
                 } else {
                     VStack(spacing: 6) {

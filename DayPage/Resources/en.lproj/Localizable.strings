@@ -826,6 +826,8 @@
 
 /* AI master toggle */
 "settings.ai.enabled"                        = "Enable AI features";
+"ai.consent.error.disabled"                  = "AI features are off. You can enable them in Settings.";
+"ai.consent.error.screenshot_disabled"       = "Screenshot cloud analysis is off. Your screenshot stays on this device.";
 "compile.error.ai_disabled"                  = "AI features are turned off in Settings. Turn them on to compile.";
 "compile.dock.ai_disabled"                   = "AI features off · enable in Settings";
 

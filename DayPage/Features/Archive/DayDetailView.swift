@@ -87,7 +87,7 @@ struct DayDetailView: View {
         // "返回" chevron is gone because the system back button replaces it; the
         // ›/‹ day-stepper toolbar stays on the trailing side.
         ZStack {
-            DSColor.background.ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
 
             Group {
                 switch state {
@@ -129,14 +129,14 @@ struct DayDetailView: View {
                 Button(action: { go(.backward) }) {
                     Image(systemName: "chevron.backward.circle")
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                 }
                 .accessibilityLabel(NSLocalizedString("daydetail.a11y.prevDay", comment: "A11y label: go to previous day"))
 
                 Button(action: { go(.forward) }) {
                     Image(systemName: "chevron.forward.circle")
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(canGoForward ? DSColor.onSurface : DSColor.onSurfaceVariant.opacity(0.35))
+                        .foregroundColor(canGoForward ? DSColor.inkPrimary : DSColor.inkMuted.opacity(0.35))
                 }
                 .disabled(!canGoForward)
                 .accessibilityLabel(NSLocalizedString("daydetail.a11y.nextDay", comment: "A11y label: go to next day"))
@@ -279,9 +279,9 @@ struct DayDetailView: View {
             .onChange(of: selectedTab) { _ in Haptics.selection() }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(DSColor.surfaceContainerLow)
+            .background(DSColor.glassLo)
 
-            Divider().background(DSColor.outline)
+            Divider().background(DSColor.glassRim)
 
             Group {
                 switch selectedTab {
@@ -325,17 +325,17 @@ struct DayDetailView: View {
                 Spacer()
                 Image(systemName: "doc.text")
                     .font(.system(size: 40))
-                    .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
+                    .foregroundColor(DSColor.inkMuted.opacity(0.5))
                 Text(NSLocalizedString("daydetail.state.notCompiled", comment: "Empty state: day has raw memos but no compiled daily page"))
                     .headlineCapsStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                 Button(action: { selectedTab = .raw }) {
                     Text(NSLocalizedString("daydetail.state.viewRaw", comment: "Button: switch to the raw memo tab"))
                         .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
-                        .foregroundColor(DSColor.primary)
+                        .foregroundColor(DSColor.amberDeep)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.primary, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.amberDeep, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 Spacer()
@@ -358,10 +358,10 @@ struct DayDetailView: View {
                 Spacer()
                 Image(systemName: "tray")
                     .font(.system(size: 40))
-                    .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
+                    .foregroundColor(DSColor.inkMuted.opacity(0.5))
                 Text(NSLocalizedString("daydetail.raw.empty", comment: "Empty state: no raw memos on this day"))
                     .headlineCapsStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -374,7 +374,7 @@ struct DayDetailView: View {
         VStack {
             Spacer()
             ProgressView()
-                .tint(DSColor.onSurfaceVariant)
+                .tint(DSColor.inkMuted)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -385,17 +385,17 @@ struct DayDetailView: View {
             Spacer()
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 44))
-                .foregroundColor(DSColor.onSurfaceVariant.opacity(0.6))
+                .foregroundColor(DSColor.inkMuted.opacity(0.6))
             Text(NSLocalizedString("daydetail.empty.title", comment: "Empty state: nothing logged on this day at all"))
                 .headlineCapsStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
                     .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
-                    .foregroundColor(DSColor.primary)
+                    .foregroundColor(DSColor.amberDeep)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.primary, lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.amberDeep, lineWidth: 1))
             }
             .buttonStyle(.plain)
             Spacer()
@@ -408,22 +408,22 @@ struct DayDetailView: View {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 44))
-                .foregroundColor(DSColor.error)
+                .foregroundColor(DSColor.errorRed)
             Text(NSLocalizedString("daydetail.error.title", comment: "Error state title: the day failed to load"))
                 .headlineCapsStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
             Text(message)
                 .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
                     .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
-                    .foregroundColor(DSColor.primary)
+                    .foregroundColor(DSColor.amberDeep)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.primary, lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(DSColor.amberDeep, lineWidth: 1))
             }
             .buttonStyle(.plain)
             Spacer()

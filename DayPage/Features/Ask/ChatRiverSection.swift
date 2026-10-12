@@ -371,7 +371,7 @@ struct ChatRiverSection: View {
                             .foregroundColor(DSColor.inkSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(DSColor.surfaceContainerHigh.opacity(0.7))
+                            .background(DSColor.glassHi.opacity(0.7))
                             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                     }
                 case .assistant:
@@ -400,7 +400,7 @@ struct ChatRiverSection: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                .fill(DSColor.surfaceContainerHigh.opacity(0.3))
+                .fill(DSColor.glassHi.opacity(0.3))
         )
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -445,7 +445,7 @@ struct ChatRiverSelectionBar: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(DSColor.surfaceContainerHigh)
+            .background(DSColor.glassHi)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .padding(.horizontal, 16)
             .padding(.bottom, 6)

@@ -20,8 +20,7 @@ enum Motion {
     // Interactive controls with elastic settle (buttons, toggles).
     static let spring: Animation = .spring(response: 0.35, dampingFraction: 0.8)
     // Press feedback on buttons/chips — quick settle, no visible wobble.
-    // Previously duplicated inline as spring(0.25, 0.8–0.85) across
-    // DSButton / PressableCardModifier.
+    // Previously duplicated inline as spring(0.25, 0.8–0.85) in DSButton.
     static let press: Animation = .spring(response: 0.25, dampingFraction: 0.85)
     // Panel / card entrance that scales or rises into place (recording panel,
     // popovers, send-confirm settle). Slightly snappier than `spring`. Pair with

@@ -46,8 +46,7 @@ enum DSColor {
 
     // MARK: - V4 Liquid Glass Tokens (iOS 26 inspired)
     // Translucent warm-amber palette for glass surfaces. Use these in new
-    // surfaces; v3 tokens below remain for compatibility while the codebase
-    // migrates.
+    // surfaces; v3 tokens below remain for compatibility.
 
     /// Page background — warm cream in light, deep charcoal-brown in dark.
     /// Points at the generated token (`DSTokens.Colors.bgWarm`, from
@@ -323,59 +322,6 @@ enum DSColor {
     /// Brand archival amber. 语义别名，值同 `amberDeep`（#5D3000）。
     static let amberArchival = amberDeep
 
-    // MARK: - Legacy tokens (v1 Material black-and-white era)
-    //
-    // These were imported from a generic Material Design palette before
-    // the v4 Liquid Glass + warm-amber language was established. The pure
-    // black `primary` and gray `surface*` were visually hostile to the
-    // warm-cream glass surfaces, so all callers have been re-pointed at
-    // v4 tokens via the mapping below. NEW code MUST NOT use these — go
-    // straight to the v4 tokens (amberAccent / glassStd / inkPrimary ...).
-    //
-    // Migration map (use when editing a file that still calls these):
-    //
-    //   primary               → amberDeep            (or amberAccent for interactive)
-    //   onPrimary             → Color.white
-    //   surface / background  → bgWarm
-    //   surfaceContainer*     → glassLo / glassStd / glassHi (by density)
-    //   onSurface             → inkPrimary
-    //   onSurfaceVariant      → inkMuted
-    //   outline               → glassRim
-    //   outlineVariant        → inkFaint
-    //   error / onError       → errorRed / Color.white
-    //   errorContainer        → errorSoft
-    //   warning               → warningAmber
-    //   warningContainer      → warningSoft
-    //
-    // Phase B will physically delete each of these once its call sites
-    // have been migrated. For now they are kept as aliases so existing
-    // call sites keep compiling against the corrected visual values.
-
-    static let primary = amberDeep
-    static let onPrimary = Color.white
-    static let primaryContainer = amberAccent
-
-    static let secondary = inkMuted
-
-    static let tertiary = amberAccent
-
-    static let surface = bgWarm
-    static let surfaceContainerLowest = surfaceWhite
-    static let surfaceContainerLow = glassLo
-    static let surfaceContainer = glassStd
-    static let surfaceContainerHigh = glassHi
-
-    static let onSurface = inkPrimary
-    static let onSurfaceVariant = inkMuted
-
-    static let background = bgWarm
-
-    static let outline = glassRim
-    static let outlineVariant = inkFaint
-
-    static let error = errorRed
-    static let onError = Color.white
-    static let errorContainer = errorSoft
 }
 
 // MARK: - Surface Elevated Shadow ViewModifier

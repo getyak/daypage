@@ -39,6 +39,17 @@ struct DayPageShortcuts: AppShortcutsProvider {
             shortTitle: "记一条文本",
             systemImageName: "square.and.pencil"
         )
+        AppShortcut(
+            intent: SaveScreenshotIntent(),
+            phrases: [
+                "保存截图到 \(.applicationName)",
+                "用 \(.applicationName) 保存这张截图",
+                "Save screenshot to \(.applicationName)",
+                "Capture screen to \(.applicationName)"
+            ],
+            shortTitle: "保存截图",
+            systemImageName: "rectangle.on.rectangle"
+        )
         // Note: AppShortcut phrase parameterization for `Date` is brittle —
         // Shortcuts.app surfaces the date picker for the `date` parameter
         // when run from the Shortcuts UI, so we keep phrases parameter-free

@@ -5,12 +5,17 @@ They are review artifacts, not current requirements, accepted architecture decis
 or implementation plans. The examples are anonymized and illustrative; they do not
 contain or read a user vault.
 
-One current document lives alongside them:
+Current documents live alongside them:
 
 - `flomo-native-refinement.md`: design, acceptance mapping, explicit current limits
   and verification commands for the user-requested native refinement (swipe
   insight/related actions, memo-anchored insight chat, sidebar/archive/search
   refinement). It describes shipped local behavior in this branch, not a proposal.
+
+- `testflight-fidelity.md`: source-of-truth order for making the editable Daypage
+  Core Flows Refined Figma file faithful to the shipped TestFlight UI (v0.4.97), plus
+  the inventory, mapping, protected live paths, and limitations of the
+  behavior-preserving design-system cleanup under issue #332.
 
 - `architecture-review.html`: capture/compile separation, skill pipelines, derived
   indexing, and feed hypotheses. SQLite and runtime choices remain proposals.

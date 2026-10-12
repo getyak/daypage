@@ -82,7 +82,7 @@ struct CompileFooterButton: View {
                         Button(action: retry) {
                             Text(NSLocalizedString("today.compile_failed.retry", comment: "Retry compilation"))
                                 .font(.custom("Inter-Medium", size: 12))
-                                .foregroundColor(DSColor.primary)
+                                .foregroundColor(DSColor.amberDeep)
                         }
                         .buttonStyle(.plain)
                     }
@@ -103,36 +103,36 @@ struct CompileFooterButton: View {
                     if isCompiling {
                         ProgressView()
                             .scaleEffect(0.7)
-                            .tint(DSColor.onSurface)
+                            .tint(DSColor.inkPrimary)
                         Text(stageLabel)
                             .font(.custom("Inter-Medium", size: 13))
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                     } else if aiKeyMissing {
                         Image(systemName: "gearshape")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                         Text(NSLocalizedString("compile.configure_ai", comment: "Configure AI engine"))
                             .font(.custom("Inter-Medium", size: 13))
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                     } else {
                         Image(systemName: "sparkles")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                             .modifier(CompileSuccessBounce(trigger: compileSuccessBounce))
                         Text(String(format: NSLocalizedString("compile.footer.action", comment: "Compile today's memos"), memoCount))
                             .font(.custom("Inter-Medium", size: 13))
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(DSColor.surface.opacity(0.85))
+                        .fill(DSColor.bgWarm.opacity(0.85))
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .strokeBorder(DSColor.outlineVariant, lineWidth: 1)
+                        .strokeBorder(DSColor.inkFaint, lineWidth: 1)
                 )
                 .shadow(
                     color: DSColor.accentAmber.opacity(didAppearPulse ? 0.6 : 0),

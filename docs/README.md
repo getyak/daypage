@@ -18,6 +18,7 @@ to drive a change.
 - [Agent Evaluation runbook](agent-evaluation-runbook.md)
 - [Contributing workflow](engineering/contributing.md)
 - [Agent Team system](agent-system/README.md)
+- [TestFlight fidelity and design-system cleanup](design/testflight-fidelity.md)
 
 There is currently no single repository-wide PRD designated as current. For scoped work,
 the active GitHub issue, accepted ADRs, code, and tests define the contract until a
@@ -25,6 +26,7 @@ current PRD is adopted and linked here.
 
 ## Architecture decisions
 
+- [ADR-0012: Action Button screenshot capture and evidence-first understanding](architecture/decisions/ADR-0012-action-button-screenshot-capture.md) — Accepted
 - [ADR-0008: Local-first sync and OAuth-protected DayPage Cloud MCP](architecture/decisions/ADR-0008-local-first-sync-and-cloud-mcp.md) — Accepted
 - [ADR-0006: Repository Agent Team control plane](architecture/decisions/ADR-0006-repository-agent-team-control-plane.md) — Accepted
 - [ADR-0013: Privacy-safe operational diagnostics](architecture/decisions/ADR-0013-privacy-safe-operational-diagnostics.md) — Accepted

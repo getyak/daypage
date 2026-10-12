@@ -50,6 +50,10 @@ final class VaultMigrationService: ObservableObject {
     func migrateToiCloud(
         localVault: URL,
         iCloudVault: URL,
+        commitSettings: @MainActor () -> Void = { @MainActor in
+            AppSettings.shared.vaultLocation = .iCloud
+            AppSettings.shared.migrationCompletedAt = Date()
+        },
         progress: @escaping (Int, Int) -> Void
     ) async throws {
         isMigrating = true
@@ -57,27 +61,30 @@ final class VaultMigrationService: ObservableObject {
         defer { isMigrating = false }
 
         let fm = FileManager.default
-
-        // 枚举 localVault 中的所有文件
-        guard let enumerator = fm.enumerator(
-            at: localVault,
-            includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            throw MigrationError.verificationFailed(details: "无法枚举本地 vault")
+        let sourceRoot = localVault.resolvingSymlinksInPath().standardizedFileURL
+        let destinationRoot = iCloudVault.resolvingSymlinksInPath().standardizedFileURL
+        guard sourceRoot != destinationRoot else {
+            throw MigrationError.verificationFailed(details: "迁移源和目标必须不同")
         }
 
-        var filesToCopy: [URL] = []
-        for case let fileURL as URL in enumerator {
-            let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            if !isDir { filesToCopy.append(fileURL) }
+        // Copy and verification share one selective inventory. Capture
+        // manifests are durable state, even though their directory is hidden.
+        let relativeFiles = try allFiles(in: sourceRoot, fm: fm)
+        if fm.fileExists(atPath: destinationRoot.path) {
+            _ = try allFiles(in: destinationRoot, fm: fm)
         }
+        // Refuse the complete destination before the first mutation, including
+        // a selected hidden directory that points outside the vault.
+        for relative in relativeFiles + ["migration.log"] {
+            try VaultMigrationFileInventory.validateFilePath(relative, in: destinationRoot, fileManager: fm)
+        }
+        let filesToCopy = relativeFiles.map { sourceRoot.appendingPathComponent($0) }
 
         let total = filesToCopy.count
         var logEntries: [String] = ["migration started: \(Date().iso8601String)", "total files: \(total)"]
         var copyErrors: [String] = []
 
-        let localVaultPathPrefix = localVault.path.hasSuffix("/") ? localVault.path : localVault.path + "/"
+        let localVaultPathPrefix = sourceRoot.path.hasSuffix("/") ? sourceRoot.path : sourceRoot.path + "/"
 
         for (index, sourceURL) in filesToCopy.enumerated() {
             // 使用前缀删除而非 replacingOccurrences 以防止路径遍历
@@ -85,12 +92,13 @@ final class VaultMigrationService: ObservableObject {
             guard sourceURL.path.hasPrefix(localVaultPathPrefix) else { continue }
             let relativePath = String(sourceURL.path.dropFirst(localVaultPathPrefix.count))
             guard !relativePath.contains("..") else { continue }
-            let destURL = iCloudVault.appendingPathComponent(relativePath)
-
-            let destDir = destURL.deletingLastPathComponent()
-            try? fm.createDirectory(at: destDir, withIntermediateDirectories: true)
+            let destURL = destinationRoot.appendingPathComponent(relativePath)
 
             do {
+                // Re-check after any preceding asynchronous progress update.
+                try VaultMigrationFileInventory.validateFilePath(relativePath, in: sourceRoot, fileManager: fm)
+                try VaultMigrationFileInventory.validateFilePath(relativePath, in: destinationRoot, fileManager: fm)
+                try fm.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if fm.fileExists(atPath: destURL.path) {
                     try fm.removeItem(at: destURL)
                 }
@@ -118,23 +126,28 @@ final class VaultMigrationService: ObservableObject {
 
         // 将 migration.log 写入 iCloud
         let logContent = logEntries.joined(separator: "\n")
-        let logURL = iCloudVault.appendingPathComponent("migration.log")
+        try VaultMigrationFileInventory.validateFilePath("migration.log", in: destinationRoot, fileManager: fm)
+        let logURL = destinationRoot.appendingPathComponent("migration.log")
         try? logContent.data(using: .utf8)?.write(to: logURL, options: .atomic)
 
         // 验证步骤
-        try verifyMigration(localVault: localVault, iCloudVault: iCloudVault, fm: fm)
+        try verifyMigration(localVault: sourceRoot, iCloudVault: destinationRoot, fm: fm)
 
         // 成功 —— 更新设置
-        AppSettings.shared.vaultLocation = .iCloud
-        AppSettings.shared.migrationCompletedAt = Date()
+        commitSettings()
     }
 
     // MARK: - Verification
 
     func verifyMigration(localVault: URL, iCloudVault: URL, fm: FileManager) throws {
         // 比较文件数量
-        let localFiles = allFiles(in: localVault, fm: fm)
-        let icloudFiles = allFiles(in: iCloudVault, fm: fm)
+        let localFiles = try allFiles(in: localVault, fm: fm)
+        let icloudFiles = try allFiles(in: iCloudVault, fm: fm)
+
+        // An unrelated destination extra must not mask a missing source file.
+        guard Set(localFiles).isSubset(of: Set(icloudFiles)) else {
+            throw MigrationError.verificationFailed(details: "迁移目标缺少源文件")
+        }
 
         // iCloud vault 可能有额外的 migration.log；允许 +1
         if icloudFiles.count < localFiles.count {
@@ -163,7 +176,10 @@ final class VaultMigrationService: ObservableObject {
             .sorted()
             .suffix(3)
 
-        let filesToVerify = Array(rawFiles) + Array(wikiFiles)
+        let manifests = localFiles.filter {
+            $0.hasPrefix(VaultMigrationFileInventory.screenshotManifestDirectory + "/")
+        }
+        let filesToVerify = Array(rawFiles) + Array(wikiFiles) + manifests
 
         for relativePath in filesToVerify {
             let localURL = localVault.appendingPathComponent(relativePath)
@@ -180,25 +196,13 @@ final class VaultMigrationService: ObservableObject {
         }
     }
 
-    private func allFiles(in directory: URL, fm: FileManager) -> [String] {
-        guard let enumerator = fm.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
-        let prefix = directory.path.hasSuffix("/") ? directory.path : directory.path + "/"
-        var files: [String] = []
-        for case let url as URL in enumerator {
-            let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            if !isDir, url.path.hasPrefix(prefix) {
-                let relative = String(url.path.dropFirst(prefix.count))
-                if !relative.hasSuffix("migration.log") {
-                    files.append(relative)
-                }
-            }
+    private func allFiles(in directory: URL, fm: FileManager) throws -> [String] {
+        do {
+            return try VaultMigrationFileInventory.relativeFiles(in: directory, fileManager: fm)
+                .filter { $0 != "migration.log" }
+        } catch {
+            throw MigrationError.verificationFailed(details: "无法安全枚举迁移文件")
         }
-        return files
     }
 
     // Stream the file in 256 KB chunks to avoid loading large media files into memory.
@@ -287,23 +291,23 @@ struct MigrationProgressSheet: View {
         VStack(spacing: 24) {
             Image(systemName: "icloud.and.arrow.up")
                 .font(.system(size: 48))
-                .foregroundColor(DSColor.primary)
+                .foregroundColor(DSColor.amberDeep)
 
             Text("正在迁移到 iCloud")
                 .font(.custom("SpaceGrotesk-Bold", size: 20))
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
 
             ProgressView(value: service.migrationProgress.fraction)
-                .tint(DSColor.primary)
+                .tint(DSColor.amberDeep)
                 .frame(maxWidth: 280)
 
             Text("\(service.migrationProgress.copied) / \(service.migrationProgress.total) 个文件")
                 .font(.custom("Inter-Regular", size: 14))
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
 
             Text("请勿关闭应用")
                 .font(.custom("Inter-Regular", size: 12))
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         }
         .padding(40)
         .interactiveDismissDisabled(true)

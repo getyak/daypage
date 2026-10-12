@@ -1,5 +1,6 @@
 import Foundation
 import DayPageStorage
+import DayPageServices
 
 // MARK: - DoubaoStreamASRClient
 
@@ -20,6 +21,71 @@ import DayPageStorage
 /// Results are cumulative (`result_type` defaults to "full"): each response
 /// carries the complete transcript so far, so consumers replace rather than
 /// append.
+// MARK: - DoubaoStreamSocket
+
+/// Minimal connection seam for the streaming ASR boundary (issue #928): tests
+/// inject a recording fake to start an OPENED socket with zero credential
+/// lookups and zero network, and to prove frame-level consent enforcement and
+/// close-once semantics. Production wraps `URLSessionWebSocketTask`; the wire
+/// codec is unchanged.
+protocol DoubaoStreamSocket: AnyObject, Sendable {
+    /// Fire-and-forget frame write (matches the production completion-based
+    /// `URLSessionWebSocketTask.send`).
+    func sendFrame(_ data: Data)
+    /// Next inbound frame; `nil` means a non-binary (malformed) message.
+    func receiveFrame() async throws -> Data?
+    /// Closes the connection. Must be idempotent at the transport level; the
+    /// client guarantees it is invoked at most once per denial.
+    func cancel()
+}
+
+/// Production adapter over `URLSessionWebSocketTask`.
+final class URLSessionDoubaoStreamSocket: DoubaoStreamSocket, @unchecked Sendable {
+    private let task: URLSessionWebSocketTask
+
+    init(task: URLSessionWebSocketTask) {
+        self.task = task
+    }
+
+    func sendFrame(_ data: Data) {
+        task.send(.data(data)) { _ in }
+    }
+
+    func receiveFrame() async throws -> Data? {
+        let message = try await task.receive()
+        guard case let .data(frame) = message else { return nil }
+        return frame
+    }
+
+    func cancel() {
+        task.cancel(with: .goingAway, reason: nil)
+    }
+}
+
+/// Synthetic connection configuration. Tests supply inert values so an
+/// OPENED fake socket can be started with ZERO credential/keychain lookups;
+/// `live` resolves the real static configuration only AFTER authorization.
+struct DoubaoStreamConnectionConfig: Sendable {
+    var hasCredentials: Bool
+    var streamURL: String
+    var resourceID: String
+    var accessToken: String
+    var appID: String
+    var modelName: String
+
+    /// Live configuration — resolved AFTER the consent check (issue #928).
+    static var live: DoubaoStreamConnectionConfig {
+        DoubaoStreamConnectionConfig(
+            hasCredentials: DoubaoASRConfig.hasCredentials,
+            streamURL: DoubaoASRConfig.streamURL,
+            resourceID: DoubaoASRConfig.streamResourceID,
+            accessToken: DoubaoASRConfig.accessToken,
+            appID: DoubaoASRConfig.appID,
+            modelName: DoubaoASRConfig.fileModelName
+        )
+    }
+}
+
 actor DoubaoStreamASRClient {
 
     // MARK: Protocol constants
@@ -73,30 +139,70 @@ actor DoubaoStreamASRClient {
 
     // MARK: State
 
-    private var task: URLSessionWebSocketTask?
+    private var socket: (any DoubaoStreamSocket)?
     private var sequence: Int32 = 1
     private var didFinish = false
+    /// Sticky denial latch (issue #928): once a frame is refused because the
+    /// master switch turned off, the connection is closed once and can NEVER
+    /// resume — even if the toggle turns on again.
+    private var deniedClosed = false
+    private let consent: AIConsentChecking
+    private let socketFactory: @Sendable (URLRequest) -> any DoubaoStreamSocket
+    private let connectionConfig: DoubaoStreamConnectionConfig?
+    /// Configuration resolved at start (synthetic in tests, live otherwise).
+    private var activeConfig: DoubaoStreamConnectionConfig?
+
+    init(
+        consent: AIConsentChecking = LiveAIConsent(),
+        connectionConfig: DoubaoStreamConnectionConfig? = nil,
+        socketFactory: @escaping @Sendable (URLRequest) -> any DoubaoStreamSocket = { request in
+            let session = URLSession(configuration: .default)
+            let task = session.webSocketTask(with: request)
+            task.resume()
+            return URLSessionDoubaoStreamSocket(task: task)
+        }
+    ) {
+        self.consent = consent
+        self.connectionConfig = connectionConfig
+        self.socketFactory = socketFactory
+    }
+
+    /// Frame-boundary authorization: on denial the open connection is closed
+    /// exactly once and the typed terminal error propagates.
+    private func authorizeOrClose() throws {
+        do {
+            try consent.authorize()
+        } catch {
+            if !deniedClosed {
+                deniedClosed = true
+                close()
+            }
+            throw error
+        }
+    }
 
     // MARK: - Lifecycle
 
     /// Opens the WebSocket and sends the initial configuration frame.
     func start() throws {
-        guard DoubaoASRConfig.hasCredentials else { throw StreamError.missingCredentials }
-        guard let url = URL(string: DoubaoASRConfig.streamURL) else { throw StreamError.invalidEndpoint }
+        guard !deniedClosed else { throw StreamError.connectionClosed }
+        // Authorization FIRST — live credentials resolve only after it passes.
+        try authorizeOrClose()
+        let config = connectionConfig ?? .live
+        activeConfig = config
+        guard config.hasCredentials else { throw StreamError.missingCredentials }
+        guard let url = URL(string: config.streamURL) else { throw StreamError.invalidEndpoint }
 
         var request = URLRequest(url: url)
         // Exactly the four headers the official demo sends. X-Api-Sequence is
         // deliberately absent: it belongs to the HTTP APIs, and the sequence
         // travels inside the binary frames here.
-        request.setValue(DoubaoASRConfig.streamResourceID, forHTTPHeaderField: "X-Api-Resource-Id")
+        request.setValue(config.resourceID, forHTTPHeaderField: "X-Api-Resource-Id")
         request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Api-Request-Id")
-        request.setValue(DoubaoASRConfig.accessToken, forHTTPHeaderField: "X-Api-Access-Key")
-        request.setValue(DoubaoASRConfig.appID, forHTTPHeaderField: "X-Api-App-Key")
+        request.setValue(config.accessToken, forHTTPHeaderField: "X-Api-Access-Key")
+        request.setValue(config.appID, forHTTPHeaderField: "X-Api-App-Key")
 
-        let session = URLSession(configuration: .default)
-        let socket = session.webSocketTask(with: request)
-        socket.resume()
-        task = socket
+        socket = socketFactory(request)
         sequence = 1
         didFinish = false
 
@@ -105,7 +211,11 @@ actor DoubaoStreamASRClient {
 
     /// Sends one chunk of raw 16kHz mono PCM.
     func send(audio chunk: Data, isLast: Bool = false) throws {
-        guard let task else { throw StreamError.connectionClosed }
+        guard !deniedClosed else { throw StreamError.connectionClosed }
+        // Checked before EVERY frame — audio chunks and the terminal frame
+        // included (issue #928).
+        try authorizeOrClose()
+        guard let socket else { throw StreamError.connectionClosed }
 
         let flags: Flags = isLast ? .negativeWithSequence : .positiveSequence
         let seq: Int32 = isLast ? -sequence : sequence
@@ -121,29 +231,32 @@ actor DoubaoStreamASRClient {
         frame.append(bigEndian: UInt32(payload.count))
         frame.append(payload)
 
-        task.send(.data(frame)) { _ in }
+        socket.sendFrame(frame)
         if !isLast { sequence += 1 }
     }
 
     /// Awaits the next transcript update. Returns `nil` once the stream ends.
     func receive() async throws -> Update? {
-        guard let task, !didFinish else { return nil }
+        guard let socket, !didFinish else { return nil }
 
-        let message = try await task.receive()
-        guard case let .data(frame) = message else { throw StreamError.malformedFrame }
+        guard let frame = try await socket.receiveFrame() else {
+            throw StreamError.malformedFrame
+        }
         return try parse(frame)
     }
 
     func close() {
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
+        socket?.cancel()
+        socket = nil
         didFinish = true
     }
 
     // MARK: - Frames
 
     private func sendConfigFrame() throws {
-        guard let task else { throw StreamError.connectionClosed }
+        // Config frames are outbound traffic too (issue #928).
+        try authorizeOrClose()
+        guard let socket else { throw StreamError.connectionClosed }
 
         let payload: [String: Any] = [
             "user": ["uid": "daypage"],
@@ -158,7 +271,7 @@ actor DoubaoStreamASRClient {
                 "channel": Self.channels,
             ],
             "request": [
-                "model_name": DoubaoASRConfig.fileModelName,
+                "model_name": activeConfig?.modelName ?? DoubaoASRConfig.fileModelName,
                 "enable_itn": true,
                 "enable_punc": true,
                 "enable_ddc": true,
@@ -178,7 +291,7 @@ actor DoubaoStreamASRClient {
         frame.append(bigEndian: UInt32(body.count))
         frame.append(body)
 
-        task.send(.data(frame)) { _ in }
+        socket.sendFrame(frame)
         sequence += 1
     }
 

@@ -122,18 +122,6 @@ struct LiquidGlassPill: ViewModifier {
     }
 }
 
-// MARK: - LiquidGlassPanel
-
-/// Panel surface used for expanded TabBar menus and drawers (tone .hi).
-struct LiquidGlassPanel: ViewModifier {
-    var cornerRadius: CGFloat = 20
-
-    func body(content: Content) -> some View {
-        content
-            .modifier(LiquidGlassCard(cornerRadius: cornerRadius, tone: .hi))
-    }
-}
-
 // MARK: - View extensions
 
 extension View {
@@ -145,11 +133,6 @@ extension View {
     /// Fully-rounded Liquid Glass pill (cornerRadius 999, tone .hi).
     func liquidGlassPill() -> some View {
         modifier(LiquidGlassPill())
-    }
-
-    /// Expanded-menu panel surface (tone .hi).
-    func liquidGlassPanel(cornerRadius: CGFloat = 20) -> some View {
-        modifier(LiquidGlassPanel(cornerRadius: cornerRadius))
     }
 
     /// Museum-aesthetic content-first white card (surface-white + hairline).

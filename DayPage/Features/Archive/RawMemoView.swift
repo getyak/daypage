@@ -28,10 +28,10 @@ struct RawMemoView: View {
         // DayDetailView owns the navigation stack and back gesture. Nesting
         // another stack here can leave raw-only days blank on first display.
         ZStack {
-            DSColor.background.ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
-                Divider().background(DSColor.outline)
+                Divider().background(DSColor.glassRim)
                 content
             }
         }
@@ -47,11 +47,11 @@ struct RawMemoView: View {
                 // English mono caps are reserved for archival labels)
                 Text("RAW MEMOS")
                     .font(.custom("SpaceGrotesk-Bold", size: 16))
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
                     .kerning(2)
                 Text(formattedDate)
                     .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
 
             Spacer()
@@ -71,17 +71,17 @@ struct RawMemoView: View {
         if isLoading {
             Spacer()
             ProgressView()
-                .tint(DSColor.onSurfaceVariant)
+                .tint(DSColor.inkMuted)
             Spacer()
         } else if memos.isEmpty {
             Spacer()
             VStack(spacing: 12) {
                 Image(systemName: "tray")
                     .font(.system(size: 32))
-                    .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
+                    .foregroundColor(DSColor.inkMuted.opacity(0.5))
                 Text(NSLocalizedString("rawmemo.empty", comment: "Empty state: no raw memos exist for this day"))
                     .font(DSFonts.spaceGrotesk(size: 14, weight: .bold, relativeTo: .subheadline))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
             Spacer()
         } else {

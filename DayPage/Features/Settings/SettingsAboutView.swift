@@ -43,7 +43,7 @@ struct SettingsAboutView: View {
             Button(action: copyVersionInfo) {
                 HStack {
                     Text(NSLocalizedString("settings.about.version", comment: ""))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                     Spacer()
                     if didCopyVersion {
                         Label(NSLocalizedString("settings.about.copied", comment: ""), systemImage: "checkmark")
@@ -53,7 +53,7 @@ struct SettingsAboutView: View {
                             .transition(.opacity)
                     } else {
                         Text(appVersion)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .font(.caption)
                             .transition(.opacity)
                     }
@@ -65,10 +65,10 @@ struct SettingsAboutView: View {
             Button(action: buildRowTapped) {
                 HStack {
                     Text(NSLocalizedString("settings.about.build", comment: "App build number"))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                     Spacer()
                     Text(buildNumber)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .font(.caption)
                 }
             }
@@ -220,7 +220,7 @@ struct SettingsDiagnosticsView: View {
             } else {
                 Text(NSLocalizedString("settings.diagnostics.no_auth_failure", comment: "No auth failure"))
                     .font(DSType.labelSM)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
         }
     }
@@ -271,18 +271,18 @@ struct SettingsDiagnosticsView: View {
         } footer: {
             Text(NSLocalizedString("settings.diagnostics.privacy", comment: "Diagnostics privacy note"))
                 .font(.caption)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 
     private func diagnosticRow(title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DSSpacing.md) {
             Text(title)
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
             Spacer(minLength: DSSpacing.md)
             Text(value)
                 .font(DSType.labelSM)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
         }
@@ -408,7 +408,7 @@ struct SettingsDeveloperView: View {
         } footer: {
             Text(NSLocalizedString("settings.experiments.footer", comment: ""))
                 .font(.caption)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 
@@ -427,7 +427,7 @@ struct SettingsDeveloperView: View {
                     HStack {
                         Text(name).font(DSType.labelSM)
                         Spacer()
-                        Text("\(count)").font(DSType.labelSM).foregroundColor(DSColor.onSurfaceVariant)
+                        Text("\(count)").font(DSType.labelSM).foregroundColor(DSColor.inkMuted)
                     }
                 }
             }
@@ -570,7 +570,7 @@ struct SettingsPrivacyView: View {
         } footer: {
             Text(NSLocalizedString("settings.privacy.diagnostics.body", comment: "What opt-in diagnostics upload and that revocation cannot recall past events"))
                 .font(.caption)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 
@@ -581,7 +581,7 @@ struct SettingsPrivacyView: View {
             SettingsLabel(title: title, systemImage: icon)
             Text(body)
                 .font(DSType.labelSM)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)

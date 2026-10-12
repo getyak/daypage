@@ -125,9 +125,30 @@ public extension AppSettings {
     // when API keys remain configured. Read at every call site rather than
     // cached so a toggle in Settings takes effect on the next request.
     public nonisolated static var aiFeaturesEnabled: Bool {
-        let store = UserDefaults.standard
+        aiFeaturesEnabled(in: .standard)
+    }
+
+    /// Store-parameterized form for isolated tests; same semantics as the
+    /// standard-store accessor (missing key → true preserves the shipped
+    /// default — issue #928 freezes default values).
+    public nonisolated static func aiFeaturesEnabled(in store: UserDefaults) -> Bool {
         if store.object(forKey: Keys.aiFeaturesEnabled) == nil { return true }
         return store.bool(forKey: Keys.aiFeaturesEnabled)
+    }
+
+    /// Screenshot cloud understanding is deliberately separate from the
+    /// broad AI switch and defaults to off. A screenshot can contain OTPs,
+    /// balances, conversations, or health records that the user never meant
+    /// to send to a third party.
+    public nonisolated static var screenshotCloudAnalysisEnabled: Bool {
+        screenshotCloudAnalysisEnabled(in: .standard)
+    }
+
+    /// Store-parameterized form for isolated tests; missing key → false
+    /// preserves the shipped default (screenshot cloud stays off).
+    public nonisolated static func screenshotCloudAnalysisEnabled(in store: UserDefaults) -> Bool {
+        aiFeaturesEnabled(in: store)
+            && store.bool(forKey: Keys.screenshotCloudAnalysisEnabled)
     }
 
     /// Centralized UserDefaults key constants. Use these instead of bare string
@@ -171,6 +192,10 @@ public extension AppSettings {
         // disclosure. Setting this false puts the app in "local only" mode
         // even when API keys are still configured.
         public static let aiFeaturesEnabled  = "aiFeaturesEnabled"
+        // Explicit opt-in for sending a metadata-stripped screenshot derivative
+        // plus bounded OCR evidence to the configured multimodal provider.
+        // Defaults false independently of the legacy AI master toggle.
+        public static let screenshotCloudAnalysisEnabled = "screenshot.cloudAnalysisEnabled"
         // Swipe-hint nudge — shown once when the first compiled Daily Page appears
         public static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
         // WriteSheet rail hint — shown once to explain media is attached via the dock

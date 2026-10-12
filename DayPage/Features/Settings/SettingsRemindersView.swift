@@ -75,7 +75,7 @@ struct SettingsRemindersView: View {
                 let count = reminderService.reminders.filter { $0.enabled }.count
                 Text(String(format: NSLocalizedString("settings.reminder.count", value: "%d 条", comment: "N reminders count"), count))
                     .font(.subheadline.monospacedDigit())
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
             .accessibilityIdentifier("reminder-active-count")
 
@@ -96,7 +96,7 @@ struct SettingsRemindersView: View {
                     if reminderService.quietHours.enabled {
                         Text("\(reminderService.quietHours.startString)–\(reminderService.quietHours.endString)")
                             .font(.caption.monospacedDigit())
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                 }
             }

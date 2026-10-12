@@ -613,7 +613,7 @@ struct TodayView: View {
                             HStack(spacing: 12) {
                                 Text(err)
                                     .bodySMStyle()
-                                    .foregroundColor(DSColor.onError)
+                                    .foregroundColor(Color.white)
                                     .accessibilityLabel(err)
 
                                 if viewModel.lastFailedBody != nil, !viewModel.recoverableDrafts.isEmpty {
@@ -623,11 +623,11 @@ struct TodayView: View {
                                     } label: {
                                         Text(NSLocalizedString("today.recovery.restore", comment: "Restore unsaved draft"))
                                             .font(DSFonts.inter(size: 12, weight: .semibold, relativeTo: .caption))
-                                            .foregroundColor(DSColor.onError)
+                                            .foregroundColor(Color.white)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 4)
                                             .background(
-                                                Capsule().stroke(DSColor.onError.opacity(0.6), lineWidth: 1)
+                                                Capsule().stroke(Color.white.opacity(0.6), lineWidth: 1)
                                             )
                                     }
                                     .buttonStyle(.plain)
@@ -638,7 +638,7 @@ struct TodayView: View {
                             }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
-                                .background(DSColor.error)
+                                .background(DSColor.errorRed)
                                 .padding(.top, 8)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .accessibilityIdentifier("submit-error-toast")
@@ -3421,6 +3421,7 @@ struct TodayView: View {
                         TimelineRow(
                             memo: memo,
                             isLast: idx == viewModel.memos.count - 1,
+                            screenshotManifest: viewModel.screenshotManifestsByMemoID[memo.id],
                             onDelete: {
                                 undoText = nil
                                 undoTask?.cancel()
@@ -3434,6 +3435,18 @@ struct TodayView: View {
                                 }
                             },
                             onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
+                            onRetryScreenshot: {
+                                guard let manifest = viewModel.screenshotManifestsByMemoID[memo.id] else { return }
+                                viewModel.retryScreenshot(manifest)
+                            },
+                            onKeepScreenshotLocal: {
+                                guard let manifest = viewModel.screenshotManifestsByMemoID[memo.id] else { return }
+                                viewModel.keepScreenshotLocal(manifest)
+                            },
+                            onSaveScreenshotMeaning: { body in
+                                guard let manifest = viewModel.screenshotManifestsByMemoID[memo.id] else { return }
+                                viewModel.updateScreenshotMeaning(manifest, body: body)
+                            },
                             onShare: {
                                 sharePayload = SharePayload.auto(from: memo)
                             },
@@ -3549,7 +3562,7 @@ struct TodayView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .bodySMStyle()
-                        .foregroundColor(DSColor.error)
+                        .foregroundColor(DSColor.errorRed)
                         .padding(.horizontal, 20)
                 }
 

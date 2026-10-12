@@ -1,4 +1,5 @@
 import Foundation
+import DayPageServices
 
 // MARK: - DoubaoTestError
 
@@ -159,6 +160,16 @@ final class DoubaoConnectivityTester: ObservableObject {
         // Step 0 — credential presence (pairs, not per-row).
         guard DoubaoASRConfig.hasCredentials else {
             credentialStep = .failed(message: NSLocalizedString("settings.doubao.test.need_credentials", comment: "Fill both fields first"))
+            return
+        }
+        // Issue #928: connectivity probes are new AI requests — refused while
+        // the master switch is off. No prompt, no send; the per-frame and
+        // post-read checks inside the ASR clients remain the final boundary.
+        guard AppSettings.aiFeaturesEnabled else {
+            let message = AIAuthorizationError.aiDisabled.localizedDescription
+            credentialStep = .failed(message: message)
+            fileStep = .failed(message: message)
+            streamStep = .failed(message: message)
             return
         }
         credentialStep = .passed(detail: NSLocalizedString("settings.doubao.test.credentials_ok", comment: "Credentials present"))

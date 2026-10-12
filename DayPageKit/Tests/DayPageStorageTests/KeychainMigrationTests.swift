@@ -3,6 +3,22 @@ import XCTest
 @testable import DayPageStorage
 
 final class KeychainMigrationTests: XCTestCase {
+    func testQAServiceNamesCannotShareProductionOrOtherSessionCredentials() {
+        for name in ["com.daypage.auth", "com.daypage.apikeys"] {
+            let first = KeychainHelper.qaServiceName(name, bundleIdentifier: "com.daypage.app.qa-ui-928")
+            XCTAssertEqual(first, "com.daypage.app.qa-ui-928." + name)
+            XCTAssertNotEqual(first, name)
+            XCTAssertNotEqual(first, KeychainHelper.qaServiceName(name, bundleIdentifier: "com.daypage.app.qa-ui-929"))
+            XCTAssertEqual(KeychainHelper.qaServiceName(name, bundleIdentifier: "com.daypage.app.qa-ui-other"),
+                           "com.daypage.app.qa-ui-other." + name)
+        }
+    }
+
+    func testProductionAndPackageServiceNamesRemainCompatible() {
+        for identity in [nil, "com.daypage.app", "com.daypage.mac", "org.swift.package"] as [String?] {
+            XCTAssertEqual(KeychainHelper.qaServiceName("com.daypage.auth", bundleIdentifier: identity), "com.daypage.auth")
+        }
+    }
     private func withDefaults(_ body: (UserDefaults) throws -> Void) throws {
         let suite = "daypage.keychain-migration-tests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

@@ -16,6 +16,8 @@ import DayPageServices
 /// but has no UI anymore: nothing in the codebase ever consumed it.
 enum ApiKeyKind: String, CaseIterable {
     case deepSeek             = "deepSeekApiKey"
+    // Historical identifier retained for compatibility. The same OpenAI API
+    // key now powers Whisper and the separately-consented screenshot adapter.
     case openAIWhisper        = "openAIWhisperApiKey"
     case openWeather          = "openWeatherApiKey"
     case doubaoASRAppID       = "doubaoASRAppID"
@@ -87,7 +89,7 @@ struct ApiKeyRowView: View {
                     if !key.isEmpty {
                         Text(revealed ? key : "••••••••" + String(key.suffix(2)))
                             .font(DSType.labelSM)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .accessibilityIdentifier("api-key-value-\(providerID)")
@@ -256,7 +258,7 @@ struct SettingsLabel: View {
     var body: some View {
         Label {
             Text(title)
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
         } icon: {
             Image(systemName: systemImage)
                 .foregroundStyle(DSColor.accentOnBg)

@@ -259,6 +259,46 @@ final class VoiceService: NSObject, ObservableObject {
     /// orphan .m4a and pinning the mic indicator (#826). `startRecording`
     /// consumes the flag after each await and aborts itself.
     private var cancelRequestedDuringStart = false
+    // MARK: - Injectable transcription seams (issue #928)
+
+    /// Provider selection override for tests (nil = `ASRSettings.active`).
+    enum TranscriptionProviderKind { case whisper, doubao, onDevice }
+    var transcriptionProviderOverride: TranscriptionProviderKind?
+    /// Authorization policy override for tests (nil = live master switch).
+    /// Production always re-reads the live switch at every boundary.
+    var transcriptionConsentOverride: AIConsentChecking?
+    /// Fake bytes seam for the Whisper upload path (no real file IO in tests).
+    var whisperReadOverride: (@Sendable (URL) async throws -> Data)?
+    /// Recording HTTP seam for the Whisper upload path.
+    var whisperTransportOverride: HTTPTransport?
+    /// Nanosecond sleeps before each retry upload. Production keeps the
+    /// existing 2s → 4s backoff (3 attempts); tests shrink it.
+    var whisperRetryDelaysNanoseconds: [UInt64] = [2_000_000_000, 4_000_000_000]
+    /// Synthetic Whisper configuration (inert key + endpoint) so consent flips
+    /// are testable without real keys; live keys resolve only AFTER
+    /// authorization when nil.
+    var whisperTestConfiguration: (apiKey: String, endpoint: URL)?
+    /// Fake on-device fallback seam (nil = SFSpeechRecognizer path). Tests
+    /// never request speech permission or run recognition.
+    var onDeviceFallbackOverride: (@Sendable (URL) async -> String?)?
+    /// Network state override for tests (nil = live NetworkMonitor).
+    var networkAvailableOverride: Bool?
+
+    /// The authorization policy consulted at every transcription boundary.
+    private var requestConsent: AIConsentChecking {
+        transcriptionConsentOverride ?? LiveAIConsent()
+    }
+
+    /// On-device fallback resolution honoring the test seam.
+    private func onDeviceFallback(at url: URL) async -> String? {
+        if let onDeviceFallbackOverride { return await onDeviceFallbackOverride(url) }
+        return await transcribeAudioOffline(at: url)
+    }
+
+    private var isNetworkAvailable: Bool {
+        networkAvailableOverride ?? NetworkMonitor.shared.isOnline
+    }
+
     private var recordingPurpose: VoiceRecordingPurpose = .memo
 
     /// True (and consumed) when a cancel arrived mid-start. MainActor
@@ -381,7 +421,16 @@ final class VoiceService: NSObject, ObservableObject {
             try capture.start { [weak self] chunk in
                 Task { [weak self] in
                     guard let self, let client = await self.streamClient else { return }
-                    try? await client.send(audio: chunk)
+                    do {
+                        try await client.send(audio: chunk)
+                    } catch is AIAuthorizationError {
+                        // Issue #928: the master switch turned off mid-stream —
+                        // stop the denied mic pump. The stream client already
+                        // closed once on denial and cannot resume.
+                        await self.teardownLiveTranscription()
+                    } catch {
+                        // Best-effort chunk drop (existing behavior).
+                    }
                 }
             }
         } catch {
@@ -726,15 +775,27 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Whisper Transcription
 
     func transcribeAudio(at url: URL) async -> String? {
-        // C4 fix: when the master AI toggle is off, do not call any cloud ASR
-        // even if the network is up. Fall back to on-device SFSpeechRecognizer
-        // so the user still gets a transcript without any third-party upload.
-        if !AppSettings.aiFeaturesEnabled {
-            return await transcribeAudioOffline(at: url)
+        // C4 fix / issue #928: when the master AI toggle is off, do not call any
+        // cloud ASR even if the network is up. Fall back to on-device
+        // SFSpeechRecognizer so the user still gets a transcript without any
+        // third-party upload.
+        if (try? requestConsent.authorize()) == nil {
+            return await onDeviceFallback(at: url)
         }
         // US-013: If offline, skip cloud ASR and try on-device SFSpeechRecognizer
-        if !NetworkMonitor.shared.isOnline {
-            return await transcribeAudioOffline(at: url)
+        if !isNetworkAvailable {
+            return await onDeviceFallback(at: url)
+        }
+
+        if let override = transcriptionProviderOverride {
+            switch override {
+            case .onDevice:
+                return await onDeviceFallback(at: url)
+            case .doubao:
+                return await transcribeAudioDoubao(at: url)
+            case .whisper:
+                return await transcribeAudioWhisper(at: url)
+            }
         }
 
         // #821: when the selected provider has no credentials, fall back to
@@ -742,17 +803,17 @@ final class VoiceService: NSObject, ObservableObject {
         // the queue's retry budget on calls that can never succeed.
         switch ASRSettings.active {
         case .onDevice:
-            return await transcribeAudioOffline(at: url)
+            return await onDeviceFallback(at: url)
 
         case .doubao:
             guard DoubaoASRConfig.hasCredentials else {
-                return await transcribeAudioOffline(at: url)
+                return await onDeviceFallback(at: url)
             }
             return await transcribeAudioDoubao(at: url)
 
         case .whisper:
-            guard !Secrets.resolvedOpenAIWhisperApiKey.isEmpty else {
-                return await transcribeAudioOffline(at: url)
+            guard whisperTestConfiguration != nil || !Secrets.resolvedOpenAIWhisperApiKey.isEmpty else {
+                return await onDeviceFallback(at: url)
             }
             return await transcribeAudioWhisper(at: url)
         }
@@ -878,14 +939,37 @@ final class VoiceService: NSObject, ObservableObject {
     }
 
     private func transcribeAudioWhisper(at url: URL) async -> String? {
-        let apiKey = Secrets.resolvedOpenAIWhisperApiKey
-        guard !apiKey.isEmpty else { return nil }
+        // Issue #928: authorization FIRST — live keys resolve only after it.
+        // A typed denial exits terminally to the local fallback.
+        do { try requestConsent.authorize() }
+        catch { return await onDeviceFallback(at: url) }
+
+        let apiKey: String
+        let endpoint: URL
+        if let config = whisperTestConfiguration {
+            apiKey = config.apiKey
+            endpoint = config.endpoint
+        } else {
+            let liveKey = Secrets.resolvedOpenAIWhisperApiKey
+            guard !liveKey.isEmpty,
+                  let liveEndpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions") else {
+                return nil
+            }
+            apiKey = liveKey
+            endpoint = liveEndpoint
+        }
 
         let audioData: Data
         // #821 main-thread hygiene: this class is @MainActor, and a 5-minute
         // take is several MB — reading it synchronously here froze a frame.
-        // Hop to a detached task for the disk read.
-        do { audioData = try await Task.detached(priority: .userInitiated) { try Data(contentsOf: url) }.value }
+        // Hop to a detached task for the disk read (tests inject fake bytes).
+        do {
+            if let whisperReadOverride {
+                audioData = try await whisperReadOverride(url)
+            } else {
+                audioData = try await Task.detached(priority: .userInitiated) { try Data(contentsOf: url) }.value
+            }
+        }
         catch {
             DayPageLogger.shared.error("transcribeAudio: read file: \(error)")
             SentryReporter.breadcrumb(
@@ -895,6 +979,12 @@ final class VoiceService: NSObject, ObservableObject {
             )
             return nil
         }
+
+        // Issue #928: re-check AFTER the asynchronous file read — the toggle
+        // may have turned off while the read ran. No upload without a fresh
+        // authorization at attempt time.
+        do { try requestConsent.authorize() }
+        catch { return await onDeviceFallback(at: url) }
 
         let boundary = UUID().uuidString
         var body = Data()
@@ -914,7 +1004,6 @@ final class VoiceService: NSObject, ObservableObject {
         // -- closing boundary
         body.append(Data("--\(boundary)--\r\n".utf8))
 
-        guard let endpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions") else { return nil }
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -926,13 +1015,20 @@ final class VoiceService: NSObject, ObservableObject {
             : SentrySDK.startTransaction(name: "voice.whisper", operation: "http.client")
         defer { span?.finish() }
 
-        // 对瞬时服务器/速率限制错误（429、500、503）最多重试 3 次
-        let maxAttempts = 3
-        var delaySeconds: UInt64 = 2
+        // 对瞬时服务器/速率限制错误（429、500、503）最多重试：production keeps the
+        // existing 3-attempt 2s → 4s backoff; tests shrink `whisperRetryDelaysNanoseconds`.
+        let delays = whisperRetryDelaysNanoseconds
+        let maxAttempts = delays.count + 1
+        let transport = whisperTransportOverride ?? HTTPTransports.shared
 
         for attempt in 1...maxAttempts {
+            // Issue #928: typed check before EVERY upload attempt — a toggle
+            // flip during backoff exits terminally to the local fallback with
+            // zero further uploads.
+            do { try requestConsent.authorize() }
+            catch { return await onDeviceFallback(at: url) }
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await transport.data(for: request)
                 guard let http = response as? HTTPURLResponse else { return nil }
 
                 if http.statusCode == 200 {
@@ -946,8 +1042,7 @@ final class VoiceService: NSObject, ObservableObject {
                 // 可重试：速率限制或服务器错误
                 let retryable = http.statusCode == 429 || http.statusCode >= 500
                 if retryable && attempt < maxAttempts {
-                    try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
-                    delaySeconds *= 2
+                    try? await Task.sleep(nanoseconds: delays[attempt - 1])
                     continue
                 }
 
@@ -962,8 +1057,7 @@ final class VoiceService: NSObject, ObservableObject {
                     return nil
                 }
                 if attempt < maxAttempts {
-                    try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
-                    delaySeconds *= 2
+                    try? await Task.sleep(nanoseconds: delays[attempt - 1])
                     continue
                 }
                 return nil

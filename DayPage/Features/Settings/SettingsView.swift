@@ -111,7 +111,7 @@ struct SettingsView: View {
                             HStack(spacing: DSSpacing.md) {
                                 Image(systemName: "person.crop.circle")
                                     .font(DSType.h2)
-                                    .foregroundColor(DSColor.onSurfaceVariant)
+                                    .foregroundColor(DSColor.inkMuted)
                                     .accessibilityHidden(true)
                                 Text(authService.session?.user.email ?? NSLocalizedString("settings.account.signed_out", comment: ""))
                                     .font(DSType.bodyMD)
@@ -119,14 +119,14 @@ struct SettingsView: View {
                             }
                             Text(authService.session == nil ? NSLocalizedString("settings.account.tap_to_sign_in", comment: "") : NSLocalizedString("settings.account.manage", comment: ""))
                                 .font(DSType.labelSM)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     } else {
                         HStack(spacing: DSSpacing.md) {
                             Image(systemName: "person.crop.circle")
                                 .font(DSType.h2)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(authService.session?.user.email ?? NSLocalizedString("settings.account.signed_out", comment: ""))
@@ -134,12 +134,12 @@ struct SettingsView: View {
                                     .foregroundColor(DSColor.onBackgroundPrimary)
                                 Text(authService.session == nil ? NSLocalizedString("settings.account.tap_to_sign_in", comment: "") : NSLocalizedString("settings.account.manage", comment: ""))
                                     .font(DSType.labelSM)
-                                    .foregroundColor(DSColor.onSurfaceVariant)
+                                    .foregroundColor(DSColor.inkMuted)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(DSType.caption)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                                 .accessibilityHidden(true)
                         }
                     }
@@ -219,7 +219,7 @@ struct SettingsView: View {
                         SettingsLabel(title: title, systemImage: systemImage)
                         Text(summary)
                             .font(DSType.labelSM)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
@@ -228,7 +228,7 @@ struct SettingsView: View {
                         Spacer()
                         Text(summary)
                             .font(DSType.labelSM)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .lineLimit(1)
                     }
                 }

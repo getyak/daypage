@@ -473,7 +473,6 @@ extension View {
     // v3 shorthand (Style suffix)
     func h2Style() -> some View { modifier(H2Modifier()) }
     func captionStyle() -> some View { modifier(CaptionStyleModifier()) }
-    func labelStyle() -> some View { modifier(LabelStyleModifier()) }
 
     // v3 short names (no suffix) — use these in new code
     func h1() -> some View { modifier(H1Modifier()) }

@@ -25,7 +25,7 @@ flowchart LR
 
 ## Apple surfaces
 
-`DayPage.xcodeproj` contains iOS, macOS, watchOS, widget, and test targets. The iOS app
+`DayPage.xcodeproj` contains iOS, macOS, watchOS, widget, Share Extension, and test targets. The iOS app
 uses SwiftUI with sidebar navigation and an implemented Graph surface. App targets own UI,
 platform frameworks, secrets adapters, and SDK boundaries.
 
@@ -67,6 +67,13 @@ Markdown HTML marker, and the entity index is reconciled idempotently on retry. 
 Page completion marker is written only after those throwable entity operations succeed.
 See [ADR-0007](decisions/ADR-0007-compilation-entity-operation-markers.md).
 
+Action Button screenshot capture composes the system `Take Screenshot` Shortcut action
+with a DayPage `IntentFile` App Intent. The original screenshot, a capture manifest, and
+one raw memo are committed before optional provider work. A Share Extension stages the
+same input through an App Group fallback. Vision evidence remains local; third-party
+multimodal understanding is separately opt-in and sensitive classifications remain
+local-only. See [ADR-0012](decisions/ADR-0012-action-button-screenshot-capture.md).
+
 ## Web and integrations
 
 `android/` is a Kotlin / Jetpack Compose application. Its canonical records use the
@@ -100,6 +107,8 @@ handoffs, and evidence without taking a runtime dependency on `agentry`. Host ad
 ## Trust boundaries
 
 - User vault content and credentials are private and never development context by default.
+- Saving a screenshot locally does not grant cloud-analysis consent; generated actions
+  remain drafts until the user confirms them.
 - Local verification uses isolated fixtures/containers and must prove restoration.
 - Remote services, production databases, releases, and GitHub writes require explicit
   action-specific authorization.

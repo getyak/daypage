@@ -289,6 +289,7 @@ struct DayPageApp: App {
         #endif
         // US-002: silently migrate any API keys stored in UserDefaults to Keychain
         KeychainHelper.migrateAPIKeysFromUserDefaultsIfNeeded()
+        Task { await Self.configureAndProcessScreenshotInbox() }
         // US-006: auto-clear stale draft (>30 days old) before any view reads SceneStorage
         DraftStorage.clearIfExpired()
 
@@ -654,6 +655,7 @@ struct DayPageApp: App {
                     // re-check the raw/ mtime and rebuild the index only if it
                     // actually changed (issue #345).
                     if phase == .active {
+                        Task { await Self.configureAndProcessScreenshotInbox() }
                         // AlarmKit 授权真源在系统,前台回填(启动路径注释所承诺的
                         // 「每次前台读」此前只在 .task 做了一次,这里补齐);同时
                         // 停掉 alerting 中的 alarm —— 用户已回到 App,提醒完成
@@ -683,6 +685,41 @@ struct DayPageApp: App {
         }
     }
 
+    private static func configureAndProcessScreenshotInbox() async {
+        let key = Secrets.resolvedOpenAIWhisperApiKey
+        let provider: (any ScreenshotUnderstandingProvider)? = key.isEmpty
+            ? nil
+            : OpenAIScreenshotUnderstandingProvider(configuration: .init(apiKey: key))
+        await ScreenshotCaptureCoordinator.shared.configure(understandingProvider: provider)
+        await ScreenshotCaptureCoordinator.shared.processPending(
+            cloudAnalysisAllowed: AppSettings.screenshotCloudAnalysisEnabled
+        )
+        await importShareExtensionInbox()
+    }
+
+    private static func importShareExtensionInbox() async {
+        guard let items = try? await ScreenshotShareInbox.shared.pending() else { return }
+        for item in items {
+            do {
+                let data = try await ScreenshotShareInbox.shared.data(for: item)
+                _ = try await ScreenshotCaptureCoordinator.shared.ingest(
+                    data: data,
+                    declaredContentType: item.contentType,
+                    source: .shareExtension,
+                    cloudAnalysisAllowed: AppSettings.screenshotCloudAnalysisEnabled,
+                    // The staged item's UUID is the durable capture identity:
+                    // a crash/replay after removal failure delivers the SAME
+                    // capture/memo instead of minting duplicates.
+                    stableID: item.id
+                )
+                try await ScreenshotShareInbox.shared.remove(item)
+            } catch {
+                // The App Group item stays durable for the next foreground pass.
+                continue
+            }
+        }
+    }
+
 }
 
 // MARK: - SentryLive (issue #922)
@@ -703,6 +740,10 @@ struct DayPageApp: App {
 @MainActor
 enum SentryLive {
     private static var activeEpoch: UUID?
+    /// Immutable (epoch UUID, start floor) snapshot of the ACTIVE SDK session,
+    /// captured at epoch creation (not at SDK start) so prior-launch crashes
+    /// under continuous consent remain eligible (issue #928).
+    private static var activeSnapshot: DiagnosticsConsent.EpochSnapshot?
 
     /// Starts the SDK iff consent + DSN are both present. Idempotent.
     static func startIfConsented() {
@@ -712,7 +753,7 @@ enum SentryLive {
             // first, then close outside the consent permit to avoid deadlock.
             close()
         }
-        let prepared = DiagnosticsConsent.withCurrentEpoch { epoch -> (UUID, URLSession, URL)? in
+        let prepared = DiagnosticsConsent.withCurrentEpochSnapshot { snapshot -> (DiagnosticsConsent.EpochSnapshot, URLSession, URL)? in
             guard !Secrets.sentryDSN.isEmpty,
                   var parts = URLComponents(string: Secrets.sentryDSN), parts.scheme == "https",
                   let publicKey = parts.user, !publicKey.isEmpty else { return nil }
@@ -724,21 +765,23 @@ enum SentryLive {
             guard let endpoint = parts.url,
                   let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
             let cache = cacheRoot.appendingPathComponent("DayPageDiagnostics", isDirectory: true)
-                .appendingPathComponent(epoch.uuidString, isDirectory: true)
+                .appendingPathComponent(snapshot.id.uuidString, isDirectory: true)
             guard (try? FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)) != nil else { return nil }
             let session = DiagnosticsTransportGate.shared.makeSession(
                 endpoint: endpoint,
                 authHeader: "Sentry sentry_version=7,sentry_client=sentry.cocoa/8.58.4,sentry_key=\(publicKey)",
-                consent: { DiagnosticsConsent.isOptedIn && DiagnosticsConsent.epoch() == epoch }
+                consent: { DiagnosticsConsent.isOptedIn && DiagnosticsConsent.epoch() == snapshot.id }
             )
-            return (epoch, session, cache)
+            return (snapshot, session, cache)
         }
-        guard let prepared, let (epoch, session, cache) = prepared else { return }
-        guard DiagnosticsConsent.epoch() == epoch else {
+        guard let prepared, let (snapshot, session, cache) = prepared else { return }
+        guard DiagnosticsConsent.epoch() == snapshot.id else {
             DiagnosticsTransportGate.shared.revoke()
             return
         }
+        let epoch = snapshot.id
         activeEpoch = epoch
+        activeSnapshot = snapshot
 
         // Never hold the consent permit across start: SDK startup-crash recovery
         // may flush for five seconds and wait for the background protocol gate.
@@ -764,28 +807,58 @@ enum SentryLive {
             options.attachViewHierarchy = false
             // Remove unstructured event fields before caching. The final
             // transport allowlist also protects pre-existing cached envelopes.
-            options.beforeSend = { event in
-                guard DiagnosticsConsent.isOptedIn, DiagnosticsConsent.epoch() == epoch else { return nil }
-                event.message = nil
-                event.error = nil
-                event.user = nil
-                event.request = nil
-                event.context = nil
-                event.extra = nil
-                event.breadcrumbs = nil
-                event.transaction = nil
-                event.logger = nil
-                event.serverName = nil
-                event.fingerprint = nil
-                event.modules = nil
-                // The final envelope allowlist also removes dynamic exception,
-                // frame, image, and tag text, including from pre-existing cache.
-                return event
-            }
+            // Issue #928: the REAL beforeSend first admits the event through
+            // the captured epoch snapshot + timestamp floor (rejecting old/nil
+            // timestamps from deferred raw-crash conversions), then preserves
+            // the current field scrubber unchanged.
+            options.beforeSend = Self.makeBeforeSend(
+                capturedSnapshot: snapshot,
+                currentEpoch: { DiagnosticsConsent.epoch() },
+                isOptedIn: { DiagnosticsConsent.isOptedIn }
+            )
             options.beforeBreadcrumb = { _ in nil }
             options.beforeSendSpan = { _ in nil }
         }
         if DiagnosticsConsent.epoch() != epoch { close() }
+    }
+
+    /// Tiny testable production seam (issue #928): this factory IS the closure
+    /// installed as `options.beforeSend`. Native tests construct it with a
+    /// synthetic snapshot and deliver in-memory `Sentry.Event` values with
+    /// fixed timestamps — no SDK start and no disk crash/cache reads.
+    static func makeBeforeSend(
+        capturedSnapshot: DiagnosticsConsent.EpochSnapshot,
+        currentEpoch: @escaping @Sendable () -> UUID?,
+        isOptedIn: @escaping @Sendable () -> Bool
+    ) -> (Sentry.Event) -> Sentry.Event? {
+        return { event in
+            guard DiagnosticsEventGate.admit(
+                timestamp: event.timestamp,
+                snapshot: capturedSnapshot,
+                currentEpoch: currentEpoch(),
+                isOptedIn: isOptedIn()
+            ) else { return nil }
+            scrubEventFields(event)
+            return event
+        }
+    }
+
+    /// The current field scrubber, preserved verbatim: unstructured fields are
+    /// removed before caching; the final envelope allowlist also strips
+    /// dynamic exception/frame/image/tag text.
+    static func scrubEventFields(_ event: Sentry.Event) {
+        event.message = nil
+        event.error = nil
+        event.user = nil
+        event.request = nil
+        event.context = nil
+        event.extra = nil
+        event.breadcrumbs = nil
+        event.transaction = nil
+        event.logger = nil
+        event.serverName = nil
+        event.fingerprint = nil
+        event.modules = nil
     }
 
     /// Applies a consent change: enable → start (if DSN present);
@@ -803,6 +876,7 @@ enum SentryLive {
         DiagnosticsTransportGate.shared.revoke()
         guard activeEpoch != nil else { return }
         activeEpoch = nil
+        activeSnapshot = nil
         SentrySDK.close()
     }
 }

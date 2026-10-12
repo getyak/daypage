@@ -68,7 +68,7 @@ struct DailyPageMetadataEditView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DSColor.background.ignoresSafeArea()
+                DSColor.bgWarm.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 32) {
@@ -91,21 +91,21 @@ struct DailyPageMetadataEditView: View {
                         dismiss()
                     }
                     .disabled(isSaving)
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                 }
                 ToolbarItem(placement: .principal) {
                     Text(NSLocalizedString("daily.metadata.title", comment: "Edit daily page metadata title"))
                         .headlineMDStyle()
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if isSaving {
-                        ProgressView().tint(DSColor.onSurface).scaleEffect(0.8)
+                        ProgressView().tint(DSColor.inkPrimary).scaleEffect(0.8)
                     } else {
                         Button(NSLocalizedString("common.save", comment: "Save")) {
                             save()
                         }
-                        .foregroundColor(DSColor.primary)
+                        .foregroundColor(DSColor.amberDeep)
                         .h2Style()
                         .disabled(isLoadingCover)
                     }
@@ -150,12 +150,12 @@ struct DailyPageMetadataEditView: View {
             sectionLabel(NSLocalizedString("daily.metadata.section.summary", value: "SUMMARY", comment: "Summary section"))
             TextEditor(text: $summary)
                 .bodyMDStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
                 .frame(minHeight: 80)
                 .padding(12)
-                .background(DSColor.surfaceContainer)
+                .background(DSColor.glassStd)
                 .cornerRadius(0)
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                .overlay(Rectangle().stroke(DSColor.inkFaint, lineWidth: 1))
         }
     }
 
@@ -170,10 +170,10 @@ struct DailyPageMetadataEditView: View {
                         }) {
                             Text(option.label)
                                 .captionStyle()
-                                .foregroundColor(mood == option.storedValue ? DSColor.onPrimary : DSColor.onSurface)
+                                .foregroundColor(mood == option.storedValue ? Color.white : DSColor.inkPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(mood == option.storedValue ? DSColor.primary : DSColor.surfaceContainer)
+                                .background(mood == option.storedValue ? DSColor.amberDeep : DSColor.glassStd)
                                 .cornerRadius(0)
                         }
                         .buttonStyle(.plain)
@@ -186,7 +186,7 @@ struct DailyPageMetadataEditView: View {
                 Text(mood)
                     .font(DSFonts.jetBrainsMono(size: 12, weight: .medium, relativeTo: .caption2))
                     .tracking(0.5)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .padding(.top, 4)
             }
         }
@@ -197,11 +197,11 @@ struct DailyPageMetadataEditView: View {
             sectionLabel(NSLocalizedString("daily.metadata.section.weather", value: "WEATHER", comment: "Weather section"))
             TextField(NSLocalizedString("daily.metadata.weather.placeholder", comment: "Weather metadata placeholder"), text: $weather)
                 .bodyMDStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
                 .padding(12)
-                .background(DSColor.surfaceContainer)
+                .background(DSColor.glassStd)
                 .cornerRadius(0)
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                .overlay(Rectangle().stroke(DSColor.inkFaint, lineWidth: 1))
         }
     }
 
@@ -241,12 +241,12 @@ struct DailyPageMetadataEditView: View {
                 } label: {
                     Text(NSLocalizedString(selectedCoverPath == nil && pendingCover == nil ? "daily.metadata.cover.from_memos" : "daily.metadata.cover.change", comment: "Choose daily page cover"))
                         .labelSMStyle()
-                        .foregroundColor(DSColor.primary)
+                        .foregroundColor(DSColor.amberDeep)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(DSColor.surfaceContainer)
+                        .background(DSColor.glassStd)
                         .cornerRadius(0)
-                        .overlay(Rectangle().stroke(DSColor.primary, lineWidth: 1))
+                        .overlay(Rectangle().stroke(DSColor.amberDeep, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
@@ -254,12 +254,12 @@ struct DailyPageMetadataEditView: View {
                 PhotosPicker(selection: $photosPickerItem, matching: .images) {
                     Text(NSLocalizedString("daily.metadata.cover.from_library", comment: "Choose daily page cover from photo library"))
                         .labelSMStyle()
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(DSColor.surfaceContainer)
+                        .background(DSColor.glassStd)
                         .cornerRadius(0)
-                        .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                        .overlay(Rectangle().stroke(DSColor.inkFaint, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }
@@ -269,7 +269,7 @@ struct DailyPageMetadataEditView: View {
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .sectionLabelStyle()
-            .foregroundColor(DSColor.onSurfaceVariant)
+            .foregroundColor(DSColor.inkMuted)
     }
 
     // MARK: - Data Helpers

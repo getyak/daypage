@@ -6,6 +6,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PYTHON="${PYTHON:-python3}"
 LIST_ONLY=0
 declare -a TEST_FILES=()
 
@@ -33,8 +34,12 @@ done
 if ((${#TEST_FILES[@]} == 0)); then
     while IFS= read -r path; do
         TEST_FILES+=("$path")
-    done < <(find "${REPO_ROOT}/scripts/tests" -maxdepth 1 -type f \
-        \( -name 'test_*.swift' -o -name 'test_*.sh' -o -name 'test_*.py' \) | LC_ALL=C sort)
+    done < <({
+        find "${REPO_ROOT}/scripts/tests" -maxdepth 1 -type f \
+            \( -name 'test_*.swift' -o -name 'test_*.sh' -o -name 'test_*.py' \)
+        find "${REPO_ROOT}/scripts/ci/tests" -maxdepth 1 -type f -name 'test_*.sh'
+        find "${REPO_ROOT}/tests" -maxdepth 1 -type f -name 'test_*.py'
+    } 2>/dev/null | LC_ALL=C sort)
 fi
 
 if ((${#TEST_FILES[@]} == 0)); then
@@ -47,16 +52,21 @@ if ((LIST_ONLY)); then
     exit 0
 fi
 
-if [[ -n "${DAYPAGE_SWIFT_BIN:-}" ]]; then
-    SWIFT_COMMAND=("${DAYPAGE_SWIFT_BIN}")
-elif command -v xcrun >/dev/null 2>&1; then
-    SWIFT_COMMAND=(xcrun swift)
-elif command -v swift >/dev/null 2>&1; then
-    SWIFT_COMMAND=(swift)
-else
-    echo "Neither xcrun nor swift is available." >&2
-    exit 127
-fi
+resolve_swift_command() {
+    if [[ -n "${SWIFT_COMMAND+x}" ]]; then
+        return 0
+    fi
+    if [[ -n "${DAYPAGE_SWIFT_BIN:-}" ]]; then
+        SWIFT_COMMAND=("${DAYPAGE_SWIFT_BIN}")
+    elif command -v xcrun >/dev/null 2>&1; then
+        SWIFT_COMMAND=(xcrun swift)
+    elif command -v swift >/dev/null 2>&1; then
+        SWIFT_COMMAND=(swift)
+    else
+        return 127
+    fi
+    return 0
+}
 
 overall=0
 for file in "${TEST_FILES[@]}"; do
@@ -64,9 +74,16 @@ for file in "${TEST_FILES[@]}"; do
         file="${REPO_ROOT}/${file}"
     fi
     case "${file}" in
-        *.swift) TEST_COMMAND=("${SWIFT_COMMAND[@]}" "${file}") ;;
+        *.swift)
+            if ! resolve_swift_command; then
+                echo "Neither xcrun nor swift is available for ${file#${REPO_ROOT}/}." >&2
+                overall=1
+                continue
+            fi
+            TEST_COMMAND=("${SWIFT_COMMAND[@]}" "${file}")
+            ;;
         *.sh) TEST_COMMAND=(bash "${file}") ;;
-        *.py) TEST_COMMAND=(python3 "${file}") ;;
+        *.py) TEST_COMMAND=("${PYTHON}" "${file}") ;;
         *)
             echo "Unsupported standalone test type: ${file}" >&2
             overall=1

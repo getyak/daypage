@@ -301,3 +301,107 @@ struct DiagnosticsConsentTests {
         }
     }
 }
+
+// MARK: - Epoch start floor (issue #928, deferred raw-crash admission)
+
+/// The consent epoch persists an immutable start floor next to its UUID, inside
+/// the existing serialized transition. Repeated grants and relaunches reuse the
+/// pair; revocation removes both; a legacy or malformed pair is conservatively
+/// rotated. A fixed `now` is injected — no ambient clock, no real defaults.
+@Suite("Crash diagnostics epoch start floor")
+struct DiagnosticsEpochFloorTests {
+
+    private func makeStore() throws -> (store: UserDefaults, suite: String) {
+        let suite = "DiagnosticsEpochFloorTests.\(UUID().uuidString)"
+        let store = try #require(UserDefaults(suiteName: suite))
+        return (store, suite)
+    }
+
+    @Test("Fresh grant creates one immutable (UUID, floor) pair")
+    func grantCreatesPair() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        let floor = Date(timeIntervalSince1970: 10)
+
+        DiagnosticsConsent.setOptedIn(true, in: store, now: floor)
+        let snapshot = try #require(DiagnosticsConsent.epochSnapshot(in: store))
+        #expect(snapshot.startedAt == floor)
+        #expect(DiagnosticsConsent.epoch(in: store) == snapshot.id)
+    }
+
+    @Test("Repeated grant and relaunch reuse the pair including the floor")
+    func repeatedGrantAndRelaunchReusePair() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        DiagnosticsConsent.setOptedIn(true, in: store, now: Date(timeIntervalSince1970: 10))
+        let first = try #require(DiagnosticsConsent.epochSnapshot(in: store))
+
+        // Repeated grant at a later time must NOT move the floor.
+        DiagnosticsConsent.setOptedIn(true, in: store, now: Date(timeIntervalSince1970: 30))
+        let second = try #require(DiagnosticsConsent.epochSnapshot(in: store))
+        #expect(second == first)
+
+        // Relaunch (prepare) reuses the same pair.
+        let prepared = try #require(
+            DiagnosticsConsent.prepareEpochSnapshot(in: store, now: Date(timeIntervalSince1970: 50))
+        )
+        #expect(prepared == first)
+    }
+
+    @Test("Revocation removes both the UUID and the floor")
+    func revocationRemovesBoth() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        DiagnosticsConsent.setOptedIn(true, in: store, now: Date(timeIntervalSince1970: 10))
+        DiagnosticsConsent.setOptedIn(false, in: store, now: Date(timeIntervalSince1970: 20))
+
+        #expect(DiagnosticsConsent.epoch(in: store) == nil)
+        #expect(DiagnosticsConsent.epochSnapshot(in: store) == nil)
+    }
+
+    @Test("A new grant after revocation creates a new pair with a new floor")
+    func regrantRotatesPair() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        DiagnosticsConsent.setOptedIn(true, in: store, now: Date(timeIntervalSince1970: 10))
+        let first = try #require(DiagnosticsConsent.epochSnapshot(in: store))
+        DiagnosticsConsent.setOptedIn(false, in: store, now: Date(timeIntervalSince1970: 20))
+        DiagnosticsConsent.setOptedIn(true, in: store, now: Date(timeIntervalSince1970: 30))
+        let second = try #require(DiagnosticsConsent.epochSnapshot(in: store))
+
+        #expect(second.id != first.id)
+        #expect(second.startedAt == Date(timeIntervalSince1970: 30))
+    }
+
+    @Test("Legacy UUID without a persisted floor is conservatively rotated")
+    func legacyPairIsRotated() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        // Simulate a pre-floor installation: opted in with a UUID but no floor.
+        store.set(true, forKey: DiagnosticsConsent.defaultsKey)
+        store.set(UUID().uuidString, forKey: "settings.crashDiagnosticsEpoch")
+
+        let prepared = try #require(
+            DiagnosticsConsent.prepareEpochSnapshot(in: store, now: Date(timeIntervalSince1970: 40))
+        )
+        #expect(prepared.startedAt == Date(timeIntervalSince1970: 40))
+        #expect(prepared.id == DiagnosticsConsent.epoch(in: store))
+        // The untrusted legacy pair is not reused.
+        #expect(DiagnosticsConsent.epochSnapshot(in: store) == prepared)
+    }
+
+    @Test("Malformed floor values are rotated, never trusted")
+    func malformedFloorIsRotated() throws {
+        let (store, suite) = try makeStore()
+        defer { store.removePersistentDomain(forName: suite) }
+        store.set(true, forKey: DiagnosticsConsent.defaultsKey)
+        store.set(UUID().uuidString, forKey: "settings.crashDiagnosticsEpoch")
+        store.set("not-a-date", forKey: "settings.crashDiagnosticsEpochStart")
+
+        let prepared = try #require(
+            DiagnosticsConsent.prepareEpochSnapshot(in: store, now: Date(timeIntervalSince1970: 60))
+        )
+        #expect(prepared.startedAt == Date(timeIntervalSince1970: 60))
+        #expect(prepared == DiagnosticsConsent.epochSnapshot(in: store))
+    }
+}
