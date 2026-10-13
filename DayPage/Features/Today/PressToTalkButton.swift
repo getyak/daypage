@@ -109,7 +109,7 @@ struct PressToTalkButton: View {
             // Pulsing ring — visible only during preRecording phase
             if currentPhase == .preRecording {
                 Circle()
-                    .stroke(DSColor.primary.opacity(ringOpacity), lineWidth: 2)
+                    .stroke(DSColor.amberDeep.opacity(ringOpacity), lineWidth: 2)
                     .frame(width: size * ringScale, height: size * ringScale)
                     .allowsHitTesting(false)
             }
@@ -300,21 +300,21 @@ struct PressToTalkButton: View {
 
     private var iconColor: Color {
         switch currentPhase {
-        case .preRecording: return DSColor.primary
-        case .cancelArmed: return DSColor.error
+        case .preRecording: return DSColor.amberDeep
+        case .cancelArmed: return DSColor.errorRed
         case .transcribeArmed: return Color(red: 0.12, green: 0.30, blue: 0.65)
-        case .recording: return DSColor.onPrimary
-        default: return idleIconColor ?? DSColor.onSurface
+        case .recording: return Color.white
+        default: return idleIconColor ?? DSColor.inkPrimary
         }
     }
 
     private var backgroundColor: Color {
         switch currentPhase {
-        case .preRecording: return DSColor.primaryContainer
-        case .cancelArmed: return DSColor.errorContainer
+        case .preRecording: return DSColor.amberAccent
+        case .cancelArmed: return DSColor.errorSoft
         case .transcribeArmed: return Color(red: 0.85, green: 0.92, blue: 1.0)
-        case .recording, .transcribing: return DSColor.primary
-        default: return idleBackgroundColor ?? DSColor.surfaceContainerHigh
+        case .recording, .transcribing: return DSColor.amberDeep
+        default: return idleBackgroundColor ?? DSColor.glassHi
         }
     }
 }

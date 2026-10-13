@@ -74,7 +74,7 @@ struct EntityPageView: View {
                         ToolbarItem(placement: .principal) {
                             Text(entitySlug.uppercased())
                                 .monoLabelStyle(size: 11)
-                                .foregroundColor(DSColor.onSurface)
+                                .foregroundColor(DSColor.inkPrimary)
                         }
                     }
                     .modifier(EntityLifecycleModifier(onAppearLoad: loadEntity, onDisappearCancel: cancelScan))
@@ -103,20 +103,20 @@ struct EntityPageView: View {
                                         .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
                                         .kerning(0.5)
                                 }
-                                .foregroundColor(DSColor.primary)
+                                .foregroundColor(DSColor.amberDeep)
                             }
                         } else {
                             Button(action: { dismiss() }) {
                                 Image(systemName: "arrow.left")
                                     .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(DSColor.onSurface)
+                                    .foregroundColor(DSColor.inkPrimary)
                             }
                         }
                     }
                     ToolbarItem(placement: .principal) {
                         Text(entitySlug.uppercased())
                             .monoLabelStyle(size: 11)
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                     }
                 }
         }
@@ -143,7 +143,7 @@ struct EntityPageView: View {
     @ViewBuilder
     private var scrollContent: some View {
         ZStack {
-            DSColor.background.ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
 
             if notFound {
                 notFoundView(reason: notFoundReason)
@@ -272,7 +272,7 @@ struct EntityPageView: View {
         VStack(spacing: DSSpacing.lg) {
             Text(notFoundMessage(reason: reason))
                 .bodyMDStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Text("[[" + entitySlug + "]]")
@@ -299,16 +299,16 @@ struct EntityPageView: View {
             // Type badge
             Text(entityTypeBadge.uppercased())
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.onPrimary)
+                .foregroundColor(Color.white)
                 .padding(.horizontal, DSSpacing.sm)
                 .padding(.vertical, DSSpacing.xs)
-                .background(DSColor.primary)
+                .background(DSColor.amberDeep)
                 .cornerRadius(0)
 
             // Name
             Text(model.name.uppercased())
                 .font(.custom("SpaceGrotesk-Bold", size: 32).leading(.tight))
-                .foregroundColor(DSColor.primary)
+                .foregroundColor(DSColor.amberDeep)
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
 
@@ -336,10 +336,10 @@ struct EntityPageView: View {
     private func metaChip(_ text: String) -> some View {
         Text(text)
             .monoLabelStyle(size: 10)
-            .foregroundColor(DSColor.onSurfaceVariant)
+            .foregroundColor(DSColor.inkMuted)
             .padding(.horizontal, DSSpacing.sm)
             .padding(.vertical, DSSpacing.xs)
-            .background(DSColor.surfaceContainer)
+            .background(DSColor.glassStd)
             .cornerRadius(0)
     }
 
@@ -353,10 +353,10 @@ struct EntityPageView: View {
                     HStack(spacing: DSSpacing.lg) {
                         Text(section.title.uppercased())
                             .font(.custom("SpaceGrotesk-Bold", size: 11))
-                            .foregroundColor(DSColor.outline)
+                            .foregroundColor(DSColor.glassRim)
                             .kerning(3)
                         Rectangle()
-                            .fill(DSColor.outlineVariant)
+                            .fill(DSColor.inkFaint)
                             .frame(height: 1)
                     }
 
@@ -373,10 +373,10 @@ struct EntityPageView: View {
             HStack(spacing: DSSpacing.lg) {
                 Text("RELATED ENTRIES")
                     .font(.custom("SpaceGrotesk-Bold", size: 11))
-                    .foregroundColor(DSColor.outline)
+                    .foregroundColor(DSColor.glassRim)
                     .kerning(3)
                 Rectangle()
-                    .fill(DSColor.outlineVariant)
+                    .fill(DSColor.inkFaint)
                     .frame(height: 1)
             }
 
@@ -389,13 +389,13 @@ struct EntityPageView: View {
                         .scaleEffect(0.8)
                     Text("正在扫描关联记录…")
                         .bodySMStyle()
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.vertical, DSSpacing.sm)
             } else if linkedMemos.isEmpty && model.relatedDates.isEmpty {
                 Text("暂无关联记录")
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             } else if !linkedMemos.isEmpty {
                 // Show individual memo snippets with navigation
                 ForEach(linkedMemos.indices, id: \.self) { idx in
@@ -404,24 +404,24 @@ struct EntityPageView: View {
                         VStack(alignment: .leading, spacing: DSSpacing.xs) {
                             Text(relativeDateLabel(item.dateStr))
                                 .monoLabelStyle(size: 9)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                             let preview = item.memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
                             if !preview.isEmpty {
                                 Text(preview)
                                     .font(.custom("SourceSerif4-Regular", size: 14))
-                                    .foregroundColor(DSColor.onSurface)
+                                    .foregroundColor(DSColor.inkPrimary)
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
                             } else {
                                 Text("[\(item.memo.type.rawValue)]")
                                     .monoLabelStyle(size: 10)
-                                    .foregroundColor(DSColor.onSurfaceVariant)
+                                    .foregroundColor(DSColor.inkMuted)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)
                         .padding(.horizontal, DSSpacing.md)
-                        .background(DSColor.surfaceContainer)
+                        .background(DSColor.glassStd)
                         .cornerRadius(0)
                     }
                     .buttonStyle(.plain)
@@ -434,15 +434,15 @@ struct EntityPageView: View {
                         HStack {
                             Text(relativeDateLabel(dateStr))
                                 .monoLabelStyle(size: 11)
-                                .foregroundColor(DSColor.onSurface)
+                                .foregroundColor(DSColor.inkPrimary)
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 11))
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                         }
                         .padding(.vertical, 10)
                         .padding(.horizontal, DSSpacing.md)
-                        .background(DSColor.surfaceContainer)
+                        .background(DSColor.glassStd)
                         .cornerRadius(0)
                     }
                     .buttonStyle(.plain)
@@ -471,7 +471,7 @@ struct EntityPageView: View {
                         .scaleEffect(0.8)
                     Text("正在扫描关联记录…")
                         .bodySMStyle()
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.vertical, DSSpacing.sm)
             }
@@ -528,9 +528,9 @@ struct EntityPageView: View {
                     .font(.custom("SpaceGrotesk-Bold", size: 11))
                     .kerning(2)
             }
-            .foregroundColor(DSColor.outline)
+            .foregroundColor(DSColor.glassRim)
             Rectangle()
-                .fill(DSColor.outlineVariant)
+                .fill(DSColor.inkFaint)
                 .frame(height: 1)
         }
     }
@@ -562,17 +562,17 @@ struct EntityPageView: View {
                 VStack(alignment: .leading, spacing: DSSpacing.xs) {
                     Text(item.dateStr)
                         .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                     Text(backlinkSnippet(item.memo))
                         .font(DSType.bodyMD)
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
             .padding(.vertical, DSSpacing.md)
             .contentShape(Rectangle())

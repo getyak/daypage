@@ -295,9 +295,13 @@ struct CompilationProgressBar: View {
 struct TimelineRow: View {
     let memo: Memo
     let isLast: Bool
+    var screenshotManifest: ScreenshotCaptureManifest? = nil
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
+    var onRetryScreenshot: (() -> Void)? = nil
+    var onKeepScreenshotLocal: (() -> Void)? = nil
+    var onSaveScreenshotMeaning: ((String) -> Void)? = nil
     /// Issue #302: long-press → "分享为卡片"
     var onShare: (() -> Void)? = nil
     /// Issue #302: long-press → "分享为引用"
@@ -360,7 +364,7 @@ struct TimelineRow: View {
                     // Full-bleed card snapshot lifted out of the timeline —
                     // reuses MemoCardView so the preview is the card, not a
                     // cropped screenshot of the row.
-                    MemoCardView(memo: memo)
+                    MemoCardView(memo: memo, screenshotManifest: screenshotManifest)
                         .frame(width: SwipePhysics.contextPreviewWidth)
                 }
         }
@@ -376,6 +380,7 @@ struct TimelineRow: View {
             // both behaviors live on a single flag at the card root.
             SwipeableMemoCard(
                 memo: memo,
+                screenshotManifest: screenshotManifest,
                 onDelete: onDelete,
                 onPin: onPin,
                 onShare: onShare,            // left-swipe SHARE → share-as-card
@@ -406,6 +411,9 @@ struct TimelineRow: View {
                     }
                 },
                 onRetranscribe: onRetranscribe,
+                onRetryScreenshot: onRetryScreenshot,
+                onKeepScreenshotLocal: onKeepScreenshotLocal,
+                onSaveScreenshotMeaning: onSaveScreenshotMeaning,
                 isSelectionMode: isSelectionMode
             )
             .frame(maxWidth: .infinity)

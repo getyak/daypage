@@ -15,6 +15,9 @@
 		0AE41F00C0DE515000EF0001 /* MemoExifShutterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE41F00C0DE515000EF0002 /* MemoExifShutterTests.swift */; };
 		0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 160D427C0AE7DAC5724A134F /* DayPageServices */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		87600000000000000000000A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876000000000000000000007 /* ShareViewController.swift */; };
+		87600000000000000000000C /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 87600000000000000000000B /* DayPageServices */; };
+		87600000000000000000000D /* DayPageShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 876000000000000000000006 /* DayPageShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0B7722A154C2145670104616 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
 		1530E7C28C23499CFC14C499 /* SignatureHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AB /* SignatureHaptics.swift */; };
@@ -57,6 +60,8 @@
 		9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */; };
 		9BDB4C3E0410203CCA77F758 /* TodayViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05F4E01BDF7201F880EE5EF /* TodayViewComponents.swift */; };
 		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
+		SC1000876A /* SaveScreenshotIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SC2000876A /* SaveScreenshotIntent.swift */; };
+		SC1000876B /* ScreenshotCaptureReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SC2000876B /* ScreenshotCaptureReviewView.swift */; };
 		9F7FA1DADD34D652818D96EF /* DayPageModels in Frameworks */ = {isa = PBXBuildFile; productRef = 2C2DC779660CD48585D05C3D /* DayPageModels */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
@@ -159,6 +164,11 @@
 		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
 		TVM0000001 /* TodayViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TVM1000001 /* TodayViewModelTests.swift */; };
+		TCC0000001 /* ThreadConversationConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TCC1000001 /* ThreadConversationConsentTests.swift */; };
+		DBC0000001 /* DoubaoConsentBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC1000001 /* DoubaoConsentBoundaryTests.swift */; };
+		DEW0000001 /* DiagnosticsEventWiringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEW1000001 /* DiagnosticsEventWiringTests.swift */; };
+		VCB0000001 /* VoiceConsentBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VCB1000001 /* VoiceConsentBoundaryTests.swift */; };
+		SCI0000001 /* ScreenshotCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SCI1000001 /* ScreenshotCaptureUITests.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AEA556F95D05E9DC9E275688 /* MacKitSecretsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC2FE3353FDB07872B77D65 /* MacKitSecretsProvider.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -359,6 +369,13 @@
 			remoteGlobalIDString = A70000001;
 			remoteInfo = DayPage;
 		};
+		87600000000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB0000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 876000000000000000000001;
+			remoteInfo = DayPageShare;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -369,6 +386,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */,
+				87600000000000000000000D /* DayPageShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -409,6 +427,8 @@
 		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
 		54ACAA3481E5E11FCAAFD73A /* MacTodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacTodayView.swift; sourceTree = "<group>"; };
 		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
+		SC2000876A /* SaveScreenshotIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaveScreenshotIntent.swift; sourceTree = "<group>"; };
+		SC2000876B /* ScreenshotCaptureReviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenshotCaptureReviewView.swift; sourceTree = "<group>"; };
 		61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PillSegmentedControl.swift; sourceTree = "<group>"; };
 		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
@@ -422,6 +442,11 @@
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A11Y1001 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
 		TVM1000001 /* TodayViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModelTests.swift; sourceTree = "<group>"; };
+		TCC1000001 /* ThreadConversationConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationConsentTests.swift; sourceTree = "<group>"; };
+		DBC1000001 /* DoubaoConsentBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoConsentBoundaryTests.swift; sourceTree = "<group>"; };
+		DEW1000001 /* DiagnosticsEventWiringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsEventWiringTests.swift; sourceTree = "<group>"; };
+		VCB1000001 /* VoiceConsentBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceConsentBoundaryTests.swift; sourceTree = "<group>"; };
+		SCI1000001 /* ScreenshotCaptureUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCaptureUITests.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
@@ -547,6 +572,10 @@
 		AF1000019 /* SourceHanSerifSC-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceHanSerifSC-Medium.otf"; sourceTree = "<group>"; };
 		AF1000020 /* SourceHanSerifSC-SemiBold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceHanSerifSC-SemiBold.otf"; sourceTree = "<group>"; };
 		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		876000000000000000000006 /* DayPageShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		876000000000000000000007 /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		876000000000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		876000000000000000000009 /* DayPageShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPageShare.entitlements; sourceTree = "<group>"; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		BB12D96218034D3E4555B8AA /* HapticFeedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
@@ -760,6 +789,14 @@
 				9F7FA1DADD34D652818D96EF /* DayPageModels in Frameworks */,
 				D1C3D4360CE8E6AD5483387D /* DayPageStorage in Frameworks */,
 				495CB623508D32A95406178C /* DayPageServices in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		876000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87600000000000000000000C /* DayPageServices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1096,6 +1133,7 @@
 				T30000001 /* DayPageTests.xctest */,
 				23EA9C83B41565EDB263FB35 /* DayPageWatch.app */,
 				B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */,
+				876000000000000000000006 /* DayPageShare.appex */,
 				FE7DDC58EC6F656636E66120 /* DayPageMac.app */,
 			);
 			name = Products;
@@ -1110,6 +1148,7 @@
 				RES1000001 /* ReminderEditSheet.swift */,
 				A20000013 /* TodayViewModel.swift */,
 				A20000014 /* MemoCardView.swift */,
+				SC2000876B /* ScreenshotCaptureReviewView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
 				A20000033 /* CameraPickerView.swift */,
 				A20000046 /* OnThisDayCard.swift */,
@@ -1269,8 +1308,19 @@
 				6E1BF02CE381B436F22B52D5 /* DayPageWatch */,
 				2F3BCA9F2B06A0AA7A285E16 /* Frameworks */,
 				1FD1A3B1D736CCDDB8DD7C7E /* DayPageWidget */,
+				876000000000000000000010 /* DayPageShare */,
 				3A623C291AF11270CD4270DC /* DayPageMac */,
 			);
+			sourceTree = "<group>";
+		};
+		876000000000000000000010 /* DayPageShare */ = {
+			isa = PBXGroup;
+			children = (
+				876000000000000000000007 /* ShareViewController.swift */,
+				876000000000000000000008 /* Info.plist */,
+				876000000000000000000009 /* DayPageShare.entitlements */,
+			);
+			path = DayPageShare;
 			sourceTree = "<group>";
 		};
 		AF2000001 /* Fonts */ = {
@@ -1305,6 +1355,7 @@
 			children = (
 				2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */,
 				5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */,
+				SC2000876A /* SaveScreenshotIntent.swift */,
 				IN2000001 /* QuickCaptureTextIntent.swift */,
 				IN2000002 /* OpenDailyPageIntent.swift */,
 				IN2000003 /* AskTodayIntent.swift */,
@@ -1441,6 +1492,11 @@
 				TI2000001 /* AppIntentsTests.swift */,
 				A11Y1001 /* AccessibilityTests.swift */,
 				TVM1000001 /* TodayViewModelTests.swift */,
+				TCC1000001 /* ThreadConversationConsentTests.swift */,
+				DBC1000001 /* DoubaoConsentBoundaryTests.swift */,
+				DEW1000001 /* DiagnosticsEventWiringTests.swift */,
+				VCB1000001 /* VoiceConsentBoundaryTests.swift */,
+				SCI1000001 /* ScreenshotCaptureUITests.swift */,
 				SP1001 /* SwipePolishContractTests.swift */,
 				04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */,
 				MYT1000001 /* MemoYAMLTests.swift */,
@@ -1552,6 +1608,7 @@
 			);
 			dependencies = (
 				FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */,
+				87600000000000000000000F /* PBXTargetDependency */,
 				9FE730886283D9BA51EBA8D3 /* PBXTargetDependency */,
 			);
 			name = DayPage;
@@ -1588,6 +1645,26 @@
 			productReference = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		876000000000000000000001 /* DayPageShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 876000000000000000000002 /* Build configuration list for PBXNativeTarget "DayPageShare" */;
+			buildPhases = (
+				876000000000000000000003 /* Sources */,
+				876000000000000000000004 /* Frameworks */,
+				876000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DayPageShare;
+			packageProductDependencies = (
+				87600000000000000000000B /* DayPageServices */,
+			);
+			productName = DayPageShare;
+			productReference = 876000000000000000000006 /* DayPageShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		T70000001 /* DayPageTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = T80000001 /* Build configuration list for PBXNativeTarget "DayPageTests" */;
@@ -1621,6 +1698,9 @@
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					876000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 					A70000001 = {
 						CreatedOnToolsVersion = 16.0;
 					};
@@ -1653,6 +1733,7 @@
 				T70000001 /* DayPageTests */,
 				69BEA0675AFA233657A8AD39 /* DayPageWatch */,
 				F41799EE1E17028D50445A2A /* DayPageWidget */,
+				876000000000000000000001 /* DayPageShare */,
 				52E8308A7FD49A439FF95063 /* DayPageMac */,
 			);
 		};
@@ -1722,6 +1803,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		876000000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -1758,6 +1846,14 @@
 				SA000B019 /* SystemActionWidget.swift in Sources */,
 				SA000B020 /* FocusSessionLiveActivity.swift in Sources */,
 				SA000B021 /* SystemActionIntents.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		876000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87600000000000000000000A /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1822,6 +1918,7 @@
 				A10000F50 /* GraphDisplayLinkController.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
+				SC1000876B /* ScreenshotCaptureReviewView.swift in Sources */,
 				A10000018 /* PhotoService.swift in Sources */,
 				A10000019 /* VoiceService.swift in Sources */,
 				ASR1000005 /* LivePCMCapture.swift in Sources */,
@@ -1932,6 +2029,7 @@
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
 				9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */,
+				SC1000876A /* SaveScreenshotIntent.swift in Sources */,
 				IN1000001 /* QuickCaptureTextIntent.swift in Sources */,
 				IN1000002 /* OpenDailyPageIntent.swift in Sources */,
 				IN1000003 /* AskTodayIntent.swift in Sources */,
@@ -2011,6 +2109,11 @@
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
 				TVM0000001 /* TodayViewModelTests.swift in Sources */,
+				TCC0000001 /* ThreadConversationConsentTests.swift in Sources */,
+				DBC0000001 /* DoubaoConsentBoundaryTests.swift in Sources */,
+				DEW0000001 /* DiagnosticsEventWiringTests.swift in Sources */,
+				VCB0000001 /* VoiceConsentBoundaryTests.swift in Sources */,
+				SCI0000001 /* ScreenshotCaptureUITests.swift in Sources */,
 				SP0001 /* SwipePolishContractTests.swift in Sources */,
 				6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */,
 				MYT0000001 /* MemoYAMLTests.swift in Sources */,
@@ -2078,6 +2181,12 @@
 			target = A70000001 /* DayPage */;
 			targetProxy = T76000001 /* PBXContainerItemProxy */;
 		};
+		87600000000000000000000F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = DayPageShare;
+			target = 876000000000000000000001 /* DayPageShare */;
+			targetProxy = 87600000000000000000000E /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -2133,6 +2242,65 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		876000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DayPageShare/DayPageShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		876000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DayPageShare/DayPageShare.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.share";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
 		};
 		32BEBCA130BE5F4B0EF36D54 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2560,6 +2728,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		876000000000000000000002 /* Build configuration list for PBXNativeTarget "DayPageShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				876000000000000000000011 /* Debug */,
+				876000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		T80000001 /* Build configuration list for PBXNativeTarget "DayPageTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2599,6 +2776,11 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		160D427C0AE7DAC5724A134F /* DayPageServices */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;
+			productName = DayPageServices;
+		};
+		87600000000000000000000B /* DayPageServices */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;
 			productName = DayPageServices;

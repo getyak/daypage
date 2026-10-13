@@ -340,7 +340,7 @@ struct WriteSheetView: View {
             if let submissionError {
                 Text(submissionError)
                     .font(.caption)
-                    .foregroundStyle(DSColor.error)
+                    .foregroundStyle(DSColor.errorRed)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 8)

@@ -227,11 +227,16 @@ public final class WeeklyCompilationService {
                 calendar.startOfDay(for: interval.start),
                 timezone: timezone
             )
-            _ = try await BackendIntelligenceService.shared.requestWeekly(
-                weekStart: weekStart,
-                timezone: timezone.identifier,
-                force: forceRefresh
-            )
+            do {
+                _ = try await BackendIntelligenceService.shared.requestWeekly(
+                    weekStart: weekStart,
+                    timezone: timezone.identifier,
+                    force: forceRefresh
+                )
+            } catch is AIAuthorizationError {
+                // Issue #928: a denied backend authoring attempt is terminal.
+                throw WeeklyCompilationError.aiDisabled
+            }
             throw WeeklyCompilationError.backendRequested
         }
 
@@ -271,6 +276,9 @@ public final class WeeklyCompilationService {
                 message: "compileWeekly LLM error: \(llm.errorDescription ?? "?")"
             )
             throw Self.mapLLMError(llm)
+        } catch is AIAuthorizationError {
+            // Issue #928: denials map to the terminal `aiDisabled`.
+            throw WeeklyCompilationError.aiDisabled
         } catch {
             SentryReporter.breadcrumb(
                 category: "weekly",

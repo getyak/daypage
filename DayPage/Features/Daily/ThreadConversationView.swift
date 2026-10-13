@@ -27,7 +27,7 @@ struct ThreadConversationView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(DSColor.surfaceContainerHigh)
+        .background(DSColor.glassHi)
         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
         // Expand/collapse shifts content position (`.move` transition above) —
         // route through the shared `expand` token so it honors Reduce Motion.
@@ -84,7 +84,7 @@ struct ThreadConversationView: View {
             if let err = vm.error {
                 Text(err)
                     .font(DSType.bodySM)
-                    .foregroundColor(DSColor.error)
+                    .foregroundColor(DSColor.errorRed)
                     .padding(.horizontal, DSSpacing.lg)
                     .padding(.bottom, DSSpacing.sm)
             }
@@ -210,7 +210,7 @@ private struct MessageBubble: View {
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.vertical, DSSpacing.sm)
                 .background(
-                    isUser ? DSColor.amberSoft : DSColor.surfaceContainerLowest,
+                    isUser ? DSColor.amberSoft : DSColor.surfaceWhite,
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .overlay(

@@ -121,15 +121,25 @@ public struct LLMClient {
     /// HTTP transport. Defaults to the production URLSession via
     /// `HTTPTransports.shared`; tests inject a fake. Issue #31.
     public let transport: HTTPTransport
+    /// Live authorization policy (issue #928). Checked at entry, on EVERY
+    /// retry attempt, and again immediately before the SSE connection opens.
+    public let consent: AIConsentChecking
+    /// Local session used only for the SSE streaming boundary. Tests inject a
+    /// session with a terminal `URLProtocol`; production uses `URLSession.shared`.
+    public let streamSession: URLSession
 
     public init(
         config: Config,
         spanName: String = "llm.chat",
-        transport: HTTPTransport = HTTPTransports.shared
+        transport: HTTPTransport = HTTPTransports.shared,
+        consent: AIConsentChecking = LiveAIConsent(),
+        streamSession: URLSession = .shared
     ) {
         self.config = config
         self.spanName = spanName
         self.transport = transport
+        self.consent = consent
+        self.streamSession = streamSession
     }
 
     // MARK: - Chat Completion
@@ -145,6 +155,8 @@ public struct LLMClient {
         policy: RetryPolicy = .standard,
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws -> String {
+        // Issue #928: the live master switch gates this request at entry.
+        try consent.authorize()
         let online = await MainActor.run { NetworkMonitor.shared.isOnline }
         guard online else { throw LLMError.offline }
         guard !config.apiKey.isEmpty else { throw LLMError.missingApiKey }
@@ -173,6 +185,11 @@ public struct LLMClient {
     /// errors (timeout, 429, generic network drop) retry. URLError values get
     /// normalized to ``LLMError`` cases inside ``sendOnce``.
     public static func shouldRetry(_ error: Error) -> RetryDecision {
+        if error is AIAuthorizationError {
+            // Authorization denials are terminal: the toggle will not flip by
+            // retrying, and a denied attempt must never be re-sent.
+            return .stop
+        }
         if let llm = error as? LLMError {
             switch llm {
             case .missingApiKey, .invalidURL, .emptyResponse:
@@ -197,6 +214,9 @@ public struct LLMClient {
     // MARK: - Single request
 
     private func sendOnce(messages: [LLMMessage]) async throws -> String {
+        // Checked before EVERY attempt — a toggle flip during retry backoff
+        // must prevent the next send (issue #928).
+        try consent.authorize()
         guard let url = URL(string: "\(config.baseURL)/chat/completions") else {
             throw LLMError.invalidURL
         }
@@ -284,6 +304,10 @@ public struct LLMClient {
         messages: [LLMMessage],
         onDelta: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> String {
+        // Issue #928: entry check, then a second check immediately before the
+        // SSE connection opens — a toggle flip between entry and connect must
+        // stop before any socket is created.
+        try consent.authorize()
         let online = await MainActor.run { NetworkMonitor.shared.isOnline }
         guard online else { throw LLMError.offline }
         guard !config.apiKey.isEmpty else { throw LLMError.missingApiKey }
@@ -310,7 +334,8 @@ public struct LLMClient {
 
         let (asyncBytes, response): (URLSession.AsyncBytes, URLResponse)
         do {
-            (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
+            try consent.authorize()
+            (asyncBytes, response) = try await streamSession.bytes(for: request)
         } catch let urlError as URLError {
             switch urlError.code {
             case .timedOut: throw LLMError.networkTimeout

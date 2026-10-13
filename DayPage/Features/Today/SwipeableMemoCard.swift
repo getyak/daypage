@@ -292,6 +292,7 @@ enum SwipeSnapLogic {
 struct SwipeableMemoCard: View {
 
     let memo: Memo
+    var screenshotManifest: ScreenshotCaptureManifest? = nil
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
     /// Left-swipe SHARE action (museum-aesthetic primary).
@@ -313,6 +314,9 @@ struct SwipeableMemoCard: View {
     /// selection mode the parent re-routes this to toggle membership instead.
     var onOpen: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
+    var onRetryScreenshot: (() -> Void)? = nil
+    var onKeepScreenshotLocal: (() -> Void)? = nil
+    var onSaveScreenshotMeaning: ((String) -> Void)? = nil
     /// Issue #309 W2: in multi-select mode, both the NavigationLink tap
     /// and the swipe gesture must be inert — the only valid interaction is
     /// the tap-to-toggle handled by the parent TimelineRow. Both panels
@@ -357,6 +361,7 @@ struct SwipeableMemoCard: View {
     // One drawer at a time: set after this card announces its own drag via
     // .memoCardDidBeginSwipe so peers can close, reset on lift/cancel.
     @State private var didNotifyPeers: Bool = false
+    @State private var showScreenshotMeaningSheet = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -404,7 +409,11 @@ struct SwipeableMemoCard: View {
             // and panel-close are driven by the tap recognizer inside
             // HorizontalPanGesture (onTap), not a SwiftUI NavigationLink,
             // because the pan host view hit-tests to self.
-            MemoCardView(memo: memo, onDelete: onDelete)
+            MemoCardView(
+                memo: memo,
+                screenshotManifest: screenshotManifest,
+                onDelete: onDelete
+            )
                 .contentShape(Rectangle())
                 .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1.0)
                 .animation(reduceMotion ? nil : Motion.spring, value: isPressed)
@@ -478,6 +487,23 @@ struct SwipeableMemoCard: View {
                 )
             }
             .allowsHitTesting(revealedSide != nil && !isSelectionMode)
+
+            // Screenshot controls sit above the UIKit gesture bridge. Keeping
+            // this small action strip as the top layer makes its Buttons and
+            // VoiceOver actions reachable without giving up swipe direction
+            // locking for the rest of the card.
+            if let screenshotManifest, !isSelectionMode, revealedSide == nil {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    ScreenshotCaptureActionBar(
+                        manifest: screenshotManifest,
+                        onRetry: { onRetryScreenshot?() },
+                        onKeepLocal: { onKeepScreenshotLocal?() },
+                        onExplain: { showScreenshotMeaningSheet = true }
+                    )
+                    .padding(.bottom, 36)
+                }
+            }
         }
         // Same continuous corner as MemoCardView's solidCard surface, so a
         // revealed drawer inherits the card's silhouette (the old .clipped()
@@ -531,6 +557,11 @@ struct SwipeableMemoCard: View {
         .onReceive(NotificationCenter.default.publisher(for: .memoCardDidBeginSwipe)) { note in
             guard let other = note.object as? UUID, other != memo.id else { return }
             if revealedSide != nil { snapClose() }
+        }
+        .sheet(isPresented: $showScreenshotMeaningSheet) {
+            ScreenshotMeaningSheet(initialText: memo.body) { body in
+                onSaveScreenshotMeaning?(body)
+            }
         }
     }
 

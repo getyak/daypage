@@ -118,7 +118,7 @@ struct SettingsAppearanceView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(NSLocalizedString("settings.appearance.preview.hint", comment: ""))
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

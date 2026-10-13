@@ -78,7 +78,7 @@ struct DailyPageView: View {
     var body: some View {
         navContainer {
             ZStack {
-                DSColor.background.ignoresSafeArea()
+                DSColor.bgWarm.ignoresSafeArea()
 
                 if let model {
                     ScrollView {
@@ -115,13 +115,13 @@ struct DailyPageView: View {
                     VStack(spacing: DSSpacing.lg) {
                         Text(NSLocalizedString("daily.load.failed", comment: "Daily page — failed to load entry"))
                             .bodyMDStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                         Text(dateString)
                             .monoLabelStyle(size: 11)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                         Button(NSLocalizedString("daydetail.close", comment: "Close button")) { dismiss() }
                             .monoLabelStyle(size: 12)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.amberDeep)
                             .padding(.top, DSSpacing.sm)
                     }
                 }
@@ -139,19 +139,19 @@ struct DailyPageView: View {
                         Button(action: { dismiss() }) {
                             Image(systemName: "arrow.left")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(DSColor.onSurface)
+                                .foregroundColor(DSColor.inkPrimary)
                         }
                     }
                     ToolbarItem(placement: .principal) {
                         Text(dailyPageMonthDay(dateString))
                             .headlineMDStyle()
-                            .foregroundColor(DSColor.onSurface)
+                            .foregroundColor(DSColor.inkPrimary)
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if isRecompiling {
                         ProgressView()
-                            .tint(DSColor.onSurface)
+                            .tint(DSColor.inkPrimary)
                             .scaleEffect(0.8)
                     } else {
                         Menu {
@@ -206,7 +206,7 @@ struct DailyPageView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 18, weight: .regular))
-                                .foregroundColor(DSColor.onSurface)
+                                .foregroundColor(DSColor.inkPrimary)
                         }
                     }
                 }
@@ -612,7 +612,7 @@ struct DailyPageView: View {
         VStack(alignment: .leading, spacing: DSSpacing.md) {
             Text(NSLocalizedString("daily.section.threads", comment: "Daily page section: threads"))
                 .sectionLabelStyle()
-                .foregroundColor(DSColor.outline)
+                .foregroundColor(DSColor.glassRim)
 
             ForEach(model.followUpQuestions, id: \.self) { question in
                 threadCard(question: question, compiledText: model.rawContent)
@@ -685,7 +685,7 @@ struct DailyPageView: View {
             }
             .padding(.horizontal, DSSpacing.lg)
             .padding(.vertical, 10)
-            .background(DSColor.surfaceContainerHigh.opacity(0.8))
+            .background(DSColor.glassHi.opacity(0.8))
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
@@ -720,7 +720,7 @@ struct DailyPageView: View {
     private func footer(model: DailyPageModel) -> some View {
         VStack(spacing: 0) {
             Divider()
-                .background(DSColor.surfaceContainerHigh)
+                .background(DSColor.glassHi)
                 .padding(.bottom, DSSpacing.xl2)
 
             // US-020: compilation progress / error feedback
@@ -728,10 +728,10 @@ struct DailyPageView: View {
                 HStack(spacing: DSSpacing.sm) {
                     ProgressView()
                         .scaleEffect(0.7)
-                        .tint(DSColor.primary)
+                        .tint(DSColor.amberDeep)
                     Text(compilationStageLabel(compilationService.compilationProgress))
                         .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.primary)
+                        .foregroundColor(DSColor.amberDeep)
                     Spacer()
                 }
                 .padding(.bottom, DSSpacing.lg)
@@ -744,7 +744,7 @@ struct DailyPageView: View {
                     Button(action: { Task { await recompile() } }) {
                         Text(NSLocalizedString("daily.action.retry_arrow", comment: "Daily page action: retry with arrow"))
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.amberDeep)
                             .underline()
                     }
                     .buttonStyle(.plain)
@@ -755,7 +755,7 @@ struct DailyPageView: View {
             HStack {
                 Text(String(format: NSLocalizedString(model.memoCount == 1 ? "daily.stats.from_entries.one" : "daily.stats.from_entries.other", comment: "Daily page footer — compiled from N raw entries"), model.memoCount).uppercased())
                     .monoLabelStyle(size: 10)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
 
                 Spacer()
 
@@ -763,7 +763,7 @@ struct DailyPageView: View {
                     Button(action: viewOriginalFlow) {
                         Text(NSLocalizedString("daily.action.view_flow", comment: "Daily page action: view original flow"))
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.amberDeep)
                             .underline()
                             .frame(minHeight: 44)
                     }

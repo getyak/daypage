@@ -118,11 +118,17 @@ public final class CompilationService: ObservableObject {
         // their durable sync operations, requests a backend reducer run, and
         // reads the result later through the isolated derived cache.
         if FeatureFlagStore.shared.isEnabled(.backendFirstIntelligence) {
-            _ = try await BackendIntelligenceService.shared.requestDaily(
-                localDate: dateString,
-                timezone: AppSettings.currentTimeZone().identifier,
-                force: force
-            )
+            do {
+                _ = try await BackendIntelligenceService.shared.requestDaily(
+                    localDate: dateString,
+                    timezone: AppSettings.currentTimeZone().identifier,
+                    force: force
+                )
+            } catch is AIAuthorizationError {
+                // Issue #928: a denied backend authoring attempt maps to the
+                // terminal `aiDisabled` (quiet local-only, no retry).
+                throw CompilationError.aiDisabled
+            }
             stage = .done
             compilationProgress = .done
             return .requestedBackend
@@ -318,6 +324,14 @@ public final class CompilationService: ObservableObject {
             )
         } catch let llm as LLMError {
             throw Self.mapLLMError(llm)
+        } catch let denied as AIAuthorizationError {
+            // Issue #928: denials map to the terminal `aiDisabled` so the
+            // existing background non-retry classifier and quiet local-only
+            // behavior stay effective (never `.unknown`, which would retry).
+            switch denied {
+            case .aiDisabled, .screenshotCloudDisabled:
+                throw CompilationError.aiDisabled
+            }
         } catch let urlErr as URLError where urlErr.code == .timedOut {
             throw CompilationError.networkTimeout
         } catch {

@@ -1,4 +1,6 @@
 import XCTest
+import Foundation
+import DayPageModels
 import DayPageStorage
 import DayPageServices
 @testable import DayPage
@@ -238,5 +240,122 @@ final class VaultMigrationServiceTests: XCTestCase {
             UserDefaults.standard.object(forKey: AppSettings.Keys.migrationCompletedAt),
             "migrationCompletedAt must be cleared after deleteLocalBackup"
         )
+    }
+}
+
+/// Source/destination and commit callback are isolated. These cases never
+/// call deleteLocalBackup, change real preferences, or resolve an iCloud URL.
+final class ScreenshotMigrationWiringTests: XCTestCase {
+    private struct LocalEvidence: ScreenshotEvidenceExtracting {
+        func extract(from imageData: Data) async throws -> ScreenshotEvidence {
+            ScreenshotEvidence()
+        }
+    }
+
+    private func roots() throws -> (root: URL, source: URL, destination: URL) {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("screenshot-migration-\(UUID().uuidString)", isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("destination", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        return (root, source, destination)
+    }
+
+    private func capture(in source: URL) async throws -> ScreenshotCaptureOutcome {
+        let png = try XCTUnwrap(Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="))
+        let coordinator = ScreenshotCaptureCoordinator(
+            store: ScreenshotCaptureStore(vaultRoot: source),
+            evidenceExtractor: LocalEvidence(),
+            cloudConsent: AllowAllAIConsent()
+        )
+        return try await coordinator.ingest(data: png, declaredContentType: "public.png",
+            source: .appImport, cloudAnalysisAllowed: false)
+    }
+
+    @MainActor
+    func testMigrationCopiesCanonicalScreenshotStateAndOriginal() async throws {
+        let paths = try roots()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let outcome = try await capture(in: paths.source)
+        let hidden = paths.source.appendingPathComponent("raw/assets/.other-cache")
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: true)
+        try Data("synthetic cache".utf8).write(to: hidden.appendingPathComponent("ignored"))
+        var committed = false
+        try await VaultMigrationService.shared.migrateToiCloud(localVault: paths.source,
+            iCloudVault: paths.destination, commitSettings: { committed = true }, progress: { _, _ in })
+        XCTAssertTrue(committed)
+        let target = ScreenshotCaptureStore(vaultRoot: paths.destination)
+        let copied = try await target.manifest(for: outcome.manifest.id)
+        let durableSource = try await ScreenshotCaptureStore(vaultRoot: paths.source).manifest(for: copied.id)
+        XCTAssertEqual(copied, durableSource)
+        let manifestPath = VaultMigrationFileInventory.screenshotManifestDirectory + "/" + copied.id.uuidString.lowercased() + ".json"
+        XCTAssertEqual(try Data(contentsOf: paths.source.appendingPathComponent(manifestPath)),
+                       try Data(contentsOf: paths.destination.appendingPathComponent(manifestPath)))
+        let original = try await ScreenshotCaptureStore(vaultRoot: paths.source).originalData(for: copied.id)
+        let migrated = try await target.originalData(for: copied.id)
+        XCTAssertEqual(migrated, original)
+        XCTAssertEqual(try RawStorage.read(dayString: copied.memoDayString, vaultRoot: paths.destination).map(\.id), [copied.memoID])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.destination.appendingPathComponent("raw/assets/.other-cache").path))
+    }
+
+    @MainActor
+    func testDestinationSymlinkIsRejectedBeforeAnyOutsideMutation() async throws {
+        let paths = try roots()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let outcome = try await capture(in: paths.source)
+        let outside = paths.root.appendingPathComponent("outside", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let sentinel = outside.appendingPathComponent(outcome.manifest.id.uuidString.lowercased() + ".json")
+        let bytes = Data("outside sentinel".utf8)
+        try bytes.write(to: sentinel)
+        let link = paths.destination.appendingPathComponent(VaultMigrationFileInventory.screenshotManifestDirectory)
+        try FileManager.default.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+        var committed = false
+        do {
+            try await VaultMigrationService.shared.migrateToiCloud(localVault: paths.source,
+                iCloudVault: paths.destination, commitSettings: { committed = true }, progress: { _, _ in })
+            XCTFail("Unsafe destination must be rejected")
+        } catch { }
+        XCTAssertFalse(committed)
+        XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: outside.path), [sentinel.lastPathComponent])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.destination.appendingPathComponent("raw/" + outcome.manifest.memoDayString + ".md").path))
+    }
+
+    @MainActor
+    func testMissingManifestCannotHideBehindDestinationExtras() async throws {
+        let paths = try roots()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        _ = try await capture(in: paths.source)
+        for relative in try VaultMigrationFileInventory.relativeFiles(in: paths.source)
+            where !relative.hasPrefix(VaultMigrationFileInventory.screenshotManifestDirectory + "/") {
+            let target = paths.destination.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: paths.source.appendingPathComponent(relative), to: target)
+        }
+        try Data("extra one".utf8).write(to: paths.destination.appendingPathComponent("extra-one"))
+        try Data("extra two".utf8).write(to: paths.destination.appendingPathComponent("extra-two"))
+        XCTAssertThrowsError(try VaultMigrationService.shared.verifyMigration(localVault: paths.source,
+            iCloudVault: paths.destination, fm: .default))
+    }
+
+    @MainActor
+    func testCorruptManifestFailsMigrationVerification() async throws {
+        let paths = try roots()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let outcome = try await capture(in: paths.source)
+        for relative in try VaultMigrationFileInventory.relativeFiles(in: paths.source) {
+            let target = paths.destination.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: paths.source.appendingPathComponent(relative), to: target)
+        }
+        let manifest = paths.destination.appendingPathComponent(
+            "raw/assets/.screenshot-captures/\(outcome.manifest.id.uuidString.lowercased()).json")
+        try Data("synthetic corruption".utf8).write(to: manifest)
+        XCTAssertThrowsError(try VaultMigrationService.shared.verifyMigration(localVault: paths.source,
+            iCloudVault: paths.destination, fm: .default))
     }
 }

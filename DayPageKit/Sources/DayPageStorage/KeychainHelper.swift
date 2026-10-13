@@ -16,12 +16,17 @@ public enum KeychainHelper {
     /// familiar credential name. Normal app and macOS package behavior is unchanged.
     private static func serviceName(_ name: String) -> String {
         #if DEBUG && os(iOS)
-        if let identity = Bundle.main.bundleIdentifier,
-           identity == "com.daypage.app.qa-unit" || identity == "com.daypage.app.qa-ui" {
-            return "\(identity).\(name)"
-        }
-        #endif
+        return qaServiceName(name, bundleIdentifier: Bundle.main.bundleIdentifier)
+        #else
         return name
+        #endif
+    }
+
+    /// Pure namespace resolver: even an unrecognized QA variant cannot read
+    /// or delete production credentials on Simulator. No Keychain access.
+    static func qaServiceName(_ name: String, bundleIdentifier: String?) -> String {
+        guard let identity = bundleIdentifier, identity.hasPrefix("com.daypage.app.qa-") else { return name }
+        return "\(identity).\(name)"
     }
 
     // MARK: - API Key Storage (US-002)

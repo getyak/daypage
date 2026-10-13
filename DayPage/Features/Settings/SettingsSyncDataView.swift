@@ -122,13 +122,13 @@ struct SettingsSyncDataView: View {
                     .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(NSLocalizedString("settings.icloud.connected", comment: "")).font(.body).fontWeight(.medium)
-                    Text(L10n.Settings.iCloudDrive).font(.caption).foregroundColor(DSColor.onSurfaceVariant)
+                    Text(L10n.Settings.iCloudDrive).font(.caption).foregroundColor(DSColor.inkMuted)
                 }
                 Spacer()
                 if let date = lastSync {
                     Text(lastSyncLabel(date))
                         .font(.caption)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
 
@@ -140,7 +140,7 @@ struct SettingsSyncDataView: View {
                     Text(NSLocalizedString("settings.icloud.syncing", comment: "")).font(.body).fontWeight(.medium)
                     Text(String(format: NSLocalizedString("settings.icloud.pending_files", comment: ""), pendingFiles))
                         .font(.caption)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
 
@@ -171,7 +171,7 @@ struct SettingsSyncDataView: View {
                         .fontWeight(.semibold)
                     Text(NSLocalizedString("settings.icloud.enable.subtitle", comment: ""))
                         .font(.caption)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             Button(action: openSystemSettings) {
@@ -301,7 +301,7 @@ struct SettingsSyncDataView: View {
                     .autocorrectionDisabled(true)
                     .keyboardType(.URL)
                     .font(.callout)
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, DSSpacing.md)
                     .frame(minHeight: 44)
                     .background(DSColor.bgWarm)
@@ -317,7 +317,7 @@ struct SettingsSyncDataView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .font(.callout)
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, DSSpacing.md)
                     .frame(minHeight: 44)
                     .background(DSColor.bgWarm)
@@ -371,10 +371,10 @@ struct SettingsSyncDataView: View {
             } else if SyncSettings.isConfigured {
                 HStack {
                     Label(NSLocalizedString("settings.websync.all_synced", comment: "All synced row"), systemImage: "checkmark.icloud")
-                        .foregroundStyle(DSColor.onSurfaceVariant, DSColor.onSurfaceVariant)
+                        .foregroundStyle(DSColor.inkMuted, DSColor.inkMuted)
                     Spacer()
                 }
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
             }
         } header: {
             Text(NSLocalizedString("settings.websync.section", comment: "Web sync section header"))
@@ -434,7 +434,7 @@ struct SettingsSyncDataView: View {
                     Spacer()
                     Text(appSettings.preferredTimeZone.localizedLabel)
                         .font(.caption)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             if appSettings.preferredTimeZone.identifier != TimeZone.current.identifier {
@@ -463,7 +463,7 @@ struct SettingsSyncDataView: View {
                 Spacer()
                 Text(vaultSizeLabel)
                     .font(.caption)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
 
             Button(action: exportAll) {
@@ -501,7 +501,7 @@ struct SettingsSyncDataView: View {
             if let result = exportResult {
                 Text(result)
                     .font(.caption)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
             }
         } header: {
             Text(NSLocalizedString("settings.data.section", comment: ""))

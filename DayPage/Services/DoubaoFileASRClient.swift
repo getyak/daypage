@@ -1,5 +1,6 @@
 import Foundation
 import DayPageStorage
+import DayPageServices
 
 // MARK: - DoubaoFileASRClient
 
@@ -16,6 +17,31 @@ import DayPageStorage
 /// Requires the `volc.bigasr.auc_turbo` entitlement to be enabled in the
 /// 火山引擎 console — it is provisioned separately from the streaming and
 /// standard recorded-file services.
+/// Synthetic request configuration for the file ASR boundary (issue #928).
+/// Tests supply inert values so the post-read consent flip is reachable
+/// without real defaults/keychain; `live` resolves the real static secrets
+/// only AFTER the authorization check passes.
+struct DoubaoFileConnectionConfig: Sendable {
+    var hasCredentials: Bool
+    var fileSubmitURL: String
+    var appID: String
+    var accessToken: String
+    var fileResourceID: String
+    var modelName: String
+
+    /// Live configuration — resolved AFTER authorization.
+    static var live: DoubaoFileConnectionConfig {
+        DoubaoFileConnectionConfig(
+            hasCredentials: DoubaoASRConfig.hasCredentials,
+            fileSubmitURL: DoubaoASRConfig.fileSubmitURL,
+            appID: DoubaoASRConfig.appID,
+            accessToken: DoubaoASRConfig.accessToken,
+            fileResourceID: DoubaoASRConfig.fileResourceID,
+            modelName: DoubaoASRConfig.fileModelName
+        )
+    }
+}
+
 struct DoubaoFileASRClient {
 
     /// Outcome codes from the `X-Api-Status-Code` response header. The HTTP
@@ -60,22 +86,46 @@ struct DoubaoFileASRClient {
     static let maxInlineBytes = 18 * 1_024 * 1_024
 
     /// Transcribes the audio file at `url`, returning plain text.
-    static func transcribe(at url: URL) async throws -> String {
-        guard DoubaoASRConfig.hasCredentials else { throw ClientError.missingCredentials }
-        guard let endpoint = URL(string: DoubaoASRConfig.fileSubmitURL) else {
+    ///
+    /// Issue #928 boundaries: authorization is checked BEFORE any work and
+    /// AGAIN after the asynchronous file read, immediately before the HTTP
+    /// send — a toggle flip during the read must prevent the upload. Tests
+    /// inject `consent`, `read`, and `transport` seams; no real provider call
+    /// or microphone/speech permission is ever involved.
+    static func transcribe(
+        at url: URL,
+        consent: AIConsentChecking = LiveAIConsent(),
+        read: (@Sendable (URL) async throws -> Data)? = nil,
+        transport: HTTPTransport = HTTPTransports.shared,
+        connectionConfig: DoubaoFileConnectionConfig? = nil
+    ) async throws -> String {
+        // Issue #928 boundary 1: authorization BEFORE any work. Live
+        // credentials resolve only after this passes.
+        try consent.authorize()
+        let config = connectionConfig ?? .live
+        guard config.hasCredentials else { throw ClientError.missingCredentials }
+        guard let endpoint = URL(string: config.fileSubmitURL) else {
             throw ClientError.invalidEndpoint
         }
 
         let audioData: Data
         do {
-            // VoiceService is @MainActor and a long take is several MB —
-            // reading it synchronously here would drop frames.
-            audioData = try await Task.detached(priority: .userInitiated) {
-                try Data(contentsOf: url)
-            }.value
+            if let read {
+                audioData = try await read(url)
+            } else {
+                // VoiceService is @MainActor and a long take is several MB —
+                // reading it synchronously here would drop frames.
+                audioData = try await Task.detached(priority: .userInitiated) {
+                    try Data(contentsOf: url)
+                }.value
+            }
         } catch {
             throw ClientError.readFailed(error)
         }
+
+        // Issue #928: second check immediately before the HTTP send — the
+        // await above cannot be covered by a pre-work snapshot.
+        try consent.authorize()
 
         guard audioData.count <= maxInlineBytes else {
             throw ClientError.audioTooLarge(bytes: audioData.count)
@@ -85,9 +135,9 @@ struct DoubaoFileASRClient {
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(DoubaoASRConfig.appID, forHTTPHeaderField: "X-Api-App-Key")
-        request.setValue(DoubaoASRConfig.accessToken, forHTTPHeaderField: "X-Api-Access-Key")
-        request.setValue(DoubaoASRConfig.fileResourceID, forHTTPHeaderField: "X-Api-Resource-Id")
+        request.setValue(config.appID, forHTTPHeaderField: "X-Api-App-Key")
+        request.setValue(config.accessToken, forHTTPHeaderField: "X-Api-Access-Key")
+        request.setValue(config.fileResourceID, forHTTPHeaderField: "X-Api-Resource-Id")
         request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Api-Request-Id")
         request.setValue("-1", forHTTPHeaderField: "X-Api-Sequence")
 
@@ -98,7 +148,7 @@ struct DoubaoFileASRClient {
                 "data": audioData.base64EncodedString(),
             ],
             "request": [
-                "model_name": DoubaoASRConfig.fileModelName,
+                "model_name": config.modelName,
                 // Punctuation + inverse text normalization ("三点半" → "3点半")
                 // make the transcript directly usable as memo body text.
                 "enable_punc": true,
@@ -107,7 +157,7 @@ struct DoubaoFileASRClient {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await transport.data(for: request)
         let http = response as? HTTPURLResponse
         let status = http?.value(forHTTPHeaderField: "X-Api-Status-Code")
 

@@ -115,6 +115,12 @@ final class TodayViewModel: ObservableObject {
         didSet { recomputeWordCount() }
     }
 
+    /// Durable screenshot inbox state keyed by the raw memo it decorates.
+    /// The raw memo remains the source of truth for timeline ordering; this
+    /// sidecar supplies OCR / understanding / retry state without changing the
+    /// human-readable memo format.
+    @Published private(set) var screenshotManifestsByMemoID: [UUID: ScreenshotCaptureManifest] = [:]
+
     /// Number of signals (memos) captured today — drives the Day Orb readout.
     var signalCount: Int { memos.count }
 
@@ -318,6 +324,16 @@ final class TodayViewModel: ObservableObject {
         }
     }
     private var deletionContext: DeletionContext?
+    /// Monotonic deletion generation (issue #928 review): an expired undo
+    /// window only clears the state of ITS OWN deletion — a resumed older task
+    /// can never clear a newer deletion's Undo state.
+    private var deletionGeneration: Int = 0
+    /// Test seam for native regression: overrides screenshot deletion
+    /// finalization (production uses `ScreenshotCaptureCoordinator.shared`).
+    var finalizeScreenshotDeletionOverride: ((UUID, URL) async throws -> Void)?
+    /// Pending screenshot-capture deletion bound to the vault captured when
+    /// the deletion started, so finalize/undo can never target another vault.
+    private var pendingDeletedScreenshotCapture: (captureID: UUID, vaultRoot: URL)?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
@@ -332,6 +348,7 @@ final class TodayViewModel: ObservableObject {
             observeConflictResolution()
             observeRawStorageWrites()
             observeTimelineIndex()
+            observeScreenshotInbox()
         }
     }
 
@@ -430,6 +447,28 @@ final class TodayViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    private func observeScreenshotInbox() {
+        NotificationCenter.default
+            .publisher(for: .screenshotCaptureDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in
+                    let manifests = await ScreenshotCaptureCoordinator.shared.manifests(for: self.date)
+                    self.screenshotManifestsByMemoID = Dictionary(
+                        manifests.map { ($0.memoID, $0) },
+                        uniquingKeysWith: { first, _ in first }
+                    )
+                    if manifests.contains(where: { manifest in
+                        !self.memos.contains(where: { $0.id == manifest.memoID })
+                    }) {
+                        self.load()
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Delete / Pin Memo
 
     /// Changes only this record on disk. The list may be older than a
@@ -438,6 +477,24 @@ final class TodayViewModel: ObservableObject {
         guard memos.contains(where: { $0.id == memo.id }) else { return }
         if submissionUndoPayload?.memo.id == memo.id {
             submissionUndoPayload = nil
+        }
+        // Starting a new deletion closes the preceding Undo window. Its raw
+        // deletion may still be queued: retain that persistence task before
+        // enqueueing this deletion, and only then finalize its own capture.
+        if let previousCapture = pendingDeletedScreenshotCapture {
+            let previousDurableDeletion = memoPersistenceTask
+            let finalizer = finalizeScreenshotDeletionOverride
+            Task {
+                _ = await previousDurableDeletion?.value
+                if let finalizer {
+                    try? await finalizer(previousCapture.captureID, previousCapture.vaultRoot)
+                } else {
+                    try? await ScreenshotCaptureCoordinator.shared.finalizeDeletionIfMemoMissing(
+                        captureID: previousCapture.captureID,
+                        vaultRoot: previousCapture.vaultRoot
+                    )
+                }
+            }
         }
         let remaining = memos.filter { $0.id != memo.id }
         withAnimation(Motion.rise) {
@@ -448,7 +505,12 @@ final class TodayViewModel: ObservableObject {
         let owningDayString = loadedDayString
         let context = DeletionContext(vaultRoot: vaultRoot, dayString: owningDayString)
         deletionContext = context
-        persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.delete_failed", comment: "")) {
+
+        // Start 5-second undo window (user-visible interval unchanged).
+        deleteUndoTask?.cancel()
+        deletionGeneration &+= 1
+        let generation = deletionGeneration
+        let durableDeletion = persistMemoChange(failureMessagePrefix: NSLocalizedString("error.memo.delete_failed", comment: "")) {
             let deleted = try await MemoRecordStore.shared.delete(
                 id: memo.id,
                 dayString: owningDayString,
@@ -456,14 +518,39 @@ final class TodayViewModel: ObservableObject {
             )
             await MainActor.run { context.deletedMemo = deleted }
         }
-
-        // Start 5-second undo window
-        deleteUndoTask?.cancel()
+        pendingDeletedScreenshotCapture = screenshotManifestsByMemoID[memo.id]
+            .map { (captureID: $0.id, vaultRoot: vaultRoot) }
         lastDeletedMemo = memo
         deleteUndoTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             guard !Task.isCancelled else { return }
-            lastDeletedMemo = nil
+            // Close Undo ownership ATOMICALLY for this deletion on MainActor
+            // BEFORE any irreversible finalization: after this point
+            // undoDelete() rejects, so a restore can never race file deletion.
+            guard self.deletionGeneration == generation else { return }
+            let pendingCapture = self.pendingDeletedScreenshotCapture
+            self.pendingDeletedScreenshotCapture = nil
+            self.lastDeletedMemo = nil
+            // This expired task now owns finalization, independently of the
+            // next deletion's timer. A newer delete must not cancel it while
+            // it is suspended, leaving the old screenshot orphaned.
+            self.deleteUndoTask = nil
+            // The durable raw deletion must land before file finalization.
+            _ = await durableDeletion.value
+            guard !Task.isCancelled else { return }
+            if let pendingCapture {
+                if let finalizeScreenshotDeletionOverride = self.finalizeScreenshotDeletionOverride {
+                    try? await finalizeScreenshotDeletionOverride(
+                        pendingCapture.captureID,
+                        pendingCapture.vaultRoot
+                    )
+                } else {
+                    try? await ScreenshotCaptureCoordinator.shared.finalizeDeletionIfMemoMissing(
+                        captureID: pendingCapture.captureID,
+                        vaultRoot: pendingCapture.vaultRoot
+                    )
+                }
+            }
         }
     }
 
@@ -474,6 +561,7 @@ final class TodayViewModel: ObservableObject {
         deletionContext = nil
         deleteUndoTask?.cancel()
         deleteUndoTask = nil
+        pendingDeletedScreenshotCapture = nil
         lastDeletedMemo = nil
 
         withAnimation(Motion.rise) {
@@ -494,6 +582,35 @@ final class TodayViewModel: ObservableObject {
                 dayString: restoreDayString,
                 vaultRoot: context.vaultRoot
             )
+        }
+    }
+
+    func retryScreenshot(_ manifest: ScreenshotCaptureManifest) {
+        Task { @MainActor in
+            _ = await ScreenshotCaptureCoordinator.shared.retry(
+                captureID: manifest.id,
+                cloudAnalysisAllowed: AppSettings.screenshotCloudAnalysisEnabled
+            )
+        }
+    }
+
+    func keepScreenshotLocal(_ manifest: ScreenshotCaptureManifest) {
+        Task { @MainActor in
+            try? await ScreenshotCaptureCoordinator.shared.keepLocal(captureID: manifest.id)
+        }
+    }
+
+    func updateScreenshotMeaning(_ manifest: ScreenshotCaptureManifest, body: String) {
+        Task { @MainActor in
+            do {
+                try await ScreenshotCaptureCoordinator.shared.updateUserMeaning(
+                    captureID: manifest.id,
+                    body: body.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                load()
+            } catch {
+                submitError = "保存截图备注失败：\(error.localizedDescription)"
+            }
         }
     }
 
@@ -600,10 +717,11 @@ final class TodayViewModel: ObservableObject {
         load()
     }
 
+    @discardableResult
     private func persistMemoChange(
         failureMessagePrefix: String,
         operation: @escaping @Sendable () async throws -> Void
-    ) {
+    ) -> Task<String?, Never> {
         let persistence = enqueueMemoPersistence(operation)
         let previousFeedback = memoMutationFeedbackTask
         memoMutationFeedbackTask = Task { @MainActor [weak self] in
@@ -614,6 +732,7 @@ final class TodayViewModel: ObservableObject {
             // roll the whole list back over a newer edit or submission.
             self.load()
         }
+        return persistence
     }
 
     func waitForMemoPersistence() async {
@@ -794,6 +913,7 @@ final class TodayViewModel: ObservableObject {
             _ = await pendingPersistence?.value
             guard !Task.isCancelled else { return }
             // --- Off-main disk I/O ---
+            let screenshotManifests = await ScreenshotCaptureCoordinator.shared.manifests(for: capturedDate)
             let loadResult = Result {
                 try RawStorage.read(dayString: capturedDayString, vaultRoot: capturedVaultRoot)
             }
@@ -870,6 +990,12 @@ final class TodayViewModel: ObservableObject {
                 self.isTimelineReady = TimelineIndex.shared.isReady
                 self.yesterdayDailyPageModel = yesterdayPage
                 self.onThisDayMemos = otdMemos
+                self.screenshotManifestsByMemoID = Dictionary(
+                    screenshotManifests
+                        .filter { $0.memoDayString == capturedDayString }
+                        .map { ($0.memoID, $0) },
+                    uniquingKeysWith: { first, _ in first }
+                )
                 self.loadState = .ready
                 self.checkOnThisDay()
 

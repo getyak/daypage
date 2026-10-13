@@ -40,6 +40,7 @@ enum MemoCardTimePresentation {
 struct MemoCardView: View {
 
     let memo: Memo
+    var screenshotManifest: ScreenshotCaptureManifest? = nil
     var onDelete: (() -> Void)? = nil
     // US-014: called when user retries transcription for a failed voice attachment
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
@@ -307,6 +308,10 @@ struct MemoCardView: View {
     private var standardCard: some View {
         VStack(alignment: .leading, spacing: 0) {
 
+            if let screenshotManifest {
+                ScreenshotCaptureReviewView(manifest: screenshotManifest)
+            }
+
             // Voice card: quoted transcript style
             if memo.type == .voice || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "audio" })) {
                 if let att = memo.attachments.first(where: { $0.kind == "audio" }) {
@@ -410,7 +415,7 @@ struct MemoCardView: View {
             // hero-zooms to the full-screen viewer where the original
             // composition and EXIF live.
             let photoAtts = memo.attachments.filter {
-                $0.kind == "photo" && $0.presentationFile != nil
+                ($0.kind == "photo" || $0.kind == "screenshot") && $0.presentationFile != nil
             }
             if !photoAtts.isEmpty {
                 photoGallery(photoAtts)
@@ -425,6 +430,13 @@ struct MemoCardView: View {
                     }
             }
 
+            // SwipeableMemoCard renders the screenshot action bar above its
+            // gesture layer. Reserve vertical room so the controls never
+            // cover OCR text or the thumbnail.
+            if screenshotManifest != nil {
+                Color.clear.frame(height: 42)
+            }
+
             // Bottom meta row — content-first: only a quiet mono timestamp.
             // Weather / location / type chip / a resting share button are all
             // hidden by the museum-aesthetic redesign: location & type live on
@@ -432,7 +444,7 @@ struct MemoCardView: View {
             // overrides remain in the long-press contextMenu below.
             HStack(spacing: 8) {
                 // Single line of metadata: precise 24h time as "15·23".
-                let photoFlag = memo.attachments.contains { $0.kind == "photo" }
+                let photoFlag = memo.attachments.contains { $0.kind == "photo" || $0.kind == "screenshot" }
                 let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
                 Text(MemoCardTimePresentation.shortTime(memo.created, timeZone: appSettings.preferredTimeZone).replacingOccurrences(of: ":", with: "·"))
                     .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))

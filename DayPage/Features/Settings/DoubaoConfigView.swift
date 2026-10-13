@@ -65,7 +65,7 @@ struct DoubaoConfigView: View {
                         .fontWeight(.semibold)
                     Text(statusSubtitle)
                         .font(DSType.labelSM)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 Spacer()
                 VerifyBadge(kind: verification.badgeKind, text: verification.badgeText)
@@ -150,7 +150,7 @@ struct DoubaoConfigView: View {
                     .font(DSType.mono10)
                     .tracking(1.0)
                     .textCase(.uppercase)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                 Spacer()
                 if label == "Access Token", !text.wrappedValue.isEmpty {
                     Button {
@@ -158,7 +158,7 @@ struct DoubaoConfigView: View {
                     } label: {
                         Image(systemName: revealToken ? "eye" : "eye.slash")
                             .font(.caption2)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .buttonStyle(.plain)
                 }

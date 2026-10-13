@@ -23,7 +23,25 @@ public final class BackendIntelligenceService: ObservableObject {
     private var accountID: UUID?
     private var refreshTask: Task<Void, Never>?
 
-    private init() {}
+    /// Live authorization policy for backend authoring requests (issue #928).
+    /// Daily/weekly reducer requests are NEW AI work and check it before the
+    /// sync flush and again after the awaited flush, before the remote call.
+    private let consent: AIConsentChecking
+    /// Injectable sync-queue flush seam. Production flushes the durable sync
+    /// queue; tests inject a recorder so OFF paths can prove zero flush.
+    private let syncFlush: @Sendable () async -> Void
+
+    public init(
+        consent: AIConsentChecking = LiveAIConsent(),
+        syncFlush: @escaping @Sendable () async -> Void = { await SyncQueueObserver.shared.flush() }
+    ) {
+        self.consent = consent
+        self.syncFlush = syncFlush
+    }
+
+    /// True while a derived-refresh schedule is armed. Exposed so consent
+    /// tests can prove OFF schedules zero refreshes without waiting on timers.
+    public var isRefreshScheduled: Bool { refreshTask != nil }
 
     public var isConfigured: Bool { remote != nil && accountID != nil }
 
@@ -80,10 +98,16 @@ public final class BackendIntelligenceService: ObservableObject {
         force: Bool
     ) async throws -> UUID {
         guard let remote else { throw MemoSyncError.notConfigured }
+        // Issue #928: authoring requests are new AI work — checked BEFORE the
+        // sync flush so an OFF master switch causes zero flush.
+        try consent.authorize()
         // Raw operations must be acknowledged before the reducer request. The
         // memo revision trigger then places understanding jobs ahead of the
         // debounced Daily job in the same durable queue.
-        await SyncQueueObserver.shared.flush()
+        await syncFlush()
+        // Checked AGAIN after the awaited flush: a toggle flip during the
+        // flush must cause zero remote request.
+        try consent.authorize()
         let jobID = try await remote.requestDaily(
             localDate: localDate,
             timezone: timezone,
@@ -101,7 +125,9 @@ public final class BackendIntelligenceService: ObservableObject {
         force: Bool
     ) async throws -> UUID {
         guard let remote else { throw MemoSyncError.notConfigured }
-        await SyncQueueObserver.shared.flush()
+        try consent.authorize()
+        await syncFlush()
+        try consent.authorize()
         let jobID = try await remote.requestWeekly(
             weekStart: weekStart,
             timezone: timezone,

@@ -41,12 +41,22 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
         return f
     }()
 
+    private let vaultRootOverride: URL?
+
     // MARK: - Init
 
-    init(question: String?, compiledPageText: String, date: Date) {
+    init(
+        question: String?,
+        compiledPageText: String,
+        date: Date,
+        streamReplyHandler: ThreadStreamReply? = nil,
+        vaultRoot: URL? = nil
+    ) {
         self.question = question
         self.compiledPageText = compiledPageText
         self.date = date
+        self.streamReplyHandler = streamReplyHandler
+        self.vaultRootOverride = vaultRoot
         // Stable ID: use question text for preset threads, UUID for freeform.
         self.id = question ?? UUID().uuidString
     }
@@ -93,35 +103,29 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
 
     // MARK: - Streaming reply
 
+    /// Streaming seam. Production routes through the guarded ``LLMClient``
+    /// (issue #928: every request and the SSE connect are gated by the live
+    /// master switch); tests inject a fake. Prompt/context/storage behavior is
+    /// unchanged — the seam receives the already-built message list.
+    typealias ThreadStreamReply = @Sendable (
+        _ messages: [LLMMessage],
+        _ onDelta: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> String
+
+    private let streamReplyHandler: ThreadStreamReply?
+
+    /// Injectable guarded client seam (issue #928): production defaults to the
+    /// live-guarded `LLMClient`; tests inject a client with recording
+    /// transport/session and a scripted policy to prove the ACTUAL default
+    /// route is gated. Defaults preserved.
+    var llmClientOverride: LLMClient?
+
     private func streamReply(apiMessages: [[String: String]]) async throws {
-        let apiKey = Secrets.resolvedDeepSeekApiKey
-        guard !apiKey.isEmpty else { throw ThreadError.missingApiKey }
-
-        let baseURL = Secrets.deepSeekBaseURL.isEmpty ? "https://api.deepseek.com/v1" : Secrets.deepSeekBaseURL
-        let model = Secrets.deepSeekModel.isEmpty ? "deepseek-chat" : Secrets.deepSeekModel
-
-        guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            throw ThreadError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 60
-
-        var allMessages: [[String: String]] = [["role": "system", "content": buildSystemPrompt()]]
-        allMessages.append(contentsOf: apiMessages)
-
-        let body: [String: Any] = [
-            "model": model,
-            "messages": allMessages,
-            "max_tokens": 512,
-            "temperature": 0.8,
-            "stream": true
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        var allMessages: [LLMMessage] = [.system(buildSystemPrompt())]
+        allMessages.append(contentsOf: apiMessages.map { entry in
+            let content = entry["content"] ?? ""
+            return entry["role"] == "assistant" ? .assistant(content) : .user(content)
+        })
 
         isStreaming = true
         streamingText = ""
@@ -131,28 +135,48 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
             streamingText = ""
         }
 
-        let (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
-
-        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            throw ThreadError.apiError(statusCode: http.statusCode)
+        let finalText: String
+        if let streamReplyHandler {
+            finalText = try await streamReplyHandler(allMessages) { chunk in
+                self.streamingText += chunk
+            }
+        } else {
+            let client: LLMClient
+            if let llmClientOverride {
+                client = llmClientOverride
+            } else {
+                try LiveAIConsent().authorize()
+                let apiKey = Secrets.resolvedDeepSeekApiKey
+                guard !apiKey.isEmpty else { throw ThreadError.missingApiKey }
+                let baseURL = Secrets.deepSeekBaseURL.isEmpty ? "https://api.deepseek.com/v1" : Secrets.deepSeekBaseURL
+                let model = Secrets.deepSeekModel.isEmpty ? "deepseek-chat" : Secrets.deepSeekModel
+                client = LLMClient(
+                    config: .init(
+                        baseURL: baseURL,
+                        apiKey: apiKey,
+                        model: model,
+                        maxTokens: 512,
+                        temperature: 0.8,
+                        timeout: 60
+                    ),
+                    spanName: "thread.stream",
+                    // LiveAIConsent guards entry + SSE connect at request time.
+                    consent: LiveAIConsent()
+                )
+            }
+            do {
+                finalText = try await client.stream(messages: allMessages) { chunk in
+                    self.streamingText += chunk
+                }
+            } catch let llm as LLMError {
+                switch llm {
+                case .missingApiKey: throw ThreadError.missingApiKey
+                case .invalidURL: throw ThreadError.invalidURL
+                case .apiError(let code, _): throw ThreadError.apiError(statusCode: code)
+                default: throw llm
+                }
+            }
         }
-
-        for try await line in asyncBytes.lines {
-            guard line.hasPrefix("data: ") else { continue }
-            let payload = String(line.dropFirst(6))
-            if payload == "[DONE]" { break }
-
-            guard let jsonData = payload.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let delta = choices.first?["delta"] as? [String: Any],
-                  let chunk = delta["content"] as? String else { continue }
-
-            streamingText += chunk
-        }
-
-        // Capture before defer clears it.
-        let finalText = streamingText
 
         if !finalText.isEmpty {
             messages.append(Message(role: "assistant", text: finalText))
@@ -199,7 +223,7 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
 
     private func threadsFileURL() -> URL {
         let dateString = DateFormatters.isoDate.string(from: date)
-        return VaultInitializer.vaultURL
+        return (vaultRootOverride ?? VaultInitializer.vaultURL)
             .appendingPathComponent("threads")
             .appendingPathComponent("\(dateString).md")
     }

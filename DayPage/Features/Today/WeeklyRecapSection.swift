@@ -43,14 +43,14 @@ struct WeeklyRecapSection: View {
     private var sectionDivider: some View {
         HStack(spacing: 12) {
             Rectangle()
-                .fill(DSColor.outlineVariant)
+                .fill(DSColor.inkFaint)
                 .frame(height: 1)
                 .frame(maxWidth: 24)
             Text(NSLocalizedString("section.this_week", comment: "This week section label"))
                 .sectionLabelStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
             Rectangle()
-                .fill(DSColor.outlineVariant)
+                .fill(DSColor.inkFaint)
                 .frame(height: 1)
                 .frame(maxWidth: .infinity)
         }
@@ -80,13 +80,13 @@ private struct WeeklyRecapDayCard: View {
                 summaryColumn
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .padding(.top, 4)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DSColor.surfaceContainer)
+            .background(DSColor.glassStd)
             .cornerRadius(DSRadius.md)
         }
         .pressScale(scale: 0.97, opacity: 0.94,
@@ -100,10 +100,10 @@ private struct WeeklyRecapDayCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(weekdayLabel)
                 .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
             Text(monthDayLabel)
                 .font(.custom("SpaceGrotesk-Bold", size: 16))
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
         }
         .frame(width: 56, alignment: .leading)
     }
@@ -113,13 +113,13 @@ private struct WeeklyRecapDayCard: View {
             if let summary = entry.summary, !summary.isEmpty {
                 Text(summary)
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             } else {
                 Text(NSLocalizedString("weekly.recap.compiled", comment: "Weekly recap default"))
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .italic()
             }
         }

@@ -150,7 +150,7 @@ struct TodayCoachView: View {
                     .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
@@ -357,7 +357,7 @@ struct TodayCoachView: View {
                     .foregroundColor(DSColor.accentOnBg)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, DSSpacing.sm)
-                    .background(DSColor.surfaceContainerHigh)
+                    .background(DSColor.glassHi)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -373,7 +373,7 @@ struct TodayCoachView: View {
             .foregroundColor(DSColor.inkSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(DSSpacing.md)
-            .background(DSColor.surfaceContainerHigh)
+            .background(DSColor.glassHi)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 

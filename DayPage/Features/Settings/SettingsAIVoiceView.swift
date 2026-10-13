@@ -21,6 +21,8 @@ struct SettingsAIVoiceView: View {
 
     // C4: master switch for any third-party AI/cloud call.
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
+    @AppStorage(AppSettings.Keys.screenshotCloudAnalysisEnabled)
+    private var screenshotCloudAnalysisEnabled: Bool = false
 
     // Press-to-talk fallback toggle (US-008).
     @AppStorage(AppSettings.Keys.usePressToTalk) private var usePressToTalk: Bool = true
@@ -46,6 +48,7 @@ struct SettingsAIVoiceView: View {
         List {
             Group {
                 aiEngineSection
+                screenshotUnderstandingSection
                 aiUsageSection
                 voiceSection
                 otherServicesSection
@@ -76,6 +79,14 @@ struct SettingsAIVoiceView: View {
             Toggle(isOn: $aiFeaturesEnabled) {
                 SettingsLabel(title: NSLocalizedString("settings.ai.enabled", comment: "AI features master toggle"), systemImage: "sparkles")
             }
+            .onChange(of: aiFeaturesEnabled) { enabled in
+                // Issue #928: a settings revoke invalidates every
+                // pending/in-flight screenshot capture epoch immediately — no
+                // foreground event required.
+                if !enabled {
+                    Task { await ScreenshotCaptureCoordinator.shared.noteCloudConsentRevoked() }
+                }
+            }
             ApiKeyRowView(
                 name: "DeepSeek",
                 keychainID: ApiKeyKind.deepSeek.rawValue,
@@ -94,6 +105,49 @@ struct SettingsAIVoiceView: View {
             Text(NSLocalizedString("settings.ai.section_title", comment: ""))
         } footer: {
             Text(NSLocalizedString("settings.ai.footer", comment: ""))
+                .font(.caption)
+        }
+    }
+
+    private var screenshotUnderstandingSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { screenshotCloudAnalysisEnabled },
+                set: { enabled in
+                    Haptics.selection()
+                    if enabled && Secrets.resolvedOpenAIWhisperApiKey.isEmpty {
+                        screenshotCloudAnalysisEnabled = false
+                        edit(name: "OpenAI", id: ApiKeyKind.openAIWhisper.rawValue)
+                    } else {
+                        screenshotCloudAnalysisEnabled = enabled
+                        if !enabled {
+                            // Issue #928: settings revoke → in-flight capture
+                            // epoch invalidation (durable keepLocal stays).
+                            Task { await ScreenshotCaptureCoordinator.shared.noteCloudConsentRevoked() }
+                        }
+                    }
+                }
+            )) {
+                SettingsLabel(title: "截图云端理解", systemImage: "rectangle.and.text.magnifyingglass")
+            }
+            .disabled(!aiFeaturesEnabled)
+            .accessibilityIdentifier("settings.screenshot.cloud-analysis")
+
+            infoRow(label: "默认处理", systemImage: "iphone", value: "本机 Vision 文字识别")
+            infoRow(label: "云端模型", systemImage: "sparkles.rectangle.stack", value: "OpenAI GPT-5.4 mini")
+
+            if Secrets.resolvedOpenAIWhisperApiKey.isEmpty {
+                Button {
+                    edit(name: "OpenAI", id: ApiKeyKind.openAIWhisper.rawValue)
+                } label: {
+                    Label("配置 OpenAI API Key", systemImage: "key")
+                }
+                .accessibilityIdentifier("settings.screenshot.configure-openai")
+            }
+        } header: {
+            Text("截图理解")
+        } footer: {
+            Text("始终先在本机保存原图并提取文字。开启后，DayPage 会把去除元数据、最长边缩至 1600 像素的副本及有限 OCR 文本发送给 OpenAI。检测到敏感信息时会保留在本机；自动识别可能遗漏，请在开启前确认截图中没有验证码、凭证、财务、医疗或身份信息。云端数据处理仍受你的 OpenAI 账户与服务条款约束。")
                 .font(.caption)
         }
     }
@@ -118,7 +172,7 @@ struct SettingsAIVoiceView: View {
                     Text(monthlyBudget == 0
                          ? NSLocalizedString("settings.ai.usage.budget.unset", comment: "")
                          : "\(monthlyBudget)")
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .font(DSType.labelSM)
                 }
             }
@@ -177,7 +231,7 @@ struct SettingsAIVoiceView: View {
                             Text(NSLocalizedString("settings.doubao.title", comment: ""))
                             Text(NSLocalizedString("settings.doubao.row.subtitle", comment: "App ID + Access Token"))
                                 .font(DSType.labelSM)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                         }
                     } icon: {
                         Image(systemName: "waveform.badge.mic")
@@ -191,7 +245,7 @@ struct SettingsAIVoiceView: View {
             .accessibilityIdentifier("doubao-config-link")
 
             ApiKeyRowView(
-                name: "OpenAI Whisper",
+                name: "OpenAI（语音与截图）",
                 keychainID: ApiKeyKind.openAIWhisper.rawValue,
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
@@ -280,7 +334,7 @@ struct SettingsAIVoiceView: View {
             SettingsLabel(title: label, systemImage: systemImage)
             Spacer()
             Text(value)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
                 .font(DSType.labelSM)
                 .lineLimit(1)
                 .truncationMode(truncate ? .middle : .tail)
@@ -316,6 +370,13 @@ struct SettingsAIVoiceView: View {
         deepSeekTesting = true
         deepSeekResult = nil
         defer { deepSeekTesting = false }
+
+        // Issue #928: connectivity probes are new AI requests — refused while
+        // the master switch is off (no prompt, no send).
+        guard AppSettings.aiFeaturesEnabled else {
+            deepSeekResult = .failure(AIAuthorizationError.aiDisabled.localizedDescription)
+            return
+        }
 
         let key = Secrets.resolvedDeepSeekApiKey
         guard !key.isEmpty else { return }
@@ -360,6 +421,13 @@ struct SettingsAIVoiceView: View {
         whisperTesting = true
         whisperResult = nil
         defer { whisperTesting = false }
+
+        // Issue #928: connectivity probes are new AI requests — refused while
+        // the master switch is off (no prompt, no send).
+        guard AppSettings.aiFeaturesEnabled else {
+            whisperResult = .failure(AIAuthorizationError.aiDisabled.localizedDescription)
+            return
+        }
 
         let key = Secrets.resolvedOpenAIWhisperApiKey
         guard !key.isEmpty else { return }

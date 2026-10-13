@@ -46,31 +46,3 @@ struct AmbientBackground: View {
         .allowsHitTesting(false)
     }
 }
-
-// MARK: - Glass Disc (small button surface)
-//
-// A 44pt translucent coin used for the input dock side buttons and any
-// other circular floating control. Same recipe as LiquidGlassCard but
-// shaped as a circle.
-
-struct GlassDisc: ViewModifier {
-    var size: CGFloat = 44
-
-    func body(content: Content) -> some View {
-        content
-            .frame(width: size, height: size)
-            // Core glass sandwich routed through the dual-track engine (#771):
-            // iOS 26 → interactive native glass; iOS 16–25 → warm faux-glass.
-            // The engine supplies its own hairline rim, so the bespoke
-            // glassEdge/glassRim double-stroke is dropped to avoid doubling up.
-            .dpGlass(.control, in: Circle())
-            .clipShape(Circle())
-            .elevation(.glass)
-    }
-}
-
-extension View {
-    func glassDisc(size: CGFloat = 44) -> some View {
-        modifier(GlassDisc(size: size))
-    }
-}
