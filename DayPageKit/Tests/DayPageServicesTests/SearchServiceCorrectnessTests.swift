@@ -16,11 +16,20 @@ import DayPageStorage
 /// 不调用任何真实 LLM/后端。
 final class SearchServiceCorrectnessTests: XCTestCase {
 
+    /// Explicit fixture root: runtime fixtures live under
+    /// DAYPAGE_TEST_VAULT_ROOT when provided (bounded Kit runs), otherwise a
+    /// private temp directory. Never the real Vault.
+    private static var fixtureRoot: URL {
+        ProcessInfo.processInfo.environment["DAYPAGE_TEST_VAULT_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.temporaryDirectory
+    }
+
     private var vault: URL!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        vault = FileManager.default.temporaryDirectory
+        vault = Self.fixtureRoot
             .appendingPathComponent("SearchServiceCorrectness-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(
             at: vault.appendingPathComponent("raw"), withIntermediateDirectories: true)
@@ -230,5 +239,447 @@ final class SearchServiceCorrectnessTests: XCTestCase {
         }
         let results = SearchService.search(keyword: "排序测试", root: vault)
         XCTAssertEqual(results.map(\.dateString), ["2026-04-16", "2026-04-15", "2026-04-14"])
+    }
+
+    // MARK: - T16 exact metadata filter before the cap (#884)
+
+    /// The 100 newest raw memos have NO selected tag; the 101st (older) memo
+    /// carries `#target`. The metadata filter runs BEFORE the 100-result cap,
+    /// so the tagged memo is found with an empty query; body hashtags never
+    /// substitute for metadata; an empty eligible set matches nothing.
+    func test_exactTagFilterRunsBeforeResultCap_andBodyHashtagsNeverSubstitute() throws {
+        var bodyHashtagMemoID: UUID?
+        for index in 0..<100 {
+            let memo = Memo(
+                type: .text,
+                created: makeDate(year: 2026, month: 4, day: 14),
+                body: index == 99 ? "body only #target but no metadata link" : "untagged \(index)"
+            )
+            if index == 99 { bodyHashtagMemoID = memo.id }
+            try writeMemo(memo, dateString: "2026-04-14")
+        }
+        let tagged = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 4, day: 13),
+            body: "targeted older note"
+        )
+        try writeMemo(tagged, dateString: "2026-04-13")
+
+        // Tag-only query with empty q: only the linked memo survives — the
+        // 100 untagged newest memos never suppress it via the cap.
+        let legacy = SearchService.search(
+            keyword: "", root: vault, eligibleMemoIDs: [tagged.id]
+        )
+        XCTAssertEqual(legacy.map(\.memoID), [tagged.id])
+        let indexed = SearchService.search(
+            keyword: "", in: indexedDocs(), root: vault, eligibleMemoIDs: [tagged.id]
+        )
+        XCTAssertEqual(indexed.map(\.memoID), [tagged.id])
+
+        // Body hashtag WITHOUT a metadata link must not match.
+        XCTAssertFalse(legacy.contains { $0.memoID == bodyHashtagMemoID })
+
+        // Metadata + text filters compose (filter order stays before the cap).
+        let combined = SearchService.search(
+            keyword: "target", root: vault, eligibleMemoIDs: [tagged.id]
+        )
+        XCTAssertEqual(combined.map(\.memoID), [tagged.id])
+
+        // Empty eligible set matches nothing.
+        XCTAssertTrue(
+            SearchService.search(keyword: "", root: vault, eligibleMemoIDs: []).isEmpty
+        )
+        XCTAssertTrue(
+            SearchService.search(
+                keyword: "", in: indexedDocs(), root: vault, eligibleMemoIDs: []
+            ).isEmpty
+        )
+
+        // Without a tag dimension an empty query stays an empty query.
+        XCTAssertTrue(SearchService.search(keyword: "", root: vault).isEmpty)
+
+        // Text hits on a NON-member body never substitute for metadata: only
+        // the linked memo is eligible even when other bodies match the words.
+        XCTAssertTrue(
+            SearchService.search(
+                keyword: "body only", root: vault, eligibleMemoIDs: [tagged.id]
+            ).isEmpty
+        )
+    }
+
+    // MARK: - T16 exact metadata filter before the cap (#884)
+
+    /// Review item 8: the 100-result cap binds INSIDE the day loop — a single
+    /// day with 105 matches returns exactly 100 (both overloads), a 90+30 day
+    /// boundary returns 100, and metadata qualifying after 100 unrelated
+    /// memos is still found (filter before cap).
+    func test_capStopsAtHundredInsideDayLoop_andFilterStaysBeforeCap() throws {
+        // 105 eligible matches in ONE day → exactly 100, file order kept.
+        var ids: [UUID] = []
+        for index in 0..<105 {
+            let memo = Memo(
+                type: .text,
+                created: makeDate(year: 2026, month: 7, day: 1),
+                body: "single-day cap \(index)"
+            )
+            ids.append(memo.id)
+            try writeMemo(memo, dateString: "2026-07-01")
+        }
+        let eligible = Set(ids)
+        let legacy = SearchService.search(keyword: "single-day cap", root: vault)
+        XCTAssertEqual(legacy.count, 100)
+        XCTAssertEqual(legacy.map(\.memoID), Array(ids.prefix(100)))
+        let legacyTagged = SearchService.search(keyword: "", root: vault, eligibleMemoIDs: eligible)
+        XCTAssertEqual(legacyTagged.map(\.memoID), Array(ids.prefix(100)))
+        let indexed = SearchService.search(keyword: "single-day cap", in: indexedDocs(), root: vault)
+        XCTAssertEqual(indexed.count, 100)
+        let indexedTagged = SearchService.search(
+            keyword: "", in: indexedDocs(), root: vault, eligibleMemoIDs: eligible
+        )
+        XCTAssertEqual(indexedTagged.map(\.memoID), Array(ids.prefix(100)))
+
+        // 90 + 30 across a day boundary → 100 total, newest day first.
+        for index in 0..<90 {
+            try writeMemo(
+                Memo(type: .text, created: makeDate(year: 2026, month: 7, day: 10), body: "boundary newer \(index)"),
+                dateString: "2026-07-10")
+        }
+        for index in 0..<30 {
+            try writeMemo(
+                Memo(type: .text, created: makeDate(year: 2026, month: 7, day: 9), body: "boundary older \(index)"),
+                dateString: "2026-07-09")
+        }
+        let boundary = SearchService.search(keyword: "boundary", root: vault)
+        XCTAssertEqual(boundary.count, 100)
+        XCTAssertEqual(boundary.filter { $0.dateString == "2026-07-10" }.count, 90)
+        XCTAssertEqual(boundary.filter { $0.dateString == "2026-07-09" }.count, 10)
+        let boundaryIndexed = SearchService.search(keyword: "boundary", in: indexedDocs(), root: vault)
+        XCTAssertEqual(boundaryIndexed.count, 100)
+
+        // Metadata qualifying AFTER 100 unrelated memos in one day is still
+        // found (filter runs before the cap), and stays bounded to its own
+        // membership.
+        let tagged = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 7, day: 20),
+            body: "the one tagged note"
+        )
+        try writeMemo(tagged, dateString: "2026-07-20")
+        for index in 0..<104 {
+            try writeMemo(
+                Memo(type: .text, created: makeDate(year: 2026, month: 7, day: 20), body: "untagged bulk \(index)"),
+                dateString: "2026-07-20")
+        }
+        let onlyTagged = SearchService.search(keyword: "", root: vault, eligibleMemoIDs: [tagged.id])
+        XCTAssertEqual(onlyTagged.map(\.memoID), [tagged.id])
+        let onlyTaggedIndexed = SearchService.search(
+            keyword: "", in: indexedDocs(), root: vault, eligibleMemoIDs: [tagged.id]
+        )
+        XCTAssertEqual(onlyTaggedIndexed.map(\.memoID), [tagged.id])
+    }
+
+    /// With an active tag filter, date-string rows (no memo identity) never
+    /// bypass the metadata filter.
+    func test_dateRowsDoNotBypassActiveTagFilter() throws {
+        let memo = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 1, day: 20),
+            body: "一月的笔记"
+        )
+        try writeMemo(memo, dateString: "2026-01-20")
+
+        // Sanity: without a tag filter the date string can match.
+        let dateHit = SearchService.search(keyword: "2026-01", root: vault)
+        XCTAssertEqual(dateHit.first?.matchKind, .date)
+
+        // With a tag filter the date row is suppressed; the memo is not a
+        // member either, so the result is exactly zero.
+        let withTag = SearchService.search(
+            keyword: "2026-01", root: vault, eligibleMemoIDs: [memo.id]
+        )
+        XCTAssertTrue(withTag.allSatisfy { $0.matchKind != .date })
+        XCTAssertTrue(withTag.isEmpty)
+
+        let withTagIndexed = SearchService.search(
+            keyword: "2026-01", in: indexedDocs(), root: vault, eligibleMemoIDs: [memo.id]
+        )
+        XCTAssertTrue(withTagIndexed.allSatisfy { $0.matchKind != .date })
+
+        // Member memo + date keyword: only the memo-body path, never a date
+        // row, and only for the exact member.
+        let memberBody = SearchService.search(
+            keyword: "笔记", root: vault, eligibleMemoIDs: [memo.id]
+        )
+        XCTAssertEqual(memberBody.map(\.memoID), [memo.id])
+    }
+
+    // MARK: - Generated media-only placeholder presentation (#884 follow-up)
+
+    /// Mirrors `scripts/import_flomo.py`'s generated link body for one photo
+    /// attachment: exactly one `[Photo attachment: NAME](raw/assets/flomo/<hex>.png)`
+    /// line, emitted only for an originally empty body.
+    private func generatedPlaceholderMemo(
+        created: Date, hexChar: Character, filename: String
+    ) -> Memo {
+        let file = "raw/assets/flomo/\(String(repeating: String(hexChar), count: 64)).png"
+        return Memo(
+            type: .photo,
+            created: created,
+            attachments: [Memo.Attachment(file: file, kind: "photo")],
+            body: "[Photo attachment: \(filename)](\(file))"
+        )
+    }
+
+    /// A keyword hit on the internal generated path stays eligible (matching
+    /// semantics are untouched) but the output snippet NEVER shows the
+    /// generated path — file path and indexed path agree exactly. Ordinary
+    /// prose keeps its snippet, and the index stores a presentation body only
+    /// for an actually changed presentation.
+    func test_generatedMediaOnlyPlaceholder_hidesGeneratedPathInSnippets_bothPaths() throws {
+        let placeholder = generatedPlaceholderMemo(
+            created: makeDate(year: 2026, month: 7, day: 1),
+            hexChar: "a", filename: "相册照片 (1).png")
+        try writeMemo(placeholder, dateString: "2026-07-01")
+        let prose = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 7, day: 2),
+            body: "普通正文 [真实链接](https://example.com/x)")
+        try writeMemo(prose, dateString: "2026-07-02")
+
+        for keyword in ["raw/assets/flomo", "Photo attachment", "相册照片"] {
+            let legacy = SearchService.search(keyword: keyword, root: vault)
+            XCTAssertEqual(legacy.map(\.memoID), [placeholder.id],
+                           "\(keyword) must stay eligible against the raw body")
+            XCTAssertEqual(legacy.first?.snippet, "",
+                           "generated path must never appear in the snippet")
+            let indexed = SearchService.search(keyword: keyword, in: indexedDocs(), root: vault)
+            XCTAssertEqual(indexed.map(Hit.init), legacy.map(Hit.init),
+                           "file + indexed paths must agree on hidden-path snippets")
+        }
+
+        // Filter-only output hides the generated path too (existing empty-body
+        // fallback: location name, else the day string).
+        var filters = SearchFilters.empty
+        filters.types = [.photo, .text]
+        let legacyAll = SearchService.search(keyword: "", filters: filters, root: vault)
+        XCTAssertEqual(legacyAll.map(\.dateString), ["2026-07-02", "2026-07-01"])
+        XCTAssertEqual(legacyAll.first { $0.memoID == placeholder.id }?.snippet, "2026-07-01")
+        XCTAssertTrue(legacyAll.allSatisfy { !$0.snippet.contains("raw/assets") })
+        XCTAssertEqual(
+            SearchService.search(keyword: "", filters: filters, in: indexedDocs(), root: vault).map(Hit.init),
+            legacyAll.map(Hit.init))
+
+        // Ordinary prose is preserved verbatim in both directions.
+        let legacyProse = SearchService.search(keyword: "普通正文", root: vault)
+        XCTAssertEqual(legacyProse.map(\.memoID), [prose.id])
+        XCTAssertTrue(legacyProse.first?.snippet.contains("普通正文") == true)
+        XCTAssertEqual(
+            SearchService.search(keyword: "普通正文", in: indexedDocs(), root: vault).map(Hit.init),
+            legacyProse.map(Hit.init))
+
+        // Builder rule: only a CHANGED presentation is stored; nil falls back.
+        let docs = indexedDocs().flatMap(\.memos)
+        XCTAssertEqual(docs.first { $0.id == placeholder.id }?.presentationBody, "")
+        XCTAssertNil(docs.first { $0.id == prose.id }?.presentationBody)
+    }
+
+    /// Exact tag membership, result order and the 100-result cap are untouched
+    /// by hidden placeholder presentation.
+    func test_generatedPlaceholder_tagFilterOrderAndCap_retained() throws {
+        let placeholder = generatedPlaceholderMemo(
+            created: makeDate(year: 2026, month: 8, day: 1),
+            hexChar: "b", filename: "old.png")
+        try writeMemo(placeholder, dateString: "2026-08-01")
+        let prose = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 8, day: 2),
+            body: "更近的正文")
+        try writeMemo(prose, dateString: "2026-08-02")
+
+        // Exact membership semantics: empty set matches nothing, the single
+        // member memo matches with an empty query.
+        XCTAssertTrue(
+            SearchService.search(keyword: "", root: vault, eligibleMemoIDs: []).isEmpty)
+        let tagged = SearchService.search(
+            keyword: "", root: vault, eligibleMemoIDs: [placeholder.id])
+        XCTAssertEqual(tagged.map(\.memoID), [placeholder.id])
+        XCTAssertEqual(tagged.first?.snippet, "2026-08-01")
+        XCTAssertEqual(
+            SearchService.search(
+                keyword: "", in: indexedDocs(), root: vault,
+                eligibleMemoIDs: [placeholder.id]).map(Hit.init),
+            tagged.map(Hit.init))
+
+        // Order retained: newest day first on both paths.
+        let both = SearchService.search(
+            keyword: "", root: vault, eligibleMemoIDs: [placeholder.id, prose.id])
+        XCTAssertEqual(both.map(\.memoID), [prose.id, placeholder.id])
+
+        // Cap retained: 102 generated-placeholder memos in one day still stop
+        // at exactly 100 results, with hidden paths on both paths.
+        for index in 0 ..< 102 {
+            let hexDigit = Array("0123456789abcdef")[index % 16]
+            try writeMemo(
+                generatedPlaceholderMemo(
+                    created: makeDate(year: 2026, month: 8, day: 3),
+                    hexChar: hexDigit, filename: "cap \(index).png"),
+                dateString: "2026-08-03")
+        }
+        var capFilters = SearchFilters.empty
+        capFilters.types = [.photo]
+        let capped = SearchService.search(keyword: "", filters: capFilters, root: vault)
+        XCTAssertEqual(capped.count, 100)
+        XCTAssertEqual(capped.first?.dateString, "2026-08-03")
+        XCTAssertTrue(capped.allSatisfy { !$0.snippet.contains("raw/assets") })
+        XCTAssertEqual(
+            SearchService.search(
+                keyword: "", filters: capFilters, in: indexedDocs(), root: vault).map(Hit.init),
+            capped.map(Hit.init))
+    }
+
+    /// ACTUAL v2 pull path fixture (#884 follow-up review): the real
+    /// `SyncRemoteChange.makeMemo` maps `attachment.file` through
+    /// `AttachmentTransferStore.localPath`, whose deterministic download path
+    /// is `raw/assets/sync/<contentSHA256>-<sanitized originalFilename>`,
+    /// while the body keeps the original flomo placeholder link. The real
+    /// helper must hide exactly that generated display body — nothing else —
+    /// with raw keyword matching, order and eligibility unchanged. Synthetic
+    /// descriptors only; the vault override is this test's isolated fixture
+    /// root and is restored afterwards. No real Vault, Keychain or network.
+    func test_v2PullMakeMemo_deterministicSyncPath_hidesOnlyGeneratedDisplayBody() throws {
+        let previousOverride = VaultInitializer.testOverrideURL
+        VaultInitializer.testOverrideURL = vault
+        defer { VaultInitializer.testOverrideURL = previousOverride }
+
+        let sha = String(repeating: "ab", count: 32)
+        let name = "相册照片 (1).png"
+        let originalTarget = "raw/assets/flomo/\(sha).png"
+        let body = "[Photo attachment: \(name)](\(originalTarget))"
+        let descriptor = SyncAttachmentDescriptor(
+            position: 0,
+            kind: "photo",
+            contentSHA256: sha,
+            sizeBytes: 4096,
+            mimeType: "image/png",
+            objectKey: "\(UUID().uuidString)/\(UUID().uuidString)/\(sha).png",
+            originalFilename: name
+        )
+        XCTAssertTrue(AttachmentManifest.isStructurallyValid([descriptor]))
+        let manifestHash = AttachmentManifest.hash([descriptor])
+        let change = SyncRemoteChange(
+            id: UUID(),
+            type: "photo",
+            body: body,
+            createdAt: makeDate(year: 2026, month: 9, day: 1),
+            pinnedAt: nil,
+            location: nil,
+            weather: nil,
+            device: "fixture-device",
+            source: "supabase",
+            vaultPath: nil,
+            sourceModifiedAt: nil,
+            contentHash: nil,
+            syncRevision: 1,
+            lastSyncDeviceId: nil,
+            deletedAt: nil,
+            changeSequence: 1,
+            attachmentManifestHash: manifestHash,
+            attachments: [descriptor]
+        )
+
+        // Actual production mapping: deterministic sync path + preserved body.
+        let memo = change.makeMemo()
+        let expectedPath = "raw/assets/sync/\(sha)-\(name)"
+        XCTAssertEqual(memo.attachments.map(\.file), [expectedPath])
+        XCTAssertEqual(memo.body, body, "makeMemo must preserve the original body")
+        XCTAssertEqual(MemoAttachmentPresentation.displayBody(for: memo), "")
+
+        // Control memo: ordinary prose is never suppressed.
+        let prose = Memo(
+            type: .text,
+            created: makeDate(year: 2026, month: 9, day: 2),
+            body: "普通正文 [真实链接](https://example.com/x)")
+        try writeMemo(memo, dateString: "2026-09-01")
+        try writeMemo(prose, dateString: "2026-09-02")
+        XCTAssertEqual(MemoAttachmentPresentation.displayBody(for: prose), prose.body)
+
+        // Raw keyword hits stay eligible on both paths; only the snippet hides
+        // the generated display body.
+        for keyword in ["raw/assets", "Photo attachment", "相册照片"] {
+            let legacy = SearchService.search(keyword: keyword, root: vault)
+            XCTAssertEqual(legacy.map(\.memoID), [memo.id], "\(keyword) must stay eligible")
+            XCTAssertEqual(legacy.first?.snippet, "", "generated display body must be hidden")
+            XCTAssertEqual(
+                SearchService.search(keyword: keyword, in: indexedDocs(), root: vault).map(Hit.init),
+                legacy.map(Hit.init))
+        }
+
+        // Ordinary prose snippet preserved; filter-only order newest-first
+        // with the placeholder memo falling back to its date, never the path.
+        let proseHit = SearchService.search(keyword: "普通正文", root: vault)
+        XCTAssertEqual(proseHit.map(\.memoID), [prose.id])
+        XCTAssertTrue(proseHit.first?.snippet.contains("普通正文") == true)
+        var filters = SearchFilters.empty
+        filters.types = [.photo, .text]
+        let all = SearchService.search(keyword: "", filters: filters, root: vault)
+        XCTAssertEqual(all.map(\.memoID), [prose.id, memo.id], "newest-first order retained")
+        XCTAssertEqual(all.first { $0.memoID == memo.id }?.snippet, "2026-09-01")
+        XCTAssertTrue(all.allSatisfy { !$0.snippet.contains("raw/assets") })
+
+        // Eligibility semantics unchanged: exact membership still gates.
+        XCTAssertTrue(
+            SearchService.search(keyword: "raw/assets", root: vault, eligibleMemoIDs: [prose.id]).isEmpty)
+        XCTAssertEqual(
+            SearchService.search(keyword: "raw/assets", root: vault, eligibleMemoIDs: [memo.id]).map(\.memoID),
+            [memo.id])
+    }
+
+    /// A v2 pull whose sync path deviates from the exact correspondence (wrong
+    /// name suffix) keeps the body fully — only the exact generated set hides.
+    func test_v2PullMakeMemo_nonCorrespondingSyncPath_preservesBody() throws {
+        let previousOverride = VaultInitializer.testOverrideURL
+        VaultInitializer.testOverrideURL = vault
+        defer { VaultInitializer.testOverrideURL = previousOverride }
+
+        let sha = String(repeating: "cd", count: 32)
+        let name = "原始名称.png"
+        let body = "[Photo attachment: \(name)](raw/assets/flomo/\(sha).png)"
+        // Production sanitizes the descriptor filename; a descriptor name that
+        // is NOT the line's basename makes the correspondence uncertain.
+        let descriptor = SyncAttachmentDescriptor(
+            position: 0,
+            kind: "photo",
+            contentSHA256: sha,
+            sizeBytes: 2048,
+            mimeType: "image/png",
+            objectKey: "\(UUID().uuidString)/\(UUID().uuidString)/\(sha).png",
+            originalFilename: "other name.png"
+        )
+        XCTAssertTrue(AttachmentManifest.isStructurallyValid([descriptor]))
+        let change = SyncRemoteChange(
+            id: UUID(),
+            type: "photo",
+            body: body,
+            createdAt: makeDate(year: 2026, month: 9, day: 3),
+            pinnedAt: nil,
+            location: nil,
+            weather: nil,
+            device: "fixture-device",
+            source: "supabase",
+            vaultPath: nil,
+            sourceModifiedAt: nil,
+            contentHash: nil,
+            syncRevision: 1,
+            lastSyncDeviceId: nil,
+            deletedAt: nil,
+            changeSequence: 1,
+            attachmentManifestHash: AttachmentManifest.hash([descriptor]),
+            attachments: [descriptor]
+        )
+        let memo = change.makeMemo()
+        XCTAssertEqual(memo.attachments.map(\.file),
+                       ["raw/assets/sync/\(sha)-other name.png"])
+        XCTAssertEqual(MemoAttachmentPresentation.displayBody(for: memo), body,
+                       "non-corresponding sync path must preserve the body")
     }
 }

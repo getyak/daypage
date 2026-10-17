@@ -66,7 +66,7 @@ function SuccessView({ email, onReset }: { email: string; onReset: () => void })
   );
 }
 
-export function EmailSignInForm({ callbackUrl = "/today" }: { callbackUrl?: string }) {
+export function EmailSignInForm({ callbackUrl = "/memos" }: { callbackUrl?: string }) {
   const [state, formAction, isPending] = useActionState(sendMagicLink, INITIAL);
 
   if (state.status === "sent") {

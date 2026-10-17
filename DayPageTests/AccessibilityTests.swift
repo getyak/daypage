@@ -778,7 +778,7 @@ struct AccessibilityTests {
         #expect(archive.contains("[.isButton, .isSelected]"))
         #expect(archive.contains("archive.mode.calendar"))
         #expect(graph.contains(".accessibilityAddTraits(.isHeader)"))
-        #expect(body.contains(".accessibilityAction { startEditing() }"))
+        #expect(body.contains(".accessibilityAction(named:") && body.contains(".textSelection(.enabled)"))
         #expect(sectionLabel.contains(".accessibilityAddTraits(.isHeader)"))
     }
 

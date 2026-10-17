@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import { auth, signOut } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
-import { db } from "@/lib/db/client";
-import { users, domains, inbox_items } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
-import type { Domain } from "@/lib/db/schema";
+import { createClient } from "@/lib/supabase/server";
+import { loginRedirectTarget } from "@/lib/memos/redirects";
+import type { QueryBuilderLike } from "@/lib/memos/store";
 import { NavItem, NavItemLink, type NavIconName } from "./_components/NavItem";
 import { SystemRow } from "./_components/SystemRow";
 import { TopbarDate } from "./_components/TopbarDate";
@@ -25,60 +25,47 @@ const NAV_ITEMS: ReadonlyArray<NavSpec> = [
   { href: "/orbit", label: "Orbit", iconName: "orbit" },
   { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
   { href: "/inbox", label: "Inbox", iconName: "inbox" },
+  { href: "/memos", label: "History", iconName: "history" },
   { href: "/insights", label: "Insights", iconName: "chart" },
 ];
 
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return rows[0]?.id ?? null;
+// Sidebar domain row: the minimum safe read contract for the new
+// same-project Supabase backend (uid + RLS + explicit user_id predicate).
+interface SidebarDomain {
+  id: string;
+  label: string;
+  slug: string;
+  color: string | null;
 }
 
-async function fetchSidebarData(userId: string): Promise<{
-  userDomains: Domain[];
-  openInboxCount: number;
-}> {
-  const [userDomains, inboxResult] = await Promise.all([
-    db
-      .select()
-      .from(domains)
-      .where(eq(domains.user_id, userId))
-      .orderBy(domains.position, domains.created_at),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(inbox_items)
-      .where(
-        and(
-          eq(inbox_items.user_id, userId),
-          eq(inbox_items.status, "open")
-        )
-      ),
-  ]);
-
-  return {
-    userDomains,
-    openInboxCount: inboxResult[0]?.count ?? 0,
-  };
+async function fetchUserDomains(userId: string): Promise<SidebarDomain[]> {
+  const supabase = await createClient();
+  const result = await (supabase
+    .from("domains")
+    .select("id,label,slug,color")
+    .eq("user_id", userId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true }) as unknown as QueryBuilderLike);
+  // Failures are NOT swallowed into fake-empty state: surface them to the
+  // error boundary rather than pretending the user has no domains.
+  if (result.error) throw new Error("Domains are unavailable right now");
+  return (result.data ?? []) as SidebarDomain[];
 }
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
-
-  let userDomains: Domain[] = [];
-  let openInboxCount = 0;
-
-  if (session.user.email) {
-    const userId = await resolveUserId(session.user.email);
-    if (userId) {
-      const data = await fetchSidebarData(userId);
-      userDomains = data.userDomains;
-      openInboxCount = data.openInboxCount;
-    }
+  if (!session?.user) {
+    // Preserve the intended destination when a request header carries the
+    // path (see web/src/lib/memos/redirects.ts for the boundary notes).
+    const headerStore = await headers();
+    redirect(loginRedirectTarget(headerStore.get("x-pathname")));
   }
+
+  // Identity is the verified auth uid — never email — so accounts without an
+  // email still resolve. The inbox count badge is deliberately omitted: the
+  // server-private count is not client-readable under the new RLS and we will
+  // not fabricate a zero (deferred, see ADR-0022).
+  const userDomains = await fetchUserDomains(session.user.id);
 
   const sidebarContent = (
     <>
@@ -102,20 +89,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Primary nav */}
       <nav aria-label="Main navigation">
-        {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
-          const isInbox = label === "Inbox";
-          const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
-          return (
-            <NavItem
-              key={href}
-              href={href}
-              label={label}
-              iconName={iconName}
-              badge={badge}
-              meta={badge === undefined ? meta : undefined}
-            />
-          );
-        })}
+        {NAV_ITEMS.map(({ href, label, iconName, meta }) => (
+          <NavItem key={href} href={href} label={label} iconName={iconName} meta={meta} />
+        ))}
       </nav>
 
       {/* Domains group */}

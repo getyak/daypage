@@ -4,36 +4,65 @@ import Foundation
 /// A failed or cellular-deferred download therefore cannot be forgotten when
 /// the memo cursor advances.
 public struct SupabaseAttachmentDownloader: Sendable {
+    public let session: SyncSession
     public let supabaseURL: URL
     public let anonKey: String
     public let fileTransport: AttachmentFileTransport
+    /// Session-scoped executor: every request START linearizes with the lease.
+    public let network: SyncSessionNetwork
 
+    private var lease: SyncSessionLease { session.lease }
+    private var realm: SyncRealmIdentity { session.identity }
+
+    /// Downloads share the uploader/puller session: same verified origin,
+    /// key and user, same generation lease. Transport defaults to the
+    /// redirect-refusing sync transport.
     public init(
-        supabaseURL: URL,
-        anonKey: String,
-        fileTransport: AttachmentFileTransport = URLSession.shared
+        session: SyncSession,
+        fileTransport: AttachmentFileTransport? = nil
     ) {
-        self.supabaseURL = supabaseURL
-        self.anonKey = anonKey
-        self.fileTransport = fileTransport
+        self.session = session
+        let configuration = session.context.configuration
+        self.supabaseURL = configuration.url
+        self.anonKey = configuration.publishableKey
+        let resolvedFileTransport = fileTransport
+            ?? SupabaseSyncTransport.shared(for: session.identity.origin)
+        self.fileTransport = resolvedFileTransport
+        self.network = SyncSessionNetwork(
+            lease: session.lease,
+            fileTransport: resolvedFileTransport
+        )
+    }
+
+    /// Commit gate: check + effect linearize together against invalidation.
+    private func commit<T>(_ body: () throws -> T) throws -> T {
+        try lease.withValidity(body)
     }
 
     public func persistAndAttempt(
         changes: [SyncRemoteChange],
-        accessToken: String
+        token: SyncVerifiedAccessToken
     ) async throws {
-        try AttachmentTransferStore.discardTransfers(
-            memoIDs: Set(changes.filter(\.isDeleted).map(\.id))
-        )
+        let deletedMemoIDs = Set(changes.filter(\.isDeleted).map(\.id))
+        try commit {
+            try AttachmentTransferStore.discardTransfers(
+                memoIDs: deletedMemoIDs,
+                realm: realm
+            )
+        }
         var pending: [AttachmentDownloadItem] = []
         for change in changes where !change.isDeleted {
             let descriptors = change.attachments ?? []
-            pending.append(contentsOf: try AttachmentTransferStore.recordPendingDownloads(
-                memoID: change.id,
-                descriptors: descriptors
-            ))
+            let recorded = try commit {
+                try AttachmentTransferStore.recordPendingDownloads(
+                    memoID: change.id,
+                    descriptors: descriptors,
+                    realm: realm
+                )
+            }
+            pending.append(contentsOf: recorded)
         }
-        pending.append(contentsOf: AttachmentTransferStore.pendingDownloads())
+        pending.append(contentsOf: try AttachmentTransferStore.pendingDownloads(realm: realm))
         var seenRecordIDs = Set<String>()
         pending = pending.filter { seenRecordIDs.insert($0.recordID).inserted }
 
@@ -41,13 +70,18 @@ public struct SupabaseAttachmentDownloader: Sendable {
         // already-persisted memo page. Continue independent attachments.
         for item in pending {
             do {
-                try await install(item, accessToken: accessToken)
+                try await install(item, token: token)
             } catch {
-                try? AttachmentTransferStore.update(
-                    recordID: item.recordID,
-                    status: .failed,
-                    error: downloadErrorCode(error)
-                )
+                // Old catch blocks never overwrite a replaced session's
+                // transfer state: the commit gate refuses once invalidated.
+                try? commit {
+                    try AttachmentTransferStore.update(
+                        recordID: item.recordID,
+                        status: .failed,
+                        realm: realm,
+                        error: downloadErrorCode(error)
+                    )
+                }
             }
         }
     }
@@ -66,7 +100,7 @@ public struct SupabaseAttachmentDownloader: Sendable {
 
     private func install(
         _ item: AttachmentDownloadItem,
-        accessToken: String
+        token: SyncVerifiedAccessToken
     ) async throws {
         let vaultCandidate = VaultInitializer.vaultURL
             .appendingPathComponent(item.relativePath).standardizedFileURL
@@ -79,39 +113,65 @@ public struct SupabaseAttachmentDownloader: Sendable {
                     url: existing,
                     descriptor: item.descriptor
                 )
-                try AttachmentTransferStore.markDownloadInstalled(recordID: item.recordID)
-                return
             } catch {
                 // Never overwrite a different local file, even at the
                 // deterministic SHA-prefixed target.
                 throw AttachmentSyncError.integrityMismatch(vaultCandidate.lastPathComponent)
             }
+            try commit {
+                try AttachmentTransferStore.markDownloadInstalled(
+                    recordID: item.recordID,
+                    realm: realm
+                )
+            }
+            return
         }
         let destination = try destinationURL(relativePath: item.relativePath)
         let stagingURL = Self.stagingURL(recordID: item.recordID)
-        try FileManager.default.createDirectory(
-            at: stagingURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        // Every persistent staging mutation (directory create, partial
+        // cleanup, copy) commits inside the generation gate. On a stale lease
+        // existing partials are preserved, never deleted.
+        try commit {
+            try FileManager.default.createDirectory(
+                at: stagingURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        }
         if FileManager.default.fileExists(atPath: stagingURL.path) {
-            do {
-                try AttachmentFileInspector.verify(
-                    url: stagingURL,
-                    descriptor: item.descriptor
-                )
-                try FileManager.default.createDirectory(
-                    at: destination.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                try FileManager.default.moveItem(at: stagingURL, to: destination)
-                try AttachmentTransferStore.markDownloadInstalled(recordID: item.recordID)
+            let stagingVerified = (try? AttachmentFileInspector.verify(
+                url: stagingURL,
+                descriptor: item.descriptor
+            )) != nil
+            if stagingVerified {
+                // Media install is a durable effect: moving into the Vault and
+                // closing the obligation commit inside the generation gate.
+                try commit {
+                    try FileManager.default.createDirectory(
+                        at: destination.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try FileManager.default.moveItem(at: stagingURL, to: destination)
+                    try AttachmentTransferStore.markDownloadInstalled(
+                        recordID: item.recordID,
+                        realm: realm
+                    )
+                }
                 return
-            } catch {
-                try? FileManager.default.removeItem(at: stagingURL)
+            }
+            // Cleanup of an invalid partial is itself a durable mutation; a
+            // refused (stale) cleanup preserves the bytes untouched.
+            try? commit {
+                try FileManager.default.removeItem(at: stagingURL)
             }
         }
 
-        try AttachmentTransferStore.update(recordID: item.recordID, status: .transferring)
+        try commit {
+            try AttachmentTransferStore.update(
+                recordID: item.recordID,
+                status: .transferring,
+                realm: realm
+            )
+        }
         let url = supabaseURL
             .appendingPathComponent("storage", isDirectory: true)
             .appendingPathComponent("v1", isDirectory: true)
@@ -123,9 +183,16 @@ public struct SupabaseAttachmentDownloader: Sendable {
         request.httpMethod = "GET"
         request.timeoutInterval = 180
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token.value)", forHTTPHeaderField: "Authorization")
         request.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
-        let (temporaryURL, response) = try await fileTransport.downloadFile(for: request)
+        try lease.assertValid()
+        let (temporaryURL, response) = try await network.downloadFile(for: request)
+        // The transport hands over an OWNED transient copy; it is transient
+        // transport data and must be cleaned on every exit path (success,
+        // failure or stale lease) — never left as a Vault obligation.
+        defer { SyncNetworkTempFile.discard(temporaryURL) }
+        // Re-check before consuming the downloaded bytes.
+        try lease.assertValid()
         guard let http = response as? HTTPURLResponse else {
             throw MemoSyncError.invalidResponse
         }
@@ -133,18 +200,34 @@ public struct SupabaseAttachmentDownloader: Sendable {
             throw AttachmentSyncError.transferFailed(status: http.statusCode)
         }
 
-        try FileManager.default.copyItem(at: temporaryURL, to: stagingURL)
+        try commit {
+            try FileManager.default.createDirectory(
+                at: stagingURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.copyItem(at: temporaryURL, to: stagingURL)
+        }
         do {
             try AttachmentFileInspector.verify(url: stagingURL, descriptor: item.descriptor)
+        } catch {
+            // Cleanup is gated too: a stale lease preserves the partial.
+            try? commit {
+                try FileManager.default.removeItem(at: stagingURL)
+            }
+            throw error
+        }
+        // Verified staging survives a refused commit as resumable progress;
+        // nothing unverified or foreign is ever moved into the Vault.
+        try commit {
             try FileManager.default.createDirectory(
                 at: destination.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
             try FileManager.default.moveItem(at: stagingURL, to: destination)
-            try AttachmentTransferStore.markDownloadInstalled(recordID: item.recordID)
-        } catch {
-            try? FileManager.default.removeItem(at: stagingURL)
-            throw error
+            try AttachmentTransferStore.markDownloadInstalled(
+                recordID: item.recordID,
+                realm: realm
+            )
         }
     }
 

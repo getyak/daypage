@@ -64,6 +64,27 @@ final class MacCloudAuthService: NSObject, ObservableObject {
         }
     }
 
+    /// Signs in with an existing account's email + password credentials.
+    ///
+    /// The password is passed to the SDK exactly as typed — never trimmed,
+    /// normalized, logged or persisted — and is rejected before any request
+    /// when missing. The auth-state listener stays the single writer of
+    /// `session`, and its existing lease/uploader installation path is
+    /// unchanged; the SDK's returned `Session` is discarded here.
+    func signInWithPassword(email: String, password: String) async throws {
+        guard !isLoading else { throw MacCloudAuthError.requestInFlight }
+        let normalized = normalizedEmail(email)
+        guard isValidEmail(normalized) else { throw MacCloudAuthError.invalidEmail }
+        guard let submission = NativeAuthFlow.passwordSubmission(from: password) else {
+            // Missing password is rejected without logging the value.
+            throw MacCloudAuthError.missingPassword
+        }
+
+        try await perform(rejectIfBusy: true) {
+            _ = try await client.auth.signIn(email: normalized, password: submission)
+        }
+    }
+
     /// Configures Apple's request and retains the original nonce until the
     /// returned ID token is exchanged with Supabase.
     func prepareAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
@@ -142,8 +163,10 @@ final class MacCloudAuthService: NSObject, ObservableObject {
         session = nil
     }
 
+    /// Manual retry: passes the typed `.manual` reason so a full metadata
+    /// refresh is forced even when the outbox is already empty (#884).
     func retrySync() {
-        Task { await SyncQueueService.shared.flushIfOnline() }
+        SyncQueueService.shared.requestFlushIfOnline(reason: .manual)
     }
 
     func dismissSyncError() {
@@ -162,12 +185,24 @@ final class MacCloudAuthService: NSObject, ObservableObject {
         }
     }
 
-    private func installUploader(for session: Session?) {
-        guard session != nil else {
-            SyncQueueObserver.shared.clearSession()
+    private func installUploader(for restoredSession: Session?) {
+        guard restoredSession != nil else {
+            // Transient nil events must not clear a latched rejection, and
+            // logout/nil invalidates every outstanding install attempt.
+            SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
+            SyncQueueObserver.shared.clearSession(
+                rejectedConfiguration: SyncQueueObserver.shared.isConfigurationRejected
+            )
             return
         }
-        guard let userID = session?.user.id else { return }
+        guard let expectedUserID = restoredSession?.user.id else { return }
+        // Synchronous reservation on the auth-listener event BEFORE any Task
+        // is queued: the attempt generation starts and the previous session
+        // lease is invalidated here, so an older proof continuation resuming
+        // before this Task starts is already stale.
+        let reservation = SyncQueueObserver.shared.sessionInstaller.reserve(
+            expectedUserID: expectedUserID
+        )
         let accessTokenProvider: @Sendable () async throws -> String = { [weak self] in
             try await MainActor.run {
                 guard let token = self?.session?.accessToken, !token.isEmpty else {
@@ -176,30 +211,60 @@ final class MacCloudAuthService: NSObject, ObservableObject {
                 return token
             }
         }
-        do {
-            try SyncQueueObserver.shared.configureSession(
-                userID: userID,
-                uploader: SupabaseSyncUploader(
-                    supabaseURL: configuration.supabaseURL,
-                    anonKey: configuration.publishableKey,
-                    accessTokenProvider: accessTokenProvider
-                ),
-                puller: SupabaseSyncPuller(
-                    supabaseURL: configuration.supabaseURL,
-                    anonKey: configuration.publishableKey,
-                    accessTokenProvider: accessTokenProvider
-                )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Reservation tokens order overlapping refresh/duplicate events;
+            // the live auth snapshot is re-checked at completion.
+            await SyncQueueObserver.shared.sessionInstaller.install(
+                reservation: reservation,
+                currentUserID: { [weak self] in self?.session?.user.id },
+                prove: {
+                    // Same-server user proof BEFORE context installation; the
+                    // decoded session JWT alone is never authentication proof.
+                    try await SyncSessionVerifier.verifiedSession(
+                        configuration: configuration.backend,
+                        accessToken: try await accessTokenProvider(),
+                        transport: SupabaseSyncTransport.shared(
+                            for: configuration.backend.origin
+                        ),
+                        expectedUserID: expectedUserID
+                    )
+                },
+                makeUploader: { session in
+                    SupabaseSyncUploader(
+                        session: session,
+                        accessTokenProvider: accessTokenProvider
+                    )
+                },
+                makePuller: { session in
+                    SupabaseSyncPuller(
+                        session: session,
+                        accessTokenProvider: accessTokenProvider
+                    )
+                },
+                onSuccess: { _ in
+                    self.syncErrorMessage = nil
+                },
+                onFailure: { error in
+                    // The coordinator keeps the rejection latched; a bare
+                    // clearSession() would reopen the legacy upload path for a
+                    // Vault that failed to bind.
+                    self.syncErrorMessage = error.localizedDescription
+                },
+                onFlush: {
+                    // A freshly installed generation requests its INITIAL
+                    // pass: forced full metadata even with an empty outbox,
+                    // and the demand survives a still-busy stale pass (#884).
+                    SyncQueueService.shared.requestFlushIfOnline(reason: .initial)
+                }
             )
-            syncErrorMessage = nil
-        } catch {
-            SyncQueueObserver.shared.clearSession()
-            syncErrorMessage = error.localizedDescription
-            return
         }
-        Task { await SyncQueueService.shared.flushIfOnline() }
     }
 
-    private func perform(_ operation: () async throws -> Void) async throws {
+    private func perform(rejectIfBusy: Bool = false, _ operation: () async throws -> Void) async throws {
+        // The check and reservation share one synchronous MainActor turn,
+        // including when callers have already queued multiple Tasks.
+        guard !rejectIfBusy || !isLoading else { throw MacCloudAuthError.requestInFlight }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -236,6 +301,10 @@ final class MacCloudAuthService: NSObject, ObservableObject {
                 return "这个登录链接已过期或已使用，请重新发送。"
             case .validationFailed:
                 return "请输入有效的邮箱地址。"
+            case .invalidCredentials:
+                return "邮箱或密码不正确，请重试。"
+            case .emailNotConfirmed:
+                return "请先打开邮箱中的验证邮件，完成验证后再登录。"
             default:
                 break
             }
@@ -244,19 +313,18 @@ final class MacCloudAuthService: NSObject, ObservableObject {
     }
 
     private func normalizedEmail(_ email: String) -> String {
-        email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        NativeAuthFlow.normalizedEmail(email)
     }
 
     private func isValidEmail(_ email: String) -> Bool {
-        email.range(
-            of: #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#,
-            options: .regularExpression
-        ) != nil
+        NativeAuthFlow.isValidEmail(email)
     }
 }
 
 private enum MacCloudAuthError: LocalizedError {
     case invalidEmail
+    case missingPassword
+    case requestInFlight
     case invalidCallbackConfiguration
     case secureNonceUnavailable
     case appleRequestNotPrepared
@@ -267,6 +335,10 @@ private enum MacCloudAuthError: LocalizedError {
         switch self {
         case .invalidEmail:
             return "请输入有效的邮箱地址。"
+        case .missingPassword:
+            return "请输入密码。"
+        case .requestInFlight:
+            return "登录请求正在进行中，请稍候。"
         case .invalidCallbackConfiguration:
             return "登录回调配置无效，请更新 DayPage 后重试。"
         case .secureNonceUnavailable:

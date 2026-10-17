@@ -67,11 +67,13 @@ struct MemoChatView: View {
     @State private var insightExpanded = false
     /// 自定义策略编辑器（新建 / 编辑），`nil` = 关闭。
     @State private var insightEditor: InsightStrategyEditorTarget?
+    @State private var showOriginal = false
     /// 当前 in-flight 聊天任务句柄：sheet 关闭 / 消失时 cancel，确保被丢弃
     /// 的对话绝不会迟到触发云端调用或落盘隐藏结果。
     @State private var chatTask: Task<Void, Never>? = nil
     @FocusState private var inputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var nav: AppNavigationModel
 
     private var memoDateString: String {
         DateFormatters.isoDate.string(from: memo.created)
@@ -84,13 +86,10 @@ struct MemoChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if chat.attachedMemo != nil { memoryChip }
             conversation
             ChatRiverSelectionBar(river: river)
             Divider().background(DSColor.borderSubtle)
-            if chat.attachedMemo != nil {
-                memoryChip
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
             if initialMode != nil, chat.attachedMemo != nil {
                 retrievalTopicEditor
             }
@@ -141,6 +140,46 @@ struct MemoChatView: View {
             // Sheet dismissal cancels any in-flight ask/retry/insight run.
             chatTask?.cancel()
             chatTask = nil
+        }
+        .sheet(isPresented: $showOriginal) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text(MemoDetailDatePresentation.kicker(memo.created, timeZone: AppSettings.shared.preferredTimeZone))
+                            .font(.system(.caption))
+                            .foregroundColor(DSColor.inkTertiaryAA)
+                        MarkdownBodyView(text: MemoReadingDocument.source(for: memo), bodySize: 18, lineSpacing: 5, blockSpacing: 10,
+                                         entitySlugs: memo.entityMentions, entityDisplayNames: entityDisplayNames)
+                            .textSelection(.enabled)
+                            .environment(\.openURL, OpenURLAction { url in
+                                guard url.scheme == "daypage-entity",
+                                      let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                                        .queryItems?.first(where: { $0.name == "s" })?.value,
+                                      !slug.isEmpty else { return .systemAction }
+                                showOriginal = false
+                                chatTask?.cancel()
+                                onClose()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    nav.push(EntityRef(type: MemoDetailDerivedDataLoader.entityType(for: slug), slug: slug),
+                                             in: nav.selectedTab)
+                                }
+                                return .handled
+                            })
+                    }
+                    .frame(maxWidth: 640, alignment: .leading)
+                    .padding(24)
+                    .frame(maxWidth: .infinity)
+                }
+                .background(DSColor.bgWarm)
+                .navigationTitle(NSLocalizedString("reading.original", comment: "Original source record"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(NSLocalizedString("reading.close", comment: "Close original reader")) { showOriginal = false }
+                    }
+                }
+            }
+            .presentationDetents([.large])
         }
         .sheet(item: $insightEditor) { target in
             InsightStrategyEditor(
@@ -780,52 +819,48 @@ struct MemoChatView: View {
     /// 「记忆芯片」——被拽进对话框的那条记录。左侧琥珀细杆呼应详情页
     /// 眉批的设计语言；× 摘除后对话退化为通用问过去。
     private var memoryChip: some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 1)
-                .fill(DSColor.amberRim)
-                .frame(width: 2)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(memoDateString.uppercased())
-                    .font(DSType.mono9)
-                    .tracking(1.0)
-                    .foregroundColor(DSColor.inkMuted)
-                Text(MemoMarkdown.plainText(for: memo).replacingOccurrences(of: "\n", with: " "))
-                    .font(DSFonts.serif(size: 13, weight: .regular, relativeTo: .footnote))
-                    .foregroundColor(DSColor.inkSecondary)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 0) {
+            MemoReadingText(text: MemoReadingDocument.source(for: memo), lineLimit: inputFocused ? 1 : 3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                Text(memoDateString)
+                    .font(.system(.caption))
+                    .foregroundColor(DSColor.inkTertiaryAA)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Button { showOriginal = true } label: {
+                    Text(NSLocalizedString("reading.viewOriginal", comment: "Open the original source record"))
+                        .font(.system(.footnote))
+                        .foregroundColor(DSColor.readingAccent)
+                        // Keep at least 44 visible points after the system's
+                        // nested-sheet presentation scale.
+                        .frame(minWidth: 80, minHeight: 48)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("memo-source-original")
+                Button {
+                    Haptics.soft()
+                    withAnimation(Motion.respectReduceMotion(Motion.spring)) { chat.detachMemo() }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11))
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 48, height: 48)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("reading.detach", comment: "Detach source memo"))
             }
-            Spacer(minLength: 8)
-            Button {
-                Haptics.soft()
-                withAnimation(Motion.respectReduceMotion(Motion.spring)) { chat.detachMemo() }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 22, height: 22)
-                    .background(DSColor.glassHi)
-                    .clipShape(Circle())
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel(NSLocalizedString(
-                "memo.chat.a11y.detach",
-                value: "摘除这条记忆",
-                comment: "Memo chat — detach memory chip VoiceOver label"
-            ))
+            .padding(.top, 4)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .fixedSize(horizontal: false, vertical: true)
-        .background(DSColor.amberSoft)
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.md)
-                .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .accessibilityElement(children: .combine)
+        .padding(.top, 16)
+        .padding(.bottom, 4)
+        .solidCard(cornerRadius: 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Input bar

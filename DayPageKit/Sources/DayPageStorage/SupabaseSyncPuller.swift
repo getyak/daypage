@@ -218,6 +218,16 @@ public struct SyncRemoteApplyResult: Equatable, Sendable {
 
 public protocol RemotePuller: Sendable {
     func pull(after cursor: Int64, limit: Int) async throws -> SyncPullPage
+
+    /// Optional account-tag metadata capability (#884). Source-compatible:
+    /// conformers that do not implement it keep the default below. A `nil`
+    /// reader means METADATA UNAVAILABLE — it is never a complete empty
+    /// catalogue and never satisfies full-sync completion.
+    var accountTagsReader: RemoteAccountTagsReader? { get }
+}
+
+public extension RemotePuller {
+    var accountTagsReader: RemoteAccountTagsReader? { nil }
 }
 
 /// Incremental, user-session-backed reader for the monotonic Supabase change
@@ -235,32 +245,57 @@ public struct SupabaseSyncPuller: RemotePuller {
         }
     }
 
+    public let session: SyncSession
     public let endpoint: URL
     public let anonKey: String
     public let transport: HTTPTransport
     public let attachmentDownloader: SupabaseAttachmentDownloader
+    /// Session-scoped executor: every request START linearizes with the lease.
+    public let network: SyncSessionNetwork
     public let accessTokenProvider: AccessTokenProvider
 
+    private var lease: SyncSessionLease { session.lease }
+
+    /// Pull and media obligations share the SAME verified session as push.
+    /// Transport defaults to the redirect-refusing sync transport.
     public init(
-        supabaseURL: URL,
-        anonKey: String,
-        transport: HTTPTransport = HTTPTransports.shared,
-        fileTransport: AttachmentFileTransport = URLSession.shared,
+        session: SyncSession,
+        transport: HTTPTransport? = nil,
+        fileTransport: AttachmentFileTransport? = nil,
         accessTokenProvider: @escaping AccessTokenProvider
     ) {
-        self.endpoint = supabaseURL
+        self.session = session
+        let configuration = session.context.configuration
+        let realmTransport = SupabaseSyncTransport.shared(for: session.identity.origin)
+        self.endpoint = configuration.url
             .appendingPathComponent("rest", isDirectory: true)
             .appendingPathComponent("v1", isDirectory: true)
             .appendingPathComponent("rpc", isDirectory: true)
             .appendingPathComponent("daypage_pull_sync_changes_v2")
-        self.anonKey = anonKey
-        self.transport = transport
+        self.anonKey = configuration.publishableKey
+        self.transport = transport ?? realmTransport
+        let resolvedFileTransport = fileTransport ?? realmTransport
+        self.network = SyncSessionNetwork(
+            lease: session.lease,
+            dataTransport: self.transport,
+            fileTransport: resolvedFileTransport
+        )
         self.attachmentDownloader = SupabaseAttachmentDownloader(
-            supabaseURL: supabaseURL,
-            anonKey: anonKey,
-            fileTransport: fileTransport
+            session: session,
+            fileTransport: resolvedFileTransport
         )
         self.accessTokenProvider = accessTokenProvider
+    }
+
+    /// Same-session account-tag reader capability: the SAME verified session,
+    /// exact-token proof and redirect-refusing transport as push/pull. The
+    /// Auth/session installers stay untouched (no second configuration).
+    public var accountTagsReader: RemoteAccountTagsReader? {
+        SupabaseAccountTagsReader(
+            session: session,
+            transport: transport,
+            accessTokenProvider: accessTokenProvider
+        )
     }
 
     public func pull(after cursor: Int64, limit: Int = 200) async throws -> SyncPullPage {
@@ -270,8 +305,12 @@ public struct SupabaseSyncPuller: RemotePuller {
         }
         #endif
         guard !anonKey.isEmpty else { throw MemoSyncError.notConfigured }
-        let accessToken = try await accessTokenProvider()
-        guard !accessToken.isEmpty else { throw MemoSyncError.unauthorized }
+        // Session-scoped exact-token proof: any new token value needs local
+        // claim checks AND same-origin `/auth/v1/user` success before it can
+        // drive any durable preparation or mutation.
+        let rawToken = try await accessTokenProvider()
+        guard !rawToken.isEmpty else { throw MemoSyncError.unauthorized }
+        let token = try await session.tokens.verifiedToken(rawToken)
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
@@ -283,9 +322,11 @@ public struct SupabaseSyncPuller: RemotePuller {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token.value)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await transport.data(for: request)
+        let (data, response) = try await network.data(for: request)
+        // Re-check before consuming the page.
+        try lease.assertValid()
         guard let http = response as? HTTPURLResponse else {
             throw MemoSyncError.invalidResponse
         }
@@ -316,7 +357,7 @@ public struct SupabaseSyncPuller: RemotePuller {
                 // media failures remain retryable sidecar state.
                 try await attachmentDownloader.persistAndAttempt(
                     changes: page.changes,
-                    accessToken: accessToken
+                    token: token
                 )
                 return page
             } catch {

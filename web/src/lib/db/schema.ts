@@ -12,6 +12,7 @@ import {
   index,
   unique,
   uniqueIndex,
+  foreignKey,
   primaryKey,
   customType,
   check,
@@ -303,6 +304,8 @@ export const memos = pgTable(
       .on(t.user_id, t.created_at)
       .where(sql`${t.deleted_at} is null`),
     index("memos_embedding_hnsw").using("hnsw", t.embedding.op("vector_cosine_ops")),
+    // #884: composite ownership key for memo_tag_links(user_id, memo_id) FKs.
+    uniqueIndex("memos_user_id_id_unique").on(t.user_id, t.id),
   ]
 );
 
@@ -1840,6 +1843,91 @@ export type EvaluationResult = typeof evaluation_results.$inferSelect;
 export type EvaluationCaseCandidate = typeof evaluation_case_candidates.$inferSelect;
 export type EvaluationExportOutboxItem = typeof evaluation_export_outbox.$inferSelect;
 export type EvaluationExperiment = typeof evaluation_experiments.$inferSelect;
+
+// ─── #884: account-scoped imported flomo tag preservation ───────────────────
+
+// Exact label text: byte-exact equality/ordering via text COLLATE "C" in the
+// database. Labels keep their original leading '#', Unicode, case, punctuation,
+// and hierarchy; there is no normalization, splitting, or parent invention.
+const collateCText = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return 'text COLLATE "C"';
+  },
+});
+
+export const user_tags = pgTable(
+  "user_tags",
+  {
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    label: collateCText("label").notNull(),
+    in_import_catalog: boolean("in_import_catalog").notNull().default(false),
+  },
+  (t) => [
+    primaryKey({ name: "user_tags_pk", columns: [t.user_id, t.label] }),
+  ],
+);
+
+export const memo_tag_links = pgTable(
+  "memo_tag_links",
+  {
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memo_id: uuid("memo_id").notNull(),
+    label: collateCText("label").notNull(),
+  },
+  (t) => [
+    primaryKey({ name: "memo_tag_links_pk", columns: [t.user_id, t.memo_id, t.label] }),
+    index("memo_tag_links_user_label_memo").on(t.user_id, t.label, t.memo_id),
+    foreignKey({
+      name: "memo_tag_links_user_memo_fk",
+      columns: [t.user_id, t.memo_id],
+      foreignColumns: [memos.user_id, memos.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "memo_tag_links_user_label_fk",
+      columns: [t.user_id, t.label],
+      foreignColumns: [user_tags.user_id, user_tags.label],
+    }).onDelete("cascade"),
+  ],
+);
+
+// Immutable import receipts: one row per (account, source digest). The payload
+// is canonical version-1 metadata ({version,catalog,memos}); it holds no note
+// body and no auth state, and later tombstones never rewrite it or its counts.
+// payload_hash is the opaque server-side fingerprint over PostgreSQL
+// jsonb::text (lowerhex text) - not a portable Swift/JS JSON digest.
+export const memo_tag_imports = pgTable(
+  "memo_tag_imports",
+  {
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    source_sha256: text("source_sha256").notNull(),
+    payload_hash: text("payload_hash").notNull(),
+    payload: jsonb("payload").notNull(),
+    version: integer("version").notNull().default(1),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: "memo_tag_imports_pk", columns: [t.user_id, t.source_sha256] }),
+    check("memo_tag_imports_source_sha256_check", sql`${t.source_sha256} ~ '^[0-9a-f]{64}$'`),
+    check("memo_tag_imports_payload_hash_check", sql`${t.payload_hash} ~ '^[0-9a-f]{64}$'`),
+    check("memo_tag_imports_version_check", sql`${t.version} = 1`),
+    check("memo_tag_imports_payload_shape_check", sql`jsonb_typeof(${t.payload}) = 'object'`),
+  ],
+);
+
+export type UserTag = typeof user_tags.$inferSelect;
+export type NewUserTag = typeof user_tags.$inferInsert;
+export type MemoTagLink = typeof memo_tag_links.$inferSelect;
+export type NewMemoTagLink = typeof memo_tag_links.$inferInsert;
+export type MemoTagImport = typeof memo_tag_imports.$inferSelect;
+export type NewMemoTagImport = typeof memo_tag_imports.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 

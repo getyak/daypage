@@ -554,6 +554,47 @@ struct SearchIndexParityTests {
         #expect(after.count == 1)
         #expect(after.first?.dateString == "2026-05-05")
     }
+
+    // MARK: - #884 exact metadata tag filter (before the cap, no body substitution)
+
+    @Test @MainActor func tagMembershipFilterRunsBeforeCapAndNeverSubstitutesBodyHashtags() throws {
+        let vault = try SearchServiceTests.makeTempVault()
+        defer { try? FileManager.default.removeItem(at: vault) }
+
+        var bodyOnlyID: UUID?
+        for index in 0..<100 {
+            let memo = Memo(
+                type: .text,
+                created: SearchServiceTests.makeDate(year: 2026, month: 3, day: 1),
+                body: index == 99 ? "body-only #target, no metadata link" : "untagged filler \(index)"
+            )
+            if index == 99 { bodyOnlyID = memo.id }
+            try SearchServiceTests.writeMemo(memo, dateString: "2026-03-01", to: vault)
+        }
+        let tagged = Memo(
+            type: .text,
+            created: SearchServiceTests.makeDate(year: 2026, month: 2, day: 28),
+            body: "the targeted older note"
+        )
+        try SearchServiceTests.writeMemo(tagged, dateString: "2026-02-28", to: vault)
+
+        // Tag-only empty query finds the linked memo despite 100 newer
+        // untagged memos — membership is applied BEFORE the 100-result cap.
+        let hits = SearchService.search(keyword: "", root: vault, eligibleMemoIDs: [tagged.id])
+        #expect(hits.map(\.memoID) == [tagged.id])
+
+        // Empty eligible set matches nothing.
+        #expect(SearchService.search(keyword: "", root: vault, eligibleMemoIDs: []).isEmpty)
+
+        // Body hashtags never substitute for metadata.
+        #expect(SearchService.search(
+            keyword: "body-only", root: vault, eligibleMemoIDs: [tagged.id]
+        ).isEmpty)
+        #expect(bodyOnlyID != nil)
+
+        // No tag dimension + empty query is still an empty query.
+        #expect(SearchService.search(keyword: "", root: vault).isEmpty)
+    }
 }
 }
 

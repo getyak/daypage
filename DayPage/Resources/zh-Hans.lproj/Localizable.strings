@@ -1098,7 +1098,16 @@
 "a11y.recenter_graph"    = "回到中心";
 "a11y.zoom_reset"        = "缩放级别，点击重置";
 "a11y.continue_email"    = "用邮箱继续";
-"a11y.continue_email.hint" = "通过一次性邮箱链接登录";
+"a11y.continue_email.hint" = "使用密码或邮件链接登录";
+"auth.signin.method" = "登录方式";
+"auth.signin.password_mode" = "密码";
+"auth.signin.link_mode" = "邮件链接";
+"auth.signin.email_label" = "邮箱地址";
+"auth.password.title" = "邮箱登录";
+"auth.password.subtitle" = "让记录随你，在各个设备间同步。";
+"auth.password.submit" = "登录";
+"auth.password.loading" = "正在登录";
+"auth.password.submit_hint" = "输入邮箱和密码登录";
 "a11y.back_to_email"     = "返回邮箱输入";
 "a11y.begin"             = "开始";
 "a11y.begin.hint"        = "开始使用 DayPage";
@@ -2216,6 +2225,26 @@
 "account.sync.setup.title" = "同步尚未开启";
 "account.sync.setup.detail" = "同步设置需要检查，本机记录已保存。请查看账户错误提示。";
 
+/* 设置 — 已登录账户云同步（#884 展示修正后续） */
+"settings.accountcloud.section" = "账户云同步";
+"settings.accountcloud.status.localonly.title" = "仅保存在本机";
+"settings.accountcloud.status.localonly.detail" = "登录后可在此账户的设备间同步记录。";
+"settings.accountcloud.status.offline.title" = "当前离线";
+"settings.accountcloud.status.offline.detail" = "恢复网络后会自动同步。";
+"settings.accountcloud.status.offline.detail_pending" = "本机已保存 · %d 条等待同步";
+"settings.accountcloud.status.syncing.title" = "正在同步";
+"settings.accountcloud.status.syncing.detail" = "正在安全上传并获取其他设备的更新。";
+"settings.accountcloud.status.pending.title" = "%d 条等待同步";
+"settings.accountcloud.status.pending.detail" = "内容已保存在本机，可安全离开此页面。";
+"settings.accountcloud.status.synced.title" = "已同步";
+"settings.accountcloud.status.synced.detail" = "此账户的设备会自动接收新记录。";
+"settings.accountcloud.syncnow" = "立即同步";
+"settings.accountcloud.syncnow.hint" = "双击立即同步此账户";
+"settings.accountcloud.syncnow.busy_hint" = "已有同步正在进行";
+"settings.accountcloud.syncnow.offline_hint" = "连接网络后即可同步";
+"settings.accountcloud.media.incomplete" = "%d 个附件尚未同步";
+"settings.accountcloud.media.unknown" = "附件同步状态尚未确认";
+
 /* 中断记录恢复 */
 "today.recovery.count" = "%d 条未保存的记录";
 "today.recovery.restore" = "恢复草稿";
@@ -2361,3 +2390,31 @@
 "memo.chat.topic.label" = "关联关键词";
 "memo.chat.topic.placeholder" = "例如：注意力";
 "memo.chat.topic.hint" = "按关键词匹配相关记录，最多 40 个字符";
+
+/* Figma content-first reading */
+"reading.expand" = "展开全文";
+"reading.collapse" = "收起全文";
+"reading.expanded" = "已展开";
+"reading.collapsed" = "已折叠";
+"reading.readFull" = "阅读全文";
+"reading.viewOriginal" = "查看原文";
+"reading.original" = "原始记录";
+"reading.close" = "关闭";
+"reading.detach" = "移除此条记录的上下文";
+"reading.audio.play" = "播放录音";
+"reading.audio.pause" = "暂停播放";
+
+/* #884 — 精确标签与真实同步完成状态 */
+"search.filter.tags" = "标签";
+"search.filter.tags.none" = "未按标签筛选";
+"search.filter.tags.expand" = "显示或隐藏标签目录";
+"search.filter.tags.placeholder" = "搜索标签";
+"search.filter.tags.unavailable" = "标签列表暂时不可用，可在下次同步后重试。";
+"search.filter.tags.loading" = "正在读取标签…";
+"search.empty.tagsUnavailable" = "标签信息暂时不可用，无法按标签筛选结果。可在下次同步后重试。";
+"memo.detail.meta.tags" = "标签";
+"memo.detail.meta.tags.none" = "无标签";
+"memo.detail.meta.tags.unavailable" = "标签信息暂时不可用。";
+"settings.websync.not_fully_synced" = "等待完整同步确认";
+"account.email.signin" = "邮箱登录";
+"account.email.provider" = "通过邮箱登录";

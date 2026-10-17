@@ -52,6 +52,9 @@ struct SettingsView: View {
     @Environment(\.dynamicTypeSize) private var userDynamicTypeSize
     @StateObject private var syncMonitor = iCloudSyncMonitor.shared
     @StateObject private var reminderService = CaptureReminderService.shared
+    /// Shared account sync state (#884 presentation follow-up): the signed-in
+    /// hub summary must track the same truthful account status as its detail.
+    @StateObject private var syncQueue = SyncQueueService.shared
     @ObservedObject private var appSettings = AppSettings.shared
 
     @State private var showAccountSheet = false
@@ -273,6 +276,11 @@ struct SettingsView: View {
     }
 
     private var syncSummary: String {
+        // Signed in: the account cloud sync is the real sync surface — the
+        // summary consumes the SAME shared status copy as the detail page.
+        if authService.session != nil {
+            return accountCloudStatus.title
+        }
         switch syncMonitor.status {
         case .notConfigured:
             return NSLocalizedString("settings.hub.sync.summary.off", comment: "iCloud off summary")
@@ -283,6 +291,18 @@ struct SettingsView: View {
         case .error:
             return NSLocalizedString("settings.hub.sync.summary.error", comment: "Sync error summary")
         }
+    }
+
+    /// Same resolution and copy as the signed-in account cloud section.
+    private var accountCloudStatus: AccountCloudStatusPresentation {
+        AccountCloudStatus.presentation(
+            isSignedIn: authService.session != nil,
+            isOffline: authService.isNetworkUnavailable,
+            isFlushing: syncQueue.isFlushingNow,
+            pendingCount: syncQueue.pendingCount,
+            health: syncQueue.syncHealth,
+            completion: syncQueue.completion
+        )
     }
 
     private var appVersion: String {

@@ -88,4 +88,62 @@ public enum NativeAuthFlow {
             .map { String(format: "%02x", $0) }
             .joined()
     }
+
+    // MARK: - Email & Password Form Rules
+
+    /// The app's single email pattern. Applied AFTER `normalizedEmail(_:)`.
+    private static let emailPattern = #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#
+
+    /// The app's existing email rule and nothing more: trim surrounding
+    /// whitespace/newlines and lowercase. Callers must not add stricter
+    /// normalization, and passwords are never passed through this function.
+    public static func normalizedEmail(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// Validates an email using the existing app rule: normalize first, then
+    /// the shared pattern.
+    public static func isValidEmail(_ raw: String) -> Bool {
+        normalizedEmail(raw).range(of: emailPattern, options: .regularExpression) != nil
+    }
+
+    /// Returns the password for submission EXACTLY as typed — never trimmed,
+    /// normalized, case-folded or otherwise rewritten.
+    ///
+    /// `nil` means no password was provided (empty input) and the request must
+    /// be rejected before any network call, without logging the value.
+    /// Whitespace-only input is a real password value and passes through
+    /// untouched: rejecting or reshaping it would be a normalization policy
+    /// this app does not own.
+    public static func passwordSubmission(from password: String) -> String? {
+        password.isEmpty ? nil : password
+    }
+
+    // MARK: - QA Session Storage Namespace
+
+    /// Suffix matching the Supabase Swift SDK's default auth Keychain service
+    /// (`"supabase.gotrue.swift"`), so QA isolation is a pure namespace change.
+    public static let qaSessionStorageServiceSuffix = ".supabase.gotrue.swift"
+
+    /// Pure namespace resolver for the QA auth-session Keychain service.
+    /// No Keychain access, no migration, enumeration or deletion of sessions.
+    ///
+    /// For DEBUG builds of iOS bundles under the QA identity prefix
+    /// (`com.daypage.app.qa-`) the Supabase auth client must store its session
+    /// under `bundleID + ".supabase.gotrue.swift"` so concurrent QA apps never
+    /// touch the production session. Every other case returns `nil`, meaning
+    /// the SDK default options/service are kept (production, Release builds,
+    /// and Mac, which is intentionally NOT isolated here).
+    public static func qaSessionStorageServiceName(
+        bundleIdentifier: String?,
+        isDebugBuild: Bool
+    ) -> String? {
+        guard isDebugBuild,
+              let identity = bundleIdentifier,
+              identity.hasPrefix("com.daypage.app.qa-")
+        else {
+            return nil
+        }
+        return identity + qaSessionStorageServiceSuffix
+    }
 }

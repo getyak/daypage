@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daypage.app/contracts/tag-import-result-v1.schema.json",
+  "title": "DayPage account tag import result v1",
+  "description": "Result of daypage_import_tags_v1. Counts are receipt counts of the import snapshot (HISTORICAL metadata): later tombstones do not edit them. catalog_labels counts catalog entries (duplicates are rejected upstream), distinct_labels counts distinct labels across the union of catalog and per-memo tag arrays, including unused catalog labels, memos counts memo map entries including empty tag arrays, and memberships counts distinct (memo_id, label) associations. Errors never carry raw labels; all failure messages are static and generic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source_sha256",
+    "status",
+    "catalog_labels",
+    "distinct_labels",
+    "memos",
+    "memberships"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "source_sha256": {
+      "description": "Caller-supplied lowerhex SHA-256 digest identifying the import source manifest.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "description": "imported = first receipt for this account+source; replayed = identical payload replayed from the existing receipt before any live-memo check.",
+      "enum": [
+        "imported",
+        "replayed"
+      ]
+    },
+    "catalog_labels": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20000
+    },
+    "distinct_labels": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 70000
+    },
+    "memos": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "memberships": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 50000
+    }
+  }
+}

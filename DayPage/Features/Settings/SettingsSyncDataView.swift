@@ -14,10 +14,14 @@ struct SettingsSyncDataView: View {
     @StateObject private var syncMonitor = iCloudSyncMonitor.shared
     @StateObject private var syncQueue = SyncQueueService.shared
     @ObservedObject private var appSettings = AppSettings.shared
+    @EnvironmentObject private var authService: AuthService
 
     // #785: iOS → Web sync config (UserDefaults baseURL + Keychain API key).
-    @State private var webSyncBaseURL: String = SyncSettings.baseURLString ?? ""
-    @State private var webSyncAPIKey: String = SyncSettings.apiKey ?? ""
+    // Loaded on appear or returning to signed out: with an authenticated account
+    // session the legacy configuration form is hidden, so the stored legacy
+    // server credentials are never read just to render the account fields.
+    @State private var webSyncBaseURL: String = ""
+    @State private var webSyncAPIKey: String = ""
     @State private var webSyncSaved: Bool = false
     @AppStorage(AttachmentNetworkPolicy.allowsCellularKey)
     private var allowsCellularMedia: Bool = false
@@ -40,6 +44,9 @@ struct SettingsSyncDataView: View {
         ScrollViewReader { proxy in
             List {
                 Group {
+                    if authService.session != nil {
+                        accountCloudSection
+                    }
                     iCloudSyncSection
                     webSyncSection
                     timeZoneSection
@@ -56,9 +63,13 @@ struct SettingsSyncDataView: View {
             .navigationTitle(NSLocalizedString("settings.hub.syncdata", comment: "Sync & data page title"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
+                loadLegacyWebSyncConfigIfSignedOut()
                 computeVaultSize()
                 scrollToQADestination(using: proxy)
                 openQAConfirmationIfRequested()
+            }
+            .onChange(of: authService.session?.user.id) { _ in
+                loadLegacyWebSyncConfigIfSignedOut()
             }
             .bannerOverlay()
             .sheet(isPresented: $showObsidianShareSheet, onDismiss: {
@@ -94,6 +105,126 @@ struct SettingsSyncDataView: View {
             showPurgeAllConfirm = true
         }
 #endif
+    }
+
+    private func loadLegacyWebSyncConfigIfSignedOut() {
+        guard authService.session == nil else { return }
+        webSyncBaseURL = SyncSettings.baseURLString ?? ""
+        webSyncAPIKey = SyncSettings.apiKey ?? ""
+    }
+
+    // MARK: Account cloud sync (#884 presentation follow-up)
+
+    /// Compact signed-in account cloud section, shown BEFORE the optional
+    /// iCloud settings. Copy comes from the shared `AccountCloudStatus`
+    /// helper — the same resolution and "synced" guard as `AccountSheet` and
+    /// the same status copy the Settings hub summary shows. The sync button
+    /// is a direct synchronous MainActor `requestFlushIfOnline(reason:)` call
+    /// (no host outer Task, no installer, no credentials/URLs in copy).
+    private var accountCloudSection: some View {
+        let status = accountCloudStatus
+        return Section {
+            HStack(spacing: DSSpacing.md) {
+                Image(systemName: "person.crop.circle")
+                    .font(DSType.h2)
+                    .foregroundColor(DSColor.inkMuted)
+                    .accessibilityHidden(true)
+                Text(authService.session?.user.email ?? "")
+                    .font(DSType.bodyMD)
+                    .foregroundColor(DSColor.onBackgroundPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: 44)
+            .accessibilityElement(children: .combine)
+
+            HStack(alignment: .top, spacing: DSSpacing.md) {
+                Image(systemName: status.symbol)
+                    .font(DSType.bodyMD)
+                    .foregroundColor(status.color)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(status.title)
+                        .font(DSType.bodyMD)
+                        .foregroundColor(DSColor.onBackgroundPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(status.detail)
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: 44)
+            .accessibilityElement(children: .combine)
+
+            if status.pendingCount > 0 {
+                HStack(spacing: DSSpacing.md) {
+                    SettingsLabel(
+                        title: NSLocalizedString("settings.websync.pending", comment: "Pending row"),
+                        systemImage: "clock.arrow.circlepath"
+                    )
+                    Spacer()
+                    Text(String(format: NSLocalizedString("settings.websync.pending_count", comment: "N items"), status.pendingCount))
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.statusWarning)
+                }
+                .frame(minHeight: 44)
+                .accessibilityElement(children: .combine)
+            }
+
+            if let mediaDetail = status.mediaDetail {
+                HStack(spacing: DSSpacing.md) {
+                    SettingsLabel(title: mediaDetail, systemImage: "photo.on.rectangle.angled")
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 44)
+                .accessibilityElement(children: .combine)
+            }
+
+            Button(action: {
+                // Direct synchronous MainActor request (#884 follow-up): no
+                // outer Task. Media transfers keep the existing cellular-media
+                // policy inside the shared sync queue.
+                syncQueue.requestFlushIfOnline(reason: .manual)
+            }) {
+                HStack {
+                    SettingsLabel(
+                        title: NSLocalizedString("settings.accountcloud.syncnow", comment: "Sync now button"),
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                    Spacer()
+                    if syncQueue.isFlushingNow {
+                        ProgressView()
+                            .tint(DSColor.accentOnBg)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("account-sync-now-button")
+            .disabled(syncQueue.isFlushingNow || authService.isNetworkUnavailable)
+            .accessibilityLabel(NSLocalizedString("settings.accountcloud.syncnow", comment: "Sync now button"))
+            .accessibilityHint(syncQueue.isFlushingNow
+                ? NSLocalizedString("settings.accountcloud.syncnow.busy_hint", comment: "Sync now button hint while busy")
+                : (authService.isNetworkUnavailable
+                    ? NSLocalizedString("settings.accountcloud.syncnow.offline_hint", comment: "Sync now button hint while offline")
+                    : NSLocalizedString("settings.accountcloud.syncnow.hint", comment: "Sync now button hint")))
+        } header: {
+            Text(NSLocalizedString("settings.accountcloud.section", comment: "Account cloud sync section header"))
+        }
+    }
+
+    /// Same resolution and copy as the signed-in Settings hub summary.
+    private var accountCloudStatus: AccountCloudStatusPresentation {
+        AccountCloudStatus.presentation(
+            isSignedIn: authService.session != nil,
+            isOffline: authService.isNetworkUnavailable,
+            isFlushing: syncQueue.isFlushingNow,
+            pendingCount: syncQueue.pendingCount,
+            health: syncQueue.syncHealth,
+            completion: syncQueue.completion
+        )
     }
 
     // MARK: iCloud
@@ -294,61 +425,67 @@ struct SettingsSyncDataView: View {
 
     private var webSyncSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                SettingsLabel(title: NSLocalizedString("settings.websync.url", comment: "Web address row"), systemImage: "globe")
-                TextField("https://daypage.app", text: $webSyncBaseURL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .keyboardType(.URL)
-                    .font(.callout)
-                    .foregroundColor(DSColor.inkPrimary)
-                    .padding(.horizontal, DSSpacing.md)
-                    .frame(minHeight: 44)
-                    .background(DSColor.bgWarm)
-                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-                    .submitLabel(.next)
-                    .accessibilityIdentifier("sync-baseurl-field")
-            }
-            .padding(.vertical, 2)
+            // Legacy server URL / API key configuration is hidden while an
+            // authenticated shared-account session is present (the account
+            // cloud section above owns sync); signed-out legacy behavior and
+            // stored values are preserved unchanged.
+            if authService.session == nil {
+                VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                    SettingsLabel(title: NSLocalizedString("settings.websync.url", comment: "Web address row"), systemImage: "globe")
+                    TextField("https://daypage.app", text: $webSyncBaseURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.URL)
+                        .font(.callout)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .padding(.horizontal, DSSpacing.md)
+                        .frame(minHeight: 44)
+                        .background(DSColor.bgWarm)
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+                        .submitLabel(.next)
+                        .accessibilityIdentifier("sync-baseurl-field")
+                }
+                .padding(.vertical, 2)
 
-            VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                SettingsLabel(title: NSLocalizedString("settings.websync.key", comment: "Web sync API key"), systemImage: "key.fill")
-                SecureField(NSLocalizedString("settings.websync.key.placeholder", comment: "Paste key placeholder"), text: $webSyncAPIKey)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .font(.callout)
-                    .foregroundColor(DSColor.inkPrimary)
-                    .padding(.horizontal, DSSpacing.md)
-                    .frame(minHeight: 44)
-                    .background(DSColor.bgWarm)
-                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-                    .submitLabel(.done)
-                    .accessibilityIdentifier("sync-apikey-field")
-            }
-            .padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                    SettingsLabel(title: NSLocalizedString("settings.websync.key", comment: "Web sync API key"), systemImage: "key.fill")
+                    SecureField(NSLocalizedString("settings.websync.key.placeholder", comment: "Paste key placeholder"), text: $webSyncAPIKey)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .font(.callout)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .padding(.horizontal, DSSpacing.md)
+                        .frame(minHeight: 44)
+                        .background(DSColor.bgWarm)
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+                        .submitLabel(.done)
+                        .accessibilityIdentifier("sync-apikey-field")
+                }
+                .padding(.vertical, 2)
 
-            Button {
-                saveWebSyncConfig()
-            } label: {
-                HStack {
-                    SettingsLabel(
-                        title: webSyncSaved
-                            ? NSLocalizedString("settings.websync.saved", comment: "Saved state")
-                            : NSLocalizedString("settings.websync.save", comment: "Save & sync button"),
-                        systemImage: webSyncSaved ? "checkmark.circle.fill" : "arrow.up.circle")
-                    Spacer()
-                    if SyncSettings.isConfigured {
-                        Text(NSLocalizedString("settings.websync.configured", comment: "Configured badge"))
-                            .font(DSType.labelSM).foregroundColor(DSColor.statusSuccess)
+                Button {
+                    saveWebSyncConfig()
+                } label: {
+                    HStack {
+                        SettingsLabel(
+                            title: webSyncSaved
+                                ? NSLocalizedString("settings.websync.saved", comment: "Saved state")
+                                : NSLocalizedString("settings.websync.save", comment: "Save & sync button"),
+                            systemImage: webSyncSaved ? "checkmark.circle.fill" : "arrow.up.circle")
+                        Spacer()
+                        if SyncSettings.isConfigured {
+                            Text(NSLocalizedString("settings.websync.configured", comment: "Configured badge"))
+                                .font(DSType.labelSM).foregroundColor(DSColor.statusSuccess)
+                        }
                     }
                 }
+                .accessibilityIdentifier("sync-save-button")
+                .disabled(!canSaveWebSync)
+                .opacity(canSaveWebSync ? 1 : 0.42)
+                .accessibilityHint(canSaveWebSync
+                    ? NSLocalizedString("settings.websync.save.hint", comment: "Save and start syncing")
+                    : NSLocalizedString("settings.websync.save.disabled_hint", comment: "Missing setup requirements"))
             }
-            .accessibilityIdentifier("sync-save-button")
-            .disabled(!canSaveWebSync)
-            .opacity(canSaveWebSync ? 1 : 0.42)
-            .accessibilityHint(canSaveWebSync
-                ? NSLocalizedString("settings.websync.save.hint", comment: "Save and start syncing")
-                : NSLocalizedString("settings.websync.save.disabled_hint", comment: "Missing setup requirements"))
 
             Toggle(isOn: $allowsCellularMedia) {
                 SettingsLabel(
@@ -357,29 +494,51 @@ struct SettingsSyncDataView: View {
                 )
             }
             .onChange(of: allowsCellularMedia) { _ in
-                Task { await SyncQueueService.shared.flushIfOnline() }
+                SyncQueueService.shared.requestFlushIfOnline()
             }
 
-            if SyncSettings.isConfigured && syncQueue.pendingCount > 0 {
-                HStack {
-                    SettingsLabel(title: NSLocalizedString("settings.websync.pending", comment: "Pending row"), systemImage: "clock.arrow.circlepath")
-                    Spacer()
-                    Text(String(format: NSLocalizedString("settings.websync.pending_count", comment: "N items"), syncQueue.pendingCount))
-                        .font(DSType.labelSM)
-                        .foregroundColor(DSColor.statusWarning)
+            // Legacy configuration-dependent status rows are signed-out
+            // only: while an authenticated shared-account session is present
+            // they must not read the old server credentials
+            // (`SyncSettings.isConfigured` reads the legacy Keychain API key)
+            // or claim "waiting for setup" despite active account sync.
+            if authService.session == nil {
+                if SyncSettings.isConfigured && syncQueue.pendingCount > 0 {
+                    HStack {
+                        SettingsLabel(title: NSLocalizedString("settings.websync.pending", comment: "Pending row"), systemImage: "clock.arrow.circlepath")
+                        Spacer()
+                        Text(String(format: NSLocalizedString("settings.websync.pending_count", comment: "N items"), syncQueue.pendingCount))
+                            .font(DSType.labelSM)
+                            .foregroundColor(DSColor.statusWarning)
+                    }
+                } else if SyncSettings.isConfigured && syncQueue.completion.isFullySynced {
+                    HStack {
+                        Label(NSLocalizedString("settings.websync.all_synced", comment: "All synced row"), systemImage: "checkmark.icloud")
+                            .foregroundStyle(DSColor.inkMuted, DSColor.inkMuted)
+                        Spacer()
+                    }
+                    .foregroundColor(DSColor.inkMuted)
+                } else if SyncSettings.isConfigured {
+                    // #884 — outbox empty is NOT proof of full completion; the
+                    // shared completion presentation decides the “已同步” claim.
+                    HStack {
+                        SettingsLabel(
+                            title: NSLocalizedString("settings.websync.not_fully_synced", comment: "Sync not fully verified row"),
+                            systemImage: "icloud"
+                        )
+                        Spacer()
+                    }
+                    .foregroundColor(DSColor.inkMuted)
                 }
-            } else if SyncSettings.isConfigured {
-                HStack {
-                    Label(NSLocalizedString("settings.websync.all_synced", comment: "All synced row"), systemImage: "checkmark.icloud")
-                        .foregroundStyle(DSColor.inkMuted, DSColor.inkMuted)
-                    Spacer()
-                }
-                .foregroundColor(DSColor.inkMuted)
             }
         } header: {
             Text(NSLocalizedString("settings.websync.section", comment: "Web sync section header"))
         } footer: {
-            Text(webSyncFooterText)
+            // Signed-in keeps only the generic disclosure — no legacy
+            // configuration read, no "waiting for setup" copy for account users.
+            Text(authService.session == nil
+                 ? webSyncFooterText
+                 : NSLocalizedString("settings.websync.footer", comment: "Cloud sync and encryption disclosure"))
                 .font(.caption)
         }
     }
@@ -411,7 +570,7 @@ struct SettingsSyncDataView: View {
         webSyncBaseURL = SyncSettings.baseURLString ?? ""
         SyncQueueObserver.shared.installConfiguredUploader()
         webSyncSaved = true
-        Task { await SyncQueueService.shared.flushIfOnline() }
+        SyncQueueService.shared.requestFlushIfOnline(reason: .manual)
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             await MainActor.run { webSyncSaved = false }

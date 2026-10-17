@@ -62,16 +62,18 @@
           "enum": [
             "audio/m4a",
             "audio/mp4",
+            "audio/aac",
             "image/jpeg",
             "image/png",
             "image/heic",
             "image/heif",
-            "application/pdf"
+            "application/pdf",
+            "video/quicktime"
           ]
         },
         "object_key": {
           "type": "string",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{64}\\.(?:jpg|png|heic|heif|m4a|mp4|pdf)$"
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{64}\\.(?:jpg|png|heic|heif|m4a|mp4|aac|pdf|mov)$"
         },
         "original_filename": {
           "type": "string",
@@ -85,7 +87,81 @@
           "type": ["string", "null"],
           "enum": ["pending", "done", "failed", null]
         }
-      }
+      },
+      "oneOf": [
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "photo" },
+            "mime_type": { "const": "image/jpeg" },
+            "object_key": { "type": "string", "pattern": "\\.jpg$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "photo" },
+            "mime_type": { "const": "image/png" },
+            "object_key": { "type": "string", "pattern": "\\.png$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "photo" },
+            "mime_type": { "const": "image/heic" },
+            "object_key": { "type": "string", "pattern": "\\.heic$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "photo" },
+            "mime_type": { "const": "image/heif" },
+            "object_key": { "type": "string", "pattern": "\\.heif$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "audio" },
+            "mime_type": { "const": "audio/m4a" },
+            "object_key": { "type": "string", "pattern": "\\.m4a$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "audio" },
+            "mime_type": { "const": "audio/mp4" },
+            "object_key": { "type": "string", "pattern": "\\.mp4$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "audio" },
+            "mime_type": { "const": "audio/aac" },
+            "object_key": { "type": "string", "pattern": "\\.aac$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "file" },
+            "mime_type": { "const": "application/pdf" },
+            "object_key": { "type": "string", "pattern": "\\.pdf$" }
+          }
+        },
+        {
+          "required": ["kind", "mime_type", "object_key"],
+          "properties": {
+            "kind": { "const": "file" },
+            "mime_type": { "const": "video/quicktime" },
+            "object_key": { "type": "string", "pattern": "\\.mov$" }
+          }
+        }
+      ]
     },
     "payload": {
       "type": "object",

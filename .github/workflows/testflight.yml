@@ -49,8 +49,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  candidate-ci:
+    name: Verify release candidate CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Wait for candidate CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/wait_for_release_ci.py
+
   deploy:
     name: Build & Upload to TestFlight
+    needs: candidate-ci
     runs-on: macos-26
     timeout-minutes: 90
 
@@ -59,6 +78,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0          # 需要完整 tag/commit 历史用于计算版本
           persist-credentials: true  # 允许后续 git push tag
 
@@ -228,6 +248,15 @@ jobs:
         run: |
           echo "$ENV_FILE_CONTENT" > .env
           echo ".env written ($(wc -l < .env) lines)"
+
+      - name: Apply shared backend public configuration
+        env:
+          DAYPAGE_SUPABASE_URL: ${{ secrets.DAYPAGE_SUPABASE_URL }}
+          DAYPAGE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.DAYPAGE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/apply_release_supabase_overlay.py .env
+          bash scripts/ci/validate_release_supabase_config.sh .env
 
       # ── 8. Setup match SSH key ────────────────────────────────────────────
       # match 通过 SSH 访问 getyak/daypage-certs 私有 repo 拉取加密的证书和 profile。

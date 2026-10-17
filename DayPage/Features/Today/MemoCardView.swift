@@ -44,6 +44,17 @@ struct MemoCardView: View {
     var onDelete: (() -> Void)? = nil
     // US-014: called when user retries transcription for a failed voice attachment
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
+    var interaction: MemoCardInteraction? = nil
+    var onRetryScreenshot: (() -> Void)? = nil
+    var onKeepScreenshotLocal: (() -> Void)? = nil
+    var onExplainScreenshot: (() -> Void)? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .caption) private var metadataSize = 12.0
+    @ScaledMetric(relativeTo: .footnote) private var disclosureSize = 13.0
+    @State private var isExpanded = false
+    @State private var hasOverflow = false
+    @State private var cardWidth: CGFloat = 370
 
     @ObservedObject private var appSettings = AppSettings.shared
     @State private var showLocationSheet: Bool = false
@@ -80,7 +91,8 @@ struct MemoCardView: View {
 
     private func startDownload(_ url: URL) {
         guard VaultInitializer.shared.isUsingiCloud else { return }
-        guard attachmentDownloadState(for: url) == .notDownloaded else { return }
+        let state = attachmentDownloadState(for: url)
+        guard state == .notDownloaded || state == .failed else { return }
         try? FileManager.default.startDownloadingUbiquitousItem(at: url)
         downloadStates[url] = .downloading
         pollDownloadStatus(for: url)
@@ -95,7 +107,7 @@ struct MemoCardView: View {
     /// text-first and the timeline packs 2–3 memos per screen. Tapping any
     /// chip still hero-zooms to the full-screen viewer, where the original
     /// composition (and EXIF) lives.
-    private static let thumbEdge: CGFloat = 112
+    private static let thumbEdge: CGFloat = 84
     /// Edge for the 3-up strip — a touch smaller than the solo chip so three
     /// photos read as a set, not three solo photos in a row.
     private static let thumbEdgeSmall: CGFloat = 84
@@ -238,11 +250,19 @@ struct MemoCardView: View {
         Group {
             if memo.type == .location {
                 locationCard
+                    .overlay { if let interaction { interaction.bridge } }
             } else {
                 standardCard
             }
         }
         .onDisappear { downloadTask?.cancel() }
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { cardWidth = geometry.size.width }
+                    .onChange(of: geometry.size.width) { cardWidth = $0 }
+            }
+        }
     }
 
     // MARK: - Location Card
@@ -305,122 +325,37 @@ struct MemoCardView: View {
 
     // MARK: - Standard Card
 
+    private var readingText: String { MemoReadingDocument.source(for: memo) }
+    private var cardInset: CGFloat { cardWidth < 340 ? 14 : 16 }
+
     private var standardCard: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !readingText.isEmpty {
+                MemoReadingText(text: readingText, expanded: isExpanded, onOverflow: { overflows in
+                    if hasOverflow != overflows { hasOverflow = overflows }
+                })
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay { if let interaction { interaction.bridge } }
+                    .padding(.horizontal, cardInset)
+                    .padding(.top, 16)
+            }
 
             if let screenshotManifest {
                 ScreenshotCaptureReviewView(manifest: screenshotManifest)
-            }
-
-            // Voice card: quoted transcript style
-            if memo.type == .voice || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "audio" })) {
-                if let att = memo.attachments.first(where: { $0.kind == "audio" }) {
-                    let audioURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-                    let audioState = attachmentDownloadState(for: audioURL)
-                    switch audioState {
-                    case .current:
-                        VoiceMemoPlayerRow(
-                            fileURL: audioURL,
-                            duration: att.duration ?? 0,
-                            transcript: att.transcript,
-                            transcriptionStatus: att.transcriptionStatus,
-                            onRetranscribe: { onRetranscribe?(memo, att) }
-                        )
-                        .padding(.top, 4)
-                    case .downloading, .notDownloaded, .failed:
-                        AudioDownloadPlaceholder(state: audioState)
-                            .padding(.top, 4)
-                            .onAppear {
-                                if audioState == .notDownloaded { startDownload(audioURL) }
-                                else if audioState == .failed { startDownload(audioURL) }
-                            }
-                            .onTapGesture {
-                                if audioState == .notDownloaded || audioState == .failed {
-                                    startDownload(audioURL)
-                                }
-                            }
-                            .minTapTarget()
-                            .a11yButton(label: L10n.MemoCard.audioDownloadA11yLabel,
-                                        hint: L10n.MemoCard.downloadA11yHint)
-                    }
-                }
-            }
-
-            // File attachments
-            let fileAtts = memo.attachments.filter { $0.kind == "file" }
-            if !fileAtts.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(fileAtts, id: \.file) { att in
-                        HStack(spacing: 8) {
-                            Image(systemName: "doc.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(DSColor.inkMuted)
-                            Text(att.transcript ?? URL(fileURLWithPath: att.file).lastPathComponent)
-                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
-                                .foregroundColor(DSColor.inkMuted)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 3)
-                    }
-                }
-                .padding(.top, 8)
-            }
-
-            // Body text — serif
-            let bodyTrimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
-            // Suppress body text when it is identical to an audio transcript
-            // already shown in the VoiceMemoPlayerRow above.  The old check used
-            // `memo.type == .voice`, which missed `.mixed` memos containing audio
-            // + text; now we look for any audio attachment kind. (#US-016)
-            let hasAudio = memo.attachments.contains(where: { $0.kind == "audio" })
-            let isBodyDuplicate = hasAudio &&
-                memo.attachments.contains(where: { att in
-                    att.kind == "audio" &&
-                    att.transcript?.trimmingCharacters(in: .whitespacesAndNewlines) == bodyTrimmed &&
-                    !bodyTrimmed.isEmpty
-                })
-            if !bodyTrimmed.isEmpty && !isBodyDuplicate {
-                // Museum reading rhythm: tight leading. Design app.jsx:546-548
-                // renders 16pt body at line-height 1.62; for SwiftUI's
-                // *additive* lineSpacing that compact rhythm is ~2pt, not 6.
-                Group {
-                    if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
-                        // Markdown M1 — links render styled but inert here:
-                        // the swipe overlay / card tap own this surface.
-                        MarkdownBodyView(text: bodyTrimmed, lineSpacing: 2, linksActive: false)
-                    } else {
-                        // Render-only polish: CJK/Latin spacing; does not modify vault file.
-                        Text(CJKTextPolish.polish(bodyTrimmed))
-                            .font(DSType.serifBody16)
-                            .foregroundColor(DSColor.inkPrimary)
-                            .lineSpacing(2)
-                    }
-                }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
                     .padding(.top, 10)
-                // NOTE: no contextMenu here. The swipe overlay above this
-                // card owns the long press, so an inner menu could never be
-                // summoned — Copy lives in TimelineRow's merged menu instead.
             }
 
-            // Photo — a footnote to the prose, so it sits *under* the body as
-            // a row of small square thumbnails (flomo rhythm) rather than a
-            // full-width crop above it. Every photo attachment renders, not
-            // just the first (a two-photo memo used to silently drop the
-            // second image, which read as data loss). Tapping a chip
-            // hero-zooms to the full-screen viewer where the original
-            // composition and EXIF live.
-            let photoAtts = memo.attachments.filter {
+            audioAttachment
+            fileAttachments
+
+            let photos = memo.attachments.filter {
                 ($0.kind == "photo" || $0.kind == "screenshot") && $0.presentationFile != nil
             }
-            if !photoAtts.isEmpty {
-                photoGallery(photoAtts)
-                    .padding(.horizontal, 14)
-                    .padding(.top, bodyTrimmed.isEmpty || isBodyDuplicate ? 14 : 10)
+            if !photos.isEmpty {
+                photoGallery(photos)
+                    .padding(.horizontal, cardInset)
+                    .padding(.top, readingText.isEmpty ? 16 : 10)
                     .fullScreenCover(item: $viewerPhoto) { target in
                         PhotoFullScreenViewer(
                             fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
@@ -430,64 +365,104 @@ struct MemoCardView: View {
                     }
             }
 
-            // SwipeableMemoCard renders the screenshot action bar above its
-            // gesture layer. Reserve vertical room so the controls never
-            // cover OCR text or the thumbnail.
-            if screenshotManifest != nil {
-                Color.clear.frame(height: 42)
+            if let screenshotManifest {
+                ScreenshotCaptureActionBar(
+                    manifest: screenshotManifest,
+                    onRetry: { onRetryScreenshot?() },
+                    onKeepLocal: { onKeepScreenshotLocal?() },
+                    onExplain: { onExplainScreenshot?() }
+                )
             }
 
-            // Bottom meta row — content-first: only a quiet mono timestamp.
-            // Weather / location / type chip / a resting share button are all
-            // hidden by the museum-aesthetic redesign: location & type live on
-            // the detail page; share is the left-swipe action; power-user
-            // overrides remain in the long-press contextMenu below.
             HStack(spacing: 8) {
-                // Single line of metadata: precise 24h time as "15·23".
-                let photoFlag = memo.attachments.contains { $0.kind == "photo" || $0.kind == "screenshot" }
-                let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
-                Text(MemoCardTimePresentation.shortTime(memo.created, timeZone: appSettings.preferredTimeZone).replacingOccurrences(of: ":", with: "·"))
-                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
-                    // Tracking pulled from 1.6 → 1.2: the wide letter-spacing
-                    // read as a terminal readout on a serif card (§4 type
-                    // discipline — mono stays for the digits, but the spacing
-                    // relaxes toward prose).
-                    .tracking(1.2)
-                    .foregroundColor(DSColor.inkMuted)
-
-                // Tiny attachment glyphs hint content type without a loud chip.
-                if photoFlag {
-                    Image(systemName: "photo")
-                        // 9pt (was 8) — 8pt SF Symbols fall below the legibility
-                        // floor; 9pt keeps the quiet inkSubtle tone while letting
-                        // the glyph optically match the 10pt mono timestamp.
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(DSColor.inkMuted)
+                HStack {
+                    Text(MemoCardTimePresentation.shortTime(memo.created, timeZone: appSettings.preferredTimeZone))
+                        .font(.system(size: metadataSize))
+                        .foregroundColor(DSColor.inkTertiaryAA)
+                    Spacer(minLength: 0)
                 }
-                if voiceFlag {
-                    Image(systemName: "mic")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(DSColor.inkMuted)
-                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+                .overlay { if let interaction { interaction.bridge } }
 
-                Spacer(minLength: 4)
+                if hasOverflow || isExpanded {
+                    Button {
+                        Haptics.soft()
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+                            isExpanded.toggle()
+                        }
+                    } label: {
+                        Text(NSLocalizedString(isExpanded ? "reading.collapse" : "reading.expand", comment: "Inline memo reading disclosure"))
+                            .font(.system(size: disclosureSize))
+                            .foregroundColor(DSColor.readingAccent)
+                            .padding(.leading, 12)
+                            .frame(minWidth: 80, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(isExpanded ? "memo-reading-collapse" : "memo-reading-expand")
+                    .accessibilityValue(NSLocalizedString(isExpanded ? "reading.expanded" : "reading.collapsed", comment: "Disclosure state"))
+                }
             }
-            // Meta whispers, prose speaks — sink the whole timestamp row a
-            // touch below inkSubtle so the memo body owns the card.
-            .opacity(0.85)
-            .padding(.horizontal, 14)
-            // Density tightened one notch (§4): .top 10→8, .bottom 14→12, so a
-            // short memo's net height drops and the timeline packs one more.
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.horizontal, cardInset)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .solidCard(cornerRadius: 14)
-        // 2026-07-05 (#808): the template-override contextMenu (分享文本 /
-        // 强制文字卡 / 强制照片卡 / 强制语音卡) and its sharePayload sheet were
-        // removed as dead code — the swipe overlay above this card owns the
-        // long press, so that menu was never reachable. Share flows live in
-        // the left-swipe action and TimelineRow's merged long-press menu.
+        .solidCard(cornerRadius: 16)
+        .onChange(of: readingText) { _ in
+            isExpanded = false
+            hasOverflow = false
+        }
+    }
+
+    @ViewBuilder
+    private var audioAttachment: some View {
+        if let attachment = memo.attachments.first(where: { $0.kind == "audio" }) {
+            let url = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
+            let state = attachmentDownloadState(for: url)
+            if state == .current {
+                VoiceMemoPlayerRow(
+                    fileURL: url,
+                    duration: attachment.duration ?? 0,
+                    transcript: attachment.transcript,
+                    transcriptionStatus: attachment.transcriptionStatus,
+                    onRetranscribe: retranscribeAction(for: attachment),
+                    showsTranscript: false
+                )
+            } else {
+                AudioDownloadPlaceholder(state: state)
+                    .padding(.horizontal, cardInset)
+                    .padding(.top, 10)
+                    .onAppear { if state == .notDownloaded { startDownload(url) } }
+                    .onTapGesture { startDownload(url) }
+                    .minTapTarget()
+                    .a11yButton(label: L10n.MemoCard.audioDownloadA11yLabel, hint: L10n.MemoCard.downloadA11yHint)
+            }
+        }
+    }
+
+    private func retranscribeAction(for attachment: Memo.Attachment) -> (() -> Void)? {
+        guard let onRetranscribe else { return nil }
+        return { onRetranscribe(memo, attachment) }
+    }
+
+    @ViewBuilder
+    private var fileAttachments: some View {
+        let files = memo.attachments.filter { $0.kind == "file" }
+        if !files.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(files, id: \.file) { attachment in
+                    Label(attachment.transcript ?? URL(fileURLWithPath: attachment.file).lastPathComponent,
+                          systemImage: "doc")
+                        .font(.system(size: metadataSize))
+                        .foregroundColor(DSColor.inkMuted)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.horizontal, cardInset)
+            .padding(.top, 12)
+        }
     }
 
     // MARK: - Helpers
@@ -921,6 +896,7 @@ struct VoiceMemoPlayerRow: View {
     var transcriptionStatus: Memo.TranscriptionStatus? = nil
     // US-016: called when user taps retry on a failed transcript
     var onRetranscribe: (() -> Void)? = nil
+    var showsTranscript = true
 
     static let maxRetries = 3
 
@@ -931,6 +907,7 @@ struct VoiceMemoPlayerRow: View {
     @State private var progressTimer: Timer?
     @State private var fileError: Bool = false
     @State private var isScrubbing: Bool = false
+    @State private var scrubStartProgress: Double?
     /// Number of failed transcription attempts for this attachment. Persisted
     /// in UserDefaults so retry count survives the memo card going off-screen.
     @State private var retryCount: Int = 0
@@ -951,9 +928,14 @@ struct VoiceMemoPlayerRow: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(fileError ? DSColor.inkSubtle : DSColor.accentOnBg)
                     }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(fileError)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel(NSLocalizedString(isPlaying ? "reading.audio.pause" : "reading.audio.play", comment: "Audio playback control"))
+                .accessibilityIdentifier("memo-audio-playback")
 
                 // Waveform is split into a static base layer + a progress-driven
                 // mask layer. The base layer never re-renders during playback;
@@ -967,20 +949,25 @@ struct VoiceMemoPlayerRow: View {
                         progress: playbackProgress
                     )
                     .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                if !isScrubbing {
-                                    isScrubbing = true
+                    .overlay {
+                        HorizontalPanGesture(
+                            isActive: $isScrubbing,
+                            onChanged: { translation in
+                                if scrubStartProgress == nil {
+                                    scrubStartProgress = playbackProgress
                                     Haptics.soft()
                                 }
-                                let fraction = max(0, min(1, value.location.x / geo.size.width))
-                                seek(to: fraction)
-                            }
-                            .onEnded { _ in
-                                isScrubbing = false
-                            }
-                    )
+                                let delta = Double(translation / max(1, geo.size.width))
+                                seek(to: (scrubStartProgress ?? playbackProgress) + delta)
+                            },
+                            onEnded: { _, _ in scrubStartProgress = nil },
+                            onCancelled: { scrubStartProgress = nil },
+                            onTapAt: { point in
+                                seek(to: Double(point.x / max(1, geo.size.width)))
+                            },
+                            isEnabled: !fileError
+                        )
+                    }
                 }
                 .frame(height: 36)
 
@@ -989,6 +976,23 @@ struct VoiceMemoPlayerRow: View {
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, alignment: .trailing)
                     .allowsHitTesting(false)
+
+                if !showsTranscript, let transcript, !transcript.isEmpty, onRetranscribe != nil {
+                    Menu {
+                        Button {
+                            isRetranscribing = true
+                            onRetranscribe?()
+                        } label: {
+                            Label(NSLocalizedString("voice.retry.rerun", comment: "Re-run transcription"), systemImage: "arrow.clockwise")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(DSColor.inkMuted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(NSLocalizedString("voice.retry.rerun", comment: "Re-run transcription"))
+                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
@@ -997,7 +1001,7 @@ struct VoiceMemoPlayerRow: View {
             // Transcript (italic serif quote style — typographic curly quotes
             // rather than ASCII " to read as a real pull-quote when mixed
             // with CJK text).
-            if let t = transcript, !t.isEmpty {
+            if showsTranscript, let t = transcript, !t.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
                     Text("\u{201C}")
                         .font(DSFonts.serif(size: 20, weight: .medium, relativeTo: .title3))
@@ -1075,10 +1079,11 @@ struct VoiceMemoPlayerRow: View {
                 } else {
                     // US-016: retry button with attempt counter
                     Button {
+                        guard let onRetranscribe else { return }
                         retryCount += 1
                         UserDefaults.standard.set(retryCount, forKey: retryKey)
                         isRetranscribing = true
-                        onRetranscribe?()
+                        onRetranscribe()
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.clockwise")
@@ -1091,6 +1096,7 @@ struct VoiceMemoPlayerRow: View {
                         .foregroundColor(DSColor.accentOnBg)
                     }
                     .buttonStyle(.plain)
+                    .disabled(onRetranscribe == nil)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
                     .accessibilityLabel(NSLocalizedString("voice.retry.button_a11y", comment: ""))
@@ -1263,12 +1269,21 @@ private struct WaveformBars: View, Equatable {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(heights.enumerated()), id: \.offset) { _, h in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(color)
-                    .frame(width: 2.5, height: h)
+        GeometryReader { geo in
+            // Scale the complete waveform into its lane. Fixed 178-point
+            // bars overflowed into the duration on compact screens; clipping
+            // would make the progress mask reach the end prematurely.
+            let naturalWidth = CGFloat(heights.count) * 2.5
+                + CGFloat(max(0, heights.count - 1)) * 2
+            let scale = max(0, geo.size.width) / max(1, naturalWidth)
+            HStack(spacing: 2 * scale) {
+                ForEach(Array(heights.enumerated()), id: \.offset) { _, h in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(color)
+                        .frame(width: 2.5 * scale, height: h)
+                }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
     }
 }

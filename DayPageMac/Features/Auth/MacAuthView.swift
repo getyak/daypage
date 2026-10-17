@@ -1,5 +1,6 @@
 import AuthenticationServices
 import SwiftUI
+import DayPageServices
 import DayPageStorage
 
 /// macOS account center. The interaction model intentionally differs from
@@ -11,6 +12,12 @@ struct MacAuthView: View {
         case linkSent(address: String)
     }
 
+    /// 密码（初始）vs 邮箱登录链接的显式选择。
+    private enum AuthMode: Hashable {
+        case password
+        case emailLink
+    }
+
     @EnvironmentObject private var auth: MacCloudAuthService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -19,6 +26,9 @@ struct MacAuthView: View {
     @ObservedObject private var syncQueue = SyncQueueService.shared
 
     @State private var email = ""
+    /// 瞬时表单状态：绝不持久化，成功/切模式/表单消失时立即清空。
+    @State private var password = ""
+    @State private var authMode: AuthMode = .password
     @State private var emailStage: EmailStage = .entry
     @State private var resendSeconds = 0
     @State private var localError: String?
@@ -73,9 +83,15 @@ struct MacAuthView: View {
         .onChange(of: auth.session != nil) { signedIn in
             if signedIn {
                 localError = nil
+                password = ""
+                authMode = .password
                 emailStage = .entry
                 resendSeconds = 0
             }
+        }
+        .onDisappear {
+            // 表单消失：立即丢弃瞬时密码状态。
+            password = ""
         }
         .task(id: emailStage) {
             guard case .linkSent = emailStage else { return }
@@ -198,12 +214,14 @@ struct MacAuthView: View {
 
             HStack {
                 Divider()
-                Text("或使用邮箱登录链接")
+                Text("或使用邮箱")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize()
                 Divider()
             }
+
+            authModePicker
 
             emailSignInSection
 
@@ -225,67 +243,130 @@ struct MacAuthView: View {
         }
     }
 
+    /// 密码 vs 邮箱登录链接的显式选择；切换即清空瞬时密码。
+    private var authModePicker: some View {
+        Picker("登录方式", selection: Binding(
+            get: { authMode },
+            set: { newValue in
+                authMode = newValue
+                password = ""
+                localError = nil
+            }
+        )) {
+            Text("密码").tag(AuthMode.password)
+            Text("邮箱登录链接").tag(AuthMode.emailLink)
+        }
+        .pickerStyle(.segmented)
+        .disabled(auth.isLoading)
+        .accessibilityLabel("登录方式")
+        .accessibilityIdentifier("auth.modePicker")
+    }
+
+    /// 初始模式：邮箱 + 密码。键盘可提交，加载/禁用语义明确，
+    /// 密码仅作为瞬时表单状态存在，不写入 UserDefaults / Keychain。
+    private var passwordSignInForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("you@example.com", text: $email)
+                .textFieldStyle(.roundedBorder)
+                .textContentType(.username)
+                .disabled(auth.isLoading)
+                .onSubmit { Task { await signInWithPassword() } }
+                .accessibilityLabel("邮箱地址")
+                .accessibilityIdentifier("auth.emailField")
+
+            SecureField("密码", text: $password)
+                .textFieldStyle(.roundedBorder)
+                .textContentType(.password)
+                .disabled(auth.isLoading)
+                .onSubmit { Task { await signInWithPassword() } }
+                .accessibilityLabel("密码")
+                .accessibilityIdentifier("auth.passwordField")
+
+            HStack {
+                Spacer()
+                Button("登录") {
+                    Task { await signInWithPassword() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(auth.isLoading || !canSubmitPassword)
+                .accessibilityIdentifier("auth.passwordSubmit")
+            }
+        }
+    }
+
+    private var canSubmitPassword: Bool {
+        NativeAuthFlow.isValidEmail(email)
+            && NativeAuthFlow.passwordSubmission(from: password) != nil
+    }
+
     @ViewBuilder
     private var emailSignInSection: some View {
-        switch emailStage {
-        case .entry:
-            VStack(alignment: .leading, spacing: 12) {
-                TextField("you@example.com", text: $email)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(auth.isLoading)
-                    .onSubmit { Task { await sendMagicLink() } }
-                    .accessibilityLabel("邮箱地址")
+        switch authMode {
+        case .password:
+            passwordSignInForm
+        case .emailLink:
+            switch emailStage {
+            case .entry:
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("you@example.com", text: $email)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(auth.isLoading)
+                        .onSubmit { Task { await sendMagicLink() } }
+                        .accessibilityLabel("邮箱地址")
+                        .accessibilityIdentifier("auth.linkEmailField")
 
-                HStack {
-                    Spacer()
-                    Button("发送登录链接") {
-                        Task { await sendMagicLink() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(
-                        auth.isLoading
-                            || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
-                }
-            }
-        case .linkSent(let address):
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "envelope.badge")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.green)
-                        .frame(width: 28)
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("登录链接已发送")
-                            .font(.callout.weight(.semibold))
-                        Text(address)
-                            .font(.caption)
-                            .textSelection(.enabled)
-                        Text("请在发送请求的这台 Mac 上打开邮件并点击链接，DayPage 会自动完成登录。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Spacer()
+                        Button("发送登录链接") {
+                            Task { await sendMagicLink() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(
+                            auth.isLoading
+                                || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                        .accessibilityIdentifier("auth.linkSubmit")
                     }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .accessibilityElement(children: .combine)
+            case .linkSent(let address):
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "envelope.badge")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .frame(width: 28)
 
-                HStack {
-                    Button("修改邮箱") {
-                        emailStage = .entry
-                        localError = nil
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("登录链接已发送")
+                                .font(.callout.weight(.semibold))
+                            Text(address)
+                                .font(.caption)
+                                .textSelection(.enabled)
+                            Text("请在发送请求的这台 Mac 上打开邮件并点击链接，DayPage 会自动完成登录。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityElement(children: .combine)
 
-                    Spacer()
+                    HStack {
+                        Button("修改邮箱") {
+                            emailStage = .entry
+                            localError = nil
+                        }
 
-                    Button(resendSeconds > 0 ? "\(resendSeconds) 秒后可重发" : "重新发送") {
-                        Task { await sendMagicLink(to: address) }
+                        Spacer()
+
+                        Button(resendSeconds > 0 ? "\(resendSeconds) 秒后可重发" : "重新发送") {
+                            Task { await sendMagicLink(to: address) }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(auth.isLoading || resendSeconds > 0)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(auth.isLoading || resendSeconds > 0)
                 }
             }
         }
@@ -369,6 +450,9 @@ struct MacAuthView: View {
         guard auth.session != nil else { return "只保存在这台 Mac" }
         if syncQueue.isFlushingNow { return "正在同步" }
         if syncQueue.pendingCount > 0 { return "\(syncQueue.pendingCount) 条等待同步" }
+        // “已同步” requires the shared completion proof — an empty outbox
+        // alone is never proof (#884).
+        guard syncQueue.completion.isFullySynced else { return "等待完整同步确认" }
         return "已同步"
     }
 
@@ -376,6 +460,9 @@ struct MacAuthView: View {
         guard auth.session != nil else { return "登录后会自动上传现有待同步记录" }
         if syncQueue.isFlushingNow { return "正在上传并获取其他设备的更新" }
         if syncQueue.pendingCount > 0 { return "内容已保存在本机，可安全关闭此页面" }
+        guard syncQueue.completion.isFullySynced else {
+            return "正在核对本机与云端的完整状态，确认后会显示已同步"
+        }
         return "这个账户的设备会自动接收新记录"
     }
 
@@ -383,13 +470,13 @@ struct MacAuthView: View {
         guard auth.session != nil else { return "externaldrive" }
         if syncQueue.isFlushingNow { return "arrow.triangle.2.circlepath" }
         if syncQueue.pendingCount > 0 { return "icloud.and.arrow.up" }
-        return "checkmark.icloud"
+        return syncQueue.completion.isFullySynced ? "checkmark.icloud" : "icloud"
     }
 
     private var syncTint: Color {
         guard auth.session != nil else { return .secondary }
         if syncQueue.pendingCount > 0 { return .orange }
-        return .green
+        return syncQueue.completion.isFullySynced ? .green : .secondary
     }
 
     private func sendMagicLink(to address: String? = nil) async {
@@ -406,6 +493,25 @@ struct MacAuthView: View {
                 emailStage = .linkSent(address: normalized)
             }
         } catch {
+            localError = error.localizedDescription
+        }
+    }
+
+    private func signInWithPassword() async {
+        guard !auth.isLoading else { return }
+        localError = nil
+        guard canSubmitPassword else {
+            if NativeAuthFlow.passwordSubmission(from: password) == nil {
+                localError = "请输入密码。"
+            }
+            return
+        }
+        do {
+            try await auth.signInWithPassword(email: email, password: password)
+            // SDK 成功响应后立即丢弃瞬时密码。
+            password = ""
+        } catch {
+            // 仅展示类型化、隐私安全文案，不展示 provider 原文。
             localError = error.localizedDescription
         }
     }

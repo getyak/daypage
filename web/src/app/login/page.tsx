@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { EmailSignInForm } from "./EmailSignInForm";
+import { PasswordSignInForm } from "./PasswordSignInForm";
 import { LoginSubmitButton } from "./LoginSubmitButton";
 import { safeNextPath } from "@/lib/auth/safe-next";
 
@@ -41,12 +42,14 @@ async function emailRedirectTo(next: string): Promise<string> {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
+  searchParams: Promise<{ error?: string | string[]; callbackUrl?: string | string[] }>;
 }) {
   const { error, callbackUrl } = await searchParams;
-  const next = safeNextPath(callbackUrl, "/home");
+  const next = safeNextPath(typeof callbackUrl === "string" ? callbackUrl : undefined, "/memos");
   const errorMsg = error
-    ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.Default)
+    ? (typeof error === "string" && Object.hasOwn(ERROR_MESSAGES, error)
+        ? ERROR_MESSAGES[error]
+        : ERROR_MESSAGES.Default)
     : null;
 
   return (
@@ -160,7 +163,8 @@ export default async function LoginPage({
                 options: { redirectTo },
               });
               if (error) {
-                redirect(`/login?error=${encodeURIComponent(error.message)}`);
+                // Generic code only — never echo the raw Auth error into the URL.
+                redirect("/login?error=OAuthSignin");
               }
               if (data?.url) redirect(data.url);
             }}
@@ -186,48 +190,16 @@ export default async function LoginPage({
             <span aria-hidden="true">or</span>
           </div>
 
+          {/* Standard email/password sign-in (SSR Supabase password flow) */}
+          <PasswordSignInForm callbackUrl={next} />
+
+          {/* OR divider */}
+          <div className="login-or" role="separator" aria-label="or">
+            <span aria-hidden="true">or</span>
+          </div>
+
           {/* Email magic link */}
           <EmailSignInForm callbackUrl={next} />
-
-          {/* Dev/E2E-only shortcut — Supabase password sign-in against the seeded
-              dev@daypage.local user. Enabled in dev by default and in prod builds
-              only when ENABLE_E2E_DEV_LOGIN=1 (used by scoring E2E runs). */}
-          {(process.env.NODE_ENV === "development" ||
-            process.env.ENABLE_E2E_DEV_LOGIN === "1") && (
-            <form
-              action={async (formData) => {
-                "use server";
-                const email =
-                  String(formData.get("email") ?? "").trim() ||
-                  "dev@daypage.local";
-                const supabase = await createClient();
-                const { error } = await supabase.auth.signInWithPassword({
-                  email,
-                  password: "devpassword",
-                });
-                if (error) {
-                  redirect(`/login?error=${encodeURIComponent(error.message)}`);
-                }
-                redirect(next);
-              }}
-              className="login-dev"
-            >
-              <input type="hidden" name="callbackUrl" value={next} />
-              <p className="ds-body-sm" style={{ color: "var(--fg-muted)" }}>
-                Dev-only (E2E shortcut)
-              </p>
-              <input
-                type="email"
-                name="email"
-                defaultValue="dev@daypage.local"
-                placeholder="dev@daypage.local"
-                aria-label="Dev email address"
-                className="login-input login-input--sunken"
-                suppressHydrationWarning
-              />
-              <LoginSubmitButton kind="ghost">Dev login (no email)</LoginSubmitButton>
-            </form>
-          )}
 
           <p className="login-footnote">
             By signing in you agree to our{" "}

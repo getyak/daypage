@@ -551,10 +551,17 @@ public enum RawStorage {
     /// upload; the server version then becomes canonical for the original UUID.
     /// This keeps both sides of a concurrent edit instead of silently choosing
     /// a winner and losing text.
+    ///
+    /// `sessionLease` is the ONLY sync-commit entry added here: when provided,
+    /// the whole raw commit (conflict preservation, canonical replacement and
+    /// remote acknowledgement) linearizes inside the generation gate, so a
+    /// replaced session's already-awaited page can never commit afterwards.
+    /// Interrupted-write recovery tests drive the same entry without a lease.
     public static func applyRemoteChanges(
-        _ changes: [SyncRemoteChange]
+        _ changes: [SyncRemoteChange],
+        sessionLease: SyncSessionLease? = nil
     ) throws -> SyncRemoteApplyResult {
-        try applyRemoteChanges(changes, afterWrite: { _ in })
+        try applyRemoteChanges(changes, sessionLease: sessionLease, afterWrite: { _ in })
     }
 
     /// Individual durable boundaries, exposed internally for interruption tests.
@@ -570,9 +577,11 @@ public enum RawStorage {
 
     static func applyRemoteChanges(
         _ changes: [SyncRemoteChange],
+        sessionLease: SyncSessionLease? = nil,
         afterWrite: (RemoteApplyWriteStage) throws -> Void
     ) throws -> SyncRemoteApplyResult {
-        try writeQueue.sync {
+        func commit() throws -> (result: SyncRemoteApplyResult, days: Set<String>) {
+            try writeQueue.sync {
             var appliedCount = 0
             var deletedCount = 0
             var conflictCopies: [UUID] = []
@@ -675,23 +684,42 @@ public enum RawStorage {
                 }
             }
 
-            WidgetCenter.shared.reloadAllTimelines()
-            // One notification per ACTUAL written raw file key, captured from
-            // the written URLs — never re-derived from a memo Date through the
-            // mutable preferred zone. The Date object stays for legacy
-            // subscribers; the authoritative key travels in userInfo.
-            for dayString in writtenDayStrings.sorted() {
-                notifyDidWrite(
-                    for: date(forDayString: dayString) ?? Date(),
-                    dayString: dayString
-                )
+            return (
+                SyncRemoteApplyResult(
+                    appliedCount: appliedCount,
+                    deletedCount: deletedCount,
+                    conflictCopies: conflictCopies
+                ),
+                writtenDayStrings
+            )
             }
-            return SyncRemoteApplyResult(
-                appliedCount: appliedCount,
-                deletedCount: deletedCount,
-                conflictCopies: conflictCopies
+        }
+        let committed: (result: SyncRemoteApplyResult, days: Set<String>)
+        if let sessionLease {
+            committed = try sessionLease.withValidity { try commit() }
+        } else {
+            committed = try commit()
+        }
+        // All persistent writes AND afterWrite callbacks finished under both
+        // the lease gate and the write queue. UI notifications can block on
+        // main-queue observers (TimelineIndex/SearchIndex use `queue: .main`),
+        // so they publish only AFTER both locks are released — a background
+        // raw commit can never deadlock a main-actor logout/invalidation.
+        // A commit that entered the gate before invalidation still publishes
+        // its cache invalidation even if session invalidation linearizes
+        // immediately after its durable commit (documented ordering).
+        WidgetCenter.shared.reloadAllTimelines()
+        // One notification per ACTUAL written raw file key, captured from
+        // the written URLs — never re-derived from a memo Date through the
+        // mutable preferred zone. The Date object stays for legacy
+        // subscribers; the authoritative key travels in userInfo.
+        for dayString in committed.days.sorted() {
+            notifyDidWrite(
+                for: date(forDayString: dayString) ?? Date(),
+                dayString: dayString
             )
         }
+        return committed.result
     }
 
     private static func findMemoOnDisk(id: UUID, preferredFile: URL? = nil) -> (memo: Memo, file: URL)? {

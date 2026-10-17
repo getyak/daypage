@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daypage.app/contracts/tag-import-snapshot-v1.schema.json",
+  "title": "DayPage account tag import snapshot v1",
+  "description": "One immutable import receipt as read through authenticated PostgREST: memo_tag_imports?select=version,source_sha256,payload_hash,payload,created_at (owner-scoped by RLS). Native download/apply is a later batch; no existing native client reads these snapshots yet. payload_hash is the OPAQUE server-side immutable-import fingerprint computed as encode(sha256(convert_to(payload::text,'UTF8')),'hex') over PostgreSQL jsonb::text: it is NOT a portable wire-JSON digest and consumers must not recompute or compare it against a Swift/JS JSON serialization hash. Future cross-client acceptance compares the full logical labels and per-memo associations against the source manifest. created_at accepts PostgREST's native timestamp output, including offsets and up to microsecond precision, without JS millisecond truncation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "source_sha256", "payload_hash", "payload", "created_at"],
+  "properties": {
+    "version": {
+      "description": "Snapshot schema version carried by the memo_tag_imports.version column (CHECK(version=1)); clients never guess or map it.",
+      "const": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload": { "$ref": "tag-import-payload-v1.schema.json" },
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

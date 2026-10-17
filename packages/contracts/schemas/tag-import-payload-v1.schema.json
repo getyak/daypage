@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daypage.app/contracts/tag-import-payload-v1.schema.json",
+  "title": "DayPage account tag import payload v1",
+  "description": "Canonical immutable import metadata payload stored in memo_tag_imports.payload. It contains NO note body and NO auth state. Labels keep their original leading '#', Unicode, case, punctuation, and hierarchy exactly as supplied: no normalization, no splitting on comma or slash, and no invented parent labels. The transport-level 8 MiB payload cap is enforced server-side over PostgreSQL jsonb::text and is not expressible in JSON Schema. Per-memo tags may repeat a label token (the raw snapshot keeps duplicates; the database stores one association per distinct (memo_id, label)).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "catalog",
+    "memos"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "catalog": {
+      "description": "The complete source catalog in source order, including labels unused by any memo. Duplicate entries are rejected.",
+      "type": "array",
+      "maxItems": 20000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "memos": {
+      "description": "Memo metadata map in source order. Every entry is preserved, including entries with empty tag arrays. Duplicate memo_id values are rejected. UUID equality is case-insensitive; consumers must implement the x-daypage-uniqueProperties semantic keyword accordingly, without rewriting input payloads.",
+      "type": "array",
+      "maxItems": 10000,
+      "x-daypage-uniqueProperties": [
+        "memo_id"
+      ],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "memo_id",
+          "tags"
+        ],
+        "properties": {
+          "memo_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/$defs/label"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Exact account tag label: leading '#', non-empty suffix, at most 1024 UTF-8 bytes, no ASCII controls or DEL. U+0000 is also rejected here because jsonb cannot store it.",
+      "type": "string",
+      "pattern": "^#[^\\u0000-\\u001F\\u007F]+$",
+      "x-daypage-maxUtf8Bytes": 1024
+    }
+  }
+}

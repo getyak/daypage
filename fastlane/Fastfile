@@ -122,11 +122,23 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          false,
+      force:             true,
+      api_key:           release_api_key,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.share",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     configure_release_signing
     profile_mapping     = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
     profile_name        = profile_mapping.fetch("com.daypage.app")
     widget_profile_name = profile_mapping.fetch("com.daypage.app.DayPageWidget")
     watch_profile_name  = profile_mapping.fetch("com.daypage.app.watchkitapp")
+    share_profile_name  = profile_mapping.fetch("com.daypage.app.share")
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -142,7 +154,8 @@ platform :ios do
         provisioningProfiles: {
           "com.daypage.app"               => profile_name,
           "com.daypage.app.DayPageWidget" => widget_profile_name,
-          "com.daypage.app.watchkitapp"   => watch_profile_name
+          "com.daypage.app.watchkitapp"   => watch_profile_name,
+          "com.daypage.app.share"         => share_profile_name
         }
       }
     )
@@ -223,11 +236,23 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          false,
+      force:             true,
+      api_key:           release_api_key,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.share",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     configure_release_signing
     profile_mapping     = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
     profile_name        = profile_mapping.fetch("com.daypage.app")
     widget_profile_name = profile_mapping.fetch("com.daypage.app.DayPageWidget")
     watch_profile_name  = profile_mapping.fetch("com.daypage.app.watchkitapp")
+    share_profile_name  = profile_mapping.fetch("com.daypage.app.share")
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -243,7 +268,8 @@ platform :ios do
         provisioningProfiles: {
           "com.daypage.app"               => profile_name,
           "com.daypage.app.DayPageWidget" => widget_profile_name,
-          "com.daypage.app.watchkitapp"   => watch_profile_name
+          "com.daypage.app.watchkitapp"   => watch_profile_name,
+          "com.daypage.app.share"         => share_profile_name
         }
       }
     )
@@ -285,7 +311,8 @@ platform :ios do
     target_bundle_ids = {
       "DayPage"       => "com.daypage.app",
       "DayPageWidget" => "com.daypage.app.DayPageWidget",
-      "DayPageWatch"  => "com.daypage.app.watchkitapp"
+      "DayPageWatch"  => "com.daypage.app.watchkitapp",
+      "DayPageShare"  => "com.daypage.app.share"
     }
     missing = target_bundle_ids.values.reject { |bundle_id| profile_mapping[bundle_id] }
     UI.user_error!("match did not provide profiles for: #{missing.join(', ')}") unless missing.empty?

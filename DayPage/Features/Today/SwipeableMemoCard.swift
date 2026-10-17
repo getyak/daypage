@@ -77,7 +77,7 @@ enum SwipePhysics {
     /// surface. The drawer container clips to the same continuous shape so
     /// revealed action panels share the card's silhouette instead of
     /// poking square corners out of a rounded card.
-    static let cardCornerRadius: CGFloat = DSRadius.md
+    static let cardCornerRadius: CGFloat = 16
 
     /// Width for `.contextMenu(preview:)` cards, so every long-press across the
     /// app lifts a card of the same size — a memo card and a timeline day must
@@ -403,6 +403,26 @@ struct SwipeableMemoCard: View {
         Double(min(0.16, abs(revealProgress) * 0.16))
     }
 
+    private var readingInteraction: MemoCardInteraction {
+        MemoCardInteraction(
+            isActive: $isPanActive,
+            onChanged: handlePanChanged,
+            onEnded: handlePanEnded,
+            onCancelled: handlePanCancelled,
+            onTap: handleCardTap,
+            onPressChanged: { isPressed = $0 && !isPanActive }
+        )
+    }
+
+    private var selectionTapSurface: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { handleCardTap() }
+            .accessibilityLabel(accessibilityMemoLabel)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { handleCardTap() }
+    }
+
     var body: some View {
         ZStack(alignment: .center) {
             // LAYER 1 (bottom): the card body — pure presentation. Navigation
@@ -412,8 +432,15 @@ struct SwipeableMemoCard: View {
             MemoCardView(
                 memo: memo,
                 screenshotManifest: screenshotManifest,
-                onDelete: onDelete
+                onDelete: onDelete,
+                onRetranscribe: onRetranscribe,
+                interaction: readingInteraction,
+                onRetryScreenshot: onRetryScreenshot,
+                onKeepScreenshotLocal: onKeepScreenshotLocal,
+                onExplainScreenshot: { showScreenshotMeaningSheet = true }
             )
+                .allowsHitTesting(!isSelectionMode && revealedSide == nil)
+                .accessibilityHidden(isSelectionMode || revealedSide != nil)
                 .contentShape(Rectangle())
                 .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1.0)
                 .animation(reduceMotion ? nil : Motion.spring, value: isPressed)
@@ -429,28 +456,15 @@ struct SwipeableMemoCard: View {
                     radius: 12, x: 0, y: 3
                 )
                 .offset(x: isSelectionMode ? 0 : currentOffset)
-                // UIKit pan + tap as an OVERLAY (not background): the
-                // recognizers' host must sit in the hit-test walk for touches
-                // on the card, so it has to be ABOVE the card. A confirmed
-                // horizontal pan drives swipe-to-reveal; a plain tap fires
-                // onTap (open detail, or — when a panel is open — close it).
-                // Vertical drags never satisfy the direction-lock, so the
-                // parent ScrollView keeps ownership and the timeline scrolls.
-                .overlay(
-                    HorizontalPanGesture(
-                        isActive: $isPanActive,
-                        onChanged: handlePanChanged,
-                        onEnded: handlePanEnded,
-                        onCancelled: handlePanCancelled,
-                        onTap: handleCardTap,
-                        onPressChanged: { pressed in
-                            // A confirmed swipe owns the touch — never show
-                            // the pressed dip while the drawer is moving.
-                            isPressed = pressed && !isPanActive
-                        },
-                        isEnabled: !isSelectionMode
-                    )
-                )
+                // Prose owns the native horizontal bridge. Priority states
+                // intercept the whole card before any child control can act.
+                .overlay {
+                    if isSelectionMode {
+                        selectionTapSurface
+                    } else if revealedSide != nil {
+                        readingInteraction.bridge
+                    }
+                }
 
             // LAYER 2 (top): the action drawers. They MUST sit ABOVE the card
             // so their SwiftUI Buttons reliably receive taps. The old design
@@ -488,22 +502,6 @@ struct SwipeableMemoCard: View {
             }
             .allowsHitTesting(revealedSide != nil && !isSelectionMode)
 
-            // Screenshot controls sit above the UIKit gesture bridge. Keeping
-            // this small action strip as the top layer makes its Buttons and
-            // VoiceOver actions reachable without giving up swipe direction
-            // locking for the rest of the card.
-            if let screenshotManifest, !isSelectionMode, revealedSide == nil {
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    ScreenshotCaptureActionBar(
-                        manifest: screenshotManifest,
-                        onRetry: { onRetryScreenshot?() },
-                        onKeepLocal: { onKeepScreenshotLocal?() },
-                        onExplain: { showScreenshotMeaningSheet = true }
-                    )
-                    .padding(.bottom, 36)
-                }
-            }
         }
         // Same continuous corner as MemoCardView's solidCard surface, so a
         // revealed drawer inherits the card's silhouette (the old .clipped()
@@ -515,7 +513,9 @@ struct SwipeableMemoCard: View {
         // owns the single merged menu (share / pin / select / delete) with
         // a card preview. VoiceOver users keep every action via the
         // accessibilityActions below.
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityMemoLabel)
+        .accessibilityAction(named: Text(NSLocalizedString("reading.readFull", comment: "Open the full memo"))) { handleCardTap() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.insight", comment: "VoiceOver action: open insight chooser"))) { onInsight?() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.related", comment: "VoiceOver action: open related records chat"))) { onRelated?() }
         .accessibilityAction(named: Text(NSLocalizedString("memo.a11y.action.share", comment: "Share memo accessibility action"))) { onShare?() }

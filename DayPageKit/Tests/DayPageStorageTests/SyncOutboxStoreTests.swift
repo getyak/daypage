@@ -6,7 +6,7 @@ final class SyncOutboxStoreTests: XCTestCase {
     private var temporaryVault: URL!
 
     override func setUpWithError() throws {
-        temporaryVault = FileManager.default.temporaryDirectory
+        temporaryVault = SyncRealmTestSupport.fixtureRoot
             .appendingPathComponent("daypage-outbox-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(
             at: temporaryVault.appendingPathComponent("raw", isDirectory: true),
@@ -112,20 +112,21 @@ final class SupabaseSyncUploaderTests: XCTestCase {
             "accepted": [["operation_id": operationID.uuidString, "status": "applied"]],
             "rejected": [],
         ])
+        let realm = try SyncRealmTestSupport.realm()
+        let session = try SyncRealmTestSupport.session(realm: realm)
+        let token = try SyncRealmTestSupport.token(realm: realm)
         let uploader = SupabaseSyncUploader(
-            supabaseURL: URL(string: "https://example.supabase.co")!,
-            anonKey: "anon",
+            session: session,
             transport: SyncStubTransport(data: accepted, status: 200),
-            accessTokenProvider: { "user-access-token" }
+            accessTokenProvider: { token }
         )
         _ = try await uploader.upload(operation: operation)
 
         let missing = try JSONSerialization.data(withJSONObject: ["accepted": [], "rejected": []])
         let rejectingUploader = SupabaseSyncUploader(
-            supabaseURL: URL(string: "https://example.supabase.co")!,
-            anonKey: "anon",
+            session: session,
             transport: SyncStubTransport(data: missing, status: 200),
-            accessTokenProvider: { "user-access-token" }
+            accessTokenProvider: { token }
         )
         do {
             _ = try await rejectingUploader.upload(operation: operation)
@@ -159,11 +160,12 @@ final class SupabaseSyncUploaderTests: XCTestCase {
             ]],
             "rejected": [],
         ])
+        let realm = try SyncRealmTestSupport.realm()
+        let session = try SyncRealmTestSupport.session(realm: realm)
         let uploader = SupabaseSyncUploader(
-            supabaseURL: URL(string: "https://example.supabase.co")!,
-            anonKey: "anon",
+            session: session,
             transport: SyncStubTransport(data: response, status: 200),
-            accessTokenProvider: { "session" }
+            accessTokenProvider: { try SyncRealmTestSupport.token(realm: realm) }
         )
 
         do {

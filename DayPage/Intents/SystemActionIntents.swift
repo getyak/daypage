@@ -2,6 +2,7 @@ import AppIntents
 import CryptoKit
 import Foundation
 import WidgetKit
+import DayPageServices
 #if canImport(UIKit) && !EXTENSION
 import UIKit
 #endif
@@ -94,16 +95,7 @@ enum SystemActionSharedSummaryStore {
     /// Simulator preferences can resolve named suites without a usable App
     /// Group entitlement. Dedicated QA identities must never name the user's suite.
     static func appGroupIdentifier(for bundleIdentifier: String?) -> String {
-        #if DEBUG
-        switch bundleIdentifier {
-        case "com.daypage.app.qa-unit", "com.daypage.app.qa-unit.DayPageWidget":
-            return "group.com.daypage.qa-unit"
-        case "com.daypage.app.qa-ui", "com.daypage.app.qa-ui.DayPageWidget":
-            return "group.com.daypage.qa-ui"
-        default: break
-        }
-        #endif
-        return "group.com.daypage"
+        ScreenshotShareInbox.appGroupIdentifier(for: bundleIdentifier)
     }
     static let snapshotKey = "system-actions.redacted-summaries.v1"
     static let openCenterRequestKey = "system-actions.open-center-request.v1"

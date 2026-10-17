@@ -3,29 +3,61 @@ import { z } from "zod";
 export const ALLOWED_MIME_TYPES = [
   "audio/m4a",
   "audio/mp4",
+  "audio/aac",
   "image/jpeg",
   "image/png",
   "image/heic",
   "image/heif",
   "application/pdf",
+  "video/quicktime",
 ] as const;
 
 export const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export const AttachmentKindSchema = z.enum(["audio", "photo", "file"]);
 
-export const SignAttachmentSchema = z.object({
-  memo_id: z.string().uuid("memo_id must be a UUID"),
-  kind: AttachmentKindSchema,
-  mime_type: z.enum(ALLOWED_MIME_TYPES, {
-    error: () => `mime_type must be one of: ${ALLOWED_MIME_TYPES.join(", ")}`,
-  }),
-  size_bytes: z
-    .number()
-    .int()
-    .positive()
-    .max(MAX_SIZE_BYTES, `size_bytes must be <= ${MAX_SIZE_BYTES} (50 MB)`),
-});
+// Settled kind/MIME binding (issue #884, ADR-0020). This must stay in
+// lockstep with the shared v2 schemas and the Swift AttachmentManifest and
+// AttachmentFileInspector mappings: AAC is always kind audio, QuickTime MOV
+// is always kind file.
+const ATTACHMENT_KIND_BY_MIME: Record<
+  (typeof ALLOWED_MIME_TYPES)[number],
+  z.infer<typeof AttachmentKindSchema>
+> = {
+  "audio/m4a": "audio",
+  "audio/mp4": "audio",
+  "audio/aac": "audio",
+  "image/jpeg": "photo",
+  "image/png": "photo",
+  "image/heic": "photo",
+  "image/heif": "photo",
+  "application/pdf": "file",
+  "video/quicktime": "file",
+};
+
+export const SignAttachmentSchema = z
+  .object({
+    memo_id: z.string().uuid("memo_id must be a UUID"),
+    kind: AttachmentKindSchema,
+    mime_type: z.enum(ALLOWED_MIME_TYPES, {
+      error: () => `mime_type must be one of: ${ALLOWED_MIME_TYPES.join(", ")}`,
+    }),
+    size_bytes: z
+      .number()
+      .int()
+      .positive()
+      .max(MAX_SIZE_BYTES, `size_bytes must be <= ${MAX_SIZE_BYTES} (50 MB)`),
+  })
+  .superRefine((value, ctx) => {
+    const expectedKind = ATTACHMENT_KIND_BY_MIME[value.mime_type];
+    if (value.kind !== expectedKind) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["mime_type"],
+        message: `mime_type ${value.mime_type} must belong to kind ${expectedKind}`,
+      });
+    }
+  });
 
 export const FinalizeAttachmentSchema = z.object({
   memo_id: z.string().uuid("memo_id must be a UUID"),

@@ -17,6 +17,12 @@
 - [Issue #887 verification matrix](../verification-issue-887-apple-system-actions.md): automated gates plus the matching-OS and real-device release checklist.
 - [ADR-0018](decisions/ADR-0018-backend-first-agent-data-plane.md): backend-first Agent runs, artifacts, reducers, automations, and approved tool execution over local-first capture.
 - [ADR-0019](decisions/ADR-0019-agent-evaluation-learning-plane.md): authoritative feedback/evaluator records, privacy-bounded Opik projection, versioned datasets, experiments, annotation, and promotion gates.
+- [ADR-0020](decisions/ADR-0020-imported-media-compatibility.md): imported AAC and QuickTime compatibility with preserved source bytes.
+- [ADR-0021](decisions/ADR-0021-private-backend-rls-baseline.md): authenticated account isolation and private attachment access.
+- [ADR-0022](decisions/ADR-0022-account-scoped-web-memo-reading.md): account-scoped Web history, keyset reading and private media proxy.
+- [ADR-0023](decisions/ADR-0023-account-tag-imports.md): exact imported labels and immutable account import receipts.
+- [ADR-0024](decisions/ADR-0024-account-origin-session-binding.md): Apple sync realm binding, session generations and recovery boundaries.
+- [ADR-0025](decisions/ADR-0025-native-tag-projection-and-sync-completion.md): native account-tag projection cache, consistency boundary and truthful sync completion.
 
 The overview is descriptive and should track executable reality. ADRs explain durable
 choices and trade-offs. Product requirements belong in a current PRD or issue, not in an

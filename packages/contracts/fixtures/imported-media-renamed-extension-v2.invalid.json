@@ -1,0 +1,41 @@
+{
+  "p_operations": [
+    {
+      "protocol_version": 2,
+      "operation_id": "10000000-0000-4000-8000-000000000014",
+      "memo_id": "20000000-0000-4000-8000-000000000001",
+      "kind": "upsert",
+      "revision": 7,
+      "modified_at": "2026-10-16T00:03:00Z",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attachment_manifest_hash": "55d1ed3ca7a7338d08ba9ba9b7dc929f70265c9a39bef19db217f78fd5f6b3ad",
+      "device_id": "30000000-0000-4000-8000-000000000001",
+      "payload": {
+        "type": "voice",
+        "body": "A renamed object key must not detach the MIME mapping from its extension",
+        "created_at": "2026-10-16T00:03:00Z",
+        "pinned_at": null,
+        "location": null,
+        "weather": null,
+        "device": null,
+        "source": "ios",
+        "vault_path": "raw/2026-10-16.md",
+        "attachments": [
+          {
+            "position": 0,
+            "kind": "audio",
+            "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "size_bytes": 4096,
+            "mime_type": "audio/aac",
+            "object_key": "11111111-1111-4111-8111-111111111111/20000000-0000-4000-8000-000000000001/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.m4a",
+            "original_filename": "voice-note.m4a",
+            "duration_ms": 2500,
+            "transcript": null,
+            "transcription_status": null
+          }
+        ]
+      },
+      "size_bytes": 1024
+    }
+  ]
+}

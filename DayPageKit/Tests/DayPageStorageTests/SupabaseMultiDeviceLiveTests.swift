@@ -17,6 +17,7 @@ import DayPageModels
 final class SupabaseMultiDeviceLiveTests: XCTestCase {
     func testTwoVaultsRoundTripCreateEditAndDelete() async throws {
         let configuration = try await SupabaseLiveTestConfiguration.load()
+        let liveSession = try await makeLiveSession(configuration)
         let baseDirectory = ProcessInfo.processInfo.environment["DAYPAGE_TEST_VAULT_ROOT"]
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.temporaryDirectory
@@ -35,17 +36,15 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
             configuration.accessToken
         }
         let uploader = SupabaseSyncUploader(
-            supabaseURL: configuration.url,
-            anonKey: configuration.publishableKey,
+            session: liveSession,
             accessTokenProvider: tokenProvider
         )
         let puller = SupabaseSyncPuller(
-            supabaseURL: configuration.url,
-            anonKey: configuration.publishableKey,
+            session: liveSession,
             accessTokenProvider: tokenProvider
         )
         let created = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
-        try select(vaultA, userID: configuration.userID)
+        try select(vaultA, session: liveSession)
         let sourceAttachments = try createMediaFixtures(in: vaultA)
         let memo = Memo(
             type: .mixed,
@@ -57,10 +56,10 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
 
         try RawStorage.append(memo)
         try await uploadOnlyOperation(for: memo.id, using: uploader)
-        try await pullAll(using: puller, in: vaultA, userID: configuration.userID)
+        try await pullAll(using: puller, in: vaultA, session: liveSession)
 
-        try select(vaultB, userID: configuration.userID)
-        try await pullAll(using: puller, in: vaultB, userID: configuration.userID)
+        try select(vaultB, session: liveSession)
+        try await pullAll(using: puller, in: vaultB, session: liveSession)
         let deviceBMemo = try XCTUnwrap(memoFromSelectedVault(memo.id, on: created))
         XCTAssertEqual(deviceBMemo.body, memo.body)
         XCTAssertEqual(deviceBMemo.attachments.map(\.kind), ["photo", "audio"])
@@ -77,10 +76,10 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         let editedBody = deviceBMemos[editedIndex].body
         try RawStorage.rewrite(deviceBMemos, for: created)
         try await uploadOnlyOperation(for: memo.id, using: uploader)
-        try await pullAll(using: puller, in: vaultB, userID: configuration.userID)
+        try await pullAll(using: puller, in: vaultB, session: liveSession)
 
-        try select(vaultA, userID: configuration.userID)
-        try await pullAll(using: puller, in: vaultA, userID: configuration.userID)
+        try select(vaultA, session: liveSession)
+        try await pullAll(using: puller, in: vaultA, session: liveSession)
         XCTAssertEqual(try memoFromSelectedVault(memo.id, on: created)?.body, editedBody)
 
         let remaining = try RawStorage.read(for: created).filter { $0.id != memo.id }
@@ -91,24 +90,24 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         XCTAssertEqual(deletion.kind, .delete)
         _ = try await uploader.upload(operation: deletion)
         try SyncOutboxStore.acknowledge(operationID: deletion.operationID)
-        try await pullAll(using: puller, in: vaultA, userID: configuration.userID)
+        try await pullAll(using: puller, in: vaultA, session: liveSession)
 
-        try select(vaultB, userID: configuration.userID)
-        try await pullAll(using: puller, in: vaultB, userID: configuration.userID)
+        try select(vaultB, session: liveSession)
+        try await pullAll(using: puller, in: vaultB, session: liveSession)
         XCTAssertNil(try memoFromSelectedVault(memo.id, on: created))
         XCTAssertTrue(try SyncOutboxStore.pendingOperations().isEmpty)
 
         // Restore during the 30-day grace period. The same immutable media
         // objects must become active again without byte re-upload or GC loss.
-        try select(vaultA, userID: configuration.userID)
+        try select(vaultA, session: liveSession)
         var restored = memo
         restored.body = "DAYPAGE_MULTI_DEVICE_RESTORE_\(UUID().uuidString)"
         try RawStorage.append(restored)
         try await uploadOnlyOperation(for: restored.id, using: uploader)
-        try await pullAll(using: puller, in: vaultA, userID: configuration.userID)
+        try await pullAll(using: puller, in: vaultA, session: liveSession)
 
-        try select(vaultB, userID: configuration.userID)
-        try await pullAll(using: puller, in: vaultB, userID: configuration.userID)
+        try select(vaultB, session: liveSession)
+        try await pullAll(using: puller, in: vaultB, session: liveSession)
         let restoredB = try XCTUnwrap(memoFromSelectedVault(restored.id, on: created))
         XCTAssertEqual(restoredB.body, restored.body)
         try assertMediaConverged(
@@ -120,17 +119,18 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
 
         // Leave one final tombstone for the local verifier to force due and
         // hand to the private Storage-API GC worker.
-        try select(vaultA, userID: configuration.userID)
+        try select(vaultA, session: liveSession)
         try RawStorage.rewrite(
             try RawStorage.read(for: created).filter { $0.id != restored.id },
             for: created
         )
         try await uploadOnlyOperation(for: restored.id, using: uploader)
-        try await pullAll(using: puller, in: vaultA, userID: configuration.userID)
+        try await pullAll(using: puller, in: vaultA, session: liveSession)
     }
 
     func testInterruptedTUSResumesFromServerOffset() async throws {
         let configuration = try await SupabaseLiveTestConfiguration.load()
+        let liveSession = try await makeLiveSession(configuration)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("daypage-live-tus-\(UUID().uuidString)", isDirectory: true)
         try prepare(root)
@@ -138,7 +138,7 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
             VaultInitializer.testOverrideURL = nil
             try? FileManager.default.removeItem(at: root)
         }
-        try select(root, userID: configuration.userID)
+        try select(root, session: liveSession)
 
         let relativePath = "raw/assets/tus-resume.pdf"
         let fileURL = root.appendingPathComponent(relativePath)
@@ -164,8 +164,7 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         let transport = TUSInterruptingTransport(probe: probe)
         let tokenProvider: @Sendable () async throws -> String = { configuration.accessToken }
         let firstUploader = SupabaseSyncUploader(
-            supabaseURL: configuration.url,
-            anonKey: configuration.publishableKey,
+            session: liveSession,
             transport: transport,
             accessTokenProvider: tokenProvider
         )
@@ -180,8 +179,7 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         XCTAssertEqual(first.patchBytes, [6 * 1_024 * 1_024])
 
         let resumedUploader = SupabaseSyncUploader(
-            supabaseURL: configuration.url,
-            anonKey: configuration.publishableKey,
+            session: liveSession,
             transport: transport,
             accessTokenProvider: tokenProvider
         )
@@ -297,9 +295,28 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         }
     }
 
-    private func select(_ vault: URL, userID: UUID) throws {
+    /// Constructor/signature compatibility for the realm-isolated API: the
+    /// live session is built through the real same-server token proof. Live
+    /// tests stay opt-in and are never executed by worker batches.
+    private func makeLiveSession(
+        _ configuration: SupabaseLiveTestConfiguration
+    ) async throws -> SyncSession {
+        try await SyncSessionVerifier.verifiedSession(
+            configuration: try SyncBackendConfiguration(
+                url: configuration.url,
+                publishableKey: configuration.publishableKey
+            ),
+            accessToken: configuration.accessToken,
+            transport: SupabaseSyncTransport.shared(
+                for: try SyncRealmOrigin(validating: configuration.url)
+            ),
+            expectedUserID: configuration.userID
+        )
+    }
+
+    private func select(_ vault: URL, session: SyncSession) throws {
         VaultInitializer.testOverrideURL = vault
-        _ = try SyncAccountStateStore.bind(to: userID)
+        _ = try SyncAccountStateStore.bind(to: session.identity)
     }
 
     private func uploadOnlyOperation(
@@ -316,15 +333,18 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
     private func pullAll(
         using puller: SupabaseSyncPuller,
         in vault: URL,
-        userID: UUID
+        session: SyncSession
     ) async throws {
-        try select(vault, userID: userID)
+        try select(vault, session: session)
         for _ in 0..<10 {
-            let cursor = try SyncAccountStateStore.pullCursor(for: userID)
+            let cursor = try SyncAccountStateStore.pullCursor(for: session.identity)
             let page = try await puller.pull(after: cursor, limit: 100)
             XCTAssertGreaterThanOrEqual(page.nextCursor, cursor)
             _ = try RawStorage.applyRemoteChanges(page.changes)
-            try SyncAccountStateStore.advancePullCursor(to: page.nextCursor, for: userID)
+            try SyncAccountStateStore.advancePullCursor(
+                to: page.nextCursor,
+                for: session.identity
+            )
             if !page.hasMore { return }
             XCTAssertFalse(page.changes.isEmpty)
         }

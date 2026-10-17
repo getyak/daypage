@@ -32,6 +32,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Real-data local acceptance must not persist request/query or browser logs.
+  ...(process.env.DAYPAGE_PRIVATE_PREVIEW === "1"
+    ? { logging: false as const, experimental: { mcpServer: false } }
+    : {}),
   devIndicators: false,
   // The browser sandbox loads Chromium lazily through this installed package.
   // Keep its native Node modules out of the Route Handler bundle.

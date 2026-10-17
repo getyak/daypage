@@ -44,6 +44,7 @@ struct AuthView: View {
     var onSkip: (() -> Void)? = nil
 
     @EnvironmentObject private var authService: AuthService
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = AuthViewModel()
     @State private var showEmailAuth = false
 
@@ -119,7 +120,7 @@ struct AuthView: View {
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-            if viewModel.isLoading {
+            if viewModel.isLoading || authService.isLoading {
                 ProgressView()
                     .tint(DSColor.inkPrimary)
             }
@@ -128,6 +129,11 @@ struct AuthView: View {
             viewModel.bind(authService: authService)
         }
         .onAppear { hasAppeared = true }
+        .onChange(of: authService.session != nil) { signedIn in
+            guard signedIn else { return }
+            showEmailAuth = false
+            dismiss()
+        }
         .transition(.opacity.animation(.easeOut(duration: 0.4)))
         .sheet(isPresented: $showEmailAuth) {
             EmailAuthView()
@@ -152,7 +158,7 @@ struct AuthView: View {
                 )
             }
             .buttonStyle(AuthButtonStyle())
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || authService.isLoading)
             .accessibilityLabel(viewModel.isLoading ? "Signing in with Apple" : "Continue with Apple")
             .accessibilityHint("Sign in using your Apple ID")
 
@@ -169,9 +175,9 @@ struct AuthView: View {
                 )
             }
             .buttonStyle(AuthButtonStyle())
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || authService.isLoading)
             .accessibilityLabel(NSLocalizedString("a11y.continue_email", comment: "Continue with email"))
-            .accessibilityHint(NSLocalizedString("a11y.continue_email.hint", comment: "Email magic-link sign-in hint"))
+            .accessibilityHint(NSLocalizedString("a11y.continue_email.hint", comment: "Email sign-in methods"))
         }
     }
 

@@ -1091,7 +1091,16 @@
 "a11y.recenter_graph"    = "Recenter graph";
 "a11y.zoom_reset"        = "Zoom level, tap to reset";
 "a11y.continue_email"    = "Continue with email";
-"a11y.continue_email.hint" = "Sign in using a one-time email link";
+"a11y.continue_email.hint" = "Sign in with your password or an email link";
+"auth.signin.method" = "Sign-in method";
+"auth.signin.password_mode" = "Password";
+"auth.signin.link_mode" = "Email link";
+"auth.signin.email_label" = "Email address";
+"auth.password.title" = "Sign in with email";
+"auth.password.subtitle" = "Your notes, on every device.";
+"auth.password.submit" = "Sign in";
+"auth.password.loading" = "Signing in";
+"auth.password.submit_hint" = "Sign in with your email and password";
 "a11y.back_to_email"     = "Back to email input";
 "a11y.begin"             = "Begin";
 "a11y.begin.hint"        = "Starts using DayPage";
@@ -2209,6 +2218,26 @@
 "account.sync.setup.title" = "Sync is not set up";
 "account.sync.setup.detail" = "Sync setup needs attention. Your records are saved on this device. Check the account error message.";
 
+/* Settings — signed-in account cloud sync (#884 presentation follow-up) */
+"settings.accountcloud.section" = "Account Cloud Sync";
+"settings.accountcloud.status.localonly.title" = "On this device";
+"settings.accountcloud.status.localonly.detail" = "Sign in to sync records across this account's devices.";
+"settings.accountcloud.status.offline.title" = "Offline";
+"settings.accountcloud.status.offline.detail" = "Syncing resumes automatically when you are back online.";
+"settings.accountcloud.status.offline.detail_pending" = "Saved on this device · %d waiting to sync";
+"settings.accountcloud.status.syncing.title" = "Syncing";
+"settings.accountcloud.status.syncing.detail" = "Uploading and checking for updates from your other devices.";
+"settings.accountcloud.status.pending.title" = "%d waiting to sync";
+"settings.accountcloud.status.pending.detail" = "Your records are saved on this device. It is safe to leave this page.";
+"settings.accountcloud.status.synced.title" = "Synced";
+"settings.accountcloud.status.synced.detail" = "This account's devices will receive new records automatically.";
+"settings.accountcloud.syncnow" = "Sync Now";
+"settings.accountcloud.syncnow.hint" = "Double tap to sync this account now";
+"settings.accountcloud.syncnow.busy_hint" = "A sync is already in progress";
+"settings.accountcloud.syncnow.offline_hint" = "Connect to the internet to sync";
+"settings.accountcloud.media.incomplete" = "%d attachments not yet synced";
+"settings.accountcloud.media.unknown" = "Attachment sync is not verified yet";
+
 /* Interrupted capture recovery */
 "today.recovery.count" = "%d unsaved records";
 "today.recovery.restore" = "Restore draft";
@@ -2354,3 +2383,31 @@
 "memo.chat.topic.label" = "Keyword";
 "memo.chat.topic.placeholder" = "e.g. attention";
 "memo.chat.topic.hint" = "Exact keyword matching, up to 40 characters";
+
+/* Figma content-first reading */
+"reading.expand" = "Show more";
+"reading.collapse" = "Show less";
+"reading.expanded" = "Expanded";
+"reading.collapsed" = "Collapsed";
+"reading.readFull" = "Read full text";
+"reading.viewOriginal" = "View original";
+"reading.original" = "Original record";
+"reading.close" = "Close";
+"reading.detach" = "Detach this source";
+"reading.audio.play" = "Play recording";
+"reading.audio.pause" = "Pause recording";
+
+/* #884 — exact account tags + truthful sync completion */
+"search.filter.tags" = "Tags";
+"search.filter.tags.none" = "No tag filter";
+"search.filter.tags.expand" = "Show or hide the tag catalogue";
+"search.filter.tags.placeholder" = "Search tags";
+"search.filter.tags.unavailable" = "Tag list unavailable right now. Try again after the next sync.";
+"search.filter.tags.loading" = "LOADING TAGS…";
+"search.empty.tagsUnavailable" = "Tag information is unavailable right now, so results can’t be filtered by tag. Try again after the next sync.";
+"memo.detail.meta.tags" = "Tags";
+"memo.detail.meta.tags.none" = "No tags";
+"memo.detail.meta.tags.unavailable" = "Tag information is unavailable right now.";
+"settings.websync.not_fully_synced" = "Waiting for a complete sync check";
+"account.email.signin" = "Sign in with email";
+"account.email.provider" = "Signed in with email";

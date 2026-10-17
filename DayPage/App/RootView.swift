@@ -70,17 +70,29 @@ struct RootView: View {
                 // (RC1). Only act when we're in auth phase or already signed in.
                 if hasSession {
                     if phase == .auth { phase = .ready }
-                    installSessionBackedSyncUploader()
-                    Task { await SyncQueueService.shared.flushIfOnline() }
+                    // Installation is driven by the account-id change (and
+                    // onAppear for pre-render restoration) so a nil→A flip
+                    // does not fire duplicate installers.
+                    SyncQueueService.shared.requestFlushIfOnline()
                 } else {
-                    SyncQueueObserver.shared.clearSession()
+                    // Logout/nil invalidates every outstanding install attempt
+                    // and must retain any latched rejection so legacy upload
+                    // cannot reopen.
+                    SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
+                    SyncQueueObserver.shared.clearSession(
+                        rejectedConfiguration: SyncQueueObserver.shared.isConfigurationRejected
+                    )
                     DayPageReadOnlyEntitySnapshotStore.clear()
                     let skipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
                     if phase == .ready && !skipped { phase = .auth }
                 }
             }
-            .onChange(of: authService.session?.user.id) { accountID in
-                guard let accountID else { return }
+            .onChange(of: authService.session?.accessToken) { _ in
+                guard let accountID = authService.session?.user.id else { return }
+                // AuthService invalidates the prior generation before it
+                // publishes a changed token. Reinstall for same-account
+                // refresh as well as sign-in/account changes.
+                installSessionBackedSyncUploader()
                 Task {
                     // Account-bound System Action cleanup must finish before
                     // any read-only entity snapshot for the new account is
@@ -178,13 +190,39 @@ struct RootView: View {
 
     /// The normal sync path follows the user's Supabase login session. No
     /// manually copied personal token or service-role credential is involved.
+    /// The session user is proven against the SAME backend origin/key pair
+    /// before any realm context is installed, and every attempt carries a
+    /// monotonic token (via `SyncSessionInstallCoordinator`) so stale proofs,
+    /// stale failures and stale successes can never overwrite newer session
+    /// state, UI or health.
     private func installSessionBackedSyncUploader() {
-        guard let supabaseURL = URL(string: Secrets.supabaseURL),
+        guard !Secrets.supabaseURL.isEmpty,
               !Secrets.supabasePublishableKey.isEmpty,
-              let session = authService.session else {
-            SyncQueueObserver.shared.clearSession()
+              URL(string: Secrets.supabaseURL) != nil else {
+            // Invalid/missing configuration retains any latched rejection: a
+            // bare clearSession() would reopen legacy upload for a Vault that
+            // already failed to bind. Attempts die at the same sync boundary.
+            SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
+            SyncQueueObserver.shared.clearSession(
+                rejectedConfiguration: SyncQueueObserver.shared.isConfigurationRejected
+            )
             return
         }
+        guard let session = authService.session else {
+            SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
+            SyncQueueObserver.shared.clearSession(
+                rejectedConfiguration: SyncQueueObserver.shared.isConfigurationRejected
+            )
+            return
+        }
+        let expectedUserID = session.user.id
+        // Synchronous reservation BEFORE any Task is scheduled: the attempt
+        // generation starts and the previous session lease is invalidated at
+        // this boundary, so an older proof continuation resuming before this
+        // Task starts is already stale.
+        let reservation = SyncQueueObserver.shared.sessionInstaller.reserve(
+            expectedUserID: expectedUserID
+        )
         let accessTokenProvider: @Sendable () async throws -> String = {
             try await MainActor.run {
                 guard let token = AuthService.shared.session?.accessToken,
@@ -194,42 +232,68 @@ struct RootView: View {
                 return token
             }
         }
-        do {
-            try SyncQueueObserver.shared.configureSession(
-                userID: session.user.id,
-                uploader: SupabaseSyncUploader(
-                    supabaseURL: supabaseURL,
-                    anonKey: Secrets.supabasePublishableKey,
-                    accessTokenProvider: accessTokenProvider
-                ),
-                puller: SupabaseSyncPuller(
-                    supabaseURL: supabaseURL,
-                    anonKey: Secrets.supabasePublishableKey,
-                    accessTokenProvider: accessTokenProvider
-                )
-            )
-            syncAccountError = nil
-        } catch {
-            SyncQueueObserver.shared.clearSession(rejectedConfiguration: true)
-            syncAccountError = error.localizedDescription
-            // A previous successful session must not mask a rejected Vault
-            // binding as "synced" in the account screen. Keep diagnostics
-            // bounded; the error itself can contain account identifiers.
-            let code: String
-            switch error {
-            case SyncAccountStateError.accountMismatch: code = "conflict"
-            case SyncAccountStateError.invalidState: code = "invalid_response"
-            default: code = "unexpected"
-            }
-            SyncQueueService.shared.recordSyncFailure(
-                stage: "preflight",
-                code: code,
-                httpStatus: nil
-            )
-            SentryReporter.breadcrumb(
-                category: "syncqueue",
-                level: .error,
-                message: "account binding rejected: \(code)"
+        Task { @MainActor in
+            await SyncQueueObserver.shared.sessionInstaller.install(
+                reservation: reservation,
+                currentUserID: { AuthService.shared.session?.user.id },
+                prove: {
+                    // Same-server user proof BEFORE context installation; the
+                    // decoded JWT alone is never authentication proof.
+                    try await AuthService.shared.makeVerifiedSyncSession(
+                        expectedUserID: expectedUserID
+                    )
+                },
+                makeUploader: { session in
+                    SupabaseSyncUploader(
+                        session: session,
+                        accessTokenProvider: accessTokenProvider
+                    )
+                },
+                makePuller: { session in
+                    SupabaseSyncPuller(
+                        session: session,
+                        accessTokenProvider: accessTokenProvider
+                    )
+                },
+                onSuccess: { _ in
+                    syncAccountError = nil
+                },
+                onFailure: { error in
+                    syncAccountError = error.localizedDescription
+                    // A previous successful session must not mask a rejected
+                    // Vault binding as "synced" in the account screen. Keep
+                    // diagnostics bounded; the error itself can contain
+                    // account identifiers.
+                    let code: String
+                    switch error {
+                    case SyncAccountStateError.accountMismatch,
+                         SyncAccountStateError.originMismatch:
+                        code = "conflict"
+                    case SyncAccountStateError.legacyRealmUnverified:
+                        code = "legacy_state"
+                    case SyncAccountStateError.invalidState:
+                        code = "invalid_response"
+                    case SyncRealmError.serverUserMismatch,
+                         SyncRealmError.serverUserUnverified,
+                         SyncRealmError.sessionTokenInvalid:
+                        code = "unauthorized"
+                    default:
+                        code = "unexpected"
+                    }
+                    SyncQueueService.shared.recordSyncFailure(
+                        stage: "preflight",
+                        code: code,
+                        httpStatus: nil
+                    )
+                    SentryReporter.breadcrumb(
+                        category: "syncqueue",
+                        level: .error,
+                        message: "account binding rejected: \(code)"
+                    )
+                },
+                onFlush: {
+                    SyncQueueService.shared.requestFlushIfOnline(reason: .initial)
+                }
             )
         }
     }

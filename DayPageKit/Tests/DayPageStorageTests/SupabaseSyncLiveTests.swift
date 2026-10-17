@@ -36,9 +36,22 @@ final class SupabaseSyncLiveTests: XCTestCase {
         XCTAssertEqual(operation.payload?.source, "macos")
         #endif
 
+        // Constructor/signature compatibility for the realm-isolated API: the
+        // live session is built through the real same-server token proof.
+        // Live tests stay opt-in and are never executed by worker batches.
+        let liveSession = try await SyncSessionVerifier.verifiedSession(
+            configuration: try SyncBackendConfiguration(
+                url: supabaseURL,
+                publishableKey: publishableKey
+            ),
+            accessToken: accessToken,
+            transport: SupabaseSyncTransport.shared(
+                for: try SyncRealmOrigin(validating: supabaseURL)
+            ),
+            expectedUserID: configuration.userID
+        )
         let uploader = SupabaseSyncUploader(
-            supabaseURL: supabaseURL,
-            anonKey: publishableKey,
+            session: liveSession,
             accessTokenProvider: { accessToken }
         )
         let uploadedBytes = try await uploader.upload(operation: operation)

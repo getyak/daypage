@@ -15,11 +15,20 @@ struct SystemActionUIModelTests {
         #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-ui") == "group.com.daypage.qa-ui")
         #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-unit.DayPageWidget") == "group.com.daypage.qa-unit")
         #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-ui.DayPageWidget") == "group.com.daypage.qa-ui")
+        for suffix in ["", ".share", ".DayPageWidget"] {
+            #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: "com.daypage.app.qa-ui-88420261016" + suffix) == "group.com.daypage.qa-ui-88420261016")
+        }
     }
 
     @Test func ordinaryIdentitiesKeepExistingPreferenceSuite() {
-        for identity in ["com.daypage.app", "com.daypage.app.qa-ui-other", nil] as [String?] {
+        for identity in ["com.daypage.app", "com.daypage.app.share", "com.daypage.app.DayPageWidget"] {
             #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: identity) == "group.com.daypage")
+        }
+    }
+
+    @Test func unknownAndMalformedQAIdentitiesCannotUseProductionSuite() {
+        for identity in ["com.daypage.app.qa-ui-other", "com.daypage.app.qa-ui-", "com.daypage.app.qa-ui-1234567890123", "com.daypage.app.qa-ui-１２", "com.daypage.app.qa-ui-12.evil", "com.other.app", nil] as [String?] {
+            #expect(SystemActionSharedSummaryStore.appGroupIdentifier(for: identity) == "")
         }
     }
     #endif

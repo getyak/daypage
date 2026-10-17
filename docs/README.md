@@ -19,6 +19,9 @@ to drive a change.
 - [Contributing workflow](engineering/contributing.md)
 - [Agent Team system](agent-system/README.md)
 - [TestFlight fidelity and design-system cleanup](design/testflight-fidelity.md)
+- [Native Figma reading implementation](design/figma-reading-implementation.md)
+- [Shared backend import](operations/shared-backend-import.md)
+- [Shared web account reading](operations/shared-web-account-reading.md)
 
 There is currently no single repository-wide PRD designated as current. For scoped work,
 the active GitHub issue, accepted ADRs, code, and tests define the contract until a
@@ -36,6 +39,12 @@ current PRD is adopted and linked here.
 - [ADR-0017: Local-first Apple System Actions](architecture/decisions/ADR-0017-apple-system-actions.md) — Accepted
 - [ADR-0018: Backend-first Agent data plane](architecture/decisions/ADR-0018-backend-first-agent-data-plane.md) — Accepted
 - [ADR-0019: Agent evaluation and learning plane](architecture/decisions/ADR-0019-agent-evaluation-learning-plane.md) — Accepted
+- [ADR-0020: Imported media compatibility](architecture/decisions/ADR-0020-imported-media-compatibility.md) — Accepted
+- [ADR-0021: Private tables in a fresh shared backend](architecture/decisions/ADR-0021-private-backend-rls-baseline.md) — Accepted
+- [ADR-0022: Account-scoped web memo reading](architecture/decisions/ADR-0022-account-scoped-web-memo-reading.md) — Accepted; local real-account Web reading verified, native and release acceptance pending
+- [ADR-0023: Account tag imports](architecture/decisions/ADR-0023-account-tag-imports.md) — Accepted; shared-backend rollout and Web reading verified, native reading delivered via ADR-0025 (local synthetic acceptance only)
+- [ADR-0024: Account/origin/session binding](architecture/decisions/ADR-0024-account-origin-session-binding.md) — Accepted; native realm/session isolation implemented, live device gates parent-owned
+- [ADR-0025: Native tag projection and sync completion](architecture/decisions/ADR-0025-native-tag-projection-and-sync-completion.md) — Accepted; derived tag cache, consistency boundary and truthful sync completion implemented in DayPageKit + Apple hosts; real-account/device/live acceptance pending parent gates
 - `docs/ADR-0001-*.md` through `docs/ADR-0005-*.md` are legacy-location decisions.
   Read their status fields and verify implementation before relying on them.
 

@@ -1,0 +1,41 @@
+{
+  "p_operations": [
+    {
+      "protocol_version": 2,
+      "operation_id": "10000000-0000-4000-8000-000000000012",
+      "memo_id": "20000000-0000-4000-8000-000000000001",
+      "kind": "upsert",
+      "revision": 5,
+      "modified_at": "2026-10-16T00:01:00Z",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attachment_manifest_hash": "223bf0c20b59c01f923b70018a3b6eb19583a1720a2bd960b1e71b17accb5ce0",
+      "device_id": "30000000-0000-4000-8000-000000000001",
+      "payload": {
+        "type": "photo",
+        "body": "QuickTime MOV must never masquerade as a photo attachment",
+        "created_at": "2026-10-16T00:01:00Z",
+        "pinned_at": null,
+        "location": null,
+        "weather": null,
+        "device": null,
+        "source": "ios",
+        "vault_path": "raw/2026-10-16.md",
+        "attachments": [
+          {
+            "position": 0,
+            "kind": "photo",
+            "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size_bytes": 8192,
+            "mime_type": "video/quicktime",
+            "object_key": "11111111-1111-4111-8111-111111111111/20000000-0000-4000-8000-000000000001/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.mov",
+            "original_filename": "clip.mov",
+            "duration_ms": null,
+            "transcript": null,
+            "transcription_status": null
+          }
+        ]
+      },
+      "size_bytes": 1024
+    }
+  ]
+}

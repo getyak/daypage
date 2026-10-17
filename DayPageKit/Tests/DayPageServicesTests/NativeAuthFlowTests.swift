@@ -50,4 +50,135 @@ struct NativeAuthFlowTests {
             try NativeAuthFlow.randomNonce(byteCount: 0)
         }
     }
+
+    // MARK: - Email Rules
+
+    @Test("Email normalization follows only the existing app rule")
+    func emailNormalization() {
+        #expect(NativeAuthFlow.normalizedEmail("  User.Name+tag@Example.COM \n") == "user.name+tag@example.com")
+        #expect(NativeAuthFlow.normalizedEmail("\t a@b.co ") == "a@b.co")
+        #expect(NativeAuthFlow.normalizedEmail("") == "")
+        // Interior characters are never rewritten.
+        #expect(NativeAuthFlow.normalizedEmail("first.last@sub.example.co.uk")
+            == "first.last@sub.example.co.uk")
+    }
+
+    @Test("Email validation accepts the synthetic everyday shapes")
+    func emailValidationAccepts() {
+        for candidate in [
+            "user@example.com",
+            "user.name+tag@sub.example.co.uk",
+            "  padded@example.com  ",   // accepted only after normalization
+            "USER@EXAMPLE.COM",
+        ] {
+            #expect(NativeAuthFlow.isValidEmail(candidate), "expected valid: \(candidate)")
+        }
+    }
+
+    @Test("Email validation rejects boundary and malformed shapes")
+    func emailValidationRejects() {
+        for candidate in [
+            "",
+            "   ",
+            "user",
+            "user@localhost",
+            "user@",
+            "@example.com",
+            "user@@example.com",
+            "user name@example.com",
+            "user@exam ple.com",
+            "user@example.",
+            "user@example.c om",
+        ] {
+            #expect(!NativeAuthFlow.isValidEmail(candidate), "expected invalid: \(candidate)")
+        }
+    }
+
+    @Test("Email validation boundary: existing pattern quirks are preserved")
+    func emailValidationExistingPatternQuirks() {
+        // The app's existing pattern accepts a leading-dot domain label. This
+        // batch must not impose stricter email policy than the app already
+        // had, so the quirk is pinned as behavior, not "fixed" here.
+        #expect(NativeAuthFlow.isValidEmail("user@.example.com"))
+    }
+
+    // MARK: - Password Preservation
+
+    @Test("Passwords are submitted exactly as typed")
+    func passwordPreservation() {
+        let raw = "  p@ss word \n"
+        #expect(NativeAuthFlow.passwordSubmission(from: raw) == raw)
+        let unicode = "密码🔑Ünicode"
+        #expect(NativeAuthFlow.passwordSubmission(from: unicode) == unicode)
+        let single = "x"
+        #expect(NativeAuthFlow.passwordSubmission(from: single) == single)
+    }
+
+    @Test("Password boundary: empty is missing, whitespace-only is preserved")
+    func passwordBoundary() {
+        // Missing password is rejected without ever being normalized.
+        #expect(NativeAuthFlow.passwordSubmission(from: "") == nil)
+        // A whitespace-only value is a real password value: never trimmed away.
+        #expect(NativeAuthFlow.passwordSubmission(from: " ") == " ")
+        #expect(NativeAuthFlow.passwordSubmission(from: "\t\n") == "\t\n")
+    }
+
+    // MARK: - QA Session Namespace Resolver
+
+    @Test("QA namespace resolver covers normal, unknown, nil and main QA IDs")
+    func qaNamespaceResolverCoverage() {
+        // Normal production identities keep the SDK default service (nil).
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app", isDebugBuild: true) == nil)
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.mac", isDebugBuild: true) == nil)
+        // Unknown non-QA identities and nil/empty identities also stay default.
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "org.example.other", isDebugBuild: true) == nil)
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: nil, isDebugBuild: true) == nil)
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "", isDebugBuild: true) == nil)
+        // Near-miss prefixes must not isolate anything.
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa", isDebugBuild: true) == nil)
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qax-unit", isDebugBuild: true) == nil)
+        // Unrecognized QA variants are namespaced too: they must never read or
+        // delete a familiar (production or sibling QA) session.
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa-mystery", isDebugBuild: true)
+            == "com.daypage.app.qa-mystery.supabase.gotrue.swift")
+    }
+
+    @Test("QA namespace resolver covers unit and numbered suffix IDs")
+    func qaNamespaceResolverIDs() {
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa-unit", isDebugBuild: true)
+            == "com.daypage.app.qa-unit.supabase.gotrue.swift")
+        #expect(NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa-ui", isDebugBuild: true)
+            == "com.daypage.app.qa-ui.supabase.gotrue.swift")
+        let first = NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa-ui-928", isDebugBuild: true)
+        let second = NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: "com.daypage.app.qa-ui-929", isDebugBuild: true)
+        #expect(first == "com.daypage.app.qa-ui-928.supabase.gotrue.swift")
+        #expect(second == "com.daypage.app.qa-ui-929.supabase.gotrue.swift")
+        #expect(first != second)
+    }
+
+    @Test("QA namespace resolver keeps Release builds on the default service")
+    func qaNamespaceResolverRelease() {
+        for identity in [
+            "com.daypage.app",
+            "com.daypage.app.qa-unit",
+            "com.daypage.app.qa-ui-928",
+            "com.daypage.app.qa-mystery",
+        ] {
+            #expect(NativeAuthFlow.qaSessionStorageServiceName(
+                bundleIdentifier: identity, isDebugBuild: false) == nil,
+                "expected default service in Release for: \(identity)")
+        }
+    }
 }
