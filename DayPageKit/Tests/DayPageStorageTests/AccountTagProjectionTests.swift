@@ -613,11 +613,15 @@ final class AccountTagProjectionTests: XCTestCase {
         let after = try Self.fingerprintTree(vault)
         let changed = Set(after.keys).symmetricDifference(Set(before.keys))
             .union(before.filter { after[$0.key] != $0.value }.keys)
-        let allowed = AccountTagProjectionStore.cacheFileURL(vaultRoot: vault).path
+        // macOS temporary roots may use /var while enumeration returns /private/var.
+        // Compare canonical file identities without weakening the exact changed set.
+        let allowed = AccountTagProjectionStore.cacheFileURL(vaultRoot: vault)
+            .resolvingSymlinksInPath().path
         XCTAssertEqual(changed, [allowed], "only the derived cache may change")
+        let rawPath = rawDay.resolvingSymlinksInPath().path
         XCTAssertEqual(
-            after[rawDay.path],
-            before[rawDay.path],
+            try XCTUnwrap(after[rawPath]),
+            try XCTUnwrap(before[rawPath]),
             "raw/YAML/body bytes must never change on tag refresh"
         )
     }
@@ -751,7 +755,7 @@ final class AccountTagProjectionTests: XCTestCase {
                 continue
             }
             let data = try Data(contentsOf: item)
-            result[item.path] = data.base64EncodedString()
+            result[item.resolvingSymlinksInPath().path] = data.base64EncodedString()
         }
         return result
     }
