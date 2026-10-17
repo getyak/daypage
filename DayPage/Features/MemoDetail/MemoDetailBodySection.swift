@@ -13,8 +13,11 @@ struct MemoDetailBodySection: View {
     @State private var isSaving = false
     @StateObject private var editorController = MarkdownEditorController()
 
+    /// Read-only presentation body (#884 follow-up): exact generated
+    /// media-only placeholder sets render empty here — the attachment rows
+    /// carry the media. Editing below keeps `memo.body` byte-for-byte.
     private var bodyTrimmed: String {
-        memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        MemoAttachmentPresentation.displayBody(for: memo).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isBodyDuplicateOfAudioTranscript: Bool {
@@ -45,15 +48,18 @@ struct MemoDetailBodySection: View {
     private var renderedBody: some View {
         MarkdownBodyView(
             text: bodyTrimmed,
-            lineSpacing: 8,
-            blockSpacing: 12,
+            bodySize: 18,
+            lineSpacing: 5,
+            blockSpacing: 10,
             entitySlugs: memo.entityMentions,
             entityDisplayNames: entityDisplayNames
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .textSelection(.enabled)
+        .accessibilityAction(named: Text(NSLocalizedString("memo.detail.action.edit", comment: "Edit body accessibility action"))) {
+            startEditing()
+        }
         .contentShape(Rectangle())
-        .onTapGesture(perform: startEditing)
         .environment(\.openURL, OpenURLAction { url in
             guard url.scheme == "daypage-entity",
                   let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?
@@ -62,12 +68,6 @@ struct MemoDetailBodySection: View {
             onOpenEntity(slug)
             return .handled
         })
-        .accessibilityHint(NSLocalizedString(
-            "memo.detail.a11y.tap_to_edit", value: "双击以编辑正文",
-            comment: "Detail view — body tap-to-edit VoiceOver hint"
-        ))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { startEditing() }
     }
 
     private var editor: some View {

@@ -105,10 +105,16 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
 /// A missing QA identity must stop here rather than launch personal services.
 @main
 private enum DayPageEntryPoint {
+    private static func isIsolatedUnitHost(_ identifier: String?) -> Bool {
+        guard let identifier else { return false }
+        return identifier == "com.daypage.app.qa-unit"
+            || identifier.hasPrefix("com.daypage.app.qa-unit-")
+    }
+
     @MainActor
     static func main() {
         #if DAYPAGE_ISOLATED_TEST_HOST
-        guard Bundle.main.bundleIdentifier == "com.daypage.app.qa-unit" else {
+        guard isIsolatedUnitHost(Bundle.main.bundleIdentifier) else {
             fatalError("Isolated unit host requires its dedicated bundle identity")
         }
         let environment = ProcessInfo.processInfo.environment
@@ -120,7 +126,7 @@ private enum DayPageEntryPoint {
         print("[DayPage QA] isolated unit host; production startup disabled")
         DayPageUnitTestHostApp.main()
         #else
-        guard Bundle.main.bundleIdentifier != "com.daypage.app.qa-unit" else {
+        guard !isIsolatedUnitHost(Bundle.main.bundleIdentifier) else {
             fatalError("QA unit identity requires the isolated unit host build marker")
         }
         DayPageApp.main()

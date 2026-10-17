@@ -48,6 +48,7 @@ const cases = [
   ["sync push v2", "schemas/sync-push-v2.schema.json", "fixtures/sync-push-v2.json"],
   ["sync push result v2", "schemas/sync-push-result-v2.schema.json", "fixtures/sync-push-result-v2.json"],
   ["sync pull page v2", "schemas/sync-pull-page-v2.schema.json", "fixtures/sync-pull-page-v2.json"],
+  ["imported media push v2", "schemas/sync-push-v2.schema.json", "fixtures/imported-media-aac-quicktime-v2.json"],
   ["attachment upload prepare v2", "schemas/attachment-upload-prepare-v2.schema.json", "fixtures/attachment-upload-prepare-v2.json"],
   ["attachment upload prepared v2", "schemas/attachment-upload-prepared-v2.schema.json", "fixtures/attachment-upload-prepared-v2.json"],
   ["system action proposal v1", "schemas/system-action-proposal-v1.schema.json", "fixtures/system-action-proposal-v1.json"],
@@ -417,4 +418,114 @@ test("v2 attachment path and MIME restrictions fail closed", async () => {
     await load("schemas/sync-push-v2.schema.json")
   );
   assert.equal(validate(fixture), false);
+});
+
+// Settled imported-media compatibility slice (issue #884, ADR-0020):
+// AAC is always kind audio; QuickTime MOV is always kind file.
+const settledAttachmentMappings = [
+  ["photo", "image/jpeg", "jpg"],
+  ["photo", "image/png", "png"],
+  ["photo", "image/heic", "heic"],
+  ["photo", "image/heif", "heif"],
+  ["audio", "audio/m4a", "m4a"],
+  ["audio", "audio/mp4", "mp4"],
+  ["audio", "audio/aac", "aac"],
+  ["file", "application/pdf", "pdf"],
+  ["file", "video/quicktime", "mov"],
+];
+
+test("imported media fixtures carry their canonical attachment manifest hash", async () => {
+  for (const base of [
+    "imported-media-aac-quicktime-v2",
+    "imported-media-mov-photo-v2.invalid",
+    "imported-media-aac-file-v2.invalid",
+    "imported-media-renamed-extension-v2.invalid",
+  ]) {
+    const fixture = await load(`fixtures/${base}.json`);
+    const operation = fixture.p_operations[0];
+    assert.equal(
+      attachmentManifestHash(operation.payload.attachments),
+      operation.attachment_manifest_hash,
+      base,
+    );
+  }
+});
+
+test("imported media wrong-kind and renamed fixtures fail closed", async () => {
+  const validate = contractAjv({ strict: false }).compile(
+    await load("schemas/sync-push-v2.schema.json"),
+  );
+  for (const base of [
+    "imported-media-mov-photo-v2.invalid",
+    "imported-media-aac-file-v2.invalid",
+    "imported-media-renamed-extension-v2.invalid",
+  ]) {
+    assert.equal(
+      validate(await load(`fixtures/${base}.json`)),
+      false,
+      base,
+    );
+  }
+});
+
+test("v2 schema binds kind, MIME, and extension for every settled mapping", async () => {
+  const validate = contractAjv({ strict: false }).compile(
+    await load("schemas/sync-push-v2.schema.json"),
+  );
+  const template = await load("fixtures/sync-push-v2.json");
+  for (const [kind, mimeType, extension] of settledAttachmentMappings) {
+    const fixture = structuredClone(template);
+    const attachment = fixture.p_operations[0].payload.attachments[0];
+    attachment.kind = kind;
+    attachment.mime_type = mimeType;
+    attachment.object_key = attachment.object_key.replace(/\.[a-z0-9]+$/, `.${extension}`);
+    attachment.original_filename = `sample.${extension}`;
+    assert.equal(
+      validate(fixture),
+      true,
+      `${kind}/${mimeType}/${extension}: ${JSON.stringify(validate.errors, null, 2)}`,
+    );
+
+    const wrongKind = kind === "audio" ? "file" : "audio";
+    fixture.p_operations[0].payload.attachments[0].kind = wrongKind;
+    assert.equal(
+      validate(fixture),
+      false,
+      `${wrongKind}/${mimeType}/${extension} must fail closed`,
+    );
+  }
+});
+
+test("QuickTime MOV is never a photo and AAC is never a file on the wire", async () => {
+  const validate = contractAjv({ strict: false }).compile(
+    await load("schemas/sync-push-v2.schema.json"),
+  );
+  const template = await load("fixtures/imported-media-aac-quicktime-v2.json");
+
+  const movAsPhoto = structuredClone(template);
+  movAsPhoto.p_operations[0].payload.attachments[1].kind = "photo";
+  assert.equal(validate(movAsPhoto), false);
+
+  const aacAsFile = structuredClone(template);
+  aacAsFile.p_operations[0].payload.attachments[0].kind = "file";
+  assert.equal(validate(aacAsFile), false);
+});
+
+test("attachment upload preparation v2 binds MIME to the canonical extension", async () => {
+  const validate = contractAjv({ strict: false }).compile(
+    await load("schemas/attachment-upload-prepare-v2.schema.json"),
+  );
+  const template = await load("fixtures/attachment-upload-prepare-v2.json");
+  for (const [, mimeType, extension] of settledAttachmentMappings) {
+    const fixture = structuredClone(template);
+    fixture.mime_type = mimeType;
+    fixture.extension = extension;
+    assert.equal(
+      validate(fixture),
+      true,
+      `${mimeType}/${extension}: ${JSON.stringify(validate.errors, null, 2)}`,
+    );
+    fixture.extension = extension === "pdf" ? "jpg" : "pdf";
+    assert.equal(validate(fixture), false, `${mimeType} with a valid but wrong extension`);
+  }
 });

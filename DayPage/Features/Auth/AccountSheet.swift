@@ -229,11 +229,11 @@ struct AccountSheet: View {
                 Button {
                     destination = .emailSignIn
                 } label: {
-                    secondaryActionLabel(title: "使用邮箱登录链接", symbol: "envelope")
+                    secondaryActionLabel(title: NSLocalizedString("account.email.signin", comment: ""), symbol: "envelope")
                 }
                 .buttonStyle(AccountCenterPressStyle())
                 .disabled(activeAction != nil || authService.isPlaceholder)
-                .accessibilityHint("输入邮箱并接收一次性登录链接")
+                .accessibilityHint(NSLocalizedString("a11y.continue_email.hint", comment: ""))
             }
 
             if authService.isPlaceholder {
@@ -292,7 +292,7 @@ struct AccountSheet: View {
                     Spacer()
                     if accountSyncStatus.canRetry {
                         Button(NSLocalizedString("submit.error.retry", comment: "Retry sync")) {
-                            Task { await syncQueue.flushIfOnline() }
+                            syncQueue.requestFlushIfOnline(reason: .manual)
                         }
                         .font(DSType.labelSM)
                         .foregroundColor(DSColor.accentOnBg)
@@ -491,7 +491,7 @@ struct AccountSheet: View {
     private var loginProviderLabel: String {
         switch authService.loginProvider {
         case .apple: return "通过 Apple 登录"
-        case .emailLink: return "通过邮箱登录链接登录"
+        case .emailLink: return NSLocalizedString("account.email.provider", comment: "")
         case .unknown: return "已通过 Supabase 验证"
         }
     }
@@ -566,6 +566,17 @@ struct AccountSheet: View {
                 color: DSColor.inkSecondary
             )
         case .synced:
+            // #884 — “已同步” is claimable ONLY from the shared completion
+            // proof (current generation, memo drained, metadata current,
+            // outbox 0, verified media 0). Anything else is unverified.
+            guard syncQueue.completion.isFullySynced else {
+                return .init(
+                    symbol: "icloud",
+                    title: NSLocalizedString("account.sync.unverified.title", comment: "Sync has not been verified yet"),
+                    detail: NSLocalizedString("account.sync.unverified.detail", comment: "Waiting for a complete sync check"),
+                    color: DSColor.inkSecondary
+                )
+            }
             return .init(
                 symbol: "checkmark.icloud",
                 title: "已同步",

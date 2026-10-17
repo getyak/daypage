@@ -8,7 +8,7 @@ final class MemoRecordStoreTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        vaultURL = FileManager.default.temporaryDirectory
+        vaultURL = SyncRealmTestSupport.fixtureRoot
             .appendingPathComponent("MemoRecordStoreTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(
             at: vaultURL.appendingPathComponent("raw", isDirectory: true),

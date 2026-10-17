@@ -213,17 +213,123 @@ final class SearchViewModel: ObservableObject {
 
 // MARK: - SearchView
 
+// MARK: - AccountTagFilterModel
+
+/// Exact account-tag catalogue for the Search filter (#884). Reads ONLY the
+/// derived projection cache (never the network) and intersects memberships
+/// with current raw memo UUIDs, so a deleted note can never reappear and a
+/// conflict-copy UUID never inherits memberships. `unavailable` metadata is a
+/// DIFFERENT state from "zero matching notes".
+@MainActor
+final class AccountTagFilterModel: ObservableObject {
+    enum Availability: Equatable {
+        /// Catalogue readable but the live index snapshot is not authoritative
+        /// yet — membership counts stay UNKNOWN, never a claimed zero.
+        case loading
+        /// No readable account-tag metadata (no session / no cache / damaged
+        /// cache). Never presented as a complete empty catalogue.
+        case unavailable
+        case ready
+    }
+
+    struct Entry: Identifiable, Equatable {
+        /// `ExactTagLabel` UTF-8 identity — stable and never a String key.
+        let id: String
+        /// ORIGINAL label text (no normalization).
+        let text: String
+        /// Memberships among CURRENT raw memos; `nil` = unknown (cold index).
+        let activeCount: Int?
+    }
+
+    @Published private(set) var availability: Availability = .loading
+    @Published private(set) var entries: [Entry] = []
+
+    private var snapshot: AccountTagProjectionSnapshot?
+
+    /// Reloads the derived cache and catalogue. `indexDocs` must be an
+    /// AUTHORITATIVE `SearchIndex` snapshot — pass `nil` while the first
+    /// build is still in flight so counts stay unknown instead of claiming a
+    /// verified zero (cold index ≠ zero membership).
+    func reload(indexDocs: [SearchIndex.DayDocument]?) {
+        let loaded = Self.readSnapshot()
+        snapshot = loaded
+        guard let loaded else {
+            entries = []
+            availability = .unavailable
+            return
+        }
+        let counts = indexDocs.map { docs in
+            loaded.activeMembershipCounts(liveMemoIDs: Self.liveMemoIDs(from: docs))
+        }
+        entries = loaded.catalogue.map { row in
+            let count: Int? = counts.map { $0[row.label] ?? 0 }
+            return Entry(id: row.label.identity, text: row.label.text, activeCount: count)
+        }
+        availability = indexDocs == nil ? .loading : .ready
+    }
+
+    /// Resolution for a selection against the CURRENT snapshot and a live set
+    /// taken from an awaited index snapshot. An active selection with
+    /// unreadable metadata resolves to `.unavailable` (fail closed) — never
+    /// to "no tag dimension".
+    func resolution(
+        for selection: Set<String>,
+        liveMemoIDs: Set<UUID>
+    ) -> AccountTagFilterResolution {
+        AccountTagProjectionFilter.resolve(
+            selection: selection,
+            liveMemoIDs: liveMemoIDs,
+            snapshot: snapshot
+        )
+    }
+
+    /// Live memo UUIDs of one complete index snapshot.
+    static func liveMemoIDs(from docs: [SearchIndex.DayDocument]) -> Set<UUID> {
+        var ids = Set<UUID>()
+        for day in docs {
+            for memo in day.memos { ids.insert(memo.id) }
+        }
+        return ids
+    }
+
+    private static func readSnapshot() -> AccountTagProjectionSnapshot? {
+        // Single optional binding: `try?` already yields an optional.
+        var bound: SyncRealmIdentity?
+        do {
+            bound = try SyncAccountStateStore.boundRealm()
+        } catch {
+            bound = nil
+        }
+        guard let realm = bound else { return nil }
+        return try? AccountTagProjectionStore.read(
+            realm: realm,
+            vaultRoot: VaultInitializer.vaultURL
+        )
+    }
+}
+
 struct SearchView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
 
     @StateObject private var vm = SearchViewModel()
+    @StateObject private var tagFilterModel = AccountTagFilterModel()
 
     @State private var filters: SearchFilters = SearchFilters.empty
     @State private var showFilters: Bool = false
+    /// Selected exact tag labels by `ExactTagLabel` UTF-8 identity.
+    @State private var selectedTagIdentities: Set<String> = []
+    @State private var tagSelectorExpanded: Bool = false
+    @State private var tagSearchText: String = ""
+    /// True when the current search ran with a tag filter whose metadata was
+    /// NOT readable — presented as "unavailable", never "zero results".
+    @State private var tagUnavailableForSearch: Bool = false
     @State private var cancellable: AnyCancellable? = nil
     @State private var searchTask: Task<Void, Never>? = nil
+    /// Index-refresh work (cold build await / raw-change barriers); replaced
+    /// on each trigger so a stale refresh never publishes later.
+    @State private var indexRefreshTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
     @State private var activeMatchKinds: Set<SearchResult.MatchKind> = []
     @State private var appearedRecents: Set<String> = []
@@ -254,6 +360,15 @@ struct SearchView: View {
         (filters.startDate != nil || filters.endDate != nil ? 1 : 0)
             + (filters.types.isEmpty ? 0 : 1)
             + (filters.locationQuery.trimmingCharacters(in: .whitespaces).isEmpty ? 0 : 1)
+            + (selectedTagIdentities.isEmpty ? 0 : 1)
+    }
+
+    /// The one "any filter is active" predicate (#884 follow-up): the exact
+    /// tag selection IS a filter dimension, so tag-only searches present as
+    /// filtered (filtered empty copy, clear-filters action, result badge) —
+    /// never as "no matches for query" with no visible reason.
+    private var hasActiveSearchFilter: Bool {
+        filters.isActive || !selectedTagIdentities.isEmpty
     }
 
     var body: some View {
@@ -308,10 +423,22 @@ struct SearchView: View {
                 }
                 setupDebounce()
                 vm.loadTopEntities()
+                // Cold index → counts stay unknown (never a claimed zero).
+                tagFilterModel.reload(indexDocs: SearchIndex.shared.documentsIfBuilt())
                 // Search owns its warm-up. Deferring this work until the system
                 // surface is actually visible prevents a full text-index scan
                 // from competing with Today's cold launch.
                 SearchIndex.shared.warmUp()
+                // #884 — once the authoritative build completes, refresh the
+                // counts AND the eligibility of any tag selection made during
+                // the build (cold index must never read as zero membership).
+                indexRefreshTask?.cancel()
+                indexRefreshTask = Task { @MainActor in
+                    let docs = await SearchIndex.shared.documents()
+                    guard !Task.isCancelled else { return }
+                    tagFilterModel.reload(indexDocs: docs)
+                    runSearch(keyword: vm.query)
+                }
                 // Pre-populate query when SearchView was opened from a deep
                 // link (e.g. `daypage://search?q=…`). Only runs on first
                 // appear; setupDebounce → Combine pipeline will execute the
@@ -342,9 +469,38 @@ struct SearchView: View {
                     props: ["query_len": String(q.count), "source": "deeplink"]
                 )
             }
+            .onReceive(NotificationCenter.default.publisher(for: .accountTagProjectionDidUpdate)) { _ in
+                // Projection refreshes recompute the catalogue and the active
+                // counts, then re-run the current query against new membership.
+                tagFilterModel.reload(indexDocs: SearchIndex.shared.documentsIfBuilt())
+                runSearch(keyword: vm.query)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .rawStorageDidWrite)) { _ in
+                // #884 — raw additions/deletions must update the ACTIVE result
+                // list and the counts, but only from a COMPLETED index update:
+                // await the public index barrier, then reload + requery. A
+                // second barrier catches a day task registered on a later main
+                // hop, so a half-updated index is never published as results.
+                indexRefreshTask?.cancel()
+                indexRefreshTask = Task { @MainActor in
+                    await SearchIndex.shared.waitUntilIdleForTesting()
+                    guard !Task.isCancelled else { return }
+                    let first = SearchIndex.shared.documentsIfBuilt()
+                    tagFilterModel.reload(indexDocs: first)
+                    runSearch(keyword: vm.query)
+                    await SearchIndex.shared.waitUntilIdleForTesting()
+                    guard !Task.isCancelled else { return }
+                    let second = SearchIndex.shared.documentsIfBuilt()
+                    if second != first {
+                        tagFilterModel.reload(indexDocs: second)
+                        runSearch(keyword: vm.query)
+                    }
+                }
+            }
             .onDisappear {
                 cancellable?.cancel()
                 searchTask?.cancel()
+                indexRefreshTask?.cancel()
                 searchScrollProxy = nil
                 lastScrolledQuery = nil
             }
@@ -366,19 +522,49 @@ struct SearchView: View {
     private func runSearch(keyword: String) {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let capturedFilters = filters
+        // Exact metadata filter (#884): membership BEFORE the 100-result cap.
+        // Resolution happens AFTER the awaited index snapshot inside the task
+        // below — a cold index is never a verified zero.
+        let tagSelection = selectedTagIdentities
         let wasEmpty = vm.results.isEmpty
         searchTask?.cancel()
-        if !trimmed.isEmpty || capturedFilters.isActive {
+        if !trimmed.isEmpty || capturedFilters.isActive || !tagSelection.isEmpty {
             vm.isSearching = true
         }
         searchTask = Task {
             // #827: a cold search awaits the single in-flight index build
             // asynchronously instead of starting a second full-vault fallback
             // scan. Once ready, each keystroke is memory-only.
+            // #884: that awaited snapshot is ALSO the authoritative live set
+            // for tag eligibility — a selection made while the build runs must
+            // not stay false-empty.
             let docs = await SearchIndex.shared.documents()
             guard !Task.isCancelled else { return }
+            let live = AccountTagFilterModel.liveMemoIDs(from: docs)
+            let resolution = tagFilterModel.resolution(for: tagSelection, liveMemoIDs: live)
+            let capturedEligible: Set<UUID>?
+            let tagUnavailable: Bool
+            switch resolution {
+            case .noTagDimension:
+                capturedEligible = nil
+                tagUnavailable = false
+            case .eligible(let ids):
+                capturedEligible = ids
+                tagUnavailable = false
+            case .unavailable:
+                // FAIL CLOSED: an active selection with unreadable metadata
+                // matches NOTHING and is presented as unavailable — never as
+                // silently unfiltered text hits.
+                capturedEligible = []
+                tagUnavailable = true
+            }
             let hits = await Task.detached(priority: .userInitiated) {
-                SearchService.search(keyword: trimmed, filters: capturedFilters, in: docs)
+                SearchService.search(
+                    keyword: trimmed,
+                    filters: capturedFilters,
+                    in: docs,
+                    eligibleMemoIDs: capturedEligible
+                )
             }.value
             guard !Task.isCancelled else { return }
             await MainActor.run {
@@ -386,7 +572,8 @@ struct SearchView: View {
                 appearedIDs = []
                 activeMatchKinds = []
                 vm.results = hits
-                vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
+                tagUnavailableForSearch = tagUnavailable
+                vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive || !tagSelection.isEmpty
                 if hits.isEmpty && vm.hasSearched {
                     if trimmed != lastBuzzedEmptyQuery {
                         if !reduceMotion { Haptics.warn() }
@@ -518,7 +705,7 @@ struct SearchView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("search.a11y.filter", comment: "Accessibility label for the filter button"))
             .accessibilityHint(NSLocalizedString("search.a11y.filter.hint", comment: "Accessibility hint for the filter button"))
-            .accessibilityValue(filters.isActive
+            .accessibilityValue(hasActiveSearchFilter
                 ? String(format: NSLocalizedString(
                     "search.a11y.filter.enabled.count",
                     value: "%d 个筛选生效",
@@ -610,6 +797,57 @@ struct SearchView: View {
                 }
             }
 
+            // Exact account tags (#884): compact, searchable, collapsible
+            // selector over the FULL catalogue (unused labels included).
+            VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                HStack(spacing: DSSpacing.sm) {
+                    Image(systemName: "number")
+                        .font(.system(size: 12))
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 16)
+
+                    Text(NSLocalizedString("search.filter.tags", comment: "Filter panel label: account tags"))
+                        .monoLabelStyle(size: 11)
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 48, alignment: .leading)
+
+                    if selectedTagIdentities.isEmpty {
+                        Text(NSLocalizedString("search.filter.tags.none", comment: "No tag filter selected"))
+                            .monoLabelStyle(size: 10)
+                            .foregroundColor(DSColor.inkFaint)
+                    } else {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(selectedTagEntries) { entry in
+                                    selectedTagChip(entry)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Button(action: {
+                        Haptics.light()
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                            tagSelectorExpanded.toggle()
+                        }
+                    }) {
+                        Image(systemName: tagSelectorExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(DSColor.inkMuted)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString("search.filter.tags.expand", comment: "Expand/collapse tag catalogue selector"))
+                }
+
+                if tagSelectorExpanded {
+                    tagCatalogueList
+                }
+            }
+
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "mappin")
                     .font(.system(size: 12))
@@ -647,12 +885,13 @@ struct SearchView: View {
                 .clipShape(Capsule())
             }
 
-            if filters.isActive {
+            if filters.isActive || !selectedTagIdentities.isEmpty {
                 HStack {
                     Spacer()
                     Button(action: {
                         Haptics.light()
                         filters = .empty
+                        selectedTagIdentities = []
                         runSearch(keyword: vm.query)
                     }) {
                         Text(NSLocalizedString("search.filter.clearAll", comment: "Clear all filters button"))
@@ -666,6 +905,123 @@ struct SearchView: View {
         .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, DSSpacing.md)
         .background(DSColor.surfaceWhite.opacity(0.35))
+    }
+
+    /// Original label text in every chip — exact bytes, never normalized.
+    private var selectedTagEntries: [AccountTagFilterModel.Entry] {
+        tagFilterModel.entries.filter { selectedTagIdentities.contains($0.id) }
+    }
+
+    private func selectedTagChip(_ entry: AccountTagFilterModel.Entry) -> some View {
+        Button(action: {
+            Haptics.soft()
+            selectedTagIdentities.remove(entry.id)
+            runSearch(keyword: vm.query)
+        }) {
+            HStack(spacing: 4) {
+                Text(entry.text)
+                    .font(DSFonts.inter(size: 12, relativeTo: .footnote))
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .foregroundColor(DSColor.onAmber)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 28)
+            .background(DSColor.amberDeep, in: Capsule())
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(entry.text)
+    }
+
+    /// Collapsible full-catalogue selector: searchable, includes UNUSED
+    /// labels, shows active membership counts over current raw memos.
+    private var tagCatalogueList: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            TextField(
+                NSLocalizedString("search.filter.tags.placeholder", comment: "Tag catalogue search field placeholder"),
+                text: $tagSearchText
+            )
+            .font(DSFonts.inter(size: 13, relativeTo: .footnote))
+            .foregroundColor(DSColor.inkPrimary)
+            .textInputAutocapitalization(.never)
+            .disableAutocorrection(true)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .dpGlass(.pill, in: Capsule())
+            .clipShape(Capsule())
+
+            if tagFilterModel.availability == .unavailable {
+                Text(NSLocalizedString("search.filter.tags.unavailable", comment: "Account tag metadata unavailable"))
+                    .bodySMStyle()
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(catalogueEntries) { entry in
+                            tagCatalogueRow(entry)
+                        }
+                    }
+                }
+                .frame(maxHeight: 220)
+
+                if tagFilterModel.availability == .loading {
+                    // Index snapshot not authoritative yet: counts are
+                    // UNKNOWN — never presented as a verified zero.
+                    Text(NSLocalizedString("search.filter.tags.loading", comment: "Account tag metadata loading"))
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(DSColor.inkFaint)
+                }
+            }
+        }
+    }
+
+    private var catalogueEntries: [AccountTagFilterModel.Entry] {
+        let needle = tagSearchText.trimmingCharacters(in: .whitespaces)
+        guard !needle.isEmpty else { return tagFilterModel.entries }
+        return tagFilterModel.entries.filter {
+            $0.text.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }
+    }
+
+    private func tagCatalogueRow(_ entry: AccountTagFilterModel.Entry) -> some View {
+        let isSelected = selectedTagIdentities.contains(entry.id)
+        return Button(action: {
+            Haptics.soft()
+            if isSelected {
+                selectedTagIdentities.remove(entry.id)
+            } else {
+                selectedTagIdentities.insert(entry.id)
+            }
+            runSearch(keyword: vm.query)
+        }) {
+            HStack(spacing: DSSpacing.sm) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(isSelected ? DSColor.amberDeep : DSColor.inkFaint)
+                Text(entry.text)
+                    .font(DSFonts.inter(size: 13, relativeTo: .footnote))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+                Text(entry.activeCount.map(String.init) ?? "—")
+                    .monoLabelStyle(size: 10)
+                    .foregroundColor(
+                        entry.activeCount.map { $0 == 0 } ?? true
+                            ? DSColor.inkFaint
+                            : DSColor.inkMuted
+                    )
+            }
+            .padding(.horizontal, 8)
+            .frame(minHeight: 32)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(entry.text)
+        .accessibilityValue(entry.activeCount.map(String.init) ?? "unknown")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     private func typeChip(_ type: Memo.MemoType) -> some View {
@@ -700,7 +1056,12 @@ struct SearchView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        if !vm.hasSearched {
+        if tagUnavailableForSearch {
+            // An ACTIVE tag filter with unreadable metadata is fail-closed:
+            // no unfiltered hits are ever shown in this state (the warning
+            // stays visible even when earlier queries had cached hits).
+            tagUnavailableState
+        } else if !vm.hasSearched {
             emptyQueryState
         } else if vm.results.isEmpty {
             emptyResultState
@@ -1004,6 +1365,43 @@ struct SearchView: View {
 
     // MARK: - Empty result state
 
+    /// Fail-closed state for an ACTIVE tag filter whose metadata is unreadable
+    /// (#884): distinct from zero matching notes, never silently unfiltered,
+    /// and recoverable by clearing the selection or after the cache returns.
+    private var tagUnavailableState: some View {
+        ScrollView {
+            VStack(spacing: DSSpacing.xl) {
+                VStack(spacing: DSSpacing.md) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32, weight: .regular))
+                        .foregroundColor(DSColor.inkFaint)
+                    Text(NSLocalizedString("search.empty.tagsUnavailable", comment: "Tag metadata unavailable while a tag filter is active"))
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+
+                Button(action: {
+                    Haptics.light()
+                    filters = .empty
+                    selectedTagIdentities = []
+                    runSearch(keyword: vm.query)
+                }) {
+                    Text(NSLocalizedString("search.empty.clearFilters", comment: "Clear filters button in tag unavailable state"))
+                        .monoLabelStyle(size: 11)
+                        .foregroundColor(DSColor.accentOnBg)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Capsule().stroke(DSColor.accentOnBg, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 64)
+        }
+    }
+
     private var emptyResultState: some View {
         ScrollView {
             VStack(spacing: DSSpacing.xl) {
@@ -1011,13 +1409,13 @@ struct SearchView: View {
                     Image(systemName: "tray")
                         .font(.system(size: 32, weight: .regular))
                         .foregroundColor(DSColor.inkFaint)
-                    if vm.query.isEmpty && filters.isActive {
+                    if vm.query.isEmpty && hasActiveSearchFilter {
                         Text(NSLocalizedString("search.empty.noMatchFiltered", comment: "No results with active filters and no query"))
                             .bodySMStyle()
                             .foregroundColor(DSColor.inkMuted)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
-                    } else if !vm.query.isEmpty && filters.isActive {
+                    } else if !vm.query.isEmpty && hasActiveSearchFilter {
                         Text(String(format: NSLocalizedString("search.empty.noMatchQueryFiltered", comment: "No results for query with active filters; %@ = query"), vm.query))
                             .bodySMStyle()
                             .foregroundColor(DSColor.inkMuted)
@@ -1032,10 +1430,11 @@ struct SearchView: View {
                     }
                 }
 
-                if filters.isActive {
+                if hasActiveSearchFilter {
                     Button(action: {
                         Haptics.light()
                         filters = .empty
+                        selectedTagIdentities = []
                         runSearch(keyword: vm.query)
                     }) {
                         Text(NSLocalizedString("search.empty.clearFilters", comment: "Clear filters button in empty result state"))
@@ -1145,7 +1544,7 @@ struct SearchView: View {
                         .modifier(NumericTextContentTransition(value: Double(visibleCount), reduceMotion: reduceMotion))
                         .animation(reduceMotion ? nil : Motion.spring, value: visibleCount)
                     Spacer()
-                    if filters.isActive {
+                    if hasActiveSearchFilter {
                         Label(NSLocalizedString("search.result.filtered", comment: "Filtered badge label"), systemImage: "line.3.horizontal.decrease.circle.fill")
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.accentOnBg)
@@ -1170,6 +1569,7 @@ struct SearchView: View {
                         ForEach(group.results) { result in
                             let appeared = appearedIDs.contains(result.id)
                             resultRow(result, showsDate: group.section != .today)
+                                .padding(.bottom, 12)
                                 // Hairline rows sit flush (the row draws its
                                 // own 0.5pt bottom rule), so the per-card bottom
                                 // gap is gone; horizontal inset relaxes from xl
@@ -1261,9 +1661,16 @@ struct SearchView: View {
         let badgeLabel = result.isDailyPageCompiled
             ? NSLocalizedString("search.badge.compiled", comment: "Result badge: day has a compiled daily page")
             : NSLocalizedString("search.badge.raw", comment: "Result badge: day has raw memos only")
+        // A hidden generated media-placeholder body yields an EMPTY snippet on
+        // purpose (the internal asset path never renders). Fall back to the
+        // existing localized memo-type / badge copy instead of a blank line or
+        // fabricated note text — for the row and for VoiceOver alike.
+        let snippetText = result.snippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? (result.memoType?.displayName ?? badgeLabel)
+            : result.snippet
         let a11yLabel = String(
             format: NSLocalizedString("search.a11y.resultRow", comment: "Result row a11y: date, match kind, compile state, snippet"),
-            formatDate(result.dateString), matchLabel(for: result.matchKind), badgeLabel, String(result.snippet.prefix(80))
+            formatDate(result.dateString), matchLabel(for: result.matchKind), badgeLabel, String(snippetText.prefix(80))
         )
         // W1: the 4pt alarm-bar + hard gray slab becomes a warm glass card;
         // the date takes the serif voice. The memo-type icon pair is shown
@@ -1278,65 +1685,31 @@ struct SearchView: View {
                 onSelect(result.dateString)
             }
         }) {
-            VStack(alignment: .leading, spacing: 6) {
-                if showsDate {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(formatDate(result.dateString))
-                            .font(DSFonts.serif(size: 15, weight: .semibold, relativeTo: .subheadline))
-                            .foregroundColor(DSColor.inkPrimary)
-                        Spacer()
-                        Text(badgeLabel)
-                            .monoLabelStyle(size: 9)
-                            .foregroundColor(result.isDailyPageCompiled ? DSColor.accentOnBg : DSColor.inkMuted)
-                    }
-                }
-
-                highlightedSnippet(result.snippet, keyword: vm.query)
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 8) {
+                highlightedSnippet(snippetText, keyword: vm.query)
+                    .lineLimit(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: 6) {
-                    Image(systemName: matchIcon(for: result.matchKind))
-                        .font(.system(size: 10))
-                        .foregroundColor(DSColor.inkMuted)
-                    Text(matchLabel(for: result.matchKind))
-                        .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.inkMuted)
-
-                    if let type = result.memoType, type != .text {
-                        Image(systemName: type.iconName)
-                            .font(.system(size: 10))
-                            .foregroundColor(DSColor.inkMuted)
-                        Text(type.displayName.uppercased())
-                            .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.inkMuted)
-                    }
-
-                    if !showsDate {
-                        Spacer()
-                        Text(badgeLabel)
-                            .monoLabelStyle(size: 9)
-                            .foregroundColor(result.isDailyPageCompiled ? DSColor.accentOnBg : DSColor.inkMuted)
-                    }
+                HStack(spacing: 8) {
+                    Text(formatDate(result.dateString))
+                        .font(.system(.caption))
+                        .foregroundColor(DSColor.inkTertiaryAA)
+                    Spacer(minLength: 8)
+                    Text(NSLocalizedString("reading.readFull", comment: "Read the full original record"))
+                        .font(.system(.footnote))
+                        .foregroundColor(DSColor.readingAccent)
                 }
+                .frame(minHeight: 44)
             }
-            // §4 density: the heavy 16pt-all-sides glass card is dropped for a
-            // hairline row in the archive's own visual language. Search results
-            // were a denser, glossier surface than the archive list they sit
-            // beside; now both read as the same ledger. Content stays multi-line
-            // (date · snippet · match kind) so nothing is lost — only the
-            // container weight comes down, packing more hits per screen.
-            .padding(.vertical, 13)
-            .padding(.horizontal, DSSpacing.xs)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .solidCard(cornerRadius: 16)
+            .contentShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-        }
+        .accessibilityIdentifier("search-memo-result-\(result.id)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(result.memoID != nil && onSelectMemo != nil
@@ -1362,12 +1735,14 @@ struct SearchView: View {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             Text(cleaned)
-                .bodySMStyle()
+                .font(DSFonts.serif(size: 17, relativeTo: .body))
+                .lineSpacing(5)
                 .foregroundColor(DSColor.inkPrimary)
         } else {
             let windowed = snippetWindow(cleaned, keyword: trimmed)
             Text(buildHighlightedString(windowed, keyword: trimmed))
-                .bodySMStyle()
+                .font(DSFonts.serif(size: 17, relativeTo: .body))
+                .lineSpacing(5)
         }
     }
 

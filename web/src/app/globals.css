@@ -664,6 +664,10 @@ button.card:hover,
 .wiki-body a  { color: var(--accent); text-decoration: none; }
 .wiki-body a:hover { text-decoration: underline; }
 .wiki-body ul, .wiki-body ol { padding-left: 1.5em; margin: 0.75em 0; }
+.memo-body ul { list-style-type: disc; }
+.memo-body ol { list-style-type: decimal; }
+.memo-body .contains-task-list { list-style-type: none; padding-left: 0; }
+.memo-photo-dialog::backdrop { background: rgba(12, 12, 12, 0.75); backdrop-filter: blur(4px); }
 .wiki-body li { margin: 0.25em 0; }
 .wiki-body code {
   font-family: var(--font-mono), ui-monospace, monospace;

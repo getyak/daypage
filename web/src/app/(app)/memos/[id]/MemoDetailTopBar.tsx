@@ -1,39 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Share2, MoreHorizontal } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
+import { formatMemoAnchor } from "@/lib/memos/format";
 
 interface Props {
-  createdAt: string; // ISO string
+  /** Original DB timestamp string — displayed, never mutated. */
+  createdAt: string;
 }
 
-const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-const MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-function formatTimeAnchor(isoString: string): string {
-  const d = new Date(isoString);
-  const day = DAY_NAMES[d.getDay()];
-  const month = MONTH_NAMES[d.getMonth()];
-  // detail.jsx:202 "THU · MAY 28 · …" — date-of-month is unpadded
-  const date = String(d.getDate());
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${day} · ${month} ${date} · ${hours}:${minutes}`;
-}
-
+// Sticky glass top bar. Read-only slice: no share/pin/edit/delete actions are
+// wired here (ADR-0022) — the anchor shows the memo time in Asia/Shanghai.
 export function MemoDetailTopBar({ createdAt }: Props) {
   const router = useRouter();
-
-  async function handleShare() {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "DayPage Memo", url: window.location.href });
-      } catch {
-        // user cancelled or not supported
-      }
-    }
-  }
 
   return (
     <div
@@ -51,8 +30,8 @@ export function MemoDetailTopBar({ createdAt }: Props) {
         zIndex: 40,
       }}
     >
-      <GlassPillBtn aria-label="返回今日" size="sm" onClick={() => router.push("/today")}>
-        ← 今日
+      <GlassPillBtn aria-label="返回历史" size="sm" onClick={() => router.push("/memos")}>
+        ← History
       </GlassPillBtn>
 
       <span
@@ -65,17 +44,11 @@ export function MemoDetailTopBar({ createdAt }: Props) {
           userSelect: "none",
         }}
       >
-        {formatTimeAnchor(createdAt)}
+        {formatMemoAnchor(createdAt)}
       </span>
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <GlassPillBtn aria-label="分享" size="sm" onClick={() => void handleShare()}>
-          <Share2 size={14} />
-        </GlassPillBtn>
-        <GlassPillBtn aria-label="更多操作" size="sm">
-          <MoreHorizontal size={14} />
-        </GlassPillBtn>
-      </div>
+      {/* Spacer keeps the date anchor optically centered */}
+      <span aria-hidden="true" style={{ width: 64 }} />
     </div>
   );
 }

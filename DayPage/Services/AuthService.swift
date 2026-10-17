@@ -14,6 +14,10 @@ import DayPageServices
 /// string processing required.
 enum DPAuthError: LocalizedError, Equatable {
     case missingCredential
+    case missingPassword
+    case invalidCredentials
+    case emailConfirmationRequired
+    case requestInFlight
     case serviceUnavailable
     case invalidEmail
     /// Client- or server-side rate limit hit. `retryAfter` is the seconds the
@@ -27,6 +31,14 @@ enum DPAuthError: LocalizedError, Equatable {
         switch self {
         case .missingCredential:
             return "无法读取 Apple 凭证"
+        case .missingPassword:
+            return "请输入密码"
+        case .invalidCredentials:
+            return "邮箱或密码不正确"
+        case .emailConfirmationRequired:
+            return "请先打开邮箱中的验证邮件，完成验证后再登录"
+        case .requestInFlight:
+            return "登录请求正在进行中，请稍候"
         case .serviceUnavailable:
             return "登录服务未配置，请稍后再试"
         case .invalidEmail:
@@ -45,6 +57,10 @@ enum DPAuthError: LocalizedError, Equatable {
     var diagnosticCode: String {
         switch self {
         case .missingCredential: return "missing_credential"
+        case .missingPassword: return "missing_password"
+        case .invalidCredentials: return "invalid_credentials"
+        case .emailConfirmationRequired: return "email_confirmation_required"
+        case .requestInFlight: return "request_in_flight"
         case .serviceUnavailable: return "service_unavailable"
         case .invalidEmail: return "invalid_email"
         case .rateLimited: return "rate_limited"
@@ -137,24 +153,55 @@ final class AuthService: NSObject, ObservableObject {
     // MARK: Init
 
     private override init() {
+        // Auth storage options are resolved BEFORE the SDK initializes so a
+        // DEBUG QA bundle's session namespace is fixed before any session
+        // read/write, for the real client and the placeholder alike (GH #884).
+        let clientOptions = Self.makeClientOptions()
         guard
             let url = URL(string: Secrets.supabaseURL),
             !Secrets.supabaseURL.isEmpty,
             !Secrets.supabasePublishableKey.isEmpty
         else {
             let fallback = URL(string: "https://placeholder.supabase.co") ?? URL(fileURLWithPath: "/")
-            supabase = SupabaseClient(supabaseURL: fallback, supabaseKey: "placeholder")
+            supabase = SupabaseClient(supabaseURL: fallback, supabaseKey: "placeholder", options: clientOptions)
             isPlaceholder = true
             super.init()
             return
         }
-        supabase = SupabaseClient(supabaseURL: url, supabaseKey: Secrets.supabasePublishableKey)
+        supabase = SupabaseClient(
+            supabaseURL: url,
+            supabaseKey: Secrets.supabasePublishableKey,
+            options: clientOptions
+        )
         isPlaceholder = false
         super.init()
         migrateAppleEmailToKeychain()
         migrateRateLimiterToKeychain()
         startAuthStateListener()
         startNetworkMonitor()
+    }
+
+    /// Pure decision made before `SupabaseClient` initializes. DEBUG iOS QA
+    /// bundles (`com.daypage.app.qa-*`) namespace the auth Keychain service so
+    /// concurrent QA apps never read or delete each other's or production's
+    /// session; production and Release builds keep the SDK default options
+    /// (service `supabase.gotrue.swift`). No session migration, enumeration or
+    /// deletion happens here, and no Keychain call is made in tests.
+    private static func makeClientOptions() -> SupabaseClientOptions {
+        #if DEBUG
+        let isDebugBuild = true
+        #else
+        let isDebugBuild = false
+        #endif
+        guard let qaService = NativeAuthFlow.qaSessionStorageServiceName(
+            bundleIdentifier: Bundle.main.bundleIdentifier,
+            isDebugBuild: isDebugBuild
+        ) else {
+            return SupabaseClientOptions()
+        }
+        return SupabaseClientOptions(
+            auth: .init(storage: KeychainLocalStorage(service: qaService, accessGroup: nil))
+        )
     }
 
     /// One-time migration: move `appleSignInEmail` from UserDefaults to Keychain.
@@ -220,6 +267,12 @@ final class AuthService: NSObject, ObservableObject {
             for await (event, session) in self.supabase.auth.authStateChanges {
                 if Task.isCancelled { break }
                 await MainActor.run {
+                    SyncQueueObserver.shared.sessionInstaller.authSessionWillChange(
+                        previousUserID: self.session?.user.id,
+                        previousAccessToken: self.session?.accessToken,
+                        userID: session?.user.id,
+                        accessToken: session?.accessToken
+                    )
                     self.session = session
                     if let session {
                         // User authenticated — clear the "skip" flag so the sync
@@ -375,11 +428,8 @@ final class AuthService: NSObject, ObservableObject {
             throw err
         }
 
-        let normalizedEmail = email
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        let emailPattern = #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#
-        guard normalizedEmail.range(of: emailPattern, options: .regularExpression) != nil else {
+        let normalizedEmail = NativeAuthFlow.normalizedEmail(email)
+        guard NativeAuthFlow.isValidEmail(normalizedEmail) else {
             let err = DPAuthError.invalidEmail
             self.error = err
             reportAuthFailure(
@@ -498,6 +548,129 @@ final class AuthService: NSObject, ObservableObject {
         return true
     }
 
+    // MARK: - Email Password Sign-In
+
+    /// Signs in with an existing account's email + password credentials.
+    ///
+    /// - The password is passed to the SDK exactly as typed: never trimmed,
+    ///   normalized, logged, persisted, or echoed into UI/telemetry.
+    /// - Email is normalized only by the existing app rule.
+    /// - Missing password is rejected before any request leaves the device.
+    /// - `authStateChanges` remains the single writer of session state and the
+    ///   sync realm installer; the SDK's returned `Session` is discarded here.
+    func signInWithPassword(email: String, password: String) async throws {
+        let correlationID = UUID()
+        guard !isLoading else {
+            // Re-entrancy check: one auth request at a time.
+            throw DPAuthError.requestInFlight
+        }
+        guard !isPlaceholder else {
+            let err = DPAuthError.serviceUnavailable
+            self.error = err
+            reportAuthFailure(
+                provider: "email_password",
+                stage: "sign_in",
+                mappedError: err,
+                sourceError: nil,
+                correlationID: correlationID
+            )
+            throw err
+        }
+        guard !isNetworkUnavailable else {
+            let err = DPAuthError.networkUnavailable
+            self.error = err
+            reportAuthFailure(
+                provider: "email_password",
+                stage: "sign_in",
+                mappedError: err,
+                sourceError: nil,
+                correlationID: correlationID
+            )
+            throw err
+        }
+
+        let normalizedEmail = NativeAuthFlow.normalizedEmail(email)
+        guard NativeAuthFlow.isValidEmail(normalizedEmail) else {
+            let err = DPAuthError.invalidEmail
+            self.error = err
+            reportAuthFailure(
+                provider: "email_password",
+                stage: "sign_in",
+                mappedError: err,
+                sourceError: nil,
+                correlationID: correlationID
+            )
+            throw err
+        }
+
+        guard let submission = NativeAuthFlow.passwordSubmission(from: password) else {
+            // Missing password: rejected before any request. The value is never
+            // logged, reported, or attached to diagnostics.
+            let err = DPAuthError.missingPassword
+            self.error = err
+            reportAuthFailure(
+                provider: "email_password",
+                stage: "sign_in",
+                mappedError: err,
+                sourceError: nil,
+                correlationID: correlationID
+            )
+            throw err
+        }
+
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        do {
+            // The returned Session is intentionally discarded: the
+            // authStateChanges listener publishes session state and drives the
+            // existing realm installer exactly once (RC1).
+            _ = try await supabase.auth.signIn(email: normalizedEmail, password: submission)
+            DayPageLogger.shared.info("[AuthService] Password sign-in completed")
+        } catch {
+            let mapped = mapPasswordSignInError(error)
+            self.error = mapped
+            reportAuthFailure(
+                provider: "email_password",
+                stage: "sign_in",
+                mappedError: mapped,
+                sourceError: error,
+                correlationID: correlationID
+            )
+            throw mapped
+        }
+    }
+
+    // MARK: - Verified sync session
+
+    /// Proves the live session user against the SAME Supabase origin and
+    /// publishable key pair before any sync context is installed (initial
+    /// login, token refresh or identity change). A decoded JWT is only a
+    /// routing/identity pre-check; the backend's own `/auth/v1/user` answer is
+    /// the authentication proof.
+    func makeVerifiedSyncSession(expectedUserID: UUID? = nil) async throws -> SyncSession {
+        guard !isPlaceholder,
+              !Secrets.supabaseURL.isEmpty,
+              !Secrets.supabasePublishableKey.isEmpty,
+              let url = URL(string: Secrets.supabaseURL) else {
+            throw MemoSyncError.notConfigured
+        }
+        let configuration = try SyncBackendConfiguration(
+            url: url,
+            publishableKey: Secrets.supabasePublishableKey
+        )
+        guard let accessToken = session?.accessToken, !accessToken.isEmpty else {
+            throw MemoSyncError.unauthorized
+        }
+        return try await SyncSessionVerifier.verifiedSession(
+            configuration: configuration,
+            accessToken: accessToken,
+            transport: SupabaseSyncTransport.shared(for: configuration.origin),
+            expectedUserID: expectedUserID ?? session?.user.id
+        )
+    }
+
     // MARK: - Sign-Out
 
     func signOut() async throws {
@@ -545,6 +718,10 @@ final class AuthService: NSObject, ObservableObject {
             DayPageLogger.shared.info("[AuthService] Local sign-out completed; remote token invalidation deferred")
         }
 
+        // Sign-out invalidates every pending install attempt at this
+        // synchronous boundary (before the delayed SwiftUI nil onChange), so
+        // an old suspended proof can not reinstall after logout.
+        SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
         SyncQueueObserver.shared.clearSession()
         session = nil   // listener will confirm; local clear takes effect immediately in UI
         SentrySDK.setUser(nil)
@@ -563,6 +740,57 @@ final class AuthService: NSObject, ObservableObject {
     }
 
     // MARK: - Error Mapping
+
+    /// Typed, privacy-safe mapping for password sign-in failures.
+    ///
+    /// Unlike `mapSupabaseError`, this path never reads or routes the raw
+    /// provider message: only machine-readable codes, HTTP status and system
+    /// error codes are considered, and no provider payload text reaches the
+    /// UI, logs or telemetry. User-facing copy is fixed and typed.
+    private func mapPasswordSignInError(_ error: Error) -> DPAuthError {
+        if let already = error as? DPAuthError { return already }
+
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost,
+                 .timedOut, .dataNotAllowed, .internationalRoamingOff:
+                return .networkUnavailable
+            default:
+                return .unknown(message: debugFallbackMessage(suffix: "URL \(urlError.code.rawValue)"))
+            }
+        }
+
+        if let sbError = error as? Supabase.AuthError {
+            let code = sbError.errorCode
+            if code == .invalidCredentials { return .invalidCredentials }
+            if code == .emailNotConfirmed { return .emailConfirmationRequired }
+            if code == .validationFailed { return .invalidEmail }
+            if code == .overRequestRateLimit || code == .overEmailSendRateLimit {
+                return .rateLimited(retryAfter: parseRetryAfter(from: sbError) ?? 60)
+            }
+            if code == .providerDisabled || code == .emailProviderDisabled {
+                return .serviceUnavailable
+            }
+            if case let .api(_, _, _, response) = sbError,
+               response.statusCode == 400 || response.statusCode == 401 {
+                // The password grant reports credential rejections as a bare
+                // 400/401 when no machine-readable code is attached.
+                return .invalidCredentials
+            }
+            let httpStatus: Int? = {
+                if case let .api(_, _, _, response) = sbError { return response.statusCode }
+                return nil
+            }()
+            // Machine-readable code and status only — never `sbError.message`.
+            return .unknown(
+                message: debugFallbackMessage(
+                    suffix: "code=\(code.rawValue) http=\(httpStatus.map(String.init) ?? "-")"
+                )
+            )
+        }
+
+        return .unknown(message: debugFallbackMessage(suffix: "type=\(type(of: error))"))
+    }
 
     /// Converts any underlying error (Supabase `AuthError`, `URLError`, or an
     /// already-typed `DPAuthError`) into our single domain type.

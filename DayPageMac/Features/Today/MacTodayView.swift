@@ -2,6 +2,73 @@ import SwiftUI
 import DayPageModels
 import DayPageStorage
 
+// MARK: - MacTagReading
+
+/// Read-only exact account-tag lookup for Mac rows (#884). Only the derived
+/// projection cache is read; `unavailable` metadata is never presented as
+/// “no tags”. Labels keep their ORIGINAL text.
+enum MacTagReading {
+    enum Availability: Equatable {
+        case unavailable
+        case ready
+    }
+
+    static func labels(memoID: UUID) -> (availability: Availability, labels: [String]) {
+        // Single optional binding: `try?` already yields an optional.
+        var bound: SyncRealmIdentity?
+        do {
+            bound = try SyncAccountStateStore.boundRealm()
+        } catch {
+            bound = nil
+        }
+        guard let realm = bound else {
+            return (.unavailable, [])
+        }
+        do {
+            let snapshot = try AccountTagProjectionStore.read(
+                realm: realm,
+                vaultRoot: VaultInitializer.vaultURL
+            )
+            return (.ready, snapshot.links.filter { $0.memoID == memoID }.map { $0.label.text })
+        } catch {
+            return (.unavailable, [])
+        }
+    }
+}
+
+// MARK: - MacMediaAccess
+
+/// Safe, EXPLICIT local media opening (#884): only existing own-Vault files
+/// that pass the shared `AttachmentFileInspector.safeLocalURL` boundary may be
+/// opened — never traversal paths, outside-Vault symlinks, remote/signed URLs,
+/// automatic playback or transcription.
+enum MacMediaAccess {
+    enum Availability: Equatable {
+        case ready(URL)
+        case missing
+        case unsafe
+    }
+
+    static func availability(relativePath: String) -> Availability {
+        do {
+            let url = try AttachmentFileInspector.safeLocalURL(relativePath: relativePath)
+            guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+            return .ready(url)
+        } catch AttachmentSyncError.missingFile(_) {
+            return .missing
+        } catch {
+            return .unsafe
+        }
+    }
+
+    /// Opens the local file ONLY after the safe-local check succeeded. Called
+    /// from explicit user actions (never automatically).
+    static func open(relativePath: String) {
+        guard case .ready(let url) = availability(relativePath: relativePath) else { return }
+        NSWorkspace.shared.open(url)
+    }
+}
+
 // MARK: - MacTodayView
 
 /// macOS Today view. Composer pinned at the top, then a scrollable feed of
@@ -54,6 +121,16 @@ struct MacTodayView: View {
         .background(Color(nsColor: .textBackgroundColor))
         .navigationTitle("今天")
         .onAppear(perform: refresh)
+        // #884 — raw / projection / media changes refresh the read-only rows.
+        .onReceive(NotificationCenter.default.publisher(for: .rawStorageDidWrite)) { _ in
+            refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .accountTagProjectionDidUpdate)) { _ in
+            refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .attachmentTransferStateDidChange)) { _ in
+            refresh()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .flomoFocusComposer)) { _ in
             composerFocused = true
         }
@@ -294,14 +371,18 @@ private struct EmptyStateView: View {
 
 // MARK: - MemoRow
 
-/// One memo row: monospaced timestamp + `···` overflow on the same line, then
-/// markdown body. The row owns no background — page whitespace and the
-/// parent's hairline rule do the separation.
-private struct MemoRow: View {
+/// One memo row: monospaced timestamp + `···` overflow on the same line,
+/// exact account-tag chips (#884), markdown body, and safe EXPLICIT media
+/// openers. Reused by the Mac Archive day view in `MacRootView`. The row owns
+/// no background — page whitespace and the parent's hairline rule do the
+/// separation.
+struct MemoRow: View {
 
     let memo: Memo
 
     @State private var menuHovered = false
+    @State private var tagLabels: [String] = []
+    @State private var tagAvailability: MacTagReading.Availability = .unavailable
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -327,11 +408,37 @@ private struct MemoRow: View {
                 .onHover { menuHovered = $0 }
             }
 
-            MarkdownText(memo.body)
+            if !tagLabels.isEmpty {
+                MemoRowTagBar(labels: tagLabels)
+            } else if tagAvailability == .unavailable {
+                // Missing/corrupt/foreign metadata ≠ a memo with no tags.
+                Label("标签信息暂不可用", systemImage: "icloud.slash")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+
+            // Read-only presentation body (#884 follow-up): exact generated
+            // media-only placeholder sets present empty; the media list below
+            // is unchanged and "复制正文" keeps the original `memo.body`.
+            MarkdownText(MemoAttachmentPresentation.displayBody(for: memo))
                 .font(.system(size: 14))
                 .lineSpacing(7)
                 .textSelection(.enabled)
+
+            if !memo.attachments.isEmpty {
+                MemoMediaList(attachments: memo.attachments)
+            }
         }
+        .onAppear(perform: reloadTags)
+        .onReceive(NotificationCenter.default.publisher(for: .accountTagProjectionDidUpdate)) { _ in
+            reloadTags()
+        }
+    }
+
+    private func reloadTags() {
+        let reading = MacTagReading.labels(memoID: memo.id)
+        tagLabels = reading.labels
+        tagAvailability = reading.availability
     }
 
     private var timestamp: String {
@@ -348,6 +455,102 @@ private struct MemoRow: View {
     private func copyTimestamp() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(timestamp, forType: .string)
+    }
+}
+
+// MARK: - MemoRowTagBar
+
+/// Exact ORIGINAL label chips (#884): no normalization, no parent invention.
+struct MemoRowTagBar: View {
+    let labels: [String]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "number")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+            ForEach(Array(labels.enumerated()), id: \.offset) { _, text in
+                Text(text)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.primary.opacity(0.05), in: Capsule())
+                    .textSelection(.enabled)
+            }
+        }
+    }
+}
+
+// MARK: - MemoMediaList
+
+/// Attachment rows with SAFE, EXPLICIT local opening only. Undownloaded
+/// obligations show “待下载”; unsafe/foreign paths show “不可用”. Nothing
+/// auto-plays, auto-transcribes or opens remote URLs.
+struct MemoMediaList: View {
+    let attachments: [Memo.Attachment]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(attachments.enumerated()), id: \.offset) { _, attachment in
+                MemoMediaRow(attachment: attachment)
+            }
+        }
+    }
+}
+
+private struct MemoMediaRow: View {
+    let attachment: Memo.Attachment
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+            Text(displayName)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 8)
+            switch MacMediaAccess.availability(relativePath: attachment.file) {
+            case .ready:
+                Button("打开") {
+                    MacMediaAccess.open(relativePath: attachment.file)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(.blue)
+            case .missing:
+                Text("待下载")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            case .unsafe:
+                Text("不可用")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var icon: String {
+        switch attachment.kind {
+        case "photo": return "photo"
+        case "audio": return "waveform"
+        case "file":
+            return attachment.file.lowercased().hasSuffix(".mov") ? "film" : "doc"
+        default: return "paperclip"
+        }
+    }
+
+    private var displayName: String {
+        URL(fileURLWithPath: attachment.file).lastPathComponent
     }
 }
 

@@ -93,6 +93,8 @@ enum DSColor {
     static let amberAccent   = Color(hex: "A8541B")
     /// Deep amber — strong contrast on light glass.
     static let amberDeep     = Color(hex: "5D3000")
+    /// Reading actions retain AA contrast on the quiet dark paper surface.
+    static let readingAccent = Color(light: Color(hex: "5D3000"), dark: Color(hex: "D9975A"))
     /// Soft amber wash — hover, selected backgrounds.
     static let amberSoft     = Color(hex: "A8541B").opacity(0.10)
     /// Amber rim — accent borders, selected outlines.

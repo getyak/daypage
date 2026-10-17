@@ -7,6 +7,9 @@ contain or read a user vault.
 
 Current documents live alongside them:
 
+- `figma-reading-implementation.md`: the October 15 native reading implementation,
+  source Figma nodes, deliberate refinements, verification scope and limits.
+
 - `flomo-native-refinement.md`: design, acceptance mapping, explicit current limits
   and verification commands for the user-requested native refinement (swipe
   insight/related actions, memo-anchored insight chat, sidebar/archive/search

@@ -1,20 +1,27 @@
-import { auth } from "@/lib/auth/session";
-import { db } from "@/lib/db/client";
-import { memos, memo_attachments, users, page_sources, pages, annotations } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { MemoActions } from "./MemoActions";
+import { createClient } from "@/lib/supabase/server";
+import { supabaseMemoStore, type QueryBuilderLike } from "@/lib/memos/store";
+import { fetchMemoDetail } from "@/lib/memos/detail";
+import { loginRedirectTarget } from "@/lib/memos/redirects";
+import { isUuid } from "@/lib/memos/query";
 import { MemoDetailTopBar } from "./MemoDetailTopBar";
 import { MemoDetailTitle } from "./MemoDetailTitle";
 import { MetadataTiles } from "./MetadataTiles";
-import { HeroPhoto } from "./HeroPhoto";
+import { MemoAttachments } from "../_components/MemoAttachments";
+import { MemoTags } from "../_components/MemoTags";
 import { MemoBody } from "./MemoBody";
 import { LocationCard } from "./LocationCard";
 import { FileMetadataCard } from "./FileMetadataCard";
 
-// Defense in depth: even though /api/ingest now rejects non-http(s) source_url,
-// pre-existing rows could contain `javascript:` URIs. Guard the href render.
+// READ-ONLY memo detail (ADR-0022). Identity is the verified Supabase
+// auth uid (never email); reads go through the cookie-bound SSR client with
+// RLS and explicit user_id predicates — no Drizzle/DATABASE_URL. This page
+// intentionally wires no edit/delete/pin/share actions.
+
+type Props = { params: Promise<{ id: string }> };
+
+// Defense in depth: pre-existing rows could contain `javascript:` URIs.
 function safeHref(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
@@ -25,13 +32,6 @@ function safeHref(url: string | null | undefined): string | null {
   }
 }
 
-type Props = { params: Promise<{ id: string }> };
-
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-  return rows[0]?.id ?? null;
-}
-
 function extractWeatherString(weather: unknown): string | null {
   if (!weather) return null;
   if (typeof weather === "string") return weather;
@@ -40,9 +40,9 @@ function extractWeatherString(weather: unknown): string | null {
     if (typeof w.description === "string") return w.description;
     if (typeof w.condition === "string") return w.condition;
     if (typeof w.weather === "string") return w.weather;
-    return JSON.stringify(weather);
+    return null;
   }
-  return String(weather);
+  return null;
 }
 
 function extractHumidityString(weather: unknown): string | null {
@@ -53,30 +53,20 @@ function extractHumidityString(weather: unknown): string | null {
   return null;
 }
 
-function extractLocationString(location: unknown): string | null {
-  if (!location) return null;
-  if (typeof location === "string") return location;
-  if (typeof location === "object" && location !== null) {
-    const l = location as Record<string, unknown>;
-    const parts: string[] = [];
-    if (typeof l.city === "string") parts.push(l.city);
-    if (typeof l.country === "string") parts.push(l.country);
-    if (parts.length) return parts.join(", ");
-    if (typeof l.name === "string") return l.name;
-  }
-  return null;
-}
-
 function extractLocationFields(location: unknown): {
   lat: number | null;
   lng: number | null;
   place_name: string | null;
   country: string | null;
+  display: string | null;
 } {
   if (!location || typeof location !== "object") {
-    return { lat: null, lng: null, place_name: null, country: null };
+    return { lat: null, lng: null, place_name: null, country: null, display: null };
   }
   const l = location as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof l.city === "string") parts.push(l.city);
+  if (typeof l.country === "string") parts.push(l.country);
   return {
     lat: typeof l.lat === "number" ? l.lat : typeof l.latitude === "number" ? l.latitude : null,
     lng: typeof l.lng === "number" ? l.lng : typeof l.longitude === "number" ? l.longitude : null,
@@ -89,135 +79,91 @@ function extractLocationFields(location: unknown): {
             ? l.city
             : null,
     country: typeof l.country === "string" ? l.country : null,
+    display: parts.length > 0 ? parts.join(", ") : typeof l.name === "string" ? l.name : null,
   };
 }
 
 export default async function MemoDetailPage({ params }: Props) {
   const { id } = await params;
-  const session = await auth();
-  if (!session?.user?.email) notFound();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(loginRedirectTarget(`/memos/${encodeURIComponent(id)}`));
+  if (!isUuid(id)) notFound();
 
-  const userId = await resolveUserId(session.user.email);
-  if (!userId) notFound();
+  const store = supabaseMemoStore({
+    from: (table) => supabase.from(table) as unknown as QueryBuilderLike,
+  });
+  const result = await fetchMemoDetail(store, user.id, id);
 
-  const memoRows = await db
-    .select()
-    .from(memos)
-    .where(and(eq(memos.id, id), eq(memos.user_id, userId)))
-    .limit(1);
+  if (!result.ok) {
+    if (result.reason === "not-found") notFound();
+    return (
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 24px" }}>
+        <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 8px" }}>
+          This memo is unavailable right now
+        </h1>
+        <p style={{ fontSize: "0.875rem", color: "var(--fg-muted)", lineHeight: 1.6 }}>
+          The history backend did not respond. Nothing was changed — please try again.
+        </p>
+        <Link href="/memos" className="btn btn--soft btn--sm" style={{ marginTop: 12 }}>
+          Back to history
+        </Link>
+      </div>
+    );
+  }
 
-  const memo = memoRows[0];
-  if (!memo) notFound();
-
-  // Load photo attachment if present
-  const photoAttachments = await db
-    .select()
-    .from(memo_attachments)
-    .where(and(eq(memo_attachments.memo_id, id), eq(memo_attachments.kind, "photo")))
-    .limit(1);
-  const photoAttachment = photoAttachments[0] ?? null;
-
-  // Annotations attach to pages (via page_id), not memos.
-  const linkedPages = await db
-    .select({
-      page_id: page_sources.page_id,
-      page_title: pages.title,
-      page_slug: pages.slug,
-      page_type: pages.type,
-    })
-    .from(page_sources)
-    .innerJoin(pages, eq(page_sources.page_id, pages.id))
-    .where(eq(page_sources.memo_id, id));
-
-  const linkedPageIds = linkedPages.map((p) => p.page_id);
-  const memoAnnotations =
-    linkedPageIds.length > 0
-      ? await db
-          .select()
-          .from(annotations)
-          .where(
-            and(
-              eq(annotations.user_id, userId),
-              inArray(annotations.page_id, linkedPageIds)
-            )
-          )
-          .limit(20)
-      : [];
-
-  const statusColor: Record<string, string> = {
-    pending: "var(--fg-subtle)",
-    running: "var(--accent)",
-    done: "var(--success, #22c55e)",
-    failed: "var(--error, #ef4444)",
-  };
-
+  const { memo, attachments, tags, presentationBody } = result.detail;
   const weatherStr = extractWeatherString(memo.weather);
   const humidityStr = extractHumidityString(memo.weather);
-  const locationStr = extractLocationString(memo.location);
-  const createdAtISO = memo.created_at.toISOString();
-
-  // Extract exif dimensions if available
-  const exif = (photoAttachment?.exif as Record<string, unknown> | null) ?? null;
-  const photoWidth = typeof exif?.width === "number" ? exif.width : null;
-  const photoHeight = typeof exif?.height === "number" ? exif.height : null;
-
-  // Extract location fields for LocationCard
-  const { lat, lng, place_name, country } = extractLocationFields(memo.location);
+  const { lat, lng, place_name, country, display } = extractLocationFields(memo.location);
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto" }}>
-      {/* US-012: Sticky glass top bar */}
-      <MemoDetailTopBar createdAt={createdAtISO} />
+      <MemoDetailTopBar createdAt={memo.created_at} />
 
       <div style={{ padding: "0 0 40px" }}>
-        {/* US-013: Title block */}
-        <MemoDetailTitle place={locationStr} kind={memo.type} location={locationStr} />
+        <MemoDetailTitle place={display} kind={memo.type} location={display} />
 
-        {/* US-014: Metadata tiles */}
         <MetadataTiles
           weather={weatherStr}
           humidity={humidityStr}
           kind={memo.type}
-          createdAt={createdAtISO}
+          createdAt={memo.created_at}
         />
 
-        {/* US-015: Hero photo */}
-        {photoAttachment && (
-          <HeroPhoto
-            src={`/api/img/${photoAttachment.storage_key}`}
-            filename={photoAttachment.filename}
-            width={photoWidth as number | null}
-            height={photoHeight as number | null}
-            alt={photoAttachment.ocr_text ?? null}
-          />
-        )}
+        {/* ALL attachments, in position order */}
+        <MemoAttachments attachments={attachments} />
 
-        {/* US-016: Body with link/hashtag/mention detection */}
-        <MemoBody body={memo.body} />
+        {/* MemoBody is skipped ONLY for the validated imported-media-only
+            presentation case (ADR-0026): the placeholder body renders as the
+            media rows above, so no "No content" filler is shown. Every other
+            body (empty/prose/Markdown/code) renders unchanged. */}
+        {presentationBody === "" ? null : <MemoBody body={memo.body} />}
 
-        {/* US-017: Location card */}
+        {/* Exact metadata tags (imported labels) — original bytes, linked to
+            the exact `?tag=` filter. */}
+        <div style={{ padding: "0 14px" }}>
+          <MemoTags tags={tags} />
+        </div>
+
         <LocationCard
-          location={locationStr}
+          location={display}
           lat={lat}
           lng={lng}
           place_name={place_name}
           country={country}
         />
 
-        {/* US-018: File metadata card */}
         <FileMetadataCard
-          created_at={createdAtISO}
+          created_at={memo.created_at}
           path={memo.vault_path}
           content_hash={null}
           memo_id={id}
         />
 
-        {/* Actions row */}
-        <div style={{ padding: "0 24px 24px", display: "flex", justifyContent: "flex-end" }}>
-          <MemoActions memoId={id} compileStatus={memo.compile_status} />
-        </div>
-
-        {/* Metadata grid */}
+        {/* Read-only metadata */}
         <div style={{ padding: "0 14px 24px" }}>
           <div
             style={{
@@ -254,21 +200,13 @@ export default async function MemoDetailPage({ params }: Props) {
                         href={safe}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--accent)",
-                          wordBreak: "break-all",
-                        }}
+                        style={{ fontSize: "0.8125rem", color: "var(--accent)", wordBreak: "break-all" }}
                       >
                         {memo.source_url}
                       </a>
                     ) : (
                       <span
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--fg-subtle)",
-                          wordBreak: "break-all",
-                        }}
+                        style={{ fontSize: "0.8125rem", color: "var(--fg-subtle)", wordBreak: "break-all" }}
                         title="Blocked: non-http(s) URL"
                       >
                         {memo.source_url}
@@ -300,29 +238,6 @@ export default async function MemoDetailPage({ params }: Props) {
                 <div style={{ fontSize: "0.8125rem" }}>{memo.device}</div>
               </div>
             )}
-            {!!memo.weather && (
-              <div
-                style={{
-                  background: "var(--surface-white)",
-                  border: "0.5px solid var(--border-default)",
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "var(--fg-subtle)",
-                    textTransform: "uppercase",
-                    fontWeight: 600,
-                    marginBottom: 4,
-                  }}
-                >
-                  Weather
-                </div>
-                <div style={{ fontSize: "0.8125rem" }}>{String(memo.weather)}</div>
-              </div>
-            )}
             <div
               style={{
                 background: "var(--surface-white)",
@@ -343,7 +258,7 @@ export default async function MemoDetailPage({ params }: Props) {
                 Origin
               </div>
               <div style={{ fontSize: "0.8125rem" }}>
-                {memo.origin} · {memo.ingest_mode}
+                {memo.origin ?? "—"} · {memo.ingest_mode ?? "—"}
               </div>
             </div>
             <div
@@ -365,134 +280,10 @@ export default async function MemoDetailPage({ params }: Props) {
               >
                 Status
               </div>
-              <div
-                style={{
-                  fontSize: "0.8125rem",
-                  color: statusColor[memo.compile_status] ?? "var(--fg-subtle)",
-                }}
-              >
-                {memo.compile_status}
-              </div>
+              <div style={{ fontSize: "0.8125rem" }}>{memo.compile_status ?? "—"}</div>
             </div>
-            {memo.compile_error && (
-              <div
-                style={{
-                  background: "var(--surface-white)",
-                  border: "0.5px solid var(--error, #ef4444)",
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                  gridColumn: "1 / -1",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "var(--error, #ef4444)",
-                    textTransform: "uppercase",
-                    fontWeight: 600,
-                    marginBottom: 4,
-                  }}
-                >
-                  Compile Error
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--fg-muted)",
-                    fontFamily: "var(--font-mono)",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {memo.compile_error}
-                </div>
-              </div>
-            )}
           </div>
         </div>
-
-        {/* Linked pages */}
-        {linkedPages.length > 0 && (
-          <div style={{ padding: "0 14px 24px" }}>
-            <div
-              style={{
-                fontSize: "0.7rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                color: "var(--fg-subtle)",
-                marginBottom: 10,
-              }}
-            >
-              Linked pages ({linkedPages.length})
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {linkedPages.map((lp) => (
-                <Link
-                  key={lp.page_id}
-                  href={`/wiki/${lp.page_slug}`}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "5px 12px",
-                    borderRadius: 999,
-                    background: "var(--accent-soft)",
-                    color: "var(--accent)",
-                    fontSize: "0.8125rem",
-                    textDecoration: "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.65rem",
-                      opacity: 0.7,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {lp.page_type}
-                  </span>
-                  {lp.page_title}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Annotations */}
-        {memoAnnotations.length > 0 && (
-          <div style={{ padding: "0 14px" }}>
-            <div
-              style={{
-                fontSize: "0.7rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                color: "var(--fg-subtle)",
-                marginBottom: 10,
-              }}
-            >
-              Annotations ({memoAnnotations.length})
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {memoAnnotations.map((a) => (
-                <div
-                  key={a.id}
-                  style={{
-                    background: "var(--surface-white)",
-                    border: "0.5px solid var(--border-default)",
-                    borderRadius: 10,
-                    padding: "10px 14px",
-                  }}
-                >
-                  <div style={{ fontSize: "0.7rem", color: "var(--fg-subtle)", marginBottom: 4 }}>
-                    {a.tag}
-                  </div>
-                  {a.note && <div style={{ fontSize: "0.8125rem" }}>{a.note}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

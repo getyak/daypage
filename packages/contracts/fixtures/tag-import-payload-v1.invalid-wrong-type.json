@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "catalog": [
+    "#kept"
+  ],
+  "memos": [
+    {
+      "memo_id": 42,
+      "tags": [
+        "#kept"
+      ]
+    }
+  ]
+}

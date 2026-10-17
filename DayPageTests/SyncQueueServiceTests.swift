@@ -358,6 +358,91 @@ struct SyncQueueServiceTests {
         #expect(restored.syncHealth == service.syncHealth)
         UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
     }
+
+    // MARK: - #884 truthful completion presentation
+
+    @Test
+    func completionPresentationRequiresEveryConditionForCurrentGeneration() {
+        let svc = makeService()
+        #expect(!svc.completion.isFullySynced)
+
+        // A PRIOR generation completed truthfully: proof + history exist.
+        let historical = Date(timeIntervalSince1970: 1)
+        svc.noteSessionInstalled()
+        svc.updateCompletion {
+            $0.memoDrained = true
+            $0.metadata = .current
+            $0.pendingOutboxCount = 0
+            $0.mediaUnknown = false
+            $0.mediaIncompleteCount = 0
+        }
+        svc.recordSyncSuccess(at: historical)
+        #expect(svc.completion.isFullySynced)
+        #expect(svc.syncHealth.lastSuccessAt == historical)
+
+        // A fresh session generation starts with NO proof — the historical
+        // timestamp stays history and is never evidence for the new session.
+        svc.noteSessionInstalled()
+        #expect(!svc.completion.isFullySynced)
+        #expect(svc.syncHealth.lastSuccessAt == historical, "history stays, proof does not")
+
+        // Verified facts alone do not claim completion; the current
+        // generation must record its own true completion…
+        svc.updateCompletion {
+            $0.memoDrained = true
+            $0.metadata = .current
+            $0.pendingOutboxCount = 0
+            $0.mediaUnknown = false
+            $0.mediaIncompleteCount = 0
+        }
+        #expect(!svc.completion.isFullySynced, "no true completion recorded this generation yet")
+
+        // …and then proof + positive conditions do sync.
+        svc.recordSyncSuccess()
+        #expect(svc.completion.isFullySynced)
+
+        // Each negative dimension individually vetoes the claim.
+        svc.updateCompletion { $0.metadata = .failed }
+        #expect(!svc.completion.isFullySynced)
+        svc.updateCompletion { $0.metadata = .unavailable }
+        #expect(!svc.completion.isFullySynced)
+        svc.updateCompletion { $0.metadata = .current; $0.memoDrained = false }
+        #expect(!svc.completion.isFullySynced)
+        svc.updateCompletion { $0.memoDrained = true; $0.mediaUnknown = true }
+        #expect(!svc.completion.isFullySynced)
+        svc.updateCompletion { $0.mediaUnknown = false; $0.mediaIncompleteCount = 2 }
+        #expect(!svc.completion.isFullySynced)
+        svc.updateCompletion { $0.mediaIncompleteCount = 0; $0.pendingOutboxCount = 1 }
+        #expect(!svc.completion.isFullySynced)
+
+        // New local work and session teardown void the current proof.
+        svc.updateCompletion { $0.pendingOutboxCount = 0 }
+        svc.recordSyncSuccess()
+        #expect(svc.completion.isFullySynced)
+        svc.enqueue(memoID: "memo-tag-proof", sizeBytes: 1)
+        #expect(!svc.completion.isFullySynced)
+        svc.noteSessionCleared()
+        #expect(!svc.completion.isFullySynced)
+        #expect(svc.syncHealth.lastSuccessAt != nil, "history stays, proof does not")
+    }
+
+    // MARK: - #884 typed refresh reasons
+
+    @Test
+    func refreshReasonsCoalesceWithManualAndInitialSurviving() {
+        #expect(SyncRefreshReason.manual.forcesFullMetadata)
+        #expect(SyncRefreshReason.initial.forcesFullMetadata)
+        #expect(!SyncRefreshReason.periodic.forcesFullMetadata)
+        #expect(!SyncRefreshReason.online.forcesFullMetadata)
+        #expect(!SyncRefreshReason.automatic.forcesFullMetadata)
+
+        // Overlapping demands merge into ONE strongest reason.
+        #expect(SyncRefreshReason.periodic.coalesced(with: .manual) == .manual)
+        #expect(SyncRefreshReason.manual.coalesced(with: .periodic) == .manual)
+        #expect(SyncRefreshReason.manual.coalesced(with: .initial) == .initial)
+        #expect(SyncRefreshReason.automatic.coalesced(with: .online) == .online)
+        #expect(SyncRefreshReason.periodic.coalesced(with: .automatic) == .periodic)
+    }
 }
 }
 

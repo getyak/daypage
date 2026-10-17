@@ -70,6 +70,8 @@
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
 		MDR0000001 /* MarkdownBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDR1000001 /* MarkdownBodyView.swift */; };
+		MRD0000001 /* MemoReadingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = MRD1000001 /* MemoReadingText.swift */; };
+		MRD0000002 /* MemoReadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MRD1000002 /* MemoReadingTests.swift */; };
 		MDE0000001 /* MarkdownEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDE1000001 /* MarkdownEditor.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
@@ -454,6 +456,8 @@
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		MDR1000001 /* MarkdownBodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBodyView.swift; sourceTree = "<group>"; };
+		MRD1000001 /* MemoReadingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoReadingText.swift; sourceTree = "<group>"; };
+		MRD1000002 /* MemoReadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoReadingTests.swift; sourceTree = "<group>"; };
 		MDE1000001 /* MarkdownEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditor.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
@@ -978,6 +982,7 @@
 				A20000006 /* Typography.swift */,
 				A20000007 /* Components.swift */,
 				MDR1000001 /* MarkdownBodyView.swift */,
+				MRD1000001 /* MemoReadingText.swift */,
 				MDE1000001 /* MarkdownEditor.swift */,
 				A200000F1 /* GlassSurface.swift */,
 				A200000F2 /* Surfaces.swift */,
@@ -1526,6 +1531,7 @@
 				ORF100002 /* DailyPageParserEvidenceTests.swift */,
 				ORF100003 /* DayProgressTests.swift */,
 				ORF100004 /* DSFontsSerifTests.swift */,
+				MRD1000002 /* MemoReadingTests.swift */,
 				ORF100005 /* EntitySlugDedupTests.swift */,
 				ORF100006 /* GraphViewModelFilterCacheTests.swift */,
 				ORF100007 /* MarkdownExportServiceTests.swift */,
@@ -1901,6 +1907,7 @@
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
 				MDR0000001 /* MarkdownBodyView.swift in Sources */,
+				MRD0000001 /* MemoReadingText.swift in Sources */,
 				MDE0000001 /* MarkdownEditor.swift in Sources */,
 				A100000F1 /* GlassSurface.swift in Sources */,
 				A100000F2 /* Surfaces.swift in Sources */,
@@ -2143,6 +2150,7 @@
 				ORP000002 /* DailyPageParserEvidenceTests.swift in Sources */,
 				ORP000003 /* DayProgressTests.swift in Sources */,
 				ORP000004 /* DSFontsSerifTests.swift in Sources */,
+				MRD0000002 /* MemoReadingTests.swift in Sources */,
 				ORP000005 /* EntitySlugDedupTests.swift in Sources */,
 				ORP000006 /* GraphViewModelFilterCacheTests.swift in Sources */,
 				ORP000007 /* MarkdownExportServiceTests.swift in Sources */,

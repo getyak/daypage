@@ -15,16 +15,16 @@ export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const reduced = useReducedMotion();
 
-  if (reduced) return <>{children}</>;
-
+  // SSR cannot know the device preference. Keep the same layout tree when
+  // the browser's first render already knows that reduced motion is enabled.
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         key={pathname}
-        initial={{ opacity: 0, y: 4 }}
+        initial={reduced ? false : { opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        exit={reduced ? undefined : { opacity: 0, y: -4 }}
+        transition={reduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
       >
         {children}

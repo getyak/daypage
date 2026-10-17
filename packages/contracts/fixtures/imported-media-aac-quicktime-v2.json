@@ -1,0 +1,53 @@
+{
+  "p_operations": [
+    {
+      "protocol_version": 2,
+      "operation_id": "10000000-0000-4000-8000-000000000011",
+      "memo_id": "20000000-0000-4000-8000-000000000001",
+      "kind": "upsert",
+      "revision": 4,
+      "modified_at": "2026-10-16T00:00:00Z",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attachment_manifest_hash": "650ef681555848ba67cc1e7373f48042a4758b6296e7137c1dc2355374fa4be3",
+      "device_id": "30000000-0000-4000-8000-000000000001",
+      "payload": {
+        "type": "file",
+        "body": "Imported AAC audio and QuickTime MOV bytes round trip unchanged",
+        "created_at": "2026-10-16T00:00:00Z",
+        "pinned_at": null,
+        "location": null,
+        "weather": null,
+        "device": null,
+        "source": "ios",
+        "vault_path": "raw/2026-10-16.md",
+        "attachments": [
+          {
+            "position": 0,
+            "kind": "audio",
+            "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "size_bytes": 4096,
+            "mime_type": "audio/aac",
+            "object_key": "11111111-1111-4111-8111-111111111111/20000000-0000-4000-8000-000000000001/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.aac",
+            "original_filename": "voice-note.aac",
+            "duration_ms": 2500,
+            "transcript": null,
+            "transcription_status": "done"
+          },
+          {
+            "position": 1,
+            "kind": "file",
+            "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size_bytes": 8192,
+            "mime_type": "video/quicktime",
+            "object_key": "11111111-1111-4111-8111-111111111111/20000000-0000-4000-8000-000000000001/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.mov",
+            "original_filename": "clip.mov",
+            "duration_ms": null,
+            "transcript": null,
+            "transcription_status": null
+          }
+        ]
+      },
+      "size_bytes": 1024
+    }
+  ]
+}

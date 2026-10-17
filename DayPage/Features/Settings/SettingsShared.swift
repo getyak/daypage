@@ -376,3 +376,158 @@ enum SettingsTestHints {
         }
     }
 }
+
+// MARK: - Account cloud status (#884 presentation follow-up)
+
+/// Truthful account-cloud status presentation shared by the signed-in
+/// Settings hub summary and the signed-in account cloud section in
+/// `SettingsSyncDataView`, so the two can never drift or over-claim.
+///
+/// Resolution mirrors `AccountSheet` exactly: the same
+/// `AccountSyncStatus.resolve` inputs and precedence, and "synced" is claimed
+/// only from the shared completion proof (`completion.isFullySynced`).
+struct AccountCloudStatusPresentation: Equatable {
+    let symbol: String
+    let title: String
+    let detail: String
+    let color: Color
+    /// Local writes still waiting to sync; shown only when meaningful (> 0).
+    let pendingCount: Int
+    /// Media obligation copy; nil when there is nothing meaningful to report.
+    let mediaDetail: String?
+}
+
+enum AccountCloudStatus {
+
+    static func presentation(
+        isSignedIn: Bool,
+        isOffline: Bool,
+        isFlushing: Bool,
+        pendingCount: Int,
+        health: SyncHealthSnapshot,
+        completion: SyncCompletionPresentation
+    ) -> AccountCloudStatusPresentation {
+        let status = AccountSyncStatus.resolve(
+            isSignedIn: isSignedIn,
+            isOffline: isOffline,
+            isFlushing: isFlushing,
+            pendingCount: pendingCount,
+            health: health
+        )
+
+        // Pending/media states only where they are meaningful.
+        let shownPending = pendingCount > 0 ? pendingCount : 0
+        let mediaDetail: String? = {
+            if completion.mediaIncompleteCount > 0 {
+                return String(
+                    format: NSLocalizedString(
+                        "settings.accountcloud.media.incomplete",
+                        comment: "Unfinished media obligations; %d = count"),
+                    completion.mediaIncompleteCount
+                )
+            }
+            if completion.mediaUnknown {
+                return NSLocalizedString(
+                    "settings.accountcloud.media.unknown",
+                    comment: "Media sync state could not be verified yet")
+            }
+            return nil
+        }()
+
+        let unresolved = AccountCloudStatusPresentation(
+            symbol: "icloud",
+            title: NSLocalizedString("account.sync.unverified.title", comment: "Sync has not been verified yet"),
+            detail: NSLocalizedString("account.sync.unverified.detail", comment: "Waiting for a complete sync check"),
+            color: DSColor.inkSecondary,
+            pendingCount: shownPending,
+            mediaDetail: mediaDetail
+        )
+
+        switch status {
+        case .localOnly:
+            return .init(
+                symbol: "externaldrive",
+                title: NSLocalizedString("settings.accountcloud.status.localonly.title", comment: "Local-only status title"),
+                detail: NSLocalizedString("settings.accountcloud.status.localonly.detail", comment: "Local-only status detail"),
+                color: DSColor.inkSecondary,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        case .offline(let offlinePending):
+            return .init(
+                symbol: "wifi.slash",
+                title: NSLocalizedString("settings.accountcloud.status.offline.title", comment: "Offline status title"),
+                detail: offlinePending == 0
+                    ? NSLocalizedString("settings.accountcloud.status.offline.detail", comment: "Offline status detail without pending items")
+                    : String(
+                        format: NSLocalizedString(
+                            "settings.accountcloud.status.offline.detail_pending",
+                            comment: "Offline status detail with pending items; %d = count"),
+                        offlinePending
+                    ),
+                color: DSColor.statusWarning,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        case .syncing:
+            return .init(
+                symbol: "arrow.triangle.2.circlepath",
+                title: NSLocalizedString("settings.accountcloud.status.syncing.title", comment: "Syncing status title"),
+                detail: NSLocalizedString("settings.accountcloud.status.syncing.detail", comment: "Syncing status detail"),
+                color: DSColor.accentOnBg,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        case .failed(let failure):
+            let title: String
+            let detail: String
+            switch failure {
+            case .setup:
+                title = NSLocalizedString("account.sync.setup.title", comment: "Account sync setup failed")
+                detail = NSLocalizedString("account.sync.setup.detail", comment: "Account binding needs attention")
+            case .pull:
+                title = NSLocalizedString("account.sync.failed.title", comment: "Sync failed")
+                detail = NSLocalizedString("account.sync.failed.pull_detail", comment: "Remote changes could not be pulled")
+            case .other:
+                title = NSLocalizedString("account.sync.failed.title", comment: "Sync failed")
+                detail = NSLocalizedString("account.sync.failed.detail", comment: "Sync can be retried")
+            }
+            return .init(
+                symbol: "exclamationmark.icloud",
+                title: title,
+                detail: detail,
+                color: DSColor.statusWarning,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        case .pending(let count):
+            return .init(
+                symbol: "icloud.and.arrow.up",
+                title: String(
+                    format: NSLocalizedString(
+                        "settings.accountcloud.status.pending.title",
+                        comment: "Pending sync status title; %d = count"),
+                    count
+                ),
+                detail: NSLocalizedString("settings.accountcloud.status.pending.detail", comment: "Pending sync status detail"),
+                color: DSColor.statusWarning,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        case .unverified:
+            return unresolved
+        case .synced:
+            // Same guard and precedence as AccountSheet: "synced" is claimable
+            // ONLY from the shared completion proof for the current session.
+            guard completion.isFullySynced else { return unresolved }
+            return .init(
+                symbol: "checkmark.icloud",
+                title: NSLocalizedString("settings.accountcloud.status.synced.title", comment: "Fully synced status title"),
+                detail: NSLocalizedString("settings.accountcloud.status.synced.detail", comment: "Fully synced status detail"),
+                color: DSColor.statusSuccess,
+                pendingCount: shownPending,
+                mediaDetail: mediaDetail
+            )
+        }
+    }
+}

@@ -14,6 +14,7 @@ import {
   BarChart2,
   Bot,
   Orbit,
+  History,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -33,6 +34,7 @@ const ICONS = {
   chart: BarChart2,
   bot: Bot,
   orbit: Orbit,
+  history: History,
 } as const;
 
 export type NavIconName = keyof typeof ICONS;

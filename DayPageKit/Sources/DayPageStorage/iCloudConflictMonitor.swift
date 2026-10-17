@@ -38,8 +38,9 @@ public final class iCloudConflictMonitor: ObservableObject {
     /// Call this once after VaultInitializer is configured and iCloud is available.
     /// When iCloud is not in use, this is a no-op.
     public func startMonitoring(vaultURL: URL) {
-        let locator = iCloudVaultLocator()
-        guard locator.isUsingiCloud else { return }
+        // Respect the selected backend. A fresh iCloud locator would probe
+        // the ubiquity daemon on MainActor even for a purely local vault.
+        guard VaultInitializer.shared.isUsingiCloud else { return }
 
         self.vaultURL = vaultURL
 

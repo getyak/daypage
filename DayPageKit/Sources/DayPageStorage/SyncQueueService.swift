@@ -23,6 +23,109 @@ import Foundation
 import Combine
 import DayPageModels
 
+/// Why a sync pass was requested. Typed so UI/manual actions, network
+/// recovery, periodic polling and session setup can never be conflated — and
+/// so `initial`/`manual` demands can never be swallowed by a busy pass.
+public enum SyncRefreshReason: String, Codable, Sendable, Equatable {
+    /// First full sync after a session was installed: always full metadata.
+    case initial
+    /// Explicit user action (retry/refresh button): always full metadata.
+    case manual
+    /// Background periodic poll.
+    case periodic
+    /// Network recovery.
+    case online
+    /// Local enqueue / any other automatic trigger.
+    case automatic
+
+    /// initial/manual always force a complete metadata read.
+    public var forcesFullMetadata: Bool { self == .initial || self == .manual }
+
+    /// Strongest of two overlapping demands (manual/initial survive).
+    public func coalesced(with other: SyncRefreshReason) -> SyncRefreshReason {
+        Self.precedence.first { $0 == self || $0 == other } ?? .automatic
+    }
+
+    private static let precedence: [SyncRefreshReason] = [
+        .initial, .manual, .online, .periodic, .automatic
+    ]
+}
+
+/// Account-tag metadata health for the CURRENT session generation.
+public enum SyncMetadataState: String, Codable, Sendable, Equatable {
+    /// No metadata reader capability (legacy/unclaimed vault, or a puller
+    /// without one). Never a complete empty catalogue.
+    case unavailable
+    /// Session active; not verified yet this generation.
+    case pending
+    /// Fetch in flight.
+    case loading
+    /// Complete, consistency-verified metadata for the current realm.
+    case current
+    /// Fetch failed / inconsistent / over budget; old cache preserved.
+    case failed
+}
+
+/// Concise, testable presentation of TRUE sync completion (#884).
+///
+/// "已同步/Synced" is claimable ONLY when every condition holds for the
+/// CURRENT session generation: memo feed drained, metadata current, durable
+/// outbox empty, and every verified media obligation finished. Unknown or
+/// errored media counts never show synced, and the proof is invalidated by
+/// session clear/install or any new local work — an old `lastSuccessAt` is
+/// history, not proof for a new session.
+public struct SyncCompletionPresentation: Equatable, Sendable {
+    public var sessionActive: Bool
+    /// True completion was recorded for the CURRENT session generation and no
+    /// new work has appeared since.
+    public var generationCurrent: Bool
+    public var isFlushing: Bool
+    /// Memo change feed fully drained (`hasMore == false`).
+    public var memoDrained: Bool
+    public var metadata: SyncMetadataState
+    /// Durable outbox operations still pending.
+    public var pendingOutboxCount: Int
+    /// Verified unfinished + blocked media obligations (0 when verified zero).
+    public var mediaIncompleteCount: Int
+    /// Media health could not be verified (sidecar unreadable/foreign).
+    public var mediaUnknown: Bool
+
+    public init(
+        sessionActive: Bool = false,
+        generationCurrent: Bool = false,
+        isFlushing: Bool = false,
+        memoDrained: Bool = false,
+        metadata: SyncMetadataState = .pending,
+        pendingOutboxCount: Int = 0,
+        mediaIncompleteCount: Int = 0,
+        mediaUnknown: Bool = true
+    ) {
+        self.sessionActive = sessionActive
+        self.generationCurrent = generationCurrent
+        self.isFlushing = isFlushing
+        self.memoDrained = memoDrained
+        self.metadata = metadata
+        self.pendingOutboxCount = pendingOutboxCount
+        self.mediaIncompleteCount = mediaIncompleteCount
+        self.mediaUnknown = mediaUnknown
+    }
+
+    /// Freshly installed session: nothing proven yet.
+    public static let unknown = SyncCompletionPresentation()
+
+    /// The ONLY state in which product copy may claim full sync completion.
+    public var isFullySynced: Bool {
+        sessionActive
+            && generationCurrent
+            && !isFlushing
+            && memoDrained
+            && metadata == .current
+            && pendingOutboxCount == 0
+            && !mediaUnknown
+            && mediaIncompleteCount == 0
+    }
+}
+
 /// Small, content-free diagnostic state for the most recent cloud-sync runs.
 /// This is metadata only and is persisted in UserDefaults, never in the Vault.
 public struct SyncHealthSnapshot: Codable, Equatable, Sendable {
@@ -90,6 +193,10 @@ public final class SyncQueueService: ObservableObject {
 
     /// Durable, privacy-safe state rendered by Settings diagnostics.
     @Published public private(set) var syncHealth = SyncHealthSnapshot()
+
+    /// Testable truth for "已同步/Synced" presentation. Updated by
+    /// `SyncQueueObserver` as sessions/memo drain/metadata/media change.
+    @Published public private(set) var completion = SyncCompletionPresentation.unknown
 
     /// Convenience accessors — these aren't `@Published` themselves but
     /// will recompute whenever `pendingMemoIDs` does because callers
@@ -159,7 +266,46 @@ public final class SyncQueueService: ObservableObject {
     public func recordSyncSuccess(at date: Date = Date()) {
         syncHealth.lastSuccessAt = date
         syncHealth.consecutiveFailureCount = 0
+        // Callers must only reach this on TRUE completion (current generation,
+        // memo drained, metadata current, outbox 0, verified media 0).
+        completion.generationCurrent = true
+        completion.memoDrained = true
         persistToDisk()
+    }
+
+    // MARK: - Completion presentation updates (observer-driven)
+
+    /// Applies one completion-state transition. Pure state plumbing; the
+    /// observer computes the facts (see `SyncCompletionPresentation`).
+    public func updateCompletion(
+        _ mutate: (inout SyncCompletionPresentation) -> Void
+    ) {
+        mutate(&completion)
+    }
+
+    /// A new session generation was installed: the old completion proof is
+    /// history and can never prove the new session.
+    public func noteSessionInstalled() {
+        pendingDemand = nil
+        completion.sessionActive = true
+        completion.generationCurrent = false
+        completion.memoDrained = false
+        completion.metadata = .pending
+        completion.isFlushing = false
+        completion.mediaUnknown = true
+        completion.mediaIncompleteCount = 0
+    }
+
+    /// Session cleared / rejected: current completion proof invalidated.
+    public func noteSessionCleared() {
+        pendingDemand = nil
+        completion = .unknown
+    }
+
+    /// New local work (enqueue/outbox growth) invalidates the current
+    /// completion proof immediately — pending work is never "已同步".
+    public func invalidateCompletionProof() {
+        completion.generationCurrent = false
     }
 
     /// Records the latest failure and returns whether it should also become a
@@ -204,15 +350,17 @@ public final class SyncQueueService: ObservableObject {
         let clamped = max(0, sizeBytes)
         memoSizes[memoID] = clamped
         totalBytes += clamped
+        // New work invalidates any current completion proof right away.
+        invalidateCompletionProof()
         // Only stamp the oldest-pending clock when transitioning from
         // empty → non-empty. Subsequent enqueues should not push the
-        // "已等待 N 小时" counter back to zero.
+        // “已等待 N 小时” counter back to zero.
         if oldestPendingDate == nil {
             oldestPendingDate = Date()
         }
         persistToDisk()
         Task { @MainActor [weak self] in
-            await self?.flushIfOnline()
+            await self?.flushIfOnline(reason: .automatic)
         }
     }
 
@@ -229,6 +377,11 @@ public final class SyncQueueService: ObservableObject {
         }
         totalBytes = memoSizes.values.reduce(0, +)
         oldestPendingDate = operations.map(\.modifiedAt).min()
+        // Durable work still outstanding can never keep a current completion
+        // proof alive.
+        if !operations.isEmpty {
+            invalidateCompletionProof()
+        }
         persistToDisk()
     }
 
@@ -241,7 +394,7 @@ public final class SyncQueueService: ObservableObject {
                 try SyncOutboxStore.reconcileVault()
             }.value
             reloadFromOutbox()
-            await flushIfOnline()
+            await flushIfOnline(reason: .automatic)
         } catch {
             SentryReporter.breadcrumb(
                 category: "syncqueue",
@@ -323,20 +476,60 @@ public final class SyncQueueService: ObservableObject {
     /// device may have remote changes waiting to be pulled. We deliberately
     /// don't perform network work here; the notification keeps this service
     /// independent of the concrete Supabase adapters.
-    public func flushIfOnline() async {
-        guard NetworkMonitor.shared.isOnline,
-              !isFlushingNow else { return }
-        NotificationCenter.default.post(name: .syncQueueFlushRequested, object: nil)
+    ///
+    /// Busy/offline `manual`/`initial` demands are COALESCED and never
+    /// swallowed — they are replayed as ONE merged follow-up when the current
+    /// pass ends. Routine triggers (periodic/online/automatic) are covered by
+    /// the running or next pass and do not pile up duplicate passes.
+    public func flushIfOnline(reason: SyncRefreshReason = .automatic) async {
+        requestFlushIfOnline(reason: reason)
+    }
+
+    /// Synchronous host/UI entry: posts while the caller's current session
+    /// is still installed. The observer captures that lease at delivery,
+    /// before scheduling work that could outlive logout or replacement.
+    public func requestFlushIfOnline(reason: SyncRefreshReason = .automatic) {
+        let merged = pendingDemand.map { $0.coalesced(with: reason) } ?? reason
+        guard NetworkMonitor.shared.isOnline, !isFlushingNow else {
+            if merged.forcesFullMetadata {
+                pendingDemand = merged
+            }
+            return
+        }
+        pendingDemand = nil
+        NotificationCenter.default.post(
+            name: .syncQueueFlushRequested,
+            object: nil,
+            userInfo: [Self.flushReasonUserInfoKey: merged.rawValue]
+        )
+    }
+
+    /// The typed reason a flush notification carries.
+    public static let flushReasonUserInfoKey = "reason"
+
+    /// Reason recorded while a pass was busy/offline; consumed ONCE by the
+    /// observer's end-of-pass follow-up scheduling (one merged run — never
+    /// two concurrent or duplicated full fetches).
+    private var pendingDemand: SyncRefreshReason?
+
+    /// Internal: drains the coalesced busy/offline demand for the observer's
+    /// single end-of-pass follow-up (merged with the observer's own slot).
+    func takePendingDemand() -> SyncRefreshReason? {
+        let demand = pendingDemand
+        pendingDemand = nil
+        return demand
     }
 
     func beginFlush() -> Bool {
         guard !isFlushingNow else { return false }
         isFlushingNow = true
+        completion.isFlushing = true
         return true
     }
 
     func endFlush() {
         isFlushingNow = false
+        completion.isFlushing = false
     }
 
     // MARK: - Network observation
@@ -350,7 +543,7 @@ public final class SyncQueueService: ObservableObject {
             .sink { [weak self] online in
                 guard online else { return }
                 Task { @MainActor [weak self] in
-                    await self?.flushIfOnline()
+                    await self?.flushIfOnline(reason: .online)
                 }
             }
             .store(in: &cancellables)

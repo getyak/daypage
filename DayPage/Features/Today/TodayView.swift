@@ -320,6 +320,7 @@ struct TodayView: View {
 
     /// 今日焦点 disclosure state — false = single ghost line, true = chips row.
     @State private var focusExpanded: Bool = false
+    @State private var readingCanvasWidth: CGFloat = 402
 
     /// 0.0–1.0 hero recede progress recovered from the bucket.
     private var heroFadeProgress: CGFloat {
@@ -975,6 +976,15 @@ struct TodayView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     withAnimation { iCloudConflictBannerVisible = false }
                 }
+            }
+            // #884 — account-tag projection refreshes and attachment transfer
+            // state changes re-render Today's read-only rows (tags/media).
+            // Pure reads: no raw/outbox/account mutation as a side effect.
+            .onReceive(NotificationCenter.default.publisher(for: .accountTagProjectionDidUpdate)) { _ in
+                viewModel.load()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .attachmentTransferStateDidChange)) { _ in
+                viewModel.load()
             }
     }
 
@@ -3108,9 +3118,9 @@ struct TodayView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
         .padding(.top, 8)
-        .padding(.bottom, 16)
+        .padding(.bottom, usesCompactHeader ? 8 : 16)
         // Both branches carry explicit transitions. Scroll-driven changes are
         // animated once at the threshold in `handleScrollOffset`; memo changes
         // already arrive inside the view model's deliberate save animation.
@@ -3292,7 +3302,7 @@ struct TodayView: View {
     private var timelineList: some View {
             // An 8pt card cadence keeps adjacent captures visibly distinct
             // without turning a three-note day into a loose stack of panels.
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: readingCanvasWidth < 350 ? 10 : 12) {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
 
@@ -3536,7 +3546,7 @@ struct TodayView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, readingCanvasWidth < 350 ? 8 : 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         // 美术馆入场 (iOS 17+): subtle scroll-in settle on the
                         // row container OUTSIDE SwipeableMemoCard, so it never
@@ -3574,7 +3584,14 @@ struct TodayView: View {
             // Header already contributes its own 16pt bottom breathing room;
             // four more points plus the stack cadence is enough to mark the
             // handoff without wasting the content-first fold.
-            .padding(.top, 4)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { readingCanvasWidth = geometry.size.width }
+                        .onChange(of: geometry.size.width) { readingCanvasWidth = $0 }
+                }
+            }
+            .padding(.top, 8)
             .shadow(
                 color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
                 radius: refreshGlow ? 18 : 0

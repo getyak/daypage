@@ -115,6 +115,7 @@ public enum AttachmentSyncError: LocalizedError, Equatable {
     case network
     case quotaExceeded
     case integrityMismatch(String)
+    case objectKeyMismatch
 
     public var errorDescription: String? {
         switch self {
@@ -130,6 +131,7 @@ public enum AttachmentSyncError: LocalizedError, Equatable {
         case .network: return "附件网络传输暂时失败"
         case .quotaExceeded: return "附件云端配额已用尽"
         case .integrityMismatch(let name): return "附件完整性校验失败：\(name)"
+        case .objectKeyMismatch: return "附件云端对象不属于当前同步账户或 memo"
         }
     }
 }
@@ -185,7 +187,9 @@ public enum AttachmentManifest {
             case ("photo", "image/heif"): expectedExtension = "heif"
             case ("audio", "audio/m4a"): expectedExtension = "m4a"
             case ("audio", "audio/mp4"): expectedExtension = "mp4"
+            case ("audio", "audio/aac"): expectedExtension = "aac"
             case ("file", "application/pdf"): expectedExtension = "pdf"
+            case ("file", "video/quicktime"): expectedExtension = "mov"
             default: return false
             }
             guard descriptor.sizeBytes > 0,
@@ -249,7 +253,7 @@ public enum AttachmentFileInspector {
         guard size <= maximumObjectBytes else { throw AttachmentSyncError.objectTooLarge(size) }
 
         let mapping = try mimeMapping(extension: fileURL.pathExtension, kind: kind)
-        try validateMagic(url: fileURL, mimeType: mapping.mimeType)
+        try validateMagic(url: fileURL, mimeType: mapping.mimeType, sizeBytes: size)
         let digest = try sha256AndSize(of: fileURL)
         guard digest.size == size else { throw AttachmentSyncError.localFileChanged(relativePath) }
         return InspectedFile(
@@ -286,27 +290,89 @@ public enum AttachmentFileInspector {
               digest.size == descriptor.sizeBytes else {
             throw AttachmentSyncError.localFileChanged(url.path)
         }
-        try validateMagic(url: url, mimeType: descriptor.mimeType)
+        try validateMagic(url: url, mimeType: descriptor.mimeType, sizeBytes: digest.size)
     }
 
+    /// URL of an EXISTING own-Vault media file, for explicit user opening.
+    ///
+    /// Trust anchor is the SELECTED Vault root (canonicalized first so
+    /// `/var` vs `/private/var` spellings cannot confuse comparisons):
+    ///   - shape: `raw/assets/...` relative only — no absolute paths, no `..`
+    ///     components, no `//`;
+    ///   - every component below the Vault (the `raw` and `assets` ancestors,
+    ///     sub-directories and the final file) must be a real entry or a
+    ///     SINGLE-HOP symlink to an existing target strictly inside the
+    ///     canonical Vault; foreign, chained (multihop) and dangling symlinks
+    ///     are refused fail-closed — a symlinked `raw`/`assets` can never
+    ///     re-root the trust boundary outside the Vault;
+    ///   - the fully resolved candidate must stay inside the resolved
+    ///     `raw/assets` subtree AND inside the canonical Vault root.
+    ///
+    /// Valid in-Vault local media (plain files, and single-hop in-Vault links)
+    /// keeps working; nothing here fetches or invents remote URLs.
     public static func safeLocalURL(relativePath: String) throws -> URL {
         guard !relativePath.isEmpty,
               !relativePath.hasPrefix("/"),
               relativePath.hasPrefix("raw/assets/"),
+              relativePath.count > "raw/assets/".count,
               !relativePath.split(separator: "/", omittingEmptySubsequences: false).contains(".."),
               !relativePath.contains("//") else {
             throw AttachmentSyncError.invalidPath(relativePath)
         }
-        let vault = VaultInitializer.vaultURL.standardizedFileURL
-        let assets = vault.appendingPathComponent("raw/assets", isDirectory: true)
-            .resolvingSymlinksInPath().standardizedFileURL
-        let candidate = vault.appendingPathComponent(relativePath).standardizedFileURL
-        let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
-        let rootPath = assets.path.hasSuffix("/") ? assets.path : assets.path + "/"
-        guard resolved.path.hasPrefix(rootPath) else {
+        let fm = FileManager.default
+        func canonicalize(_ url: URL) -> URL {
+            url.resolvingSymlinksInPath().standardizedFileURL
+        }
+        func isStrictlyInside(_ url: URL, _ root: URL) -> Bool {
+            url.path.hasPrefix(root.path + "/")
+        }
+
+        let canonicalRoot = canonicalize(VaultInitializer.vaultURL)
+        let subPath = relativePath.dropFirst("raw/assets/".count)
+        let components = ["raw", "assets"]
+            + subPath.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+
+        var current = canonicalRoot
+        var canonicalAssets: URL?
+        for (index, component) in components.enumerated() {
+            let next = current.appendingPathComponent(component)
+            let isFinal = index == components.count - 1
+            if let linkTarget = try? fm.destinationOfSymbolicLink(atPath: next.path) {
+                // One-hop resolution only: a chained target is refused below.
+                let target = (linkTarget.hasPrefix("/")
+                    ? URL(fileURLWithPath: linkTarget)
+                    : current.appendingPathComponent(linkTarget)).standardizedFileURL
+                guard fm.fileExists(atPath: target.path) else {
+                    // Dangling directory/file link.
+                    throw isFinal
+                        ? AttachmentSyncError.missingFile(relativePath)
+                        : AttachmentSyncError.invalidPath(relativePath)
+                }
+                let resolvedTarget = canonicalize(target)
+                guard isStrictlyInside(resolvedTarget, canonicalRoot) else {
+                    // Foreign target (or a chain whose real path escapes).
+                    throw AttachmentSyncError.invalidPath(relativePath)
+                }
+                if (try? fm.destinationOfSymbolicLink(atPath: target.path)) != nil {
+                    // Multihop: the one-hop target is itself a link.
+                    throw AttachmentSyncError.invalidPath(relativePath)
+                }
+                current = target
+            } else {
+                current = next
+            }
+            if index == 1 {
+                canonicalAssets = canonicalize(current)
+            }
+        }
+
+        let resolved = canonicalize(current)
+        guard let canonicalAssets,
+              isStrictlyInside(resolved, canonicalAssets),
+              isStrictlyInside(resolved, canonicalRoot) else {
             throw AttachmentSyncError.invalidPath(relativePath)
         }
-        guard FileManager.default.fileExists(atPath: resolved.path) else {
+        guard fm.fileExists(atPath: resolved.path) else {
             throw AttachmentSyncError.missingFile(relativePath)
         }
         return resolved
@@ -343,17 +409,31 @@ public enum AttachmentFileInspector {
             return ("audio/m4a", "m4a")
         case ("mp4", "audio"):
             return ("audio/mp4", "mp4")
+        case ("aac", "audio"):
+            return ("audio/aac", "aac")
         case ("pdf", "file"):
             return ("application/pdf", "pdf")
+        case ("mov", "file"):
+            return ("video/quicktime", "mov")
         default:
             throw AttachmentSyncError.unsupportedType(fileExtension)
         }
     }
 
-    private static func validateMagic(url: URL, mimeType: String) throws {
+    private static let maximumInspectionBytes = 64 * 1_024
+
+    /// Bounded signature and structure validation for attachment bytes.
+    ///
+    /// This is deliberately header-level content recognition, not full codec
+    /// decoding: raw ADTS AAC frames must carry consistent sync, layer,
+    /// sampling-frequency index (0...12; 13 and 14 are reserved and 15 is the
+    /// escape value), and frame-length headers, and QuickTime MOV files must
+    /// open with an ``ftyp`` box whose major brand is ``qt  `` and whose box
+    /// header lengths fit the real file size.
+    private static func validateMagic(url: URL, mimeType: String, sizeBytes: Int64) throws {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
-        let header = try handle.read(upToCount: 16) ?? Data()
+        let header = try handle.read(upToCount: maximumInspectionBytes) ?? Data()
         let valid: Bool
         switch mimeType {
         case "image/jpeg":
@@ -364,6 +444,10 @@ public enum AttachmentFileInspector {
             valid = header.starts(with: Data("%PDF-".utf8))
         case "audio/m4a", "audio/mp4":
             valid = header.count >= 8 && Data(header[4..<8]) == Data("ftyp".utf8)
+        case "audio/aac":
+            valid = isStructurallyConsistentADTS(header, sizeBytes: sizeBytes)
+        case "video/quicktime":
+            valid = isQuickTimeMovieBox(header, sizeBytes: sizeBytes)
         case "image/heic", "image/heif":
             guard header.count >= 12, Data(header[4..<8]) == Data("ftyp".utf8) else {
                 throw AttachmentSyncError.mimeMismatch(url.lastPathComponent)
@@ -375,9 +459,173 @@ public enum AttachmentFileInspector {
         }
         guard valid else { throw AttachmentSyncError.mimeMismatch(url.lastPathComponent) }
     }
+
+    /// Bounded ADTS header walk for raw ``.aac`` (audio/aac) imports. Frames
+    /// must tile consistently and fit inside the real file size; this checks
+    /// headers only and is not full AAC codec decoding.
+    private static func isStructurallyConsistentADTS(
+        _ buffer: Data,
+        sizeBytes: Int64
+    ) -> Bool {
+        let bytes = [UInt8](buffer)
+        var offset = 0
+        var frames = 0
+        var reference: (
+            profile: UInt8,
+            sampleIndex: UInt8,
+            channelConfig: UInt8,
+            protection: UInt8
+        )?
+        while offset + 7 <= bytes.count {
+            let second = bytes[offset + 1]
+            guard bytes[offset] == 0xff,
+                  second & 0xf0 == 0xf0,
+                  (second >> 1) & 0x03 == 0 else {
+                return false
+            }
+            let protection = second & 0x01
+            let headerLength = protection == 1 ? 7 : 9
+            let third = bytes[offset + 2]
+            let sampleIndex = (third >> 2) & 0x0f
+            // Sampling-frequency indexes 13 and 14 are reserved and 15 is the
+            // escape value; only 0...12 name a real rate (FFmpeg ADTS header).
+            guard sampleIndex <= 12, offset + headerLength <= bytes.count else {
+                return false
+            }
+            let frameLength = (Int(bytes[offset + 3] & 0x03) << 11)
+                | (Int(bytes[offset + 4]) << 3)
+                | Int(bytes[offset + 5] >> 5)
+            guard frameLength >= headerLength,
+                  Int64(offset + frameLength) <= sizeBytes else {
+                return false
+            }
+            let profile = (third >> 6) & 0x03
+            let channelConfig = ((third & 0x01) << 2) | ((bytes[offset + 3] >> 6) & 0x03)
+            if let reference {
+                guard reference.profile == profile,
+                      reference.sampleIndex == sampleIndex,
+                      reference.channelConfig == channelConfig,
+                      reference.protection == protection else {
+                    return false
+                }
+            } else {
+                reference = (profile, sampleIndex, channelConfig, protection)
+            }
+            frames += 1
+            offset += frameLength
+        }
+        guard frames > 0 else { return false }
+        if Int64(bytes.count) == sizeBytes {
+            return offset == bytes.count
+        }
+        return true
+    }
+
+    /// Bounded QuickTime container check for raw ``.mov`` (video/quicktime)
+    /// imports: a leading ``ftyp`` box with the ``qt  `` major brand and box
+    /// header lengths that fit the real file size. This validates container
+    /// structure only and is not full codec decoding.
+    private static func isQuickTimeMovieBox(_ buffer: Data, sizeBytes: Int64) -> Bool {
+        let bytes = [UInt8](buffer)
+        guard bytes.count >= 16, Data(buffer[4..<8]) == Data("ftyp".utf8) else {
+            return false
+        }
+        func brand(at index: Int) -> String? {
+            guard bytes.count >= index + 4 else { return nil }
+            return String(bytes: bytes[index..<(index + 4)], encoding: .ascii)
+        }
+        let boxSize = (UInt32(bytes[0]) << 24) | (UInt32(bytes[1]) << 16)
+            | (UInt32(bytes[2]) << 8) | UInt32(bytes[3])
+        // ftyp fixed fields are size(4) + type(4) + major brand(4) + minor
+        // version(4) = 16 bytes; the 64-bit largesize form adds 8 bytes.
+        // Compatible brands are 4 bytes each, so every size form must leave a
+        // multiple of 4 bytes after its fixed fields.
+        let effectiveSize: Int64
+        let fixedFieldBytes: Int64
+        let majorBrand: String?
+        switch boxSize {
+        case 0:
+            // A zero size declares that the ftyp box extends to end of file.
+            effectiveSize = sizeBytes
+            fixedFieldBytes = 16
+            majorBrand = brand(at: 8)
+        case 1:
+            // A 64-bit largesize header pushes the major brand to offset 16.
+            guard bytes.count >= 24 else { return false }
+            var largeSize: UInt64 = 0
+            for byte in bytes[8..<16] {
+                largeSize = (largeSize << 8) | UInt64(byte)
+            }
+            guard largeSize <= UInt64(sizeBytes) else { return false }
+            effectiveSize = Int64(largeSize)
+            fixedFieldBytes = 24
+            majorBrand = brand(at: 16)
+        default:
+            effectiveSize = Int64(boxSize)
+            fixedFieldBytes = 16
+            majorBrand = brand(at: 8)
+        }
+        guard effectiveSize >= fixedFieldBytes,
+              effectiveSize <= sizeBytes,
+              (effectiveSize - fixedFieldBytes) % 4 == 0,
+              majorBrand == "qt  " else {
+            return false
+        }
+        // QuickTime requires an explicit compatible-brand entry. A preferred
+        // major brand alone does not identify a compatible QuickTime movie.
+        let inspectedEnd = Int(min(effectiveSize, Int64(bytes.count)))
+        return stride(from: Int(fixedFieldBytes), to: inspectedEnd - 3, by: 4)
+            .contains { brand(at: $0) == "qt  " }
+    }
 }
 
 public enum AttachmentTransferStore {
+    /// Complete, realm-scoped media obligation counts for sync completion
+    /// health. `pending`/`transferring`/`paused`/`failed`/`unsupported`/
+    /// `quotaFailed` all count as unfinished; `blocked` holds the durable
+    /// upload-preparation obligations. Only `transferred` records are done.
+    public struct TransferProgress: Equatable, Sendable {
+        public struct Counts: Equatable, Sendable {
+            public var pending = 0
+            public var transferring = 0
+            public var transferred = 0
+            public var paused = 0
+            public var failed = 0
+            public var unsupported = 0
+            public var quotaFailed = 0
+
+            public init() {}
+
+            /// Obligations that are not finished yet.
+            public var unfinished: Int {
+                pending + transferring + paused + failed + unsupported + quotaFailed
+            }
+        }
+
+        public var upload: Counts
+        public var download: Counts
+        /// Durable blocked upload-preparation records (upload obligations).
+        public var blocked: Int
+
+        public init(upload: Counts = Counts(), download: Counts = Counts(), blocked: Int = 0) {
+            self.upload = upload
+            self.download = download
+            self.blocked = blocked
+        }
+
+        /// True when ANY media obligation is unfinished or blocked. Full sync
+        /// completion is impossible while this holds.
+        public var hasIncomplete: Bool {
+            upload.unfinished > 0 || download.unfinished > 0 || blocked > 0
+        }
+
+        /// Total unfinished + blocked obligations (no cap; used for concise
+        /// presentation).
+        public var unfinishedTotal: Int {
+            upload.unfinished + download.unfinished + blocked
+        }
+    }
+
     private struct Record: Codable, Equatable {
         var id: String
         var operationID: UUID?
@@ -408,11 +656,15 @@ public enum AttachmentTransferStore {
 
     private struct State: Codable {
         var schemaVersion: Int = 1
+        var realmOrigin: String?
+        var realmUserID: String?
         var records: [Record] = []
         var blockedRecords: [BlockedRecord]?
 
         enum CodingKeys: String, CodingKey {
             case schemaVersion = "schema_version"
+            case realmOrigin = "realm_origin"
+            case realmUserID = "realm_user_id"
             case records
             case blockedRecords = "blocked_records"
         }
@@ -438,20 +690,65 @@ public enum AttachmentTransferStore {
 
     private static let queue = DispatchQueue(label: "com.daypage.attachment-transfers")
 
+    /// Historical sidecar filename; the shared realm-binding rules live in
+    /// `SyncTransferSidecarBinding` so the account store and this store can
+    /// never disagree about what "proven" means.
     public static var stateURL: URL {
-        VaultInitializer.vaultURL
-            .appendingPathComponent("_agent", isDirectory: true)
-            .appendingPathComponent("sync", isDirectory: true)
-            .appendingPathComponent("attachment-transfers-v1.json")
+        SyncTransferSidecarBinding.transfersFileURL(vaultRoot: VaultInitializer.vaultURL)
+    }
+
+    /// Loads the transfer state only when its realm binding is provable.
+    ///
+    ///   - `.claimable` (no obligations, no header): the state is claimed for
+    ///     `realm` and later saves persist the header.
+    ///   - `.proven`: the header already binds exactly `realm`.
+    ///   - `.foreign` / `.unproven`: held — bounded error, zero writes, every
+    ///     record and partial file preserved byte-for-byte. Old state is never
+    ///     guessed into a new project.
+    private static func verifiedState(realm: SyncRealmIdentity) throws -> State {
+        switch SyncTransferSidecarBinding.inspect(
+            vaultRoot: VaultInitializer.vaultURL,
+            expecting: realm
+        ) {
+        case .foreign:
+            throw SyncRealmError.realmMismatch
+        case .unproven:
+            throw SyncRealmError.legacyRealmUnverified
+        case .claimable, .proven:
+            break
+        }
+        var state = try load()
+        state.realmOrigin = realm.normalizedOrigin
+        state.realmUserID = realm.userID.uuidString.lowercased()
+        return state
+    }
+
+    /// Object keys are `user/memo/sha.ext`; only the SAME realm user and memo
+    /// may consume them (and that alone still never proves the origin — the
+    /// sidecar header does).
+    private static func validateObjectKey(
+        _ descriptor: SyncAttachmentDescriptor,
+        memoID: UUID,
+        realm: SyncRealmIdentity
+    ) throws {
+        let parts = descriptor.objectKey.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        )
+        guard parts.count == 3,
+              parts[0].caseInsensitiveCompare(realm.userID.uuidString) == .orderedSame,
+              parts[1].caseInsensitiveCompare(memoID.uuidString) == .orderedSame else {
+            throw AttachmentSyncError.objectKeyMismatch
+        }
     }
 
     public static func prepareUploads(
         operation: SyncOutboxOperation,
         memo: Memo,
-        userID: UUID
+        realm: SyncRealmIdentity
     ) throws -> [AttachmentUploadItem] {
         try queue.sync {
-            var state = try load()
+            var state = try verifiedState(realm: realm)
             state.blockedRecords?.removeAll { $0.memoID == memo.id }
             state.records.removeAll {
                 $0.memoID == memo.id
@@ -513,7 +810,7 @@ public enum AttachmentTransferStore {
                     contentSHA256: file.sha256,
                     sizeBytes: file.sizeBytes,
                     mimeType: file.mimeType,
-                    objectKey: userID.uuidString.lowercased() + "/" +
+                    objectKey: realm.userID.uuidString.lowercased() + "/" +
                         memo.id.uuidString.lowercased() + "/" + file.sha256 + "." +
                         file.canonicalExtension,
                     originalFilename: file.originalFilename,
@@ -572,10 +869,14 @@ public enum AttachmentTransferStore {
 
     public static func recordPendingDownloads(
         memoID: UUID,
-        descriptors: [SyncAttachmentDescriptor]
+        descriptors: [SyncAttachmentDescriptor],
+        realm: SyncRealmIdentity
     ) throws -> [AttachmentDownloadItem] {
         try queue.sync {
-            var state = try load()
+            var state = try verifiedState(realm: realm)
+            for descriptor in descriptors {
+                try validateObjectKey(descriptor, memoID: memoID, realm: realm)
+            }
             let currentObjectKeys = Set(descriptors.map(\.objectKey))
             state.records.removeAll {
                 $0.memoID == memoID
@@ -631,10 +932,15 @@ public enum AttachmentTransferStore {
 
     /// Returns durable download obligations that survived a previous failed
     /// or interrupted pull. A later empty pull can therefore resume media
-    /// without replaying the already-advanced memo cursor.
-    public static func pendingDownloads(limit: Int = 50) -> [AttachmentDownloadItem] {
-        queue.sync {
-            guard let state = try? load() else { return [] }
+    /// without replaying the already-advanced memo cursor. Obligations whose
+    /// realm is not provable are held: nothing is returned and nothing is
+    /// consumed.
+    public static func pendingDownloads(
+        realm: SyncRealmIdentity,
+        limit: Int = 50
+    ) throws -> [AttachmentDownloadItem] {
+        try queue.sync {
+            let state = try verifiedState(realm: realm)
             return state.records
                 .filter { $0.direction == .download && $0.status != .transferred }
                 .sorted { $0.updatedAt < $1.updatedAt }
@@ -649,13 +955,54 @@ public enum AttachmentTransferStore {
         }
     }
 
-    public static func discardTransfers(memoIDs: Set<UUID>) throws {
+    public static func discardTransfers(memoIDs: Set<UUID>, realm: SyncRealmIdentity) throws {
         guard !memoIDs.isEmpty else { return }
         try queue.sync {
-            var state = try load()
+            var state = try verifiedState(realm: realm)
             state.records.removeAll { memoIDs.contains($0.memoID) }
             state.blockedRecords?.removeAll { memoIDs.contains($0.memoID) }
             try save(state)
+        }
+    }
+
+    /// Full, verified, realm-scoped media obligation counts for completion
+    /// health (#884).
+    ///
+    /// Counts EVERY record — there is no `pendingDownloads` 50/200 cap and no
+    /// `try?` fallback to zero: a foreign, unproven or corrupt sidecar THROWS
+    /// so the caller can keep health "unknown" instead of claiming synced.
+    /// Only a provably bound sidecar with no records is a verified zero.
+    public static func progress(
+        realm: SyncRealmIdentity
+    ) throws -> TransferProgress {
+        try queue.sync {
+            let state = try verifiedState(realm: realm)
+            var result = TransferProgress()
+            for record in state.records {
+                switch record.direction {
+                case .upload:
+                    apply(record.status, to: &result.upload)
+                case .download:
+                    apply(record.status, to: &result.download)
+                }
+            }
+            result.blocked = (state.blockedRecords ?? []).count
+            return result
+        }
+    }
+
+    private static func apply(
+        _ status: AttachmentTransferStatus,
+        to counts: inout TransferProgress.Counts
+    ) {
+        switch status {
+        case .pending: counts.pending += 1
+        case .transferring: counts.transferring += 1
+        case .transferred: counts.transferred += 1
+        case .paused: counts.paused += 1
+        case .failed: counts.failed += 1
+        case .unsupported: counts.unsupported += 1
+        case .quotaFailed: counts.quotaFailed += 1
         }
     }
 
@@ -682,10 +1029,13 @@ public enum AttachmentTransferStore {
         }
     }
 
-    public static func resumableState(recordID: String) -> (url: URL?, offset: Int64) {
-        queue.sync {
-            guard let state = try? load(),
-                  let record = state.records.first(where: { $0.id == recordID }) else {
+    public static func resumableState(
+        recordID: String,
+        realm: SyncRealmIdentity
+    ) throws -> (url: URL?, offset: Int64) {
+        try queue.sync {
+            let state = try verifiedState(realm: realm)
+            guard let record = state.records.first(where: { $0.id == recordID }) else {
                 return (nil, 0)
             }
             return (record.resumableURL, record.uploadOffset)
@@ -695,14 +1045,24 @@ public enum AttachmentTransferStore {
     public static func update(
         recordID: String,
         status: AttachmentTransferStatus,
+        realm: SyncRealmIdentity,
         resumableURL: URL? = nil,
         uploadOffset: Int64? = nil,
         error: String? = nil
     ) throws {
         try queue.sync {
-            var state = try load()
+            var state = try verifiedState(realm: realm)
             guard let index = state.records.firstIndex(where: { $0.id == recordID }) else {
                 throw AttachmentSyncError.invalidSidecar
+            }
+            if let resumableURL {
+                // Persisted resume URLs must already be provably same-origin
+                // with a canonical resumable path; a saved foreign URL is
+                // never retained for later use.
+                _ = try SyncResumableEndpoint.validated(
+                    resumableURL,
+                    origin: realm.origin
+                )
             }
             state.records[index].status = status
             if let resumableURL { state.records[index].resumableURL = resumableURL }
@@ -741,9 +1101,9 @@ public enum AttachmentTransferStore {
         }
     }
 
-    public static func clearResumableState(recordID: String) throws {
+    public static func clearResumableState(recordID: String, realm: SyncRealmIdentity) throws {
         try queue.sync {
-            var state = try load()
+            var state = try verifiedState(realm: realm)
             guard let index = state.records.firstIndex(where: { $0.id == recordID }) else {
                 throw AttachmentSyncError.invalidSidecar
             }
@@ -754,8 +1114,11 @@ public enum AttachmentTransferStore {
         }
     }
 
-    public static func markDownloadInstalled(recordID: String) throws {
-        try update(recordID: recordID, status: .transferred)
+    public static func markDownloadInstalled(
+        recordID: String,
+        realm: SyncRealmIdentity
+    ) throws {
+        try update(recordID: recordID, status: .transferred, realm: realm)
     }
 
     private static func makeSummary(
@@ -804,7 +1167,23 @@ public enum AttachmentTransferStore {
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(state).write(to: stateURL, options: [.atomic])
+        // Notify AFTER the queue lock would be released by the caller and on
+        // the main queue, so observers can safely re-enter transfer queries
+        // (the earlier RawStorage notification deadlock lesson).
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .attachmentTransferStateDidChange,
+                object: nil
+            )
+        }
     }
+}
+
+public extension Notification.Name {
+    /// Posted (main queue, asynchronously) whenever the durable attachment
+    /// transfer sidecar changes. Media health UI refreshes read-only state.
+    static let attachmentTransferStateDidChange =
+        Notification.Name("DayPage.attachmentTransfer.stateDidChange")
 }
 
 public protocol AttachmentFileTransport: Sendable {

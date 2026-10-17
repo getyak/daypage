@@ -51,10 +51,46 @@ public final class SearchIndex {
         public let transcripts: [TranscriptText]
         public let locationName: String?
         public let foldedLocationName: String?
+        /// Read-only presentation body when it DIFFERS from `body` (#884
+        /// follow-up: exact generated media-only placeholder sets present as
+        /// empty). `nil` means "present `body`" — the builder only stores a
+        /// value for an actually changed presentation. Matching always uses
+        /// `body`/`foldedBody`; this field is for output snippet text only.
+        public let presentationBody: String?
 
         public struct TranscriptText: Equatable, Sendable {
             public let raw: String
             public let folded: String
+
+            public init(raw: String, folded: String) {
+                self.raw = raw
+                self.folded = folded
+            }
+        }
+
+        /// Explicit source-compatible initializer: every original argument
+        /// label and position is preserved exactly, with `presentationBody` a
+        /// trailing defaulted parameter so existing call sites are unchanged.
+        public init(
+            id: UUID,
+            type: Memo.MemoType,
+            body: String,
+            foldedBody: String,
+            entityMentions: [String],
+            transcripts: [TranscriptText],
+            locationName: String?,
+            foldedLocationName: String?,
+            presentationBody: String? = nil
+        ) {
+            self.id = id
+            self.type = type
+            self.body = body
+            self.foldedBody = foldedBody
+            self.entityMentions = entityMentions
+            self.transcripts = transcripts
+            self.locationName = locationName
+            self.foldedLocationName = foldedLocationName
+            self.presentationBody = presentationBody
         }
     }
 
@@ -293,8 +329,12 @@ public final class SearchIndex {
         let memos = RawStorage.parse(fileContent: content)
         guard !memos.isEmpty else { return nil }
 
-        let memoDocs = memos.map { memo in
-            MemoDocument(
+        let memoDocs = memos.map { memo -> MemoDocument in
+            // Snippet-only presentation (#884 follow-up): store the read-only
+            // display body ONLY when it actually changed; `nil` keeps the
+            // document meaning "present `body`". Matching still uses `body`.
+            let displayBody = MemoAttachmentPresentation.displayBody(for: memo)
+            return MemoDocument(
                 id: memo.id,
                 type: memo.type,
                 body: memo.body,
@@ -307,7 +347,8 @@ public final class SearchIndex {
                     )
                 },
                 locationName: memo.location?.name,
-                foldedLocationName: memo.location?.name.map(SearchService.foldForSearch)
+                foldedLocationName: memo.location?.name.map(SearchService.foldForSearch),
+                presentationBody: displayBody == memo.body ? nil : displayBody
             )
         }
         return DayDocument(

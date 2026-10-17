@@ -6,7 +6,6 @@ import DayPageModels
 /// asks Postgres for one memo + manifest + receipt transaction.
 public struct SupabaseSyncUploader: RemoteUploader {
     public typealias AccessTokenProvider = @Sendable () async throws -> String
-
     private struct V2Payload: Encodable {
         let type: String
         let body: String
@@ -128,48 +127,80 @@ public struct SupabaseSyncUploader: RemoteUploader {
         let rejected: [Rejected]
     }
 
+    public let session: SyncSession
     public let supabaseURL: URL
     public let endpoint: URL
     public let prepareEndpoint: URL
     public let anonKey: String
-    public let userID: UUID?
+    public let userID: UUID
     public let transport: HTTPTransport
     public let fileTransport: AttachmentFileTransport
+    /// Session-scoped executor: every request START linearizes with the lease.
+    public let network: SyncSessionNetwork
     public let accessTokenProvider: AccessTokenProvider
+
+    private var lease: SyncSessionLease { session.lease }
+    private var realm: SyncRealmIdentity { session.identity }
 
     private let standardUploadMaximum: Int64 = 6 * 1_024 * 1_024
     private let tusChunkSize = 6 * 1_024 * 1_024
 
+    /// All push traffic uses ONE verified session: same origin, same key, one
+    /// user. Callers cannot assemble an inconsistent URL/key/user triple.
+    /// Transport defaults to the redirect-refusing sync transport for the
+    /// session's realm — never the global `HTTPTransports.shared`.
     public init(
-        supabaseURL: URL,
-        anonKey: String,
-        userID: UUID? = nil,
-        transport: HTTPTransport = HTTPTransports.shared,
-        fileTransport: AttachmentFileTransport = URLSession.shared,
+        session: SyncSession,
+        transport: HTTPTransport? = nil,
+        fileTransport: AttachmentFileTransport? = nil,
         accessTokenProvider: @escaping AccessTokenProvider
     ) {
-        self.supabaseURL = supabaseURL
-        self.endpoint = supabaseURL
+        self.session = session
+        let configuration = session.context.configuration
+        let baseURL = configuration.url
+        let realmTransport = SupabaseSyncTransport.shared(for: session.identity.origin)
+        self.supabaseURL = baseURL
+        self.endpoint = baseURL
             .appendingPathComponent("rest", isDirectory: true)
             .appendingPathComponent("v1", isDirectory: true)
             .appendingPathComponent("rpc", isDirectory: true)
             .appendingPathComponent("daypage_apply_sync_operations_v2")
-        self.prepareEndpoint = supabaseURL
+        self.prepareEndpoint = baseURL
             .appendingPathComponent("rest", isDirectory: true)
             .appendingPathComponent("v1", isDirectory: true)
             .appendingPathComponent("rpc", isDirectory: true)
             .appendingPathComponent("daypage_prepare_attachment_upload")
-        self.anonKey = anonKey
-        self.userID = userID
-        self.transport = transport
-        self.fileTransport = fileTransport
+        self.anonKey = configuration.publishableKey
+        self.userID = session.identity.userID
+        self.transport = transport ?? realmTransport
+        self.fileTransport = fileTransport ?? realmTransport
+        self.network = SyncSessionNetwork(
+            lease: session.lease,
+            dataTransport: self.transport,
+            fileTransport: self.fileTransport
+        )
         self.accessTokenProvider = accessTokenProvider
+    }
+
+    /// Commit gate: check + effect linearize together against invalidation.
+    private func commit<T>(_ body: () throws -> T) throws -> T {
+        try lease.withValidity(body)
+    }
+
+    /// Every token passes the session-scoped exact-token proof: local claim
+    /// pre-checks AND same-origin `/auth/v1/user` proof for any new token
+    /// value before any durable preparation or mutation. A current global
+    /// session token from another realm/user can never be forwarded to this
+    /// (older) endpoint.
+    private func verifiedAccessToken() async throws -> SyncVerifiedAccessToken {
+        let raw = try await accessTokenProvider()
+        guard !raw.isEmpty else { throw MemoSyncError.unauthorized }
+        return try await session.tokens.verifiedToken(raw)
     }
 
     public func upload(operation: SyncOutboxOperation) async throws -> Int {
         try validateConfiguration()
-        let accessToken = try await accessTokenProvider()
-        guard !accessToken.isEmpty else { throw MemoSyncError.unauthorized }
+        let accessToken = try await verifiedAccessToken()
 
         let v2Operation: V2Operation
         if operation.kind == .delete {
@@ -195,13 +226,17 @@ public struct SupabaseSyncUploader: RemoteUploader {
             guard operation.contentHash == SyncOutboxStore.contentHash(for: memo) else {
                 throw AttachmentSyncError.localFileChanged(operation.memoID.uuidString)
             }
-            let resolvedUserID = try resolveUserID(accessToken: accessToken)
+            // Transfer obligations are durable effects: they commit inside the
+            // generation gate so a replaced session can neither add nor
+            // rewrite them mid-flight.
             let items = try await Task.detached(priority: .utility) {
-                try AttachmentTransferStore.prepareUploads(
-                    operation: operation,
-                    memo: memo,
-                    userID: resolvedUserID
-                )
+                try self.commit {
+                    try AttachmentTransferStore.prepareUploads(
+                        operation: operation,
+                        memo: memo,
+                        realm: self.realm
+                    )
+                }
             }.value
             for item in items {
                 try await prepareAndUpload(item, memoID: memo.id, accessToken: accessToken)
@@ -244,7 +279,11 @@ public struct SupabaseSyncUploader: RemoteUploader {
             body: body
         )
         request.timeoutInterval = 30
-        let (data, response) = try await transport.data(for: request)
+        try lease.assertValid()
+        let (data, response) = try await network.data(for: request)
+        // Re-check before consuming the receipt: a replaced session must not
+        // observe (or later acknowledge) another session's result.
+        try lease.assertValid()
         try assertReceipt(
             operation: operation,
             expectedManifestHash: v2Operation.attachmentManifestHash,
@@ -257,7 +296,7 @@ public struct SupabaseSyncUploader: RemoteUploader {
     private func prepareAndUpload(
         _ item: AttachmentUploadItem,
         memoID: UUID,
-        accessToken: String
+        accessToken: SyncVerifiedAccessToken
     ) async throws {
         do {
             let fileExtension = URL(fileURLWithPath: item.descriptor.objectKey).pathExtension
@@ -274,7 +313,9 @@ public struct SupabaseSyncUploader: RemoteUploader {
                 accessToken: accessToken,
                 body: body
             )
-            let (data, response) = try await transport.data(for: request)
+            try lease.assertValid()
+            let (data, response) = try await network.data(for: request)
+            try lease.assertValid()
             guard let http = response as? HTTPURLResponse else {
                 throw AttachmentSyncError.network
             }
@@ -300,17 +341,35 @@ public struct SupabaseSyncUploader: RemoteUploader {
             _ = prepared.expiresAt
             guard !prepared.alreadyExists else {
                 try await verifyRemoteObject(item, accessToken: accessToken)
-                try AttachmentTransferStore.update(recordID: item.recordID, status: .transferred)
+                try commit {
+                    try AttachmentTransferStore.update(
+                        recordID: item.recordID,
+                        status: .transferred,
+                        realm: realm
+                    )
+                }
                 return
             }
 
-            try AttachmentTransferStore.update(recordID: item.recordID, status: .transferring)
+            try commit {
+                try AttachmentTransferStore.update(
+                    recordID: item.recordID,
+                    status: .transferring,
+                    realm: realm
+                )
+            }
             if item.descriptor.sizeBytes <= standardUploadMaximum {
                 try await uploadStandard(item, accessToken: accessToken)
             } else {
                 try await uploadResumable(item, accessToken: accessToken)
             }
-            try AttachmentTransferStore.update(recordID: item.recordID, status: .transferred)
+            try commit {
+                try AttachmentTransferStore.update(
+                    recordID: item.recordID,
+                    status: .transferred,
+                    realm: realm
+                )
+            }
         } catch {
             let status: AttachmentTransferStatus
             if case AttachmentSyncError.quotaExceeded = error {
@@ -318,17 +377,26 @@ public struct SupabaseSyncUploader: RemoteUploader {
             } else {
                 status = .failed
             }
-            try? AttachmentTransferStore.update(
-                recordID: item.recordID,
-                status: status,
-                error: transferErrorCode(error)
-            )
+            // Old catch blocks must not overwrite a replaced session's
+            // transfer state: the commit gate refuses once invalidated.
+            try? commit {
+                try AttachmentTransferStore.update(
+                    recordID: item.recordID,
+                    status: status,
+                    realm: realm,
+                    error: transferErrorCode(error)
+                )
+            }
             switch error {
-            case MemoSyncError.unauthorized,
-                 MemoSyncError.forbidden,
-                 MemoSyncError.notConfigured,
-                 MemoSyncError.insecureScheme:
-                throw error
+            case let memoError as MemoSyncError:
+                // Auth/rate/server/malformed-response classification is kept
+                // accurate so retry paths behave correctly.
+                throw memoError
+            case let realmError as SyncRealmError:
+                // Realm refusals (hostile saved/returned TUS URLs, foreign
+                // redirects, invalidated generations) keep their bounded
+                // error instead of being blurred into generic network noise.
+                throw realmError
             case let attachmentError as AttachmentSyncError:
                 throw attachmentError
             default:
@@ -353,7 +421,7 @@ public struct SupabaseSyncUploader: RemoteUploader {
 
     private func uploadStandard(
         _ item: AttachmentUploadItem,
-        accessToken: String
+        accessToken: SyncVerifiedAccessToken
     ) async throws {
         let url = supabaseURL
             .appendingPathComponent("storage", isDirectory: true)
@@ -365,14 +433,16 @@ public struct SupabaseSyncUploader: RemoteUploader {
         request.httpMethod = "POST"
         request.timeoutInterval = 120
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
         request.setValue(item.descriptor.mimeType, forHTTPHeaderField: "Content-Type")
         request.setValue("false", forHTTPHeaderField: "x-upsert")
         request.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
-        let (data, response) = try await fileTransport.uploadFile(
+        try lease.assertValid()
+        let (data, response) = try await network.uploadFile(
             for: request,
             from: item.localURL
         )
+        try lease.assertValid()
         guard let http = response as? HTTPURLResponse else {
             throw MemoSyncError.invalidResponse
         }
@@ -388,30 +458,76 @@ public struct SupabaseSyncUploader: RemoteUploader {
 
     private func uploadResumable(
         _ item: AttachmentUploadItem,
-        accessToken: String
+        accessToken: SyncVerifiedAccessToken
     ) async throws {
-        let state = AttachmentTransferStore.resumableState(recordID: item.recordID)
+        let state = try AttachmentTransferStore.resumableState(
+            recordID: item.recordID,
+            realm: realm
+        )
         var uploadURL = state.url
         var offset = state.offset
+        if offset < 0 || offset > item.descriptor.sizeBytes {
+            // Malformed persisted progress is never trusted for seeking.
+            throw MemoSyncError.invalidResponse
+        }
         if let existingURL = uploadURL {
-            var head = URLRequest(url: existingURL)
+            // A saved URL is only usable when it provably belongs to this
+            // realm's canonical resumable endpoint — validated BEFORE any
+            // HEAD/PATCH or bearer is sent. A foreign/hostile URL is held as
+            // state (not cleared, not contacted).
+            let validatedURL = try SyncResumableEndpoint.validated(
+                existingURL,
+                origin: realm.origin
+            )
+            try lease.assertValid()
+            var head = URLRequest(url: validatedURL)
             head.httpMethod = "HEAD"
             head.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
             head.setValue("1.0.0", forHTTPHeaderField: "Tus-Resumable")
-            head.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            let (_, response) = try await transport.data(for: head)
-            if let http = response as? HTTPURLResponse,
-               (200...299).contains(http.statusCode),
-               let remoteOffset = Int64(http.value(forHTTPHeaderField: "Upload-Offset") ?? "") {
+            head.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await network.data(for: head)
+            try lease.assertValid()
+            guard let http = response as? HTTPURLResponse else {
+                throw MemoSyncError.invalidResponse
+            }
+            switch http.statusCode {
+            case 200...299:
+                guard let header = http.value(forHTTPHeaderField: "Upload-Offset"),
+                      let remoteOffset = Int64(header),
+                      (0...item.descriptor.sizeBytes).contains(remoteOffset) else {
+                    // Malformed success: preserve saved progress, retry later.
+                    throw MemoSyncError.invalidResponse
+                }
                 offset = remoteOffset
-            } else {
-                try AttachmentTransferStore.clearResumableState(recordID: item.recordID)
+            case 404, 410:
+                // Only a proven expired/nonexistent upload resets resumable
+                // progress. Same-realm restart is documented and legal here
+                // (URL validated above); outbox intents and local assets are
+                // never touched.
+                try commit {
+                    try AttachmentTransferStore.clearResumableState(
+                        recordID: item.recordID,
+                        realm: realm
+                    )
+                }
                 uploadURL = nil
                 offset = 0
+            case 401:
+                throw MemoSyncError.unauthorized
+            case 403:
+                throw MemoSyncError.forbidden
+            case 429:
+                let retry = Int(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
+                throw MemoSyncError.rateLimited(retryAfter: retry)
+            default:
+                // Transient auth/server failures preserve the saved URL and
+                // offset for a same-realm retry.
+                throw MemoSyncError.serverError(status: http.statusCode)
             }
         }
 
         if uploadURL == nil {
+            try lease.assertValid()
             var create = URLRequest(url: supabaseURL
                 .appendingPathComponent("storage", isDirectory: true)
                 .appendingPathComponent("v1", isDirectory: true)
@@ -420,13 +536,14 @@ public struct SupabaseSyncUploader: RemoteUploader {
             create.httpMethod = "POST"
             create.timeoutInterval = 30
             create.setValue(anonKey, forHTTPHeaderField: "apikey")
-            create.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            create.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
             create.setValue("1.0.0", forHTTPHeaderField: "Tus-Resumable")
             create.setValue(String(item.descriptor.sizeBytes), forHTTPHeaderField: "Upload-Length")
             create.setValue(tusMetadata(item.descriptor), forHTTPHeaderField: "Upload-Metadata")
             create.setValue("false", forHTTPHeaderField: "x-upsert")
             create.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
-            let (data, response) = try await transport.data(for: create)
+            let (data, response) = try await network.data(for: create)
+            try lease.assertValid()
             guard let http = response as? HTTPURLResponse else {
                 throw MemoSyncError.invalidResponse
             }
@@ -441,14 +558,23 @@ public struct SupabaseSyncUploader: RemoteUploader {
                   let resolved = URL(string: location, relativeTo: supabaseURL)?.absoluteURL else {
                 throw AttachmentSyncError.transferFailed(status: http.statusCode)
             }
-            uploadURL = resolved
-            offset = 0
-            try AttachmentTransferStore.update(
-                recordID: item.recordID,
-                status: .transferring,
-                resumableURL: resolved,
-                uploadOffset: 0
+            // A fresh Location must pass the same origin + canonical
+            // resumable-path check before it is persisted or used.
+            let validatedLocation = try SyncResumableEndpoint.validated(
+                resolved,
+                origin: realm.origin
             )
+            uploadURL = validatedLocation
+            offset = 0
+            try commit {
+                try AttachmentTransferStore.update(
+                    recordID: item.recordID,
+                    status: .transferring,
+                    realm: realm,
+                    resumableURL: validatedLocation,
+                    uploadOffset: 0
+                )
+            }
         }
 
         guard let uploadURL else { throw MemoSyncError.invalidResponse }
@@ -466,12 +592,14 @@ public struct SupabaseSyncUploader: RemoteUploader {
             patch.timeoutInterval = 120
             patch.httpBody = chunk
             patch.setValue(anonKey, forHTTPHeaderField: "apikey")
-            patch.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            patch.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
             patch.setValue("1.0.0", forHTTPHeaderField: "Tus-Resumable")
             patch.setValue("application/offset+octet-stream", forHTTPHeaderField: "Content-Type")
             patch.setValue(String(offset), forHTTPHeaderField: "Upload-Offset")
             patch.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
-            let (_, response) = try await transport.data(for: patch)
+            try lease.assertValid()
+            let (_, response) = try await network.data(for: patch)
+            try lease.assertValid()
             guard let http = response as? HTTPURLResponse,
                   (200...299).contains(http.statusCode),
                   let remoteOffset = Int64(http.value(forHTTPHeaderField: "Upload-Offset") ?? ""),
@@ -481,12 +609,15 @@ public struct SupabaseSyncUploader: RemoteUploader {
                 )
             }
             offset = remoteOffset
-            try AttachmentTransferStore.update(
-                recordID: item.recordID,
-                status: .transferring,
-                resumableURL: uploadURL,
-                uploadOffset: offset
-            )
+            try commit {
+                try AttachmentTransferStore.update(
+                    recordID: item.recordID,
+                    status: .transferring,
+                    realm: realm,
+                    resumableURL: uploadURL,
+                    uploadOffset: offset
+                )
+            }
         }
     }
 
@@ -504,7 +635,7 @@ public struct SupabaseSyncUploader: RemoteUploader {
 
     private func verifyRemoteObject(
         _ item: AttachmentUploadItem,
-        accessToken: String
+        accessToken: SyncVerifiedAccessToken
     ) async throws {
         let url = supabaseURL
             .appendingPathComponent("storage", isDirectory: true)
@@ -517,9 +648,14 @@ public struct SupabaseSyncUploader: RemoteUploader {
         request.httpMethod = "GET"
         request.timeoutInterval = 180
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
         request.allowsCellularAccess = AttachmentNetworkPolicy.allowsCellularTransfers
-        let (temporaryURL, response) = try await fileTransport.downloadFile(for: request)
+        try lease.assertValid()
+        let (temporaryURL, response) = try await network.downloadFile(for: request)
+        // Owned transient copy from the transport: cleaned on every exit path
+        // (verified, mismatch, non-2xx or stale lease).
+        defer { SyncNetworkTempFile.discard(temporaryURL) }
+        try lease.assertValid()
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode) else {
             throw AttachmentSyncError.transferFailed(
@@ -570,7 +706,7 @@ public struct SupabaseSyncUploader: RemoteUploader {
 
     private func authenticatedJSONRequest(
         url: URL,
-        accessToken: String,
+        accessToken: SyncVerifiedAccessToken,
         body: Data
     ) -> URLRequest {
         var request = URLRequest(url: url)
@@ -580,7 +716,7 @@ public struct SupabaseSyncUploader: RemoteUploader {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(accessToken.value)", forHTTPHeaderField: "Authorization")
         return request
     }
 
@@ -591,23 +727,6 @@ public struct SupabaseSyncUploader: RemoteUploader {
         }
         #endif
         guard !anonKey.isEmpty else { throw MemoSyncError.notConfigured }
-    }
-
-    private func resolveUserID(accessToken: String) throws -> UUID {
-        if let userID { return userID }
-        if let bound = try SyncAccountStateStore.boundUserID() { return bound }
-        let pieces = accessToken.split(separator: ".")
-        guard pieces.count == 3 else { throw MemoSyncError.unauthorized }
-        var base64 = String(pieces[1]).replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
-        guard let data = Data(base64Encoded: base64),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let subject = object["sub"] as? String,
-              let resolved = UUID(uuidString: subject) else {
-            throw MemoSyncError.unauthorized
-        }
-        return resolved
     }
 
     private func throwForHTTPStatus(_ status: Int) throws {

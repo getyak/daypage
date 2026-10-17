@@ -1,10 +1,13 @@
 "use client";
 
+import { formatTimeOfDay } from "@/lib/memos/format";
+
 interface Props {
   weather?: string | null;
   humidity?: string | null;
   kind: string;
-  createdAt: string; // ISO string
+  /** Original DB timestamp string — displayed in Asia/Shanghai, never mutated. */
+  createdAt: string;
 }
 
 const KIND_ZH: Record<string, string> = {
@@ -14,8 +17,14 @@ const KIND_ZH: Record<string, string> = {
   mixed: "混合",
 };
 
+function shanghaiHour(isoString: string): number {
+  const time = formatTimeOfDay(isoString);
+  const hour = time ? Number(time.slice(0, 2)) : NaN;
+  return Number.isFinite(hour) ? hour : 12;
+}
+
 function getLightPeriod(isoString: string): string {
-  const h = new Date(isoString).getHours();
+  const h = shanghaiHour(isoString);
   if (h >= 5 && h < 9) return "黎明";
   if (h >= 9 && h < 12) return "上午";
   if (h >= 12 && h < 14) return "正午";
@@ -25,7 +34,7 @@ function getLightPeriod(isoString: string): string {
 }
 
 function getLightCode(isoString: string): string {
-  const h = new Date(isoString).getHours();
+  const h = shanghaiHour(isoString);
   if (h >= 5 && h < 9) return "DAWN";
   if (h >= 9 && h < 12) return "MORNING";
   if (h >= 12 && h < 14) return "NOON";

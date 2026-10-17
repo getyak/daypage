@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "catalog": [
+    "#proj/alpha",
+    "#proj/alpha/beta",
+    "#a, b",
+    "#标签/子",
+    "#emoji🎉",
+    "#unused/only-in-catalog"
+  ],
+  "memos": [
+    {
+      "memo_id": "88400000-0000-4000-8000-000000000001",
+      "tags": ["#proj/alpha", "#proj/alpha/beta", "#a, b"]
+    },
+    {
+      "memo_id": "88400000-0000-4000-8000-000000000002",
+      "tags": ["#标签/子", "#outside-not-in-catalog", "#outside-not-in-catalog"]
+    },
+    {
+      "memo_id": "88400000-0000-4000-8000-000000000003",
+      "tags": []
+    },
+    {
+      "memo_id": "88400000-0000-4000-8000-000000000004",
+      "tags": ["#emoji🎉", "#a, b"]
+    }
+  ]
+}

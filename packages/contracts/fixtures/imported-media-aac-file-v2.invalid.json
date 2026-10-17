@@ -1,0 +1,41 @@
+{
+  "p_operations": [
+    {
+      "protocol_version": 2,
+      "operation_id": "10000000-0000-4000-8000-000000000013",
+      "memo_id": "20000000-0000-4000-8000-000000000001",
+      "kind": "upsert",
+      "revision": 6,
+      "modified_at": "2026-10-16T00:02:00Z",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attachment_manifest_hash": "53ea997bc5c83297c9dfc531f9755d9dbd5f12acc310299b1a31500c0c0dbf24",
+      "device_id": "30000000-0000-4000-8000-000000000001",
+      "payload": {
+        "type": "file",
+        "body": "ADTS AAC must never be accepted as a generic file attachment",
+        "created_at": "2026-10-16T00:02:00Z",
+        "pinned_at": null,
+        "location": null,
+        "weather": null,
+        "device": null,
+        "source": "ios",
+        "vault_path": "raw/2026-10-16.md",
+        "attachments": [
+          {
+            "position": 0,
+            "kind": "file",
+            "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "size_bytes": 4096,
+            "mime_type": "audio/aac",
+            "object_key": "11111111-1111-4111-8111-111111111111/20000000-0000-4000-8000-000000000001/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.aac",
+            "original_filename": "voice-note.aac",
+            "duration_ms": 2500,
+            "transcript": null,
+            "transcription_status": null
+          }
+        ]
+      },
+      "size_bytes": 1024
+    }
+  ]
+}

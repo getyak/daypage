@@ -72,13 +72,24 @@ public enum SearchService {
     /// `root` is a test seam: parallel test suites race on the process-global
     /// `VaultInitializer.testOverrideURL` (#827 flake), so tests pass their
     /// private temp vault explicitly. Production callers omit it.
+    ///
+    /// `eligibleMemoIDs` (#884 exact account tags) is an EXACT metadata
+    /// membership filter computed from the tag projection BEFORE the 100-result
+    /// cap: `nil` keeps no tag dimension at all; an empty set matches nothing;
+    /// body hashtags / entity mentions NEVER substitute for metadata. With a
+    /// tag filter active the query may have an empty keyword, and date rows
+    /// (which have no memo identity) are suppressed instead of bypassing the
+    /// filter.
     public nonisolated static func search(keyword rawKeyword: String,
                                    filters: SearchFilters = .empty,
-                                   root: URL? = nil) -> [SearchResult] {
+                                   root: URL? = nil,
+                                   eligibleMemoIDs: Set<UUID>? = nil) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = foldForSearch(keyword)
         let hasKeyword = !keyword.isEmpty
-        guard hasKeyword || filters.isActive else { return [] }
+        let hasTagFilter = eligibleMemoIDs != nil
+        guard hasKeyword || filters.isActive || hasTagFilter else { return [] }
+        if let eligibleMemoIDs, eligibleMemoIDs.isEmpty { return [] }
 
         var results: [SearchResult] = []
 
@@ -115,8 +126,14 @@ public enum SearchService {
             let dailyURL = dailyDir.appendingPathComponent("\(dateString).md")
             let isDailyCompiled = fm.fileExists(atPath: dailyURL.path)
 
-            // 日期字符串匹配（如 "2026-04" 或 "04-14"）—— 仅当有关键字且无类型过滤时
-            if hasKeyword && filters.types.isEmpty && foldForSearch(dateString).contains(folded) {
+            // 日期字符串匹配（如 "2026-04" 或 "04-14"）—— 仅当有关键字且无类型过滤时；
+            // metadata 过滤激活时日期行（无 memo 身份）不得绕过过滤。
+            // The 100-result cap binds HERE (and per memo below), not only
+            // after a whole day — a single day with 101 matches must never
+            // return more than 100.
+            if hasKeyword && filters.types.isEmpty && !hasTagFilter
+                && foldForSearch(dateString).contains(folded) {
+                guard results.count < 100 else { break }
                 results.append(SearchResult(
                     dateString: dateString,
                     snippet: dateString,
@@ -132,6 +149,12 @@ public enum SearchService {
             let memos = RawStorage.parse(fileContent: content)
 
             for memo in memos {
+                // 100 条上限在每个 memo 迭代前生效（每个 memo 至多命中一条）。
+                if results.count >= 100 { break }
+
+                // 精确 metadata 标签过滤 —— 先于 100 条上限与其他过滤。
+                if let eligibleMemoIDs, !eligibleMemoIDs.contains(memo.id) { continue }
+
                 // 类型过滤
                 if !filters.types.isEmpty && !filters.types.contains(memo.type) { continue }
 
@@ -144,9 +167,15 @@ public enum SearchService {
 
                 if hasKeyword {
                     if foldForSearch(memo.body).contains(folded) {
+                        // Snippet-only presentation (#884 follow-up): matching
+                        // stays on the raw body above; the output snippet never
+                        // shows importer-generated media placeholder paths.
                         results.append(SearchResult(
                             dateString: dateString,
-                            snippet: makeSnippet(memo.body, around: folded),
+                            snippet: makeSnippet(
+                                MemoAttachmentPresentation.displayBody(for: memo),
+                                around: folded
+                            ),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled,
                             memoType: memo.type,
@@ -179,9 +208,12 @@ public enum SearchService {
                     }
                 } else {
                     // 仅过滤器 —— 包含所有通过过滤检查的 memo
-                    let snippet = memo.body.isEmpty
+                    // Snippet-only presentation (#884 follow-up): the same
+                    // presentation body drives the output snippet text.
+                    let presentationBody = MemoAttachmentPresentation.displayBody(for: memo)
+                    let snippet = presentationBody.isEmpty
                         ? (memo.location?.name ?? dateString)
-                        : String(memo.body.prefix(120))
+                        : String(presentationBody.prefix(120))
                     results.append(SearchResult(
                         dateString: dateString,
                         snippet: snippet,
@@ -210,16 +242,23 @@ public enum SearchService {
     /// `isDailyPageCompiled` is resolved with a per-matched-day `stat()`
     /// (≤100 by the cap) because compilation writes `wiki/daily/` and can't
     /// invalidate the raw-file index — see `SearchIndex`'s doc comment.
+    ///
+    /// `eligibleMemoIDs` semantics match the file overload exactly (exact
+    /// metadata membership before the cap; empty set matches none; date rows
+    /// never bypass an active tag filter).
     public nonisolated static func search(
         keyword rawKeyword: String,
         filters: SearchFilters = .empty,
         in docs: [SearchIndex.DayDocument],
-        root: URL? = nil
+        root: URL? = nil,
+        eligibleMemoIDs: Set<UUID>? = nil
     ) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = foldForSearch(keyword)
         let hasKeyword = !keyword.isEmpty
-        guard hasKeyword || filters.isActive else { return [] }
+        let hasTagFilter = eligibleMemoIDs != nil
+        guard hasKeyword || filters.isActive || hasTagFilter else { return [] }
+        if let eligibleMemoIDs, eligibleMemoIDs.isEmpty { return [] }
 
         let fm = FileManager.default
         let dailyDir = (root ?? VaultInitializer.vaultURL).appendingPathComponent("wiki/daily")
@@ -249,8 +288,11 @@ public enum SearchService {
                 if date >= endOfDay { continue }
             }
 
-            // 日期字符串匹配 —— 仅当有关键字且无类型过滤时。
-            if hasKeyword && filters.types.isEmpty && day.foldedDateString.contains(folded) {
+            // 日期字符串匹配 —— 仅当有关键字且无类型过滤且无 metadata 过滤时；
+            // 100 条上限同样在此生效（见文件重载注释）。
+            if hasKeyword && filters.types.isEmpty && !hasTagFilter
+                && day.foldedDateString.contains(folded) {
+                guard results.count < 100 else { break }
                 results.append(SearchResult(
                     dateString: day.dateString,
                     snippet: day.dateString,
@@ -261,6 +303,12 @@ public enum SearchService {
             }
 
             for memo in day.memos {
+                // 100 条上限在每个 memo 迭代前生效（每个 memo 至多命中一条）。
+                if results.count >= 100 { break }
+
+                // 精确 metadata 标签过滤 —— 先于 100 条上限与其他过滤。
+                if let eligibleMemoIDs, !eligibleMemoIDs.contains(memo.id) { continue }
+
                 if !filters.types.isEmpty && !filters.types.contains(memo.type) { continue }
 
                 if !filters.locationQuery.isEmpty {
@@ -270,10 +318,14 @@ public enum SearchService {
                 }
 
                 if hasKeyword {
+                    // Snippet-only presentation (#884 follow-up): matching
+                    // stays on the raw `foldedBody` above; only the output
+                    // snippet reads the stored presentation body (nil → body).
+                    let presentationBody = memo.presentationBody ?? memo.body
                     if memo.foldedBody.contains(folded) {
                         results.append(SearchResult(
                             dateString: day.dateString,
-                            snippet: makeSnippet(memo.body, around: folded),
+                            snippet: makeSnippet(presentationBody, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled(day.dateString),
                             memoType: memo.type,
@@ -304,9 +356,12 @@ public enum SearchService {
                         continue
                     }
                 } else {
-                    let snippet = memo.body.isEmpty
+                    // Snippet-only presentation (#884 follow-up): same rule as
+                    // the file overload — presentation body drives the snippet.
+                    let presentationBody = memo.presentationBody ?? memo.body
+                    let snippet = presentationBody.isEmpty
                         ? (memo.locationName ?? day.dateString)
-                        : String(memo.body.prefix(120))
+                        : String(presentationBody.prefix(120))
                     results.append(SearchResult(
                         dateString: day.dateString,
                         snippet: snippet,

@@ -50,10 +50,9 @@ struct MemoDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     navigationRow
                     Text(kickerText)
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkMuted)
-                        .tracking(1.2)
-                        .padding(.bottom, 14)
+                        .font(.system(.caption))
+                        .foregroundColor(DSColor.inkTertiaryAA)
+                        .padding(.bottom, 20)
 
                     MemoDetailBodySection(
                         memo: memo,
@@ -90,7 +89,9 @@ struct MemoDetailView: View {
                     )
                     Spacer(minLength: 24)
                 }
-                .padding(.horizontal, DSSpacing.xl2)
+                .frame(maxWidth: 640, alignment: .leading)
+                .padding(.horizontal, 24)
+                .frame(maxWidth: .infinity)
                 .padding(.bottom, 32)
             }
             .dropToAsk(

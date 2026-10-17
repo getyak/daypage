@@ -63,6 +63,10 @@ struct HorizontalPanGesture: UIViewRepresentable {
     /// nil means "no tap action" (e.g. the panel-close overlay).
     var onTap: (() -> Void)? = nil
 
+    /// Local tap position for controls such as an audio waveform. A vertical
+    /// scroll fails the tap recognizer and never changes playback position.
+    var onTapAt: ((CGPoint) -> Void)? = nil
+
     /// Touch-down / touch-up press state, for the card's press-scale
     /// feedback (UITableViewCell-highlight semantics). Driven by a zero-
     /// distance long press that recognizes simultaneously with everything
@@ -140,7 +144,7 @@ struct HorizontalPanGesture: UIViewRepresentable {
         // The tap is live whenever an onTap exists, regardless of selection
         // mode — selection-mode taps still need to toggle membership, which
         // the parent wires through onTap.
-        context.coordinator.tapRecognizer?.isEnabled = (self.onTap != nil)
+        context.coordinator.tapRecognizer?.isEnabled = (self.onTap != nil || self.onTapAt != nil)
         context.coordinator.pressRecognizer?.isEnabled = (self.onPressChanged != nil)
     }
 
@@ -232,6 +236,9 @@ struct HorizontalPanGesture: UIViewRepresentable {
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard recognizer.state == .ended else { return }
             parent.onTap?()
+            if let view = recognizer.view {
+                parent.onTapAt?(recognizer.location(in: view))
+            }
         }
 
         // Press-state reporter (see makeUIView). Pure observation — it

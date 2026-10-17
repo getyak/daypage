@@ -232,6 +232,34 @@
       "when": 1788195600000,
       "tag": "0032_agent_evaluation_plane",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788282000000,
+      "tag": "0033_imported_media_compatibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792124400000,
+      "tag": "0034_private_backend_rls_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792128000000,
+      "tag": "0035_private_sync_function_acls",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792134256220,
+      "tag": "0036_account_tag_imports",
+      "breakpoints": true
     }
   ]
 }

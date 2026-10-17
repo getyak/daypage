@@ -10,8 +10,73 @@
     "content_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "size_bytes": { "type": "integer", "minimum": 1, "maximum": 52428800 },
     "mime_type": {
-      "enum": ["audio/m4a", "audio/mp4", "image/jpeg", "image/png", "image/heic", "image/heif", "application/pdf"]
+      "enum": ["audio/m4a", "audio/mp4", "audio/aac", "image/jpeg", "image/png", "image/heic", "image/heif", "application/pdf", "video/quicktime"]
     },
-    "extension": { "enum": ["m4a", "mp4", "jpg", "png", "heic", "heif", "pdf"] }
-  }
+    "extension": { "enum": ["m4a", "mp4", "aac", "jpg", "png", "heic", "heif", "pdf", "mov"] }
+  },
+  "oneOf": [
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "audio/m4a" },
+        "extension": { "const": "m4a" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "audio/mp4" },
+        "extension": { "const": "mp4" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "audio/aac" },
+        "extension": { "const": "aac" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "image/jpeg" },
+        "extension": { "const": "jpg" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "image/png" },
+        "extension": { "const": "png" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "image/heic" },
+        "extension": { "const": "heic" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "image/heif" },
+        "extension": { "const": "heif" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "application/pdf" },
+        "extension": { "const": "pdf" }
+      }
+    },
+    {
+      "required": ["mime_type", "extension"],
+      "properties": {
+        "mime_type": { "const": "video/quicktime" },
+        "extension": { "const": "mov" }
+      }
+    }
+  ]
 }
