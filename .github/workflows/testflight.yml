@@ -221,7 +221,7 @@ jobs:
 
       # ── 4. Setup Ruby (for Fastlane) ─────────────────────────────────────
       - name: Setup Ruby
-        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1
         with:
           ruby-version: "3.1"
           bundler-cache: true
@@ -361,7 +361,7 @@ jobs:
       # Connect API once ASC has finished processing.
       - name: Upload changelog artifact
         if: success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: changelog-${{ steps.version.outputs.release_tag }}
           path: ${{ steps.changelog.outputs.changelog_path }}
@@ -370,7 +370,7 @@ jobs:
       # ── 14. Upload build artifacts ───────────────────────────────────────
       - name: Upload IPA artifact
         if: success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DayPage-${{ steps.version.outputs.release_tag }}
           path: build/DayPage.ipa
@@ -378,7 +378,7 @@ jobs:
 
       - name: Upload Fastlane logs on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fastlane-logs-${{ github.sha }}
           path: fastlane/logs/
