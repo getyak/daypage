@@ -372,6 +372,37 @@ jobs:
           path: build/DD/Build/Products/Debug-iphonesimulator
           retention-days: 1
 
+  macos-build:
+    name: macOS Build (no signing)
+    runs-on: macos-15
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select newest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+
+      - name: Write deterministic placeholder secrets
+        run: bash scripts/ci/write_placeholder_secrets.sh
+
+      - name: Build the native macOS companion
+        run: |
+          xcodebuild build \
+            -project DayPage.xcodeproj \
+            -target DayPageMac \
+            -configuration Debug \
+            -sdk macosx \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            SYMROOT="$RUNNER_TEMP/daypage-macos-products" \
+            OBJROOT="$RUNNER_TEMP/daypage-macos-intermediates"
+
   ui-tests:
     name: Maestro UI Tests
     runs-on: macos-15
