@@ -18,13 +18,26 @@ appId: com.daypage.app
 
 - takeScreenshot: today_view_loaded
 
-# Tap the dock's center "记下此刻" stub to open the WriteSheet bottom
-# sheet (composer.jsx:183). In TodayView this stub's `onOpenWriteSheet`
-# is wired up, so the dock no longer expands into an inline composer
-# with a `memo-input` TextField — the composing surface lives inside
-# WriteSheetView (`write-sheet-input` / `write-sheet-save`).
-- tapOn:
-    id: "expand-text-composer"
+# On an empty day, exercise the primary capture action and require the real
+# editor before moving on. Existing populated fixtures use the persistent dock.
+- runFlow:
+    when:
+      visible:
+        id: "today-capture-write"
+    commands:
+      - tapOn:
+          id: "today-capture-write"
+      - extendedWaitUntil:
+          visible:
+            id: "write-sheet-input"
+          timeout: 5000
+- runFlow:
+    when:
+      notVisible:
+        id: "write-sheet-input"
+    commands:
+      - tapOn:
+          id: "expand-text-composer"
 
 # Wait for the bottom-sheet present animation. The sheet is presented
 # via SwiftUI .sheet(), which can take 300-500ms to fully render on

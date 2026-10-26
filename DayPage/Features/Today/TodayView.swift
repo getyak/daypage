@@ -2633,10 +2633,11 @@ struct TodayView: View {
     @ViewBuilder
     private var captureActions: some View {
         Button {
+            guard !showWriteSheet else { return }
             Haptics.tapConfirm()
-            orbFocusToggle.toggle()
+            showWriteSheet = true
         } label: {
-            Label(NSLocalizedString("today.capture.write", comment: "Focus writing"), systemImage: "square.and.pencil")
+            Label(NSLocalizedString("today.capture.write", comment: "Open writing"), systemImage: "square.and.pencil")
                 .padding(.horizontal, 16)
                 .frame(minHeight: 48)
                 .background(DSColor.inkPrimary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
