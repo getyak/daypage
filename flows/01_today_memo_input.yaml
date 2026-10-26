@@ -25,6 +25,11 @@ appId: com.daypage.app
       visible:
         id: "today-capture-write"
     commands:
+      - assertVisible:
+          id: "^today-hero-title-compact$"
+      - assertNotVisible:
+          id: "^today-hero-title$"
+      - takeScreenshot: capture_invitation
       - tapOn:
           id: "today-capture-write"
       - extendedWaitUntil:

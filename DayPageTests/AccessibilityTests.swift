@@ -326,16 +326,15 @@ struct AccessibilityTests {
         #expect(today.contains(".foregroundColor(DSColor.inkTertiaryAA)"))
     }
 
-    /// The large empty-day date used to be a dead “scroll to top” button and
-    /// stayed pinned while its hero faded away. The header now collapses on
-    /// scroll, exposes honest heading semantics, and keeps both toolbar icons
-    /// at 44pt hit targets without enlarging their 36pt glass circles.
+    /// The organization heading retains honest semantics, while both toolbar
+    /// icons keep 44pt hit targets around their 36pt glass circles. Actual
+    /// capture-header visibility is verified in Maestro flow 01 rather than
+    /// pinning an implementation expression to the old empty-day layout.
     @Test func todayHeader_hasHonestSemanticsAndMinimumHitTargets() throws {
         let root = try projectRoot()
         let url = root.appendingPathComponent("DayPage/Features/Today/TodayView.swift")
         let source = try String(contentsOf: url, encoding: .utf8)
 
-        #expect(source.contains("let usesCompactHeader = hasMemos || isScrolled"))
         #expect(source.contains(".accessibilityAddTraits(.isHeader)"))
         #expect(source.components(separatedBy: ".frame(width: 44, height: 44)").count - 1 >= 2)
         #expect(source.contains("isTimelineScrolled ? value < -2 : value < -12"))
