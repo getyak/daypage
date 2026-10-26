@@ -2898,11 +2898,10 @@ struct TodayView: View {
         // weekday, month/day, time-of-day hour and the accessibility clock
         // all read from it, so they can never drift apart mid-render.
         let hero = heroDisplaySnapshot()
-        // Empty days still have scrollable history below the invitation. Once
-        // that canvas moves, collapse the museum-scale heading into the same
-        // compact toolbar title used by memo days; otherwise a large, pinned
-        // weekday keeps consuming the fold while its empty-state hero recedes.
-        let usesCompactHeader = hasMemos || isScrolled
+        // Capture keeps the date in the utility bar, leaving the invitation
+        // and input actions as the first content. Organization may restore
+        // the larger date header on an empty, resting day.
+        let usesCompactHeader = !showingOrganizedToday || hasMemos || isScrolled
         // The header HStack now participates in normal layout (it owns its
         // height), with the glass/separator drawn as a `.background` behind it.
         // Previously the HStack lived inside `.overlay()` on a zero-height
@@ -3086,15 +3085,17 @@ struct TodayView: View {
                 .frame(height: 44)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top of timeline"))
+        .accessibilityLabel(display.monthDayFormatter.string(from: currentTime))
+        .accessibilityHint(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top of timeline"))
         .accessibilityIdentifier("today-hero-title-compact")
-        .contextMenu { exportMenuItems }
+        .contextMenu {
+            if !viewModel.memos.isEmpty { exportMenuItems }
+        }
     }
 
     /// Export / copy actions for the day's memos — formerly the big hero's
-    /// context menu. Lives on `compactHeroTitle` because that surface only
-    /// renders when memos exist (the old `!memos.isEmpty` gate is structural
-    /// now, not conditional).
+    /// context menu. The compact title also appears on empty capture days,
+    /// so its menu exposes export only when there are memos to export.
     @ViewBuilder
     private var exportMenuItems: some View {
         Button {
