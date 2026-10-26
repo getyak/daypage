@@ -1,6 +1,6 @@
 appId: com.daypage.app
 ---
-# Flow 01: Today View — 验证输入框可用
+# Flow 01: Empty Today — require the primary capture path on the fresh CI app.
 - launchApp:
     arguments:
       hasOnboarded: "true"
@@ -8,7 +8,7 @@ appId: com.daypage.app
       hasSeenWelcome: "true"
       settings.hasRequestedNotifications: "true"
       inputBarTutorialCompleted: "true"
-- takeScreenshot: launch
+- takeScreenshot: maestro-results/capture/launch
 
 # 等待 Today View 的真实导航入口可交互。
 - extendedWaitUntil:
@@ -16,33 +16,22 @@ appId: com.daypage.app
       id: "sidebar-menu-button"
     timeout: 10000
 
-- takeScreenshot: today_view_loaded
+- takeScreenshot: maestro-results/capture/today_view_loaded
 
-# On an empty day, exercise the primary capture action and require the real
-# editor before moving on. Existing populated fixtures use the persistent dock.
-- runFlow:
-    when:
-      visible:
-        id: "today-capture-write"
-    commands:
-      - assertVisible:
-          id: "^today-hero-title-compact$"
-      - assertNotVisible:
-          id: "^today-hero-title$"
-      - takeScreenshot: capture_invitation
-      - tapOn:
-          id: "today-capture-write"
-      - extendedWaitUntil:
-          visible:
-            id: "write-sheet-input"
-          timeout: 5000
-- runFlow:
-    when:
-      notVisible:
-        id: "write-sheet-input"
-    commands:
-      - tapOn:
-          id: "expand-text-composer"
+# Other flows only launch/navigate. This is the suite's sole writer, so the
+# freshly installed CI app must still be empty. A missing primary action is a
+# real failure, not a reason to pass through the persistent dock instead.
+- extendedWaitUntil:
+    visible:
+      id: "today-capture-write"
+    timeout: 10000
+- assertVisible:
+    id: "^today-hero-title-compact$"
+- assertNotVisible:
+    id: "^today-hero-title$"
+- takeScreenshot: maestro-results/capture/capture_invitation
+- tapOn:
+    id: "today-capture-write"
 
 # Wait for the bottom-sheet present animation. The sheet is presented
 # via SwiftUI .sheet(), which can take 300-500ms to fully render on
@@ -58,11 +47,11 @@ appId: com.daypage.app
     id: "write-sheet-input"
 
 - inputText: "E2E note: the capture flow feels calm and direct"
-- takeScreenshot: after_input
+- takeScreenshot: maestro-results/capture/after_input
 
 # Verify the typed text is visible inside the WriteSheet
 - assertVisible: "E2E note: the capture flow feels calm and direct"
-- takeScreenshot: text_visible_in_input
+- takeScreenshot: maestro-results/capture/text_visible_in_input
 
 # Save & dismiss the sheet (accessibilityIdentifier="write-sheet-save")
 - tapOn:
@@ -72,4 +61,4 @@ appId: com.daypage.app
     # Timeline cards intentionally expose a contextual VoiceOver label.
     visible: "Memo: E2E note: the capture flow feels calm and direct"
     timeout: 5000
-- takeScreenshot: after_send
+- takeScreenshot: maestro-results/capture/after_send

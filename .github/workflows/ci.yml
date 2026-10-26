@@ -537,12 +537,24 @@ jobs:
           MAESTRO_DEVICE_ID: ${{ env.SIMULATOR_UDID }}
           MAESTRO_CLI_NO_ANALYTICS: "1"
         run: |
-          mkdir -p maestro-results
+          mkdir -p maestro-results/capture
           maestro test flows/ \
             --format junit \
             --output maestro-results/report.xml \
             --debug-output maestro-results/debug \
+            --flatten-debug-output \
             || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Require primary capture interaction evidence
+        run: |
+          test -s maestro-results/capture/capture_invitation.png
+          test -s maestro-results/capture/after_send.png
+          python3 - <<'PY'
+          from pathlib import Path
+          records = list(Path("maestro-results/debug").glob("commands-*01_today_memo_input*.json"))
+          if not any(path.stat().st_size > 0 for path in records):
+              raise SystemExit("Primary capture command record is missing")
+          PY
 
       # Run the destructive state matrix after interaction flows: the harness
       # reinstalls the app and intentionally ends in zh-Hans/dark/Graph state.
