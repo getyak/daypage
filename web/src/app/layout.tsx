@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import { QueryProvider } from "@/components/QueryProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { JsonLd } from "@/components/JsonLd";
@@ -24,32 +24,35 @@ const themeScript = `
 (function(){try{var s=localStorage.getItem('codex.settings.v1');var t=s?JSON.parse(s).theme:'system';document.documentElement.setAttribute('data-theme',t||'system');}catch(e){}})();
 `;
 
-const spaceGrotesk = Space_Grotesk({
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-latin-normal.woff2",
   variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "700"],
+  weight: "500 700",
   display: "swap",
 });
 
-const inter = Inter({
+const inter = localFont({
+  src: "./fonts/Inter-latin-normal.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "400 600",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono-latin-normal.woff2",
   variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: "400 500",
+  adjustFontFallback: false,
   display: "swap",
 });
 
-const fraunces = Fraunces({
+const fraunces = localFont({
+  src: [
+    { path: "./fonts/Fraunces-latin-normal.woff2", weight: "400 600", style: "normal" },
+    { path: "./fonts/Fraunces-latin-italic.woff2", weight: "400 600", style: "italic" },
+  ],
   variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  style: ["normal", "italic"],
+  adjustFontFallback: "Times New Roman",
   display: "swap",
   preload: true,
 });

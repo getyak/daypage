@@ -437,7 +437,7 @@ private fun CapturePage(
                     OutlinedTextField(
                         value = body,
                         onValueChange = { body = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 320.dp),
                         placeholder = { Text(stringResource(R.string.capture_placeholder)) },
                         shape = RoundedCornerShape(DayPageTokens.Radii.card),
                     )

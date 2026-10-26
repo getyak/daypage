@@ -2,11 +2,14 @@ package app.daypage.android.ui
 
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import app.daypage.android.ui.theme.DayPageTheme
 import org.junit.Rule
 import org.junit.Test
@@ -32,13 +35,31 @@ class DayPageContentTest {
             }
         }
 
-        composeRule.onNodeWithText("What is worth keeping right now?").assertIsDisplayed()
+        composeRule.onNodeWithText("Keep this moment.").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Menu").performClick()
         composeRule.onNodeWithText("Archive").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Close").performClick()
         composeRule.onNodeWithContentDescription("Account Center").performClick()
         composeRule.onNodeWithText("Continue with Apple").assertIsDisplayed()
         composeRule.onNodeWithText("Email me a sign-in link").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun longCaptureStaysVisibleAndWaitsForSaveCallback() {
+        val draft = "A captured thought.\n".repeat(80)
+        var confirmSave: (() -> Unit)? = null
+        val actions = noOpActions().copy(capture = { _, onSaved -> confirmSave = onSaved })
+        composeRule.setContent {
+            DayPageTheme(darkTheme = false) {
+                DayPageContent(HomeUiState(), actions)
+            }
+        }
+
+        composeRule.onNode(hasSetTextAction()).performTextInput(draft)
+        composeRule.onNodeWithText("Keep this note").assertIsDisplayed().performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextEquals(draft)
+        composeRule.runOnIdle { requireNotNull(confirmSave).invoke() }
+        composeRule.onNodeWithText("What is on your mind?").assertIsDisplayed()
     }
 
     @Test

@@ -1,0 +1,55 @@
+{
+  "source": "Google Fonts CSS requested by the existing Next 16.2.6 configuration; Latin subset and existing style faces",
+  "files": [
+    {
+      "file": "SpaceGrotesk-latin-normal.woff2",
+      "family": "SpaceGrotesk",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2",
+      "sha256": "a0d054c4af557de20afd6ca59f47ab353bcaec49c63ff04b6c9d39d0f8910557",
+      "bytes": 22320,
+      "license": "SpaceGrotesk-OFL.txt"
+    },
+    {
+      "file": "Inter-latin-normal.woff2",
+      "family": "Inter",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+      "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4",
+      "bytes": 48432,
+      "license": "Inter-OFL.txt"
+    },
+    {
+      "file": "JetBrainsMono-latin-normal.woff2",
+      "family": "JetBrainsMono",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwgknk-4.woff2",
+      "sha256": "2c32b9b3ee358c119e210f6f5195f9bd34894d78a785ff2e95d60e718e400af4",
+      "bytes": 31340,
+      "license": "JetBrainsMono-OFL.txt"
+    },
+    {
+      "file": "Fraunces-latin-italic.woff2",
+      "family": "Fraunces",
+      "style": "italic",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/fraunces/v38/6NUs8FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChJdt9vIVYX9G37lvd9mv0iQublWII.woff2",
+      "sha256": "c9745ee907c02cdd46cc41a65bb711cd861432f679a76c18e3de204a18723040",
+      "bytes": 45624,
+      "license": "Fraunces-OFL.txt"
+    },
+    {
+      "file": "Fraunces-latin-normal.woff2",
+      "family": "Fraunces",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8oRcTn.woff2",
+      "sha256": "88e17be075f1be50ab67b057b99e3701b828f44ed28f9452df6c02645bb0cba9",
+      "bytes": 36560,
+      "license": "Fraunces-OFL.txt"
+    }
+  ]
+}
