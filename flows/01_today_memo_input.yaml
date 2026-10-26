@@ -29,6 +29,8 @@ appId: com.daypage.app
     id: "^today-hero-title-compact$"
 - assertNotVisible:
     id: "^today-hero-title$"
+- assertVisible:
+    id: "today-capture-speak"
 - takeScreenshot: maestro-results/capture/capture_invitation
 - tapOn:
     id: "today-capture-write"

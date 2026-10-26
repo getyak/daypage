@@ -2587,6 +2587,7 @@ struct TodayView: View {
                 .font(.title.weight(.regular))
                 .foregroundStyle(DSColor.inkPrimary)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("today-capture-welcome")
             Text(NSLocalizedString("today.capture.subtitle", comment: "Capture before organizing"))
                 .font(.body)
                 .foregroundStyle(DSColor.inkMuted)
@@ -2627,7 +2628,6 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .padding(.vertical, 32)
-        .accessibilityIdentifier("today-capture-welcome")
     }
 
     @ViewBuilder
