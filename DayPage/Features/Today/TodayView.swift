@@ -232,6 +232,7 @@ struct TodayView: View {
     @State private var orbFocusToggle: Bool = false
     /// Toggled each time a new memo is added while the orb hero is visible, triggering a capture-reward glow pulse.
     @State private var orbCapturePulse: Bool = false
+    @State private var showingOrganizedToday = false
 
     /// US-019: controls the markdown export share sheet.
     @State private var showExportSheet: Bool = false
@@ -2578,192 +2579,81 @@ struct TodayView: View {
 
     // MARK: - Day Orb Hero
 
-    /// Hero region shown at the top of Today on an empty day — designed against
-    /// the museum-aesthetic reference (#793 R3): a soft warm-cream glow ellipse
-    /// behind a two-line serif poem ("把今天放下来。" / "我陪你整理。"), with a
-    /// quiet "让 AI 陪你聊聊今天" CTA at the bottom that opens AskPastView.
-    /// The 140pt DayOrbView still anchors the glow's tap-to-focus behavior but
-    /// is now visually subordinate to the poem; the orb's halo IS the warm
-    /// ellipse the comp shows. The old mono kicker (DATE · TIME · N SIGNALS)
-    /// is dropped — empty days don't need metadata, they need an invitation.
+    /// Capture uses the existing draft and recorder owners.
     @ViewBuilder
     private var orbHero: some View {
-        VStack(spacing: 0) {
-            // F2: status badge stays at the very top — it's a "why doesn't
-            // compile work?" affordance, not decoration.
+        VStack(alignment: .leading, spacing: 16) {
+            Text(NSLocalizedString("today.capture.title", comment: "Capture invitation"))
+                .font(.title.weight(.regular))
+                .foregroundStyle(DSColor.inkPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text(NSLocalizedString("today.capture.subtitle", comment: "Capture before organizing"))
+                .font(.body)
+                .foregroundStyle(DSColor.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { captureActions }
+                VStack(alignment: .leading, spacing: 12) { captureActions }
+            }
+            .padding(.top, 8)
             if !aiFeaturesEnabled {
-                modeBadge(text: NSLocalizedString("today.badge.ai_off",
-                                                  comment: "Today header badge: AI features are turned off"))
-                    .padding(.bottom, 18)
+                modeBadge(text: NSLocalizedString("today.badge.ai_off", comment: "AI is disabled"))
             } else if !networkMonitor.isOnline {
-                modeBadge(text: NSLocalizedString("today.badge.offline",
-                                                  comment: "Today header badge: device is offline"))
-                    .padding(.bottom, 18)
-            } else {
-                // Reserve a similar amount of breathing room so the poem's
-                // vertical center is stable whether the badge is shown or not.
-                Spacer().frame(height: 6)
+                modeBadge(text: NSLocalizedString("today.badge.offline", comment: "Offline capture"))
             }
-
-            // The warm glow + poem stack. The glow is the orb's own halo —
-            // we drop a DayOrbView under the text and let its breathing shadow
-            // become the cream ellipse the comp shows. The orb itself is set
-            // to a very low base opacity so the *light* shows but the *ball*
-            // does not draw attention away from the poem.
-            ZStack {
-                // Warm amber glow — pure radial gradient instead of the
-                // tinted DayOrbView. The previous code passed `orbTint(now)`
-                // into the orb's gradient which in deep-night reads as cold
-                // gray (reference comp shows cream/amber regardless of time).
-                // A hand-rolled RadialGradient keeps the museum warmth fixed.
-                RadialGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: DSColor.amberDeep.opacity(orbBreathing ? 0.32 : 0.22), location: 0.0),
-                        .init(color: DSColor.amberDeep.opacity(orbBreathing ? 0.20 : 0.14), location: 0.30),
-                        .init(color: DSColor.accentAmber.opacity(orbBreathing ? 0.10 : 0.07), location: 0.55),
-                        .init(color: Color.clear, location: 1.0)
-                    ]),
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: 180
-                )
-                .frame(width: 360, height: 320)
-                .blur(radius: 28)
-                .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.99))
-                .animation(
-                    reduceMotion ? nil : .easeInOut(duration: 3.6).repeatForever(autoreverses: true),
-                    value: orbBreathing
-                )
-                .accessibilityHidden(true)
-                // Invisible tap target — preserves "tap orb to focus composer"
-                // behavior the original DayOrbView wired up.
-                .contentShape(Ellipse())
-                .onTapGesture {
-                    Haptics.tapConfirm()
-                    // Focus only — never write the time-of-day prompt into
-                    // draftText: it saved verbatim into the memo body ("今天
-                    // 最终落在哪里了？morning at…"). Same rationale as the
-                    // dock's removed "记下此刻" hint (InputBarV4): guidance
-                    // belongs in placeholder chrome, not in user content.
-                    orbFocusToggle.toggle()
-                }
-
-                VStack(spacing: 8) {
-                    Text(NSLocalizedString("today.empty.poem.title",
-                                           comment: "Empty-state poem main line (e.g. 把今天放下来。)"))
-                        .font(DSFonts.serif(size: 28, weight: .regular, relativeTo: .title))
-                        .foregroundColor(DSColor.inkPrimary)
-                        .multilineTextAlignment(.center)
-                        .dynamicTypeSize(.xSmall ... .accessibility2)
-                        .minimumScaleFactor(0.7)
-                    Text(NSLocalizedString("today.empty.poem.subtitle",
-                                           comment: "Empty-state poem secondary line (e.g. 我陪你整理。)"))
-                        .font(DSFonts.serif(size: 17, weight: .regular, relativeTo: .headline))
-                        .foregroundColor(DSColor.inkMuted)
-                        .multilineTextAlignment(.center)
-                        .dynamicTypeSize(.xSmall ... .accessibility2)
-                        .minimumScaleFactor(0.7)
-                }
-            }
-            .frame(height: 280)
-            .padding(.vertical, 8)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(NSLocalizedString("today.empty.poem.a11y",
-                                                  comment: "Combined accessibility label for the empty-state poem and orb"))
-            .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
-            .onLongPressGesture(minimumDuration: 0.5) {
-                Haptics.medium()
-                // Focus only — see the tap handler above for why the prompt
-                // must not be written into draftText.
-                orbFocusToggle.toggle()
-            }
-
-            // CTA: 让 AI 陪你聊聊今天 — quiet amber sparkle + serif text.
-            // Issue #804: tap opens TodayCoachView（陪写引导），不是 AskPastView。
-            // 用户在空态点这个 CTA 是想被引导记录，不是查历史。
-            if aiFeaturesEnabled {
-                Button {
-                    Haptics.tapConfirm()
-                    showTodayCoach = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DSColor.amberDeep)
-                        Text(NSLocalizedString("today.empty.ai_cta",
-                                               comment: "Empty-state AI chat CTA (e.g. 让 AI 陪你聊聊今天)"))
-                            .font(DSFonts.serif(size: 15, weight: .medium, relativeTo: .subheadline))
-                            .foregroundStyle(DSColor.amberDeep)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
+            if shouldShowAIKeyBanner { aiKeyMissingBanner }
+            if showingOrganizedToday && aiFeaturesEnabled {
+                Button { showTodayCoach = true } label: {
+                    Label(NSLocalizedString("today.empty.ai_cta", comment: "Guided writing"), systemImage: "sparkles")
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("today-empty-ai-cta")
-                .padding(.top, 12)
             }
-
-            // Canvas vNext: AI-key footnote. Demoted from the sticky status
-            // slot — a missing key only affects the nightly compile, so it
-            // rides along with the hero and scrolls away with it.
-            if shouldShowAIKeyBanner {
-                aiKeyMissingBanner
-                    .padding(.top, 2)
-            }
-
-            // Issue #2 (2026-07-02): "See a sample journal" fallback link.
-            // For users who skipped or dismissed the Welcome CTA, the empty
-            // Today gives no proof of what the AI will produce. Tapping this
-            // seeds 3 sample memos + a paired compiled daily.md (see
-            // SampleDataSeeder) and refreshes the timeline. Once seeded, the
-            // label flips so the user knows exactly what to open next.
-            //
-            // Canvas vNext: zero-history users ONLY. Anyone with a compiled
-            // yesterday or any timeline history already has real proof —
-            // for them this link is pure noise.
-            if !hasAnyHistory {
+            if showingOrganizedToday && !hasAnyHistory {
                 Button {
                     Haptics.tapConfirm()
                     SampleDataSeeder.seedIfNeeded()
-                    // Issue #18: single call site records both the sample seed
-                    // and the surface it came from — the Welcome CTA emits the
-                    // same event with `surface:"welcome"`, so the debug board
-                    // shows a real "empty→sample" funnel.
-                    AnalyticsService.shared.record(
-                        AnalyticsService.Name.sampleSeeded,
-                        props: ["surface": "today_empty"]
-                    )
+                    AnalyticsService.shared.record(AnalyticsService.Name.sampleSeeded, props: ["surface": "today_empty"])
                     sampleSeeded = true
                     Task { await viewModel.refresh() }
                 } label: {
-                    Text(NSLocalizedString(
-                        sampleSeeded ? "today.empty.sample_active" : "today.empty.try_sample",
-                        comment: "Empty-state sample-data affordance"))
-                        .font(DSType.mono10)
-                        .tracking(1.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(DSColor.inkMuted)
-                        .padding(.top, 6)
+                    Text(NSLocalizedString(sampleSeeded ? "today.empty.sample_active" : "today.empty.try_sample", comment: "Sample journal"))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("today-empty-try-sample")
                 .disabled(sampleSeeded)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 32)
+        .accessibilityIdentifier("today-capture-welcome")
+    }
 
+    @ViewBuilder
+    private var captureActions: some View {
+        Button {
+            Haptics.tapConfirm()
+            orbFocusToggle.toggle()
+        } label: {
+            Label(NSLocalizedString("today.capture.write", comment: "Focus writing"), systemImage: "square.and.pencil")
+                .padding(.horizontal, 16)
+                .frame(minHeight: 48)
+                .background(DSColor.inkPrimary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .onAppear {
-            if !reduceMotion {
-                orbBreathing = true
-            }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-capture-write")
+        Button {
+            Haptics.tapConfirm()
+            viewModel.startVoiceRecording()
+        } label: {
+            Label(NSLocalizedString("today.capture.speak", comment: "Start voice capture"), systemImage: "mic")
+                .padding(.horizontal, 16)
+                .frame(minHeight: 48)
+                .background(DSColor.inkPrimary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
         }
-        .onChange(of: viewModel.memos.count) { count in
-            if count > lastMemoCount && !reduceMotion {
-                orbCapturePulse.toggle()
-            }
-        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-capture-speak")
     }
 
     /// Issue #309 W2: top action bar shown while in multi-select mode.
@@ -3305,6 +3195,20 @@ struct TodayView: View {
             LazyVStack(spacing: readingCanvasWidth < 350 ? 10 : 12) {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
+                HStack {
+                    Text(NSLocalizedString("today.capture.inbox", comment: "Raw inbox"))
+                        .font(.subheadline)
+                        .foregroundStyle(DSColor.inkMuted)
+                    Spacer()
+                    Button { showingOrganizedToday.toggle() } label: {
+                        Text(NSLocalizedString(showingOrganizedToday ? "today.capture.return" : "today.capture.organize", comment: "Capture/organization switch"))
+                            .font(.subheadline)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("today-organization-toggle")
+                }
+                .padding(.horizontal, 24)
 
                 // MARK: On This Day Card (R8-CRITICAL → Canvas vNext)
                 //
@@ -3315,7 +3219,7 @@ struct TodayView: View {
                 // R9-HIGH A2/A3 语义保留：`shouldShowOnThisDayAtTop` 与
                 // fallback 路径在同一 render pass 内互斥；error/conflict slot
                 // 占用时让位（guard 在 computed 里）。
-                if shouldShowOnThisDayAtTop,
+                if showingOrganizedToday, shouldShowOnThisDayAtTop,
                    let entry = viewModel.onThisDayEntry {
                     OnThisDayCard(
                         entry: entry,
@@ -3332,7 +3236,7 @@ struct TodayView: View {
 
                 // Museum-aesthetic "AI · 今日一句" — restrained one-liner pinned
                 // at the very top once the day has a compiled summary.
-                if let summary = viewModel.dailyPageSummary,
+                if showingOrganizedToday, let summary = viewModel.dailyPageSummary,
                    !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     AISummaryCard(summary: summary, onTap: { Haptics.tapConfirm(); showDailyPage = true })
                         .padding(.horizontal, 20)
@@ -3373,7 +3277,7 @@ struct TodayView: View {
                         }
                 }
 
-                if viewModel.isDailyPageCompiled {
+                if showingOrganizedToday && viewModel.isDailyPageCompiled {
                     swipeableDailyPageCard
                         .padding(.horizontal, 20)
                         .shadow(
@@ -3393,34 +3297,12 @@ struct TodayView: View {
                 }
 
                 if viewModel.memos.isEmpty && viewModel.loadState == .ready {
-                    let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-                    if !hasOnboarded {
-                        EmptyStateView.todayBlank(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
-                            .padding(.top, 48)
-                            .padding(.horizontal, 20)
-                    } else {
-                        // Canvas vNext: the hero now scrolls WITH the page and
-                        // quietly recedes as the finger travels — opacity/scale
-                        // driven by the same bucketed offset the header glass
-                        // uses (never the raw 60Hz value; see the
-                        // thresholded scroll state above).
-                        orbHero
-                            .opacity(heroFadeOpacity)
-                            .scaleEffect(heroFadeScale, anchor: .top)
-
-                        // 今日焦点 — collapsed to a single ghost line; expands
-                        // on tap, summarizes once lenses are chosen.
-                        focusDisclosureRow
-                            .padding(.top, 2)
-
-                        // Reminder vNext: 即将触发的提醒胶囊 + 快捷新建。
-                        // 空态放在焦点行之下 —— 与 chrome 同级，不与诗抢戏。
-                        reminderStrip
-                            .padding(.top, 6)
-
-                        fallbackContentView
-                            .padding(.top, 18)
+                    orbHero
+                    if showingOrganizedToday {
+                        focusDisclosureRow.padding(.top, 2)
+                        fallbackContentView.padding(.top, 18)
                     }
+                    reminderStrip.padding(.top, 6)
                 } else {
                     // Reminder vNext: memo 日的胶囊条 —— 一行薄 chrome，
                     // 在今日信号之上给 AI/手动排的提醒一个可见落点，随画布滚走。
@@ -3558,7 +3440,7 @@ struct TodayView: View {
                 // R12: "再记 N 条解锁今日成稿" 卡片已移除。编译不再有 3 条门槛——
                 // 每天 0 点自动编译前一天，手动编译按钮在 composeSection 中始终可用。
 
-                historySupplement
+                if showingOrganizedToday { historySupplement }
 
                 if viewModel.loadState == .loading && !viewModel.memos.isEmpty {
                     HStack {

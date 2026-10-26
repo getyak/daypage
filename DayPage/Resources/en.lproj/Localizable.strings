@@ -1,6 +1,13 @@
 /* EmptyStateView — US-010 */
 
 /* Today Blank */
+"today.capture.title" = "Keep this moment.";
+"today.capture.subtitle" = "Write or speak. Organize when you are ready.";
+"today.capture.write" = "Write a note";
+"today.capture.speak" = "Record a thought";
+"today.capture.inbox" = "Today · Inbox";
+"today.capture.organize" = "View organized";
+"today.capture.return" = "Back to capture";
 "empty.today.blank.title" = "Today is a blank canvas.";
 "empty.today.blank.subtitle" = "Tap below to capture your first thought, voice memo, or photo.";
 "empty.today.blank.cta" = "Add a memo";

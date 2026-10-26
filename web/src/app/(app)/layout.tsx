@@ -18,8 +18,8 @@ import { PageTransition } from "./_components/PageTransition";
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
 const NAV_ITEMS: ReadonlyArray<NavSpec> = [
-  { href: "/home", label: "Home", iconName: "home", meta: "⌘1" },
-  { href: "/add", label: "Add", iconName: "plus", meta: "⌘N" },
+  { href: "/add", label: "记录", iconName: "plus", meta: "⌘N" },
+  { href: "/home", label: "整理", iconName: "home", meta: "⌘1" },
   { href: "/chat", label: "Chat", iconName: "message", meta: "⌘K" },
   { href: "/agents", label: "Agents", iconName: "bot" },
   { href: "/orbit", label: "Orbit", iconName: "orbit" },

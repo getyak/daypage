@@ -18,10 +18,10 @@
     </plurals>
     <string name="action_required">需要处理</string>
     <string name="capture_eyebrow">今天 · 默认私密</string>
-    <string name="capture_title">此刻，有什么值得留下？</string>
-    <string name="capture_body">先记录，再同步。DayPage 会在接触网络之前把内容安全写入本机。</string>
-    <string name="capture_placeholder">写下一条 Noter…</string>
-    <string name="save_noter">留下这条 Noter</string>
+    <string name="capture_title">先留下此刻。</string>
+    <string name="capture_body">写下来，整理可以晚一点。</string>
+    <string name="capture_placeholder">此刻在想什么？</string>
+    <string name="save_noter">留下这条记录</string>
     <string name="recent_noters">最近的 Noter</string>
     <string name="empty_noters">安静的一页。第一条 Noter 会立即出现在这里。</string>
     <string name="coming_soon">这个页面将在 Android 下一阶段继续接入。</string>

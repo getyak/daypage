@@ -1,6 +1,13 @@
 /* EmptyStateView — US-010 */
 
 /* Today Blank */
+"today.capture.title" = "先留下此刻。";
+"today.capture.subtitle" = "写下来，或说一段。整理可以晚一点。";
+"today.capture.write" = "写下来";
+"today.capture.speak" = "说一段";
+"today.capture.inbox" = "今天 · 待处理";
+"today.capture.organize" = "查看整理";
+"today.capture.return" = "返回记录";
 "empty.today.blank.title" = "今天还是一张白纸。";
 "empty.today.blank.subtitle" = "点击下方，记录第一条想法、语音或照片。";
 "empty.today.blank.cta" = "添加备忘";

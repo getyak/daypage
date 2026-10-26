@@ -87,7 +87,7 @@ async function createMemo(payload: { body: string; type: "text" | "url"; tempId:
 
 // ── component ────────────────────────────────────────────────────────────────
 
-export function Composer() {
+export function Composer({ onSaved }: { onSaved?: () => void } = {}) {
   const reduced = useReducedMotion();
   const storedDraft = useCaptureDraft();
   const [editedBody, setEditedBody] = useState<string | undefined>(undefined);
@@ -227,6 +227,7 @@ export function Composer() {
         const items = old.items.map((m) => (m.id === ctx?.tempId ? newMemo : m));
         return { ...old, items };
       });
+      onSaved?.();
     },
     onError: (_err, _payload, ctx) => {
       if (ctx?.tempId) {
@@ -515,13 +516,13 @@ export function Composer() {
           }}
           placeholder="此刻在想什么？"
           aria-label="记下此刻的念头"
-          rows={3}
+          rows={6}
           style={{
             // field-sizing: content 让 textarea 跟随内容自适应（Chrome 123+ / Safari 17+）
             // TS 类型未覆盖这个较新的 CSS 字段
             fieldSizing: "content",
             width: "100%",
-            minHeight: 96,
+            minHeight: 180,
             maxHeight: 320,
             padding: "16px 18px",
             border: "none",
@@ -721,6 +722,7 @@ export function Composer() {
 
       {/* Toolbar */}
       <div
+        className="capture-toolbar"
         style={{
           display: "flex",
           alignItems: "center",
@@ -731,13 +733,22 @@ export function Composer() {
       >
         <ToolbarIconButton
           aria-label="更多输入方式"
-          tooltip="附件 / 链接 / 语音 / Bookmarklet"
+          tooltip="附件 / 链接 / 格式 / Bookmarklet"
           onClick={() => setDrawerOpen((v) => !v)}
           active={drawerOpen}
         >
           <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
         </ToolbarIconButton>
 
+        <VoiceDrawerChip
+          onTranscript={(t) => {
+            setBody((prev) => (prev ? prev + " " + t : t));
+            taRef.current?.focus();
+          }}
+        />
+
+        {/* Formatting is secondary to capture. */}
+        {drawerOpen && <>
         {/* divider */}
         <span
           aria-hidden="true"
@@ -781,6 +792,7 @@ export function Composer() {
         >
           <Hash size={14} strokeWidth={1.8} aria-hidden="true" />
         </ToolbarIconButton>
+        </>}
 
         <div style={{ flex: 1 }} />
 
@@ -819,19 +831,6 @@ export function Composer() {
             aria-live="polite"
           >
             {counts.words} 字 · {isMac ? "⌘/Ctrl + ↵" : "Ctrl + ↵"} 收下
-          </span>
-        ) : focused && empty ? (
-          <span
-            data-testid="composer-hint"
-            style={{
-              fontSize: 11,
-              fontFamily: "var(--font-mono, monospace)",
-              color: "var(--fg-subtle, #888)",
-              letterSpacing: 0.2,
-              padding: "0 8px",
-            }}
-          >
-            记下此刻，余下交给夜里
           </span>
         ) : counts.chars > 0 ? (
           <span
@@ -892,12 +891,6 @@ export function Composer() {
             onClick={() => {
               setDrawerOpen(false);
               fileInputRef.current?.click();
-            }}
-          />
-          <VoiceDrawerChip
-            onTranscript={(t) => {
-              setBody((prev) => (prev ? prev + " " + t : t));
-              taRef.current?.focus();
             }}
           />
           <DrawerChip
@@ -1092,31 +1085,42 @@ function DrawerChip({
 
 // ── sub: Voice drawer chip (Speech API) ─────────────────────────────────────
 
+type CaptureSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((e: { resultIndex: number; results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } } }) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
 function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }) {
   const supported = useSpeechSupported();
   const [recording, setRecording] = useState(false);
-  const srRef = useRef<unknown>(null);
+  const [error, setError] = useState<string | null>(null);
+  const srRef = useRef<CaptureSpeechRecognition | null>(null);
+
+  useEffect(() => () => {
+    const sr = srRef.current;
+    if (sr) {
+      sr.onresult = null;
+      sr.onerror = null;
+      sr.onend = null;
+      sr.stop();
+    }
+  }, []);
 
   const handleClick = useCallback(() => {
     if (!supported) return;
-    type SR = {
-      continuous: boolean;
-      interimResults: boolean;
-      lang: string;
-      onresult: ((e: { results: { length: number;[i: number]: { isFinal: boolean; 0: { transcript: string } } } }) => void) | null;
-      onerror: (() => void) | null;
-      onend: (() => void) | null;
-      start: () => void;
-      stop: () => void;
-    };
     if (recording) {
-      (srRef.current as SR | null)?.stop();
-      setRecording(false);
+      srRef.current?.stop();
       return;
     }
     const w = window as unknown as Record<string, unknown>;
     const Ctor = (w["SpeechRecognition"] ?? w["webkitSpeechRecognition"]) as
-      | (new () => SR)
+      | (new () => CaptureSpeechRecognition)
       | undefined;
     if (!Ctor) return;
     const sr = new Ctor();
@@ -1125,30 +1129,50 @@ function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }
     sr.lang = "zh-CN";
     sr.onresult = (event) => {
       let transcript = "";
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i]?.isFinal) {
           transcript += event.results[i]?.[0]?.transcript ?? "";
         }
       }
       if (transcript) onTranscript(transcript.trim());
     };
-    sr.onerror = () => setRecording(false);
-    sr.onend = () => setRecording(false);
+    sr.onerror = (event) => {
+      if (srRef.current !== sr) return;
+      setRecording(false);
+      setError(event.error === "not-allowed" || event.error === "service-not-allowed"
+        ? "麦克风未获授权，可在浏览器设置中允许后重试。文字输入仍可使用。"
+        : "语音输入中断，请重试或直接书写。");
+    };
+    sr.onend = () => {
+      sr.onresult = null;
+      sr.onerror = null;
+      sr.onend = null;
+      if (srRef.current === sr) {
+        srRef.current = null;
+        setRecording(false);
+      }
+    };
     srRef.current = sr;
     try {
+      setError(null);
       sr.start();
       setRecording(true);
     } catch {
       setRecording(false);
+      setError("无法开始语音输入，请重试或直接书写。");
     }
   }, [recording, supported, onTranscript]);
 
   const [hover, setHover] = useState(false);
   return (
+    <span style={{ display: "contents" }}>
     <button
       type="button"
       onClick={handleClick}
       disabled={!supported}
+      aria-label={recording ? "停止语音输入" : "开始语音输入"}
+      aria-pressed={recording}
+      data-testid="capture-voice"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       title={supported ? (recording ? "停止录音" : "开始语音输入") : "此浏览器不支持语音输入"}
@@ -1156,6 +1180,7 @@ function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
+        minHeight: 44,
         padding: "6px 10px",
         border: "1px solid var(--border-subtle, #EDE8DF)",
         borderRadius: 999,
@@ -1178,6 +1203,9 @@ function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }
       <Mic size={13} aria-hidden="true" />
       {recording ? "录音中…" : "语音"}
     </button>
+    {!supported && <span style={{ order: 1, flexBasis: "100%", padding: "4px 8px", fontSize: 12, color: "var(--fg-muted)" }}>此浏览器不支持语音，可直接书写</span>}
+    {error && <span role="alert" style={{ order: 1, flexBasis: "100%", padding: "4px 8px", fontSize: 12, color: "var(--error)" }}>{error}</span>}
+    </span>
   );
 }
 

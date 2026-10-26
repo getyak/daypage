@@ -19,10 +19,10 @@
     </plurals>
     <string name="action_required">Action required</string>
     <string name="capture_eyebrow">TODAY · PRIVATE BY DEFAULT</string>
-    <string name="capture_title">What is worth keeping right now?</string>
-    <string name="capture_body">Capture first. DayPage saves locally before it touches the network.</string>
-    <string name="capture_placeholder">Write a Noter…</string>
-    <string name="save_noter">Keep this Noter</string>
+    <string name="capture_title">Keep this moment.</string>
+    <string name="capture_body">Write now. Organize when you are ready.</string>
+    <string name="capture_placeholder">What is on your mind?</string>
+    <string name="save_noter">Keep this note</string>
     <string name="recent_noters">Recent Noters</string>
     <string name="empty_noters">A quiet page. Your first Noter will appear here immediately.</string>
     <string name="coming_soon">This surface is joining the Android vertical slice next.</string>
