@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -412,28 +413,22 @@ private fun CapturePage(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    stringResource(R.string.capture_eyebrow),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
                     stringResource(R.string.capture_title),
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
                     stringResource(R.string.capture_body),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                SyncPill(uiState)
             }
         }
         item {
             Surface(
                 shape = RoundedCornerShape(DayPageTokens.Radii.hero),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
-                shadowElevation = 1.dp,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -442,7 +437,7 @@ private fun CapturePage(
                     OutlinedTextField(
                         value = body,
                         onValueChange = { body = it },
-                        modifier = Modifier.fillMaxWidth().height(132.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 320.dp),
                         placeholder = { Text(stringResource(R.string.capture_placeholder)) },
                         shape = RoundedCornerShape(DayPageTokens.Radii.card),
                     )
@@ -457,6 +452,7 @@ private fun CapturePage(
                 }
             }
         }
+        item { SyncPill(uiState) }
         item {
             Text(stringResource(R.string.recent_noters), style = MaterialTheme.typography.titleLarge)
         }

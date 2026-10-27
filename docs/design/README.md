@@ -7,6 +7,9 @@ contain or read a user vault.
 
 Current documents live alongside them:
 
+- `capture-first-entry.md`: GET-255 capture hierarchy, existing platform voice
+  boundaries, explicit organization and verification contract.
+
 - `figma-reading-implementation.md`: the October 15 native reading implementation,
   source Figma nodes, deliberate refinements, verification scope and limits.
 

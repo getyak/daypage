@@ -222,10 +222,10 @@ final class MacCloudAuthService: NSObject, ObservableObject {
                     // Same-server user proof BEFORE context installation; the
                     // decoded session JWT alone is never authentication proof.
                     try await SyncSessionVerifier.verifiedSession(
-                        configuration: configuration.backend,
+                        configuration: self.configuration.backend,
                         accessToken: try await accessTokenProvider(),
                         transport: SupabaseSyncTransport.shared(
-                            for: configuration.backend.origin
+                            for: self.configuration.backend.origin
                         ),
                         expectedUserID: expectedUserID
                     )

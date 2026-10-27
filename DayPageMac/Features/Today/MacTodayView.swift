@@ -86,6 +86,16 @@ struct MacTodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("先留下此刻。")
+                        .font(.system(size: 28, weight: .regular))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("写下来，整理可以晚一点。")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 24)
+
                 Composer(
                     text: $draft,
                     focused: $composerFocused,
@@ -210,21 +220,22 @@ private struct Composer: View {
     private var editor: some View {
         ZStack(alignment: .topLeading) {
             TextEditor(text: $text)
-                .font(.system(size: 14))
+                .font(.system(size: 16))
                 .lineSpacing(4)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
                 .padding(.bottom, 8)
-                .frame(minHeight: 96, maxHeight: 280)
+                .frame(minHeight: 180, maxHeight: 320)
                 .focused(focused)
+                .accessibilityLabel("记下此刻的念头")
 
             // Placeholder. Aligned to TextEditor's intrinsic ~5pt internal
             // horizontal inset so the placeholder sits exactly where the
             // cursor will land.
             if text.isEmpty {
-                Text("What's on your mind?")
-                    .font(.system(size: 14))
+                Text("此刻在想什么？")
+                    .font(.system(size: 16))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 21)
                     .padding(.top, 24)
@@ -237,14 +248,19 @@ private struct Composer: View {
 
     private var toolbar: some View {
         HStack(spacing: 4) {
-            ToolbarButton(icon: "number", tooltip: "插入标签") { insertInline("#") }
-            ToolbarButton(icon: "photo", tooltip: "添加图片（待实装）") { /* TODO: photo */ }
-            divider
-            ToolbarButton(icon: "textformat.size", tooltip: "加粗") { wrapSelection(with: "**") }
-            ToolbarButton(icon: "list.bullet", tooltip: "项目符号列表") { insertLinePrefix("- ") }
-            ToolbarButton(icon: "list.number", tooltip: "编号列表") { insertLinePrefix("1. ") }
-            divider
-            ToolbarButton(icon: "at", tooltip: "提及（待实装）") { /* TODO: mention */ }
+            Menu {
+                Button("插入标签") { insertInline("#") }
+                Button("加粗") { wrapSelection(with: "**") }
+                Button("项目符号列表") { insertLinePrefix("- ") }
+                Button("编号列表") { insertLinePrefix("1. ") }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 36, height: 36)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("更多格式")
+            .accessibilityLabel("更多格式")
 
             Spacer(minLength: 8)
 
@@ -252,8 +268,7 @@ private struct Composer: View {
                 Text(err)
                     .font(.system(size: 12))
                     .foregroundStyle(.red)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if focused.wrappedValue && canSubmit {
                 Text("⌘↩ 发送")
                     .font(.system(size: 11, design: .monospaced))

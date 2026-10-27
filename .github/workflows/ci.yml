@@ -372,6 +372,37 @@ jobs:
           path: build/DD/Build/Products/Debug-iphonesimulator
           retention-days: 1
 
+  macos-build:
+    name: macOS Build (no signing)
+    runs-on: macos-15
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select newest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+
+      - name: Write deterministic placeholder secrets
+        run: bash scripts/ci/write_placeholder_secrets.sh
+
+      - name: Build the native macOS companion
+        run: |
+          xcodebuild build \
+            -project DayPage.xcodeproj \
+            -target DayPageMac \
+            -configuration Debug \
+            -sdk macosx \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            SYMROOT="$RUNNER_TEMP/daypage-macos-products" \
+            OBJROOT="$RUNNER_TEMP/daypage-macos-intermediates"
+
   ui-tests:
     name: Maestro UI Tests
     runs-on: macos-15
@@ -506,12 +537,24 @@ jobs:
           MAESTRO_DEVICE_ID: ${{ env.SIMULATOR_UDID }}
           MAESTRO_CLI_NO_ANALYTICS: "1"
         run: |
-          mkdir -p maestro-results
+          mkdir -p maestro-results/capture
           maestro test flows/ \
             --format junit \
             --output maestro-results/report.xml \
             --debug-output maestro-results/debug \
+            --flatten-debug-output \
             || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Require primary capture interaction evidence
+        run: |
+          test -s maestro-results/capture/capture_invitation.png
+          test -s maestro-results/capture/after_send.png
+          python3 - <<'PY'
+          from pathlib import Path
+          records = list(Path("maestro-results/debug").glob("commands-*01_today_memo_input*.json"))
+          if not any(path.stat().st_size > 0 for path in records):
+              raise SystemExit("Primary capture command record is missing")
+          PY
 
       # Run the destructive state matrix after interaction flows: the harness
       # reinstalls the app and intentionally ends in zh-Hans/dark/Graph state.

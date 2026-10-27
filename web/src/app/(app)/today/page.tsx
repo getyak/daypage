@@ -1,33 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, Suspense } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
 import { Drawer } from "@/components/ui/Drawer";
 import { TodayHero } from "./TodayHero";
-import { TodaySegmentedControl } from "./TodaySegmentedControl";
-import { AISummaryCard } from "./AISummaryCard";
 import { MemoCard, type MemoCardData } from "./MemoCard";
-import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
-import { WeekFeedSpine } from "./WeekFeedSpine";
 import { DrawerContent } from "./DrawerContent";
-import { ComposerPill } from "./ComposerPill";
-import { WriteSheet } from "./WriteSheet";
-import { AttachSheet } from "./AttachSheet";
-import { RecordingSheet } from "./RecordingSheet";
-import { DynamicIslandLive } from "./DynamicIslandLive";
 import { ShareCard, type ShareCardMemo } from "./ShareCard";
 import { MobileOnlyGuard } from "./MobileOnlyGuard";
 
 function MemoFeed({
-  composerMicRef,
   onShare,
   onServiceDisconnected,
+  refreshToken,
 }: {
-  composerMicRef: React.RefObject<HTMLButtonElement | null>;
   onShare: (memo: ShareCardMemo) => void;
   onServiceDisconnected?: () => void;
+  refreshToken: number;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
   const [serviceConnected, setServiceConnected] = useState(true);
@@ -52,7 +43,7 @@ function MemoFeed({
         }
       })
       .catch(() => {});
-  }, [reloadMemos, onServiceDisconnected]);
+  }, [reloadMemos, onServiceDisconnected, refreshToken]);
 
   const handleRetry = useCallback(
     (id: string) => {
@@ -77,7 +68,6 @@ function MemoFeed({
       serviceConnected={serviceConnected}
       onRetry={handleRetry}
       onShare={onShare}
-      composerMicRef={composerMicRef}
     />
   );
 }
@@ -87,13 +77,11 @@ function MemoFeedList({
   serviceConnected,
   onRetry,
   onShare,
-  composerMicRef,
 }: {
   memos: MemoCardData[];
   serviceConnected: boolean;
   onRetry: (id: string) => void;
   onShare: (memo: ShareCardMemo) => void;
-  composerMicRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const reduced = useReducedMotion();
   return (
@@ -129,8 +117,6 @@ function MemoFeedList({
           }
         />
       ))}
-      {/* US-010: Placeholder card — shown when below unlock_threshold */}
-      <UnlockPlaceholderCard composerMicRef={composerMicRef} />
     </motion.div>
   );
 }
@@ -138,47 +124,14 @@ function MemoFeedList({
 function TodayMobileFlow() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordElapsed, setRecordElapsed] = useState(0);
-  const [writeOpen, setWriteOpen] = useState(false);
-  const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [shareMemo, setShareMemo] = useState<ShareCardMemo | null>(null);
   const [showServiceToast, setShowServiceToast] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
-  const composerMicRef = useRef<HTMLButtonElement | null>(null);
 
-  // Tap (mic short-press) and the text placeholder both open the WriteSheet.
-  const handleMicPress = useCallback(() => {
-    setWriteOpen(true);
-  }, []);
-
-  const handleMicLongPress = useCallback(() => {
-    setIsRecording(true);
-  }, []);
-
-  const handlePlusPress = useCallback(() => {
-    setShowAttachSheet(true);
-  }, []);
-
-  const handleTextPress = useCallback(() => {
-    setWriteOpen(true);
-  }, []);
-
-  // Drive the Dynamic Island timer while recording (mirrors RecordingSheet's
-  // own elapsed clock; design composer.jsx useRecording:522-533). The reset to
-  // 0 runs in cleanup (not the effect body) to avoid cascading-render lint.
-  useEffect(() => {
-    if (!isRecording) return;
-    const start = Date.now();
-    const t = setInterval(() => {
-      setRecordElapsed(Math.floor((Date.now() - start) / 1000));
-    }, 1000);
-    return () => {
-      clearInterval(t);
-      setRecordElapsed(0);
-    };
-  }, [isRecording]);
+  const [feedRevision, setFeedRevision] = useState(0);
+  const handleSaved = useCallback(() => setFeedRevision((value) => value + 1), []);
+  const handleDisconnected = useCallback(() => setShowServiceToast(true), []);
 
   // The mobile Today flow paints its own glass toolbar, so suppress the shared
   // app topbar while it is mounted (restored on unmount / desktop redirect).
@@ -331,66 +284,19 @@ function TodayMobileFlow() {
         </div>
       )}
 
-      {/* Today Hero — US-006 */}
-      <TodayHero />
-
-      {/* Segmented Control — US-007 */}
-      <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, paddingBottom: 4 }}>
-        <Suspense fallback={null}>
-          <TodaySegmentedControl />
-        </Suspense>
-      </div>
-
-      {/* AI Summary Card — US-008 */}
-      <div style={{ paddingTop: 16, paddingBottom: 8 }}>
-        <AISummaryCard />
-      </div>
+      <TodayHero onSaved={handleSaved} />
 
       {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
       <MemoFeed
-        composerMicRef={composerMicRef}
-        onShare={setShareMemo}
-        onServiceDisconnected={() => setShowServiceToast(true)}
-      />
-
-      {/* Week Wiki Spine Feed — US-011 */}
-      <div style={{ paddingTop: 24 }}>
-        <WeekFeedSpine />
-      </div>
-
-      {/* Composer Pill — US-026/027 */}
-      <ComposerPill
-        isRecording={isRecording}
-        onMicPress={handleMicPress}
-        onMicLongPress={handleMicLongPress}
-        onPlusPress={handlePlusPress}
-        onTextPress={handleTextPress}
+          onShare={setShareMemo}
+        onServiceDisconnected={handleDisconnected}
+        refreshToken={feedRevision}
       />
 
       {/* Drawer — US-019/020/021 */}
       <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <DrawerContent onClose={() => setDrawerOpen(false)} />
       </Drawer>
-
-      {/* Write Sheet — text composer (design composer.jsx:183-345) */}
-      <WriteSheet
-        isOpen={writeOpen}
-        onClose={() => setWriteOpen(false)}
-        onSend={() => setWriteOpen(false)}
-      />
-
-      {/* Attach Sheet — US-028 */}
-      {showAttachSheet && (
-        <AttachSheet isOpen={showAttachSheet} onClose={() => setShowAttachSheet(false)} />
-      )}
-
-      {/* Recording Sheet — US-029 */}
-      {isRecording && (
-        <RecordingSheet isOpen={isRecording} onClose={() => setIsRecording(false)} onStop={() => setIsRecording(false)} />
-      )}
-
-      {/* Dynamic Island live activity — top capsule while recording */}
-      <DynamicIslandLive active={isRecording} elapsed={recordElapsed} />
 
       {/* Share Card — US-031/032/033 */}
       {shareMemo && (

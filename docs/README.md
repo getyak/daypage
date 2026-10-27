@@ -19,6 +19,7 @@ to drive a change.
 - [Contributing workflow](engineering/contributing.md)
 - [Agent Team system](agent-system/README.md)
 - [TestFlight fidelity and design-system cleanup](design/testflight-fidelity.md)
+- [Capture-first entry and platform boundaries](design/capture-first-entry.md)
 - [Native Figma reading implementation](design/figma-reading-implementation.md)
 - [Shared backend import](operations/shared-backend-import.md)
 - [Shared web account reading](operations/shared-web-account-reading.md)

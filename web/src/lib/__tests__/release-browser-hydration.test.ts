@@ -117,9 +117,11 @@ describe("browser capability boundaries", () => {
     const storage = { getItem: vi.fn(), setItem: vi.fn() };
     vi.stubGlobal("sessionStorage", storage);
     const home = renderToString(createElement(HomeHero, { date: "2026 · Oct 06", weekday: "TUE", sourceCount: 2, pageCount: 3, thisWeekCount: 4 }));
-    const capture = renderToString(createElement(CaptureHero, { queueCount: 2, doneCount: 3 }));
+    const capture = renderToString(createElement(CaptureHero));
     expect(home).toContain("2026 · Oct 06");
-    expect(capture).toContain("IN QUEUE");
+    expect(capture).toContain("先留下此刻。");
+    expect(capture).toContain("写下来，或说一段");
+    expect(capture).not.toMatch(/IN QUEUE|COMPILED|CAPTURE MOMENT/);
     expect(home + capture).not.toMatch(/opacity:0|translateY\(12px\)/);
     expect(storage.getItem).not.toHaveBeenCalled();
     expect(storage.setItem).not.toHaveBeenCalled();

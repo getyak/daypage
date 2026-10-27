@@ -1,4 +1,5 @@
 import { CaptureHero } from "./CaptureHero";
+import "./capture.css";
 import { CompileServiceBanner } from "./CompileServiceBanner";
 import { Composer } from "./Composer";
 import { CompileQueue, type Memo } from "./CompileQueue";
@@ -81,49 +82,43 @@ export default async function AddPage() {
 
   return (
     <main
-      className="page"
+      className="page capture-page"
       style={{
         maxWidth: "760px",
         display: "flex",
         flexDirection: "column",
-        gap: "2rem",
+        gap: "1.5rem",
       }}
     >
-      {/* v9 signature entrance: Fraunces date + mono-caps ritual line.
-          Aligns /add with /home so the app has one gallery-front-desk
-          entry pattern instead of two. */}
-      <CaptureHero
-        queueCount={initialMemos.length}
-        doneCount={recentlyCompiled.length}
-      />
+      <CaptureHero />
+
+      <Composer />
 
       {/* Single, authoritative pipeline status banner. Mirrors the /home
           `home-pipeline-warn` copy so users get the same signal in one
           place instead of six per-row "编译服务未连接" repetitions. */}
       <CompileServiceBanner />
 
-      {/* Composer — v9 elevation + warm-brown accent border on focus. */}
-      <Composer />
-
       {/* Compile Queue */}
       <section
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
-        <p className="ds-section-label">Compile Queue</p>
+        <h2 className="capture-section-title">待处理</h2>
         <div className="card" style={{ padding: "1.25rem" }}>
           <CompileQueue initialMemos={initialMemos} />
         </div>
       </section>
 
       {/* Recently Compiled */}
-      <section
+      <details
+        className="capture-organized"
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
-        <p className="ds-section-label">Recently Compiled</p>
+        <summary>查看已整理内容</summary>
         <div className="card" style={{ padding: "1.25rem" }}>
           <RecentlyCompiled initialMemos={recentlyCompiled} />
         </div>
-      </section>
+      </details>
     </main>
   );
 }

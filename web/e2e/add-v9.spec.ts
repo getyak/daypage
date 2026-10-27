@@ -3,12 +3,10 @@
  *
  * Locks down the six load-bearing pieces we shipped in the /add refactor
  * (see docs/web-design-v9.md and this PR's commit body):
- *   1. CaptureHero exists on /add with a Fraunces serif date + uppercase
- *      mono-caps stats line.
+ *   1. Capture starts with writing/voice, with no queue/compiled dashboard.
  *   2. Composer container reads with the v9 elevation tokens (--elev-flat
  *      baseline, --elev-raise + accent ring on focus).
- *   3. Composer placeholder is `此刻在想什么？` and hint copy references
- *      "记下此刻，余下交给夜里" when focused-empty.
+ *   3. The empty editor has a clear placeholder without a repeated footer prompt.
  *   4. Primary CTA is the amber pill "收下" (not the old 28×28 send square).
  *   5. Pipeline banner appears at most once on the page — every per-row
  *      "编译服务未连接" leak from v8 is gone.
@@ -21,14 +19,18 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
-// The project auth flow is the real /login form — dev seed user
-// `dev@daypage.local` gets a session cookie via `Dev login (no email)`.
+// Use an explicitly supplied account in the configured acceptance realm.
+// Credentials stay in the local test process and never enter screenshots/logs.
 async function loginDev(page: Page) {
-  await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Dev login (no email)" }).click();
-  await page.waitForURL(/\/(home|today|add)/, { timeout: 15_000 }).catch(() => {
-    /* some flows land back on /login when session already exists — ignore */
-  });
+  const email = process.env.DAYPAGE_E2E_EMAIL;
+  const password = process.env.DAYPAGE_E2E_PASSWORD;
+  test.skip(!email || !password, "DAYPAGE_E2E_EMAIL and DAYPAGE_E2E_PASSWORD are required");
+  await page.goto("/login?callbackUrl=%2Fadd", { waitUntil: "domcontentloaded" });
+  const form = page.locator(".login-password-form");
+  await form.locator('input[name="email"]').fill(email!);
+  await form.locator('input[name="password"]').fill(password!);
+  await form.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/add(?:\?|$)/, { timeout: 30_000 });
 }
 
 test.describe("v9 design contract — /add", () => {
@@ -50,26 +52,20 @@ test.describe("v9 design contract — /add", () => {
     await page.waitForTimeout(240);
   });
 
-  // Contract #1 — CaptureHero (Fraunces + mono caps) is visible at the top
-  test("CaptureHero renders with Fraunces serif date + mono caps stats", async ({ page }) => {
+  test("capture leads with a large editor and visible voice; organization is explicit", async ({ page }) => {
     const hero = page.getByTestId("capture-hero");
-    await expect(hero).toBeVisible();
-
-    // date uses Fraunces
-    const dateFontFamily = await hero.locator(".ds-home-hero__date").evaluate(
-      (el) => window.getComputedStyle(el).fontFamily,
-    );
-    expect(dateFontFamily.toLowerCase()).toContain("fraunces");
-
-    // stats line is mono-caps
-    const stats = hero.locator(".ds-home-hero__stats");
-    const statsTextTransform = await stats.evaluate(
-      (el) => window.getComputedStyle(el).textTransform,
-    );
-    expect(statsTextTransform).toBe("uppercase");
-
-    // ritual phrase is present verbatim
-    await expect(stats).toContainText("RAW · CAPTURE MOMENT");
+    await expect(hero.getByRole("heading", { name: "先留下此刻。" })).toBeVisible();
+    await expect(hero).toContainText("写下来，或说一段");
+    await expect(hero).not.toContainText(/IN QUEUE|COMPILED|CAPTURE MOMENT/);
+    const composer = page.getByTestId("add-composer");
+    await expect(composer.getByTestId("capture-voice")).toBeVisible();
+    await expect(composer.getByRole("button", { name: "粗体", exact: true })).toHaveCount(0);
+    const height = await composer.locator("textarea").evaluate((el) => el.getBoundingClientRect().height);
+    expect(height).toBeGreaterThanOrEqual(180);
+    const organized = page.locator("details.capture-organized");
+    await expect(organized.locator("div").first()).toBeHidden();
+    await organized.locator("summary").click();
+    await expect(organized.locator("div").first()).toBeVisible();
   });
 
   // Contract #2 — Composer elevation tokens (flat baseline, raise on focus)
@@ -116,14 +112,13 @@ test.describe("v9 design contract — /add", () => {
   });
 
   // Contract #3 — placeholder + hint copy
-  test("Composer placeholder is Chinese; focused-empty hint shows ritual phrase", async ({ page }) => {
+  test("Composer uses a clear placeholder without a repeated empty prompt", async ({ page }) => {
     const textarea = page.getByTestId("add-composer").locator("textarea").first();
     await expect(textarea).toHaveAttribute("placeholder", "此刻在想什么？");
 
     await textarea.focus();
     const hint = page.getByTestId("composer-hint");
-    await expect(hint).toBeVisible();
-    await expect(hint).toContainText("记下此刻，余下交给夜里");
+    await expect(hint).toHaveCount(0);
   });
 
   // Contract #4 — Send CTA is the "收下" pill (not the old 28×28 icon)
