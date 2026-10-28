@@ -32,6 +32,23 @@ private actor FlakyAttachmentDownloadTransport: AttachmentFileTransport {
     func attempts() -> Int { downloadAttempts }
 }
 
+private struct PathSwappingAttachmentDownloadTransport: AttachmentFileTransport {
+    let sourceURL: URL
+    let linkURL: URL
+    let outsideURL: URL
+
+    func uploadFile(for request: URLRequest, from fileURL: URL) async throws -> (Data, URLResponse) {
+        throw AttachmentSyncError.network
+    }
+
+    func downloadFile(for request: URLRequest) async throws -> (URL, URLResponse) {
+        try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: outsideURL)
+        return (sourceURL, try XCTUnwrap(HTTPURLResponse(
+            url: XCTUnwrap(request.url), statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil
+        )))
+    }
+}
+
 // MARK: - Imported media (AAC / QuickTime) synthetic byte helpers
 
 private func adtsFrame(
@@ -355,6 +372,25 @@ final class AttachmentSyncTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: AttachmentTransferStore.stateURL.path))
     }
 
+    func testManifestRejectsUnboundedDeclaredSizesWithoutOverflow() throws {
+        let realm = try SyncRealmTestSupport.realm()
+        let memoID = UUID()
+        let descriptors = (0..<2).map { position in
+            let hash = String(repeating: position == 0 ? "a" : "b", count: 64)
+            return SyncAttachmentDescriptor(
+                position: position,
+                kind: "photo",
+                contentSHA256: hash,
+                sizeBytes: Int64.max,
+                mimeType: "image/png",
+                objectKey: "\(realm.userID.uuidString.lowercased())/\(memoID.uuidString.lowercased())/\(hash).png",
+                originalFilename: "fixture-\(position).png"
+            )
+        }
+
+        XCTAssertFalse(AttachmentManifest.isStructurallyValid(descriptors))
+    }
+
     func testFailedDownloadRetriesOnLaterEmptyPullAndTombstoneDiscardsState() async throws {
         let realm = try SyncRealmTestSupport.realm()
         let relativePath = "raw/assets/remote-source.png"
@@ -498,6 +534,146 @@ final class AttachmentSyncTests: XCTestCase {
             bytes
         )
         XCTAssertFalse(AttachmentTransferStore.actionableSummary().hasMedia)
+    }
+
+    func testDownloadRefusesSymlinkedAssetDirectoryAndPreservesForeignBytes() async throws {
+        try await assertDownloadRefusesSymlink(at: "raw/assets/sync")
+    }
+
+    func testDownloadRefusesSymlinkedRawAncestorAndPreservesForeignBytes() async throws {
+        try await assertDownloadRefusesSymlink(at: "raw")
+    }
+
+    func testDownloadRefusesSymlinkedStagingFileAndPreservesForeignBytes() async throws {
+        try await assertDownloadRefusesSymlink(at: "staging-file")
+    }
+
+    func testTransferSidecarRefusesSymlinkedAncestorWithoutReadingOrRewritingIt() throws {
+        let realm = try SyncRealmTestSupport.realm()
+        let memoID = UUID()
+        let hash = String(repeating: "a", count: 64)
+        let descriptor = SyncAttachmentDescriptor(
+            position: 0, kind: "photo", contentSHA256: hash, sizeBytes: 12,
+            mimeType: "image/png",
+            objectKey: "\(realm.userID.uuidString.lowercased())/\(memoID.uuidString.lowercased())/\(hash).png",
+            originalFilename: "received.png"
+        )
+        _ = try AttachmentTransferStore.recordPendingDownloads(
+            memoID: memoID, descriptors: [descriptor], realm: realm
+        )
+        let outside = SyncRealmTestSupport.fixtureRoot
+            .appendingPathComponent("daypage-sidecar-foreign-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        let sync = vault.appendingPathComponent("_agent/sync")
+        let foreignSync = outside.appendingPathComponent("sync")
+        try FileManager.default.moveItem(at: sync, to: foreignSync)
+        try FileManager.default.createSymbolicLink(at: sync, withDestinationURL: foreignSync)
+        let foreignState = foreignSync.appendingPathComponent(AttachmentTransferStore.stateURL.lastPathComponent)
+        let previousBytes = try Data(contentsOf: foreignState)
+
+        XCTAssertThrowsError(try AttachmentTransferStore.progress(realm: realm))
+        XCTAssertThrowsError(try AttachmentTransferStore.recordPendingDownloads(
+            memoID: memoID, descriptors: [descriptor], realm: realm
+        ))
+        XCTAssertEqual(try Data(contentsOf: foreignState), previousBytes)
+    }
+
+    func testDownloadRechecksDestinationAfterNetworkWait() async throws {
+        let realm = try SyncRealmTestSupport.realm()
+        let sourceURL = vault.appendingPathComponent("raw/assets/source.png")
+        let bytes = Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 2, 4, 6, 8])
+        try bytes.write(to: sourceURL)
+        let digest = try AttachmentFileInspector.sha256AndSize(of: sourceURL)
+        let memoID = UUID()
+        let descriptor = SyncAttachmentDescriptor(
+            position: 0, kind: "photo", contentSHA256: digest.hash, sizeBytes: digest.size,
+            mimeType: "image/png",
+            objectKey: "\(realm.userID.uuidString.lowercased())/\(memoID.uuidString.lowercased())/\(digest.hash).png",
+            originalFilename: "received.png"
+        )
+        _ = try AttachmentTransferStore.recordPendingDownloads(
+            memoID: memoID, descriptors: [descriptor], realm: realm
+        )
+        let outside = SyncRealmTestSupport.fixtureRoot
+            .appendingPathComponent("daypage-download-foreign-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        let sentinel = outside.appendingPathComponent("keep.png")
+        try bytes.write(to: sentinel)
+        let downloader = SupabaseAttachmentDownloader(
+            session: try SyncRealmTestSupport.session(realm: realm),
+            fileTransport: PathSwappingAttachmentDownloadTransport(
+                sourceURL: sourceURL,
+                linkURL: vault.appendingPathComponent("raw/assets/sync"), outsideURL: outside
+            )
+        )
+
+        try await downloader.persistAndAttempt(
+            changes: [], token: try SyncRealmTestSupport.verifiedToken("session", realm: realm)
+        )
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: outside.path), ["keep.png"])
+        XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
+        XCTAssertTrue(try AttachmentTransferStore.progress(realm: realm).hasIncomplete)
+        XCTAssertEqual(AttachmentTransferStore.summary(memoIDs: [memoID.uuidString]).transferred, 0)
+    }
+
+    private func assertDownloadRefusesSymlink(at relativeLink: String) async throws {
+        let realm = try SyncRealmTestSupport.realm()
+        let sourceURL = vault.appendingPathComponent("raw/assets/source.png")
+        let bytes = Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 6, 5, 4, 3])
+        try bytes.write(to: sourceURL)
+        let digest = try AttachmentFileInspector.sha256AndSize(of: sourceURL)
+        let memoID = UUID()
+        let descriptor = SyncAttachmentDescriptor(
+            position: 0,
+            kind: "photo",
+            contentSHA256: digest.hash,
+            sizeBytes: digest.size,
+            mimeType: "image/png",
+            objectKey: "\(realm.userID.uuidString.lowercased())/\(memoID.uuidString.lowercased())/\(digest.hash).png",
+            originalFilename: "received.png"
+        )
+        let item = try XCTUnwrap(AttachmentTransferStore.recordPendingDownloads(
+            memoID: memoID, descriptors: [descriptor], realm: realm
+        ).first)
+        let stagingURL = SupabaseAttachmentDownloader.stagingURL(recordID: item.recordID)
+        try FileManager.default.createDirectory(
+            at: stagingURL.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try bytes.write(to: stagingURL)
+
+        let outside = SyncRealmTestSupport.fixtureRoot
+            .appendingPathComponent("daypage-download-foreign-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        let sentinel = outside.appendingPathComponent("keep.png")
+        try bytes.write(to: sentinel)
+        let link = relativeLink == "staging-file"
+            ? stagingURL : vault.appendingPathComponent(relativeLink)
+        if FileManager.default.fileExists(atPath: link.path) {
+            try FileManager.default.removeItem(at: link)
+        }
+        try FileManager.default.createSymbolicLink(
+            at: link, withDestinationURL: relativeLink == "staging-file" ? sentinel : outside
+        )
+        let foreignBefore = try FileManager.default.contentsOfDirectory(atPath: outside.path).sorted()
+        let transport = FlakyAttachmentDownloadTransport(sourceURL: sentinel)
+        let downloader = SupabaseAttachmentDownloader(
+            session: try SyncRealmTestSupport.session(realm: realm), fileTransport: transport
+        )
+
+        try await downloader.persistAndAttempt(
+            changes: [], token: try SyncRealmTestSupport.verifiedToken("session", realm: realm)
+        )
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: outside.path).sorted(), foreignBefore)
+        XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
+        XCTAssertTrue(try AttachmentTransferStore.progress(realm: realm).hasIncomplete)
+        XCTAssertEqual(AttachmentTransferStore.summary(memoIDs: [memoID.uuidString]).transferred, 0)
+        let attempts = await transport.attempts()
+        XCTAssertEqual(attempts, 0)
     }
 
     // MARK: - T18 safe media paths (explicit own-Vault local opening only)
