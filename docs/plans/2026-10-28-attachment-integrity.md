@@ -1,7 +1,13 @@
 # Attachment integrity follow-up (#884)
 
-Status: implementation and isolated verification complete; review, hosted checks,
-real-account round-trip and release verification remain open.
+Status: production guards passed isolated verification; the replacement live
+acceptance helper is under offline verification. Live execution and release are paused.
+
+The first live attempt is invalid and release remains paused. Its test-only
+adapter matched a v1 endpoint literal while the production puller used v2; the
+forwarding fallback therefore issued an account-wide read. The runner was
+stopped, local evidence isolated, and no successful byte receipt was produced.
+The incident's private metadata record is outside source control.
 
 The 2026-10-28 audit identifies the remaining gap as current live acceptance, not
 an absent attachment protocol. ADR-0016 and ADR-0025 remain authoritative.
@@ -49,22 +55,36 @@ objects and manifests. No data cleanup or format migration is part of rollback.
   sidecar containment test failed with three assertions; two `Int64.max`
   descriptor sizes terminated the test process with signal 5.
 - Green: 89 focused attachment/session/pull/completion tests passed.
-- Final package suite: 505 XCTest cases (three environment-gated live cases
+- Replacement-helper package suite: 506 XCTest cases (three environment-gated live cases
   skipped), plus 84 Swift Testing cases; zero failures.
 - Agent repository contract check and `git diff --check` passed.
+- Launcher guard checks: five offline cases pass, including exit zero without
+  proof, a stale nonce, a boolean masquerading as a zero count, a changed binary,
+  and a valid offline proof that never reads credentials.
 
-The live JPEG/M4A test uses real v2 RPC/Storage uploads and a test-only REST
+The replacement live JPEG/M4A test uses real v2 RPC/Storage uploads and a test-only REST
 projection filtered by the task's exact memo UUID and owner. This includes the
 actual committed v2 manifest and drives the native pull decoder/downloader.
 It compares memo ID, original creation time and text, attachment order/metadata,
 size and SHA-256, and decodes the received image/audio. A query-boundary test
-ensures the adapter never requests the account feed. A high-water mark alone
+uses the actual production puller, not a second endpoint literal. Exact v2
+origin/endpoint matching is fail-closed for every other request. It covers
+create/edit/tombstone/restore/replay and rejects v1, unknown paths and foreign
+hosts before forwarding. A high-water mark alone
 would still read concurrent notes; `sync_change_sequence` has no unique
 constraint, so a single-row cursor probe is not used as a privacy guarantee.
 This scoped acceptance does not prove the deployed account-wide pull RPC or
 physical/version compatibility. Existing isolated RPC regressions are retained.
 Running the live command remains a separate, explicitly targeted gate; skipped
 cases above do not prove it.
+
+The replacement launcher defaults to offline verification. Before reading
+credentials it requires a new nonce-bound private attestation written by the
+same test binary after the real-puller scope probe and zero-fallback negatives.
+Exit zero or zero matching tests cannot satisfy that gate. Each live run gets a
+new private directory, predeclared media/TUS UUIDs and an atomic progress ledger;
+unknown/revoked scope cannot be replaced by a broader request. Another live run
+requires final helper review; the interrupted directory is never reused.
 
 DP-02 and DP-03 already have later fixes on main. Existing local-reset and
 diagnostics-consent tests passed in the package suite; no duplicate architecture
