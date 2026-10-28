@@ -6,8 +6,10 @@ import DayPageModels
 @testable import DayPageStorage
 
 /// Opt-in staging acceptance test. It uses one real Supabase Auth session and
-/// two independent local Vault directories to exercise the same HTTP push and
-/// pull implementations installed by the iOS and macOS apps.
+/// two independent local Vault directories. Uploads use the real v2 RPC and
+/// Storage APIs; readback uses a fixture-scoped REST projection through the
+/// native pull decoder/downloader. The unfiltered account pull RPC and physical
+/// cross-device/version compatibility are separate acceptance gates.
 ///
 /// Required environment variables:
 /// - DAYPAGE_SYNC_E2E_URL
@@ -35,18 +37,24 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         let tokenProvider: @Sendable () async throws -> String = {
             configuration.accessToken
         }
+        let fixtureMemoID = UUID()
         let uploader = SupabaseSyncUploader(
             session: liveSession,
             accessTokenProvider: tokenProvider
         )
         let puller = SupabaseSyncPuller(
             session: liveSession,
+            transport: FixtureScopedPullTransport(
+                memoID: fixtureMemoID, ownerID: configuration.userID,
+                underlying: SupabaseSyncTransport.shared(for: liveSession.identity.origin)
+            ),
             accessTokenProvider: tokenProvider
         )
         let created = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
         try select(vaultA, session: liveSession)
         let sourceAttachments = try createMediaFixtures(in: vaultA)
         let memo = Memo(
+            id: fixtureMemoID,
             type: .mixed,
             created: created,
             device: "staging-device-a",
@@ -61,6 +69,8 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         try select(vaultB, session: liveSession)
         try await pullAll(using: puller, in: vaultB, session: liveSession)
         let deviceBMemo = try XCTUnwrap(memoFromSelectedVault(memo.id, on: created))
+        XCTAssertEqual(deviceBMemo.id, memo.id)
+        XCTAssertEqual(deviceBMemo.created, memo.created)
         XCTAssertEqual(deviceBMemo.body, memo.body)
         XCTAssertEqual(deviceBMemo.attachments.map(\.kind), ["photo", "audio"])
         try assertMediaConverged(
@@ -126,6 +136,49 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         )
         try await uploadOnlyOperation(for: restored.id, using: uploader)
         try await pullAll(using: puller, in: vaultA, session: liveSession)
+
+        if let path = ProcessInfo.processInfo.environment["DAYPAGE_ATTACHMENT_E2E_RECEIPT"] {
+            guard testRun?.failureCount == 0,
+                  deviceBMemo.id == memo.id, deviceBMemo.created == memo.created,
+                  deviceBMemo.body == memo.body, restoredB.body == restored.body,
+                  restored.attachments.count == restoredB.attachments.count else {
+                throw MemoSyncError.invalidResponse
+            }
+            let hashes = try zip(restored.attachments, restoredB.attachments).map { source, received in
+                let sourceProof = try AttachmentFileInspector.sha256AndSize(
+                    of: vaultA.appendingPathComponent(source.file)
+                )
+                let receivedProof = try AttachmentFileInspector.sha256AndSize(
+                    of: vaultB.appendingPathComponent(received.file)
+                )
+                guard sourceProof.hash == receivedProof.hash,
+                      sourceProof.size == receivedProof.size else {
+                    throw MemoSyncError.invalidResponse
+                }
+                return [
+                    "kind": received.kind,
+                    "source_sha256": sourceProof.hash,
+                    "received_sha256": receivedProof.hash,
+                    "source_bytes": sourceProof.size,
+                    "received_bytes": receivedProof.size,
+                    "metadata_equal": source.kind == received.kind
+                        && source.duration == received.duration
+                        && source.transcript == received.transcript
+                        && source.transcriptionStatus == received.transcriptionStatus,
+                ] as [String: Any]
+            }
+            let receipt: [String: Any] = [
+                "result": "passed", "scope": "real-v2-upload-scoped-rest-native-download",
+                "fixture_memo_id": memo.id.uuidString.lowercased(),
+                "original_id_equal": deviceBMemo.id == memo.id,
+                "original_created_equal": deviceBMemo.created == memo.created,
+                "original_text_equal": deviceBMemo.body == memo.body,
+                "restored_text_equal": restoredB.body == restored.body,
+                "attachments": hashes,
+            ]
+            try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys, .prettyPrinted])
+                .write(to: URL(fileURLWithPath: path), options: [.atomic])
+        }
     }
 
     func testInterruptedTUSResumesFromServerOffset() async throws {
@@ -275,6 +328,10 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
     ) throws {
         XCTAssertEqual(sourceMemo.attachments.count, receivedMemo.attachments.count)
         for (source, received) in zip(sourceMemo.attachments, receivedMemo.attachments) {
+            XCTAssertEqual(received.kind, source.kind)
+            XCTAssertEqual(received.duration, source.duration)
+            XCTAssertEqual(received.transcript, source.transcript)
+            XCTAssertEqual(received.transcriptionStatus, source.transcriptionStatus)
             let sourceURL = sourceVault.appendingPathComponent(source.file)
             let destinationURL = destinationVault.appendingPathComponent(received.file)
             XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path))
@@ -297,7 +354,7 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
 
     /// Constructor/signature compatibility for the realm-isolated API: the
     /// live session is built through the real same-server token proof. Live
-    /// tests stay opt-in and are never executed by worker batches.
+    /// tests stay opt-in and require explicit authorization for the target.
     private func makeLiveSession(
         _ configuration: SupabaseLiveTestConfiguration
     ) async throws -> SyncSession {
@@ -353,6 +410,119 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
 
     private func memoFromSelectedVault(_ id: UUID, on date: Date) throws -> Memo? {
         try RawStorage.read(for: date).first(where: { $0.id == id })
+    }
+}
+
+/// Scope only the acceptance read: the production RPC is account-wide and a
+/// cursor cannot prevent another device's concurrent notes being read. Fetch
+/// this task's UUID + owner with real REST/RLS, then adapt the actual row and
+/// manifest to the pull wire envelope. No memo content or bytes are fabricated.
+/// Embedded aliases/filters: https://docs.postgrest.org/en/v13/references/api/resource_embedding.html
+private struct FixtureScopedPullTransport: HTTPTransport {
+    let memoID: UUID
+    let ownerID: UUID
+    let underlying: HTTPTransport
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        guard let url = request.url,
+              url.path == "/rest/v1/rpc/daypage_pull_sync_changes" else {
+            return try await underlying.data(for: request)
+        }
+        struct PullRequest: Decodable { let p_after_sequence: Int64 }
+        let after = try JSONDecoder().decode(
+            PullRequest.self, from: XCTUnwrap(request.httpBody)
+        ).p_after_sequence
+        var components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        components.path = "/rest/v1/memos"
+        components.queryItems = [
+            URLQueryItem(name: "id", value: "eq.\(memoID.uuidString.lowercased())"),
+            URLQueryItem(name: "user_id", value: "eq.\(ownerID.uuidString.lowercased())"),
+            URLQueryItem(name: "limit", value: "1"),
+            URLQueryItem(name: "attachments.protocol_version", value: "eq.2"),
+            URLQueryItem(name: "attachments.order", value: "position.asc"),
+            URLQueryItem(name: "select", value: [
+                "id,type,body,created_at,pinned_at,location,weather,device,source,vault_path",
+                "source_modified_at,content_hash,sync_revision,last_sync_device_id,deleted_at",
+                "change_sequence:sync_change_sequence,attachment_manifest_hash",
+                "attachments:memo_attachments(position,kind,content_sha256,size_bytes,mime_type,object_key:storage_key,original_filename:filename,duration_ms,transcript,transcription_status)",
+            ].joined(separator: ",")),
+        ]
+        var scoped = request
+        scoped.url = try XCTUnwrap(components.url)
+        scoped.httpMethod = "GET"
+        scoped.httpBody = nil
+        let (data, response) = try await underlying.data(for: scoped)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            return (data, response)
+        }
+        struct RowProof: Decodable {
+            let id: UUID
+            let change_sequence: Int64
+            let deleted_at: String?
+        }
+        let proofs = try JSONDecoder().decode([RowProof].self, from: data)
+        guard proofs.count == 1, let proof = proofs.first, proof.id == memoID,
+              let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              var row = rows.first else {
+            throw MemoSyncError.invalidResponse
+        }
+        if proof.deleted_at != nil {
+            row["attachments"] = [] as [String]
+            row["attachment_manifest_hash"] = NSNull()
+        }
+        let changed = proof.change_sequence > after
+        let envelope: [String: Any] = [
+            "changes": changed ? [row] : [],
+            "next_cursor": changed ? proof.change_sequence : after,
+            "has_more": false,
+        ]
+        return (try JSONSerialization.data(withJSONObject: envelope), response)
+    }
+}
+
+final class FixtureScopedReadbackScopeTests: XCTestCase {
+    func testNeverRequestsAccountFeedOrUnrelatedMemo() async throws {
+        let memoID = UUID()
+        let ownerID = UUID()
+        let underlying = FixtureQueryScopeProbe(memoID: memoID, ownerID: ownerID)
+        let transport = FixtureScopedPullTransport(
+            memoID: memoID, ownerID: ownerID, underlying: underlying
+        )
+        var request = URLRequest(url: try XCTUnwrap(URL(
+            string: "https://example.supabase.co/rest/v1/rpc/daypage_pull_sync_changes"
+        )))
+        request.httpMethod = "POST"
+        request.httpBody = Data("{\"p_after_sequence\":0,\"p_limit\":100}".utf8)
+        let (data, _) = try await transport.data(for: request)
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let changes = try XCTUnwrap(envelope["changes"] as? [[String: Any]])
+        XCTAssertEqual(changes.count, 1)
+        XCTAssertEqual(changes.first?["id"] as? String, memoID.uuidString.lowercased())
+        XCTAssertEqual(envelope["has_more"] as? Bool, false)
+    }
+}
+
+private struct FixtureQueryScopeProbe: HTTPTransport {
+    let memoID: UUID
+    let ownerID: UUID
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let url = try XCTUnwrap(request.url)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(url.path, "/rest/v1/memos")
+        XCTAssertNil(request.httpBody)
+        let query = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertEqual(query.first { $0.name == "id" }?.value, "eq.\(memoID.uuidString.lowercased())")
+        XCTAssertEqual(query.first { $0.name == "user_id" }?.value, "eq.\(ownerID.uuidString.lowercased())")
+        XCTAssertEqual(query.first { $0.name == "limit" }?.value, "1")
+        XCTAssertEqual(query.first { $0.name == "attachments.protocol_version" }?.value, "eq.2")
+        let row: [String: Any] = [
+            "id": memoID.uuidString.lowercased(), "change_sequence": 7, "deleted_at": NSNull(),
+        ]
+        return (
+            try JSONSerialization.data(withJSONObject: [row]),
+            try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+        )
     }
 }
 
