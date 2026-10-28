@@ -4,7 +4,7 @@ import Foundation
 
 /// Abstracts the storage backend so the vault path can be swapped at runtime
 /// without touching individual call sites.
-public protocol VaultLocator {
+public protocol VaultLocator: Sendable {
     var vaultURL: URL { get }
     var isUsingiCloud: Bool { get }
 }

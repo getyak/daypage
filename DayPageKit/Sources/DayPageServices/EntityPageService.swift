@@ -5,7 +5,7 @@ import DayPageStorage
 // MARK: - EntityUpdateInstruction
 
 /// LLM 返回的单条实体创建或更新指令，作为结构化编译输出的一部分。
-public struct EntityUpdateInstruction {
+public struct EntityUpdateInstruction: Sendable {
     /// 实体类型："places"、"people" 或 "themes"
     public let entityType: String
     /// URL 安全的 slug（小写，连字符分隔，无空格），例如 "joma-coffee"
@@ -47,8 +47,8 @@ public struct EntityUpdateInstruction {
 ///   vault/wiki/people/{slug}.md
 ///   vault/wiki/themes/{slug}.md
 ///
-@MainActor
-public final class EntityPageService {
+public final class EntityPageService: Sendable {
+    private static let mutationQueue = DispatchQueue(label: "com.daypage.entity-pages.write")
 
     // MARK: Singleton
 
@@ -77,6 +77,11 @@ public final class EntityPageService {
     /// - Parameter instructions: LLM 返回的更新指令数组。
     /// - Parameter date: 源编译的日期字符串（例如 "2026-01-15"）。
     public func apply(instructions: [EntityUpdateInstruction], date: String) throws {
+        let bound = EntityPageService(vaultRootOverride: vaultRoot)
+        try Self.mutationQueue.sync { try bound.applyUnserialized(instructions: instructions, date: date) }
+    }
+
+    private func applyUnserialized(instructions: [EntityUpdateInstruction], date: String) throws {
         var newlyCreated: [(type: String, slug: String, name: String)] = []
 
         for instruction in instructions {
@@ -134,6 +139,13 @@ public final class EntityPageService {
         date: String,
         operationID: String
     ) throws {
+        let bound = EntityPageService(vaultRootOverride: vaultRoot)
+        try Self.mutationQueue.sync {
+            try bound.applyUnserialized(instructions: instructions, date: date, operationID: operationID)
+        }
+    }
+
+    private func applyUnserialized(instructions: [EntityUpdateInstruction], date: String, operationID: String) throws {
         guard !instructions.isEmpty else { return }
 
         let marker = compilationMarker(for: operationID)
@@ -574,7 +586,7 @@ public final class EntityPageService {
         if FileManager.default.fileExists(atPath: indexURL.path) {
             do { indexContent = try String(contentsOf: indexURL, encoding: .utf8) }
             catch {
-                DayPageLogger.shared.error("EntityPageService: read index: \(error)")
+                DayPageLogger.log(level: "ERROR", message: "EntityPageService: read index: \(error)")
                 indexContent = seedIndex()
                 needsWrite = true
             }

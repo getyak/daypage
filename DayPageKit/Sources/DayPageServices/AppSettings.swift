@@ -120,6 +120,22 @@ public enum CardDensity: String, CaseIterable {
 // MARK: - AppSettings.Keys
 
 public extension AppSettings {
+    /// Close admission at the synchronous UI boundary, then suspend while
+    /// admitted saves finish. The visible preference changes after the drain.
+    @MainActor
+    static func setAIFeaturesEnabled(
+        _ enabled: Bool, in store: UserDefaults = .standard,
+        scope: LocalCompilationCommitScope = .shared
+    ) -> Task<Void, Never> {
+        let transition = scope.close()
+        return Task { @MainActor in
+            defer { transition.finish() }
+            await transition.waitForDrain()
+            guard transition.isCurrent else { return }
+            store.set(enabled, forKey: Keys.aiFeaturesEnabled)
+        }
+    }
+
     // C4 fix: master AI toggle. Defaults to true; flipping to false in Settings
     // makes CompilationService / VoiceService refuse outbound LLM calls even
     // when API keys remain configured. Read at every call site rather than

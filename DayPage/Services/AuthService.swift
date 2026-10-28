@@ -266,13 +266,16 @@ final class AuthService: NSObject, ObservableObject {
             guard let self else { return }
             for await (event, session) in self.supabase.auth.authStateChanges {
                 if Task.isCancelled { break }
-                await MainActor.run {
-                    SyncQueueObserver.shared.sessionInstaller.authSessionWillChange(
+                SyncQueueObserver.shared.sessionInstaller.authSessionWillChange(
                         previousUserID: self.session?.user.id,
                         previousAccessToken: self.session?.accessToken,
                         userID: session?.user.id,
                         accessToken: session?.accessToken
                     )
+                await SyncQueueObserver.shared.waitForLocalPersistence()
+                guard !Task.isCancelled else { break }
+                guard self.supabase.auth.currentSession?.accessToken == session?.accessToken else { continue }
+                await MainActor.run {
                     self.session = session
                     if let session {
                         // User authenticated — clear the "skip" flag so the sync
@@ -722,7 +725,8 @@ final class AuthService: NSObject, ObservableObject {
         // synchronous boundary (before the delayed SwiftUI nil onChange), so
         // an old suspended proof can not reinstall after logout.
         SyncQueueObserver.shared.sessionInstaller.invalidateAllAttempts()
-        SyncQueueObserver.shared.clearSession()
+        await SyncQueueObserver.shared.clearSession().value
+        guard supabase.auth.currentSession == nil else { return }
         session = nil   // listener will confirm; local clear takes effect immediately in UI
         SentrySDK.setUser(nil)
         do {

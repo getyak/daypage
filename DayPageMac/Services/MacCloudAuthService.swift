@@ -159,7 +159,8 @@ final class MacCloudAuthService: NSObject, ObservableObject {
             }
         }
 
-        SyncQueueObserver.shared.clearSession()
+        await SyncQueueObserver.shared.clearSession().value
+        guard client.auth.currentSession == nil else { return }
         session = nil
     }
 
@@ -179,6 +180,15 @@ final class MacCloudAuthService: NSObject, ObservableObject {
             guard let self else { return }
             for await (_, restoredSession) in client.auth.authStateChanges {
                 if Task.isCancelled { break }
+                SyncQueueObserver.shared.sessionInstaller.authSessionWillChange(
+                    previousUserID: session?.user.id,
+                    previousAccessToken: session?.accessToken,
+                    userID: restoredSession?.user.id,
+                    accessToken: restoredSession?.accessToken
+                )
+                await SyncQueueObserver.shared.waitForLocalPersistence()
+                guard !Task.isCancelled else { break }
+                guard client.auth.currentSession?.accessToken == restoredSession?.accessToken else { continue }
                 session = restoredSession
                 installUploader(for: restoredSession)
             }

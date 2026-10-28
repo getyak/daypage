@@ -207,11 +207,14 @@ public enum RawStorage {
     /// passes `isValidDayString`, so cache consumers never have to reinterpret
     /// a `Date` through a formatter whose zone may have changed. Invalid keys
     /// are dropped from `userInfo` — the notification still posts.
-    public static func notifyDidWrite(for date: Date, dayString: String? = nil) {
-        var userInfo: [AnyHashable: Any]? = nil
+    public static let writtenVaultRootKey = "writtenVaultRoot"
+
+    public static func notifyDidWrite(for date: Date, dayString: String? = nil, vaultRoot: URL? = nil) {
+        var userInfo: [AnyHashable: Any] = [:]
         if let dayString, isValidDayString(dayString) {
             userInfo = [writtenDayStringKey: dayString]
         }
+        if let vaultRoot { userInfo[writtenVaultRootKey] = vaultRoot }
         NotificationCenter.default.post(
             name: .rawStorageDidWrite,
             object: date,
@@ -220,6 +223,33 @@ public enum RawStorage {
     }
 
     // MARK: - Serialization
+
+    /// Compilation defers UI/cache/sync effects until its worker has returned
+    /// to the main actor. No private memo contents cross this receipt boundary.
+    public struct MutationReceipt: Sendable {
+        let vaultRoot: URL
+        let date: Date
+        let dayString: String
+        let outboxRecorded: Bool
+        let enqueuePayload: [(String, Int)]
+
+        public func publishIfCurrent(isCurrent: @escaping @Sendable () -> Bool = { true }) {
+            guard isCurrent(), VaultInitializer.vaultURL.standardizedFileURL == vaultRoot.standardizedFileURL else { return }
+            WidgetCenter.shared.reloadAllTimelines()
+            RawStorage.notifyDidWrite(for: date, dayString: dayString, vaultRoot: vaultRoot)
+            Task { @MainActor in
+                guard isCurrent(), VaultInitializer.vaultURL.standardizedFileURL == vaultRoot.standardizedFileURL else { return }
+                if outboxRecorded {
+                    SyncQueueService.shared.reloadFromOutbox()
+                } else {
+                    for (memoID, bytes) in enqueuePayload {
+                        SyncQueueService.shared.enqueue(memoID: memoID, sizeBytes: bytes)
+                    }
+                }
+                await SyncQueueService.shared.flushIfOnline()
+            }
+        }
+    }
 
     /// Serializes an ordered list of memos into the on-disk format for a single
     /// day's file: each memo's markdown joined by `memoSeparator`, written
@@ -428,12 +458,14 @@ public enum RawStorage {
 
     /// Shared serialized mutation body. Callers select the exact target URL
     /// (Date-derived or canonical-key-derived) and enter `writeQueue` first.
+    @discardableResult
     private static func performMutate(
         at url: URL,
         vaultRoot capturedVaultRoot: URL,
         notifyDate: Date,
+        publishChanges: Bool = true,
         transform: ([Memo]) -> [Memo]?
-    ) throws {
+    ) throws -> MutationReceipt? {
         let existing: [Memo]
             if FileManager.default.fileExists(atPath: url.path) {
                 let content = try String(contentsOf: url, encoding: .utf8)
@@ -442,7 +474,7 @@ public enum RawStorage {
                 existing = []
             }
 
-            guard let updated = transform(existing) else { return }
+            guard let updated = transform(existing) else { return nil }
 
             if updated.isEmpty {
                 let fm = FileManager.default
@@ -477,12 +509,6 @@ public enum RawStorage {
                 message: "mutate \(updated.count) memos in \(url.lastPathComponent)"
             )
 
-            WidgetCenter.shared.reloadAllTimelines()
-            notifyDidWrite(
-                for: notifyDate,
-                dayString: url.deletingPathExtension().lastPathComponent
-            )
-
             // R6: enqueue surviving memos for offline sync. Skipping the
             // empty-file branch is intentional: if the user deleted the
             // last memo for a day we have nothing to upload. The transform
@@ -492,16 +518,26 @@ public enum RawStorage {
             let enqueuePayload: [(String, Int)] = updated.map { memo in
                 (memo.id.uuidString, memo.toMarkdown().utf8.count)
             } + deletedIDs.map { ($0.uuidString, 0) }
-            Task { @MainActor in
-                if outboxRecorded {
-                    SyncQueueService.shared.reloadFromOutbox()
-                } else {
-                    for (memoIDString, sizeBytes) in enqueuePayload {
-                        SyncQueueService.shared.enqueue(memoID: memoIDString, sizeBytes: sizeBytes)
-                    }
-                }
-                await SyncQueueService.shared.flushIfOnline()
-            }
+            let receipt = MutationReceipt(vaultRoot: capturedVaultRoot, date: notifyDate,
+                dayString: url.deletingPathExtension().lastPathComponent,
+                outboxRecorded: outboxRecorded, enqueuePayload: enqueuePayload)
+            if publishChanges { receipt.publishIfCurrent() }
+            return receipt
+    }
+
+    public static func mutateDeferringNotifications(
+        dayString: String,
+        vaultRoot: URL,
+        transform: ([Memo]) -> [Memo]?
+    ) throws -> MutationReceipt? {
+        guard let url = fileURL(forDayString: dayString, vaultRoot: vaultRoot) else {
+            throw RawStorageError.invalidDayString(dayString)
+        }
+        return try writeQueue.sync {
+            try performMutate(at: url, vaultRoot: vaultRoot,
+                notifyDate: ISO8601DateFormatter.dayOnly.date(from: dayString) ?? Date(),
+                publishChanges: false, transform: transform)
+        }
     }
 
     /// Returns the current canonical memo for a stable UUID without exposing

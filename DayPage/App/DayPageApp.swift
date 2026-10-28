@@ -368,10 +368,13 @@ struct DayPageApp: App {
                 guard icloud.isUsingiCloud else { return }
                 await MainActor.run {
                     guard !VaultInitializer.shared.isUsingiCloud else { return }
-                    VaultInitializer.shared = icloud
-                    VaultInitializer.initializeIfNeeded()
-                    iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
-                    iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+                    let replacement = VaultInitializer.replaceShared(with: icloud)
+                    Task { @MainActor in
+                        guard await replacement.value else { return }
+                        VaultInitializer.initializeIfNeeded()
+                        iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+                        iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+                    }
                 }
             }
         }

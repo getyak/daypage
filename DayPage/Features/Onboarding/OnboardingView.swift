@@ -562,9 +562,17 @@ private struct WelcomePage: View {
     }
 
     private func startLocally() {
+        let change = AppSettings.setAIFeaturesEnabled(false)
+        Task { @MainActor in
+            await change.value
+            guard !AppSettings.aiFeaturesEnabled else { return }
+            finishStartingLocally()
+        }
+    }
+
+    private func finishStartingLocally() {
         // A first note does not require permissions, an account, reminders or
         // provider credentials. Enhanced features remain opt-in in Settings.
-        UserDefaults.standard.set(false, forKey: AppSettings.Keys.aiFeaturesEnabled)
         UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
         // The direct-writing choice should not immediately open another
         // blocking setup overlay. The full setup path retains the coach marks.
