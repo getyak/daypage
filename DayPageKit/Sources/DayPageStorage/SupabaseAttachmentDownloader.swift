@@ -127,11 +127,12 @@ public struct SupabaseAttachmentDownloader: Sendable {
             return
         }
         let destination = try destinationURL(relativePath: item.relativePath)
-        let stagingURL = Self.stagingURL(recordID: item.recordID)
+        let stagingURL = try validatedWriteURL(Self.stagingURL(recordID: item.recordID))
         // Every persistent staging mutation (directory create, partial
         // cleanup, copy) commits inside the generation gate. On a stale lease
         // existing partials are preserved, never deleted.
         try commit {
+            _ = try validatedWriteURL(stagingURL)
             try FileManager.default.createDirectory(
                 at: stagingURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -146,6 +147,8 @@ public struct SupabaseAttachmentDownloader: Sendable {
                 // Media install is a durable effect: moving into the Vault and
                 // closing the obligation commit inside the generation gate.
                 try commit {
+                    _ = try validatedWriteURL(stagingURL)
+                    _ = try validatedWriteURL(destination)
                     try FileManager.default.createDirectory(
                         at: destination.deletingLastPathComponent(),
                         withIntermediateDirectories: true
@@ -161,6 +164,7 @@ public struct SupabaseAttachmentDownloader: Sendable {
             // Cleanup of an invalid partial is itself a durable mutation; a
             // refused (stale) cleanup preserves the bytes untouched.
             try? commit {
+                _ = try validatedWriteURL(stagingURL)
                 try FileManager.default.removeItem(at: stagingURL)
             }
         }
@@ -201,6 +205,7 @@ public struct SupabaseAttachmentDownloader: Sendable {
         }
 
         try commit {
+            _ = try validatedWriteURL(stagingURL)
             try FileManager.default.createDirectory(
                 at: stagingURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -212,6 +217,7 @@ public struct SupabaseAttachmentDownloader: Sendable {
         } catch {
             // Cleanup is gated too: a stale lease preserves the partial.
             try? commit {
+                _ = try validatedWriteURL(stagingURL)
                 try FileManager.default.removeItem(at: stagingURL)
             }
             throw error
@@ -219,6 +225,8 @@ public struct SupabaseAttachmentDownloader: Sendable {
         // Verified staging survives a refused commit as resumable progress;
         // nothing unverified or foreign is ever moved into the Vault.
         try commit {
+            _ = try validatedWriteURL(stagingURL)
+            _ = try validatedWriteURL(destination)
             try FileManager.default.createDirectory(
                 at: destination.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -245,7 +253,15 @@ public struct SupabaseAttachmentDownloader: Sendable {
         guard destination.path.hasPrefix(prefix) else {
             throw AttachmentSyncError.invalidPath(relativePath)
         }
-        return destination
+        return try validatedWriteURL(destination)
+    }
+
+    /// Write paths may have missing leaves, but every existing entry below
+    /// the selected Vault must be real. Reading verified bytes through a
+    /// symlink does not authorize moving that link or writing through its
+    /// ancestors. Recheck inside each durable commit after network waits.
+    private func validatedWriteURL(_ url: URL) throws -> URL {
+        try AttachmentFileInspector.safeWriteURL(url)
     }
 
     static func stagingURL(recordID: String) -> URL {

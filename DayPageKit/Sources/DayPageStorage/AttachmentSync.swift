@@ -169,6 +169,9 @@ public enum AttachmentManifest {
         guard descriptors.count <= 20,
               descriptors.map(\.position) == Array(0..<descriptors.count),
               Set(descriptors.map(\.objectKey)).count == descriptors.count,
+              descriptors.allSatisfy({
+                  $0.sizeBytes > 0 && $0.sizeBytes <= AttachmentFileInspector.maximumObjectBytes
+              }),
               descriptors.reduce(Int64(0), { $0 + $1.sizeBytes }) <=
                 AttachmentFileInspector.maximumMemoBytes else {
             return false
@@ -291,6 +294,44 @@ public enum AttachmentFileInspector {
             throw AttachmentSyncError.localFileChanged(url.path)
         }
         try validateMagic(url: url, mimeType: descriptor.mimeType, sizeBytes: digest.size)
+    }
+
+    /// Transfer writes and sidecar reads require real entries below the
+    /// selected Vault. Missing leaves are allowed; symlinks (including
+    /// dangling links) and non-directory ancestors are refused.
+    static func safeWriteURL(_ url: URL) throws -> URL {
+        let selectedRoot = VaultInitializer.vaultURL.standardizedFileURL
+        let root = selectedRoot.resolvingSymlinksInPath().standardizedFileURL
+        let candidate = url.standardizedFileURL
+        let relativePath: String
+        if candidate.path.hasPrefix(selectedRoot.path + "/") {
+            relativePath = String(candidate.path.dropFirst(selectedRoot.path.count + 1))
+        } else if candidate.path.hasPrefix(root.path + "/") {
+            relativePath = String(candidate.path.dropFirst(root.path.count + 1))
+        } else {
+            throw AttachmentSyncError.invalidPath(url.lastPathComponent)
+        }
+        var current = root
+        let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+        for (index, component) in components.enumerated() {
+            guard !component.isEmpty, component != ".", component != ".." else {
+                throw AttachmentSyncError.invalidPath(relativePath)
+            }
+            current.appendPathComponent(String(component))
+            let attributes: [FileAttributeKey: Any]
+            do {
+                attributes = try FileManager.default.attributesOfItem(atPath: current.path)
+            } catch let error as NSError where error.domain == NSCocoaErrorDomain
+                && (error.code == NSFileReadNoSuchFileError || error.code == NSFileNoSuchFileError) {
+                continue
+            }
+            let expectedType: FileAttributeType = index == components.count - 1
+                ? .typeRegular : .typeDirectory
+            guard attributes[.type] as? FileAttributeType == expectedType else {
+                throw AttachmentSyncError.invalidPath(relativePath)
+            }
+        }
+        return current
     }
 
     /// URL of an EXISTING own-Vault media file, for explicit user opening.
@@ -706,6 +747,7 @@ public enum AttachmentTransferStore {
     ///     record and partial file preserved byte-for-byte. Old state is never
     ///     guessed into a new project.
     private static func verifiedState(realm: SyncRealmIdentity) throws -> State {
+        _ = try AttachmentFileInspector.safeWriteURL(stateURL)
         switch SyncTransferSidecarBinding.inspect(
             vaultRoot: VaultInitializer.vaultURL,
             expecting: realm
@@ -1150,23 +1192,26 @@ public enum AttachmentTransferStore {
     }
 
     private static func load() throws -> State {
-        guard FileManager.default.fileExists(atPath: stateURL.path) else { return State() }
+        let url = try AttachmentFileInspector.safeWriteURL(stateURL)
+        guard FileManager.default.fileExists(atPath: url.path) else { return State() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let state = try decoder.decode(State.self, from: Data(contentsOf: stateURL))
+        let state = try decoder.decode(State.self, from: Data(contentsOf: url))
         guard state.schemaVersion == 1 else { throw AttachmentSyncError.invalidSidecar }
         return state
     }
 
     private static func save(_ state: State) throws {
+        let url = try AttachmentFileInspector.safeWriteURL(stateURL)
         try FileManager.default.createDirectory(
-            at: stateURL.deletingLastPathComponent(),
+            at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        try encoder.encode(state).write(to: stateURL, options: [.atomic])
+        _ = try AttachmentFileInspector.safeWriteURL(url)
+        try encoder.encode(state).write(to: url, options: [.atomic])
         // Notify AFTER the queue lock would be released by the caller and on
         // the main queue, so observers can safely re-enter transfer queries
         // (the earlier RawStorage notification deadlock lesson).

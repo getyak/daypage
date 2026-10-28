@@ -168,6 +168,9 @@ account ID, object key, upload URL, credential, or transfer status.
 - Before the memo cursor advances, each remote media obligation is persisted in the
   atomic transfer sidecar. Downloads are staged, streamed through SHA-256/size
   verification, and atomically installed under `raw/assets/`.
+- Download writes and partial-file replay reject symlinks below the selected
+  Vault, including destination ancestors and the partial file itself. Paths are
+  checked again after network waits; unsafe paths remain unfinished obligations.
 - Remote application bypasses outbound recording so a pull cannot echo into another
   push.
 - A newer remote revision wins its UUID. If a local unsynced edit conflicts, DayPage
