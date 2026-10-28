@@ -235,6 +235,12 @@ public enum RawStorage {
 
         public func publishIfCurrent(isCurrent: @escaping @Sendable () -> Bool = { true }) {
             guard isCurrent(), VaultInitializer.vaultURL.standardizedFileURL == vaultRoot.standardizedFileURL else { return }
+            publish(isCurrent: isCurrent)
+        }
+
+        /// Ordinary explicit-root mutations retain their notification contract;
+        /// only compilation's deferred receipt suppresses stale publication.
+        fileprivate func publish(isCurrent: @escaping @Sendable () -> Bool = { true }) {
             WidgetCenter.shared.reloadAllTimelines()
             RawStorage.notifyDidWrite(for: date, dayString: dayString, vaultRoot: vaultRoot)
             Task { @MainActor in
@@ -521,7 +527,7 @@ public enum RawStorage {
             let receipt = MutationReceipt(vaultRoot: capturedVaultRoot, date: notifyDate,
                 dayString: url.deletingPathExtension().lastPathComponent,
                 outboxRecorded: outboxRecorded, enqueuePayload: enqueuePayload)
-            if publishChanges { receipt.publishIfCurrent() }
+            if publishChanges { receipt.publish() }
             return receipt
     }
 

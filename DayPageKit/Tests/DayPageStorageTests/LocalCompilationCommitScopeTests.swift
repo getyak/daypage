@@ -116,6 +116,35 @@ struct LocalCompilationCommitScopeTests {
         #expect(!FileManager.default.fileExists(atPath: rootB.path))
         #expect(try RawStorage.read(dayString: "2026-10-28", vaultRoot: rootA).first?.mood == "focused")
     }
+
+    @Test @MainActor
+    func ordinaryPinnedMutationStillPublishesItsWrittenDayKey() throws {
+        let root = SyncRealmTestSupport.fixtureRoot.appendingPathComponent("ordinary-mutation-notify-\(UUID().uuidString)", isDirectory: true)
+        let otherRoot = root.appendingPathComponent("other", isDirectory: true)
+        let previous = VaultInitializer.testOverrideURL
+        defer {
+            VaultInitializer.testOverrideURL = previous
+            try? FileManager.default.removeItem(at: root)
+        }
+        let memo = Memo(created: Date(), body: "Synthetic pinned mutation fixture")
+        try RawStorage.atomicWrite(string: memo.toMarkdown(), to: root.appendingPathComponent("raw/2026-10-03.md"))
+        VaultInitializer.testOverrideURL = otherRoot
+        let notifications = CompilationReceiptCounter()
+        let observer = NotificationCenter.default.addObserver(forName: .rawStorageDidWrite, object: nil, queue: nil) { note in
+            if note.userInfo?[RawStorage.writtenDayStringKey] as? String == "2026-10-03",
+               note.userInfo?[RawStorage.writtenVaultRootKey] as? URL == root {
+                notifications.increment()
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        try RawStorage.mutate(dayString: "2026-10-03", vaultRoot: root) { memos in
+            var changed = memos
+            changed[0].mood = "focused"
+            return changed
+        }
+        #expect(notifications.value == 1, "Ordinary explicit-root mutation retains its written-day notification contract")
+        #expect(!FileManager.default.fileExists(atPath: otherRoot.path))
+    }
 }
 
 private final class CompilationReceiptCounter: @unchecked Sendable {

@@ -34,6 +34,9 @@ filesystem access, notification delivery, user callback or suspension runs under
 5. Raw compilation backfill returns a receipt without UI notification or sync scheduling.
    Main-actor publication happens after disk work, checks the current root/generation,
    and carries the captured root. Closing invalidates publication as well as queued saves.
+   Ordinary explicit-root mutations retain their existing metadata notification contract;
+   only deferred compilation receipts suppress stale notification delivery. Their async
+   sync-queue effects still verify the captured root.
 
 ## Integration calls
 

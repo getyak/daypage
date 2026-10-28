@@ -47,6 +47,8 @@
 
 **Review correction:** Keep global writer invalidation separate from per-kind request currency so unrelated transitions cannot discard a revoke or Vault-switch intent. False consent must become effective synchronously before drain; only true waits for drain and latest-request currency. Both corrections have real API failing regressions before their fixes.
 
+**Cloud-test correction:** The original ordinary explicit-root mutation notification must still publish the actual written day key. A cloud iOS test caught over-broad suppression; a matching isolated Kit regression failed before restoring the default path. Deferred compilation receipts retain root/generation filtering, and async sync work retains its captured-root check. The original iOS assertions remain unchanged.
+
 ### Task 3: Verify and hand off
 
 - [x] Run the regression GREEN and adjacent compilation/entity/wiki tests. Add explicit-root, overlapping-save, invalidation-before-commit, and failure assertions on actual isolated files.
