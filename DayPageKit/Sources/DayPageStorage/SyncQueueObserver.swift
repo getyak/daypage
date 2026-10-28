@@ -60,6 +60,7 @@ public final class SyncQueueObserver {
     private var lease: SyncSessionLease?
     private var localPersistenceDrain: Task<Void, Never>?
     private let syncQueue: SyncQueueService
+    private let compilationScope: LocalCompilationCommitScope
     private let legacyIsConfigured: () -> Bool
 
     /// Injected by the app after it has a Supabase session. The unconfigured
@@ -69,9 +70,11 @@ public final class SyncQueueObserver {
     init(
         observeNotifications: Bool = true,
         syncQueue: SyncQueueService? = nil,
+        compilationScope: LocalCompilationCommitScope = .shared,
         legacyIsConfigured: @escaping () -> Bool = { SyncSettings.isConfigured }
     ) {
         self.syncQueue = syncQueue ?? .shared
+        self.compilationScope = compilationScope
         self.legacyIsConfigured = legacyIsConfigured
         guard observeNotifications else { return }
         observer = NotificationCenter.default.addObserver(
@@ -107,7 +110,7 @@ public final class SyncQueueObserver {
         puller: RemotePuller,
         periodicInterval: TimeInterval = 30
     ) throws {
-        let localTransition = LocalCompilationCommitScope.shared.close()
+        let localTransition = compilationScope.close(kind: .session)
         defer { localTransition.finish() }
         guard localTransition.isDrained else { throw SyncRealmError.sessionInvalidated }
         do {
@@ -145,7 +148,7 @@ public final class SyncQueueObserver {
     /// every later one is refused.
     @discardableResult
     public func clearSession(rejectedConfiguration: Bool = false) -> Task<Void, Never> {
-        let localTransition = LocalCompilationCommitScope.shared.close()
+        let localTransition = compilationScope.close(kind: .session)
         let drain = Task { @MainActor in
             await localTransition.waitForDrain()
             localTransition.finish()

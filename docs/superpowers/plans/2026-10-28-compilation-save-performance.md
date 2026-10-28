@@ -45,6 +45,8 @@
 
 **Ruling:** The overlapping-save regression reproduced an existing same-second backup-name collision. Keep existing backup names when available and add a unique suffix on collision; this preserves both previous versions without changing raw/wiki document formats.
 
+**Review correction:** Keep global writer invalidation separate from per-kind request currency so unrelated transitions cannot discard a revoke or Vault-switch intent. False consent must become effective synchronously before drain; only true waits for drain and latest-request currency. Both corrections have real API failing regressions before their fixes.
+
 ### Task 3: Verify and hand off
 
 - [x] Run the regression GREEN and adjacent compilation/entity/wiki tests. Add explicit-root, overlapping-save, invalidation-before-commit, and failure assertions on actual isolated files.

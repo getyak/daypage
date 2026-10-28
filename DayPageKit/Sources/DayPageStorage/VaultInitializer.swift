@@ -40,7 +40,7 @@ public enum VaultInitializer {
             return locator
         }
         set {
-            let transition = LocalCompilationCommitScope.shared.close()
+            let transition = LocalCompilationCommitScope.shared.close(kind: .vaultReplacement)
             if transition.isDrained {
                 setLocator(newValue)
                 transition.finish()
@@ -53,7 +53,7 @@ public enum VaultInitializer {
     /// Callers that announce a switch or start new-root observers await this
     /// task. Closing admission happens before any task is scheduled.
     public static func replaceShared(with next: any VaultLocator) -> Task<Bool, Never> {
-        completeReplacement(next, transition: LocalCompilationCommitScope.shared.close())
+        completeReplacement(next, transition: LocalCompilationCommitScope.shared.close(kind: .vaultReplacement))
     }
 
     private static func completeReplacement(

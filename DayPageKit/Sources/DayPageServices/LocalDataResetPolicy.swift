@@ -134,7 +134,7 @@ public enum LocalDataResetPolicy {
         contextProvider: () -> Context,
         mutation: (URL) -> Void
     ) -> LocalDataResetDecision {
-        let transition = LocalCompilationCommitScope.shared.close()
+        let transition = LocalCompilationCommitScope.shared.close(kind: .localReset)
         defer { transition.finish() }
         // Compatibility entry point never waits on a worker from MainActor.
         // UI uses beginReset and awaits its drain instead.
@@ -159,7 +159,7 @@ public enum LocalDataResetPolicy {
         let initialDecision = evaluate(initial)
         guard initialDecision.isAllowed else { return Task { initialDecision } }
         let target = initial.activeVaultURL.standardizedFileURL.resolvingSymlinksInPath()
-        let transition = scope.close()
+        let transition = scope.close(kind: .localReset)
         return Task { @MainActor in
             defer { transition.finish() }
             await transition.waitForDrain()

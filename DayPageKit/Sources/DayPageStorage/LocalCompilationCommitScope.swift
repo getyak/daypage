@@ -5,10 +5,15 @@ import Foundation
 public final class LocalCompilationCommitScope: @unchecked Sendable {
     public static let shared = LocalCompilationCommitScope()
 
+    public enum TransitionKind: Hashable, Sendable {
+        case admissionOnly, aiPreference, vaultReplacement, localReset, session
+    }
+
     private let lock = NSLock()
     private var generation: UInt64 = 0
     private var active: Set<UUID> = []
     private var transitions: Set<UUID> = []
+    private var latestRequests: [TransitionKind: UUID] = [:]
     private var drainWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init() {}
@@ -29,8 +34,8 @@ public final class LocalCompilationCommitScope: @unchecked Sendable {
     public struct Transition: Sendable {
         fileprivate let scope: LocalCompilationCommitScope
         fileprivate let id: UUID
-        fileprivate let generation: UInt64
-        public var isCurrent: Bool { scope.isCurrentTransition(id, generation: generation) }
+        fileprivate let kind: TransitionKind
+        public var isCurrent: Bool { scope.isCurrentTransition(id, kind: kind) }
         public var isDrained: Bool { !scope.hasActiveCommits }
         public func waitForDrain() async { await scope.waitForDrain() }
         public func finish() { scope.finishTransition(id) }
@@ -62,13 +67,14 @@ public final class LocalCompilationCommitScope: @unchecked Sendable {
     }
 
     /// Synchronous refusal boundary, called before scheduling a transition task.
-    public func close() -> Transition {
+    public func close(kind: TransitionKind = .admissionOnly) -> Transition {
         lock.lock()
         defer { lock.unlock() }
         generation &+= 1
         let id = UUID()
         transitions.insert(id)
-        return Transition(scope: self, id: id, generation: generation)
+        latestRequests[kind] = id
+        return Transition(scope: self, id: id, kind: kind)
     }
 
     private func isCurrent(_ generation: UInt64) -> Bool {
@@ -77,10 +83,10 @@ public final class LocalCompilationCommitScope: @unchecked Sendable {
         return self.generation == generation && transitions.isEmpty
     }
 
-    private func isCurrentTransition(_ id: UUID, generation: UInt64) -> Bool {
+    private func isCurrentTransition(_ id: UUID, kind: TransitionKind) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return self.generation == generation && transitions.contains(id)
+        return latestRequests[kind] == id && transitions.contains(id)
     }
 
     private func waitForDrain() async {

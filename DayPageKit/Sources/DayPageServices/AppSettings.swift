@@ -120,19 +120,20 @@ public enum CardDensity: String, CaseIterable {
 // MARK: - AppSettings.Keys
 
 public extension AppSettings {
-    /// Close admission at the synchronous UI boundary, then suspend while
-    /// admitted saves finish. The visible preference changes after the drain.
+    /// Revoke outbound authorization synchronously; enabling and transition
+    /// completion wait for admitted local saves without blocking MainActor.
     @MainActor
     static func setAIFeaturesEnabled(
         _ enabled: Bool, in store: UserDefaults = .standard,
         scope: LocalCompilationCommitScope = .shared
     ) -> Task<Void, Never> {
-        let transition = scope.close()
+        let transition = scope.close(kind: .aiPreference)
+        if !enabled { store.set(false, forKey: Keys.aiFeaturesEnabled) }
         return Task { @MainActor in
             defer { transition.finish() }
             await transition.waitForDrain()
             guard transition.isCurrent else { return }
-            store.set(enabled, forKey: Keys.aiFeaturesEnabled)
+            if enabled { store.set(true, forKey: Keys.aiFeaturesEnabled) }
         }
     }
 

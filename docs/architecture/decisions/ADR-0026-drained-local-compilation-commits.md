@@ -22,10 +22,12 @@ filesystem access, notification delivery, user callback or suspension runs under
 2. `beginCommit(token)` atomically admits a current token and returns a finish handle.
    One shared compilation persistence actor serializes actual saves. Before its first
    write it checks cancellation, live consent, current root and current raw source hash.
-3. `close()` synchronously invalidates old tokens and refuses new admission. It returns
+3. `close(kind:)` synchronously invalidates old tokens and refuses new admission. It returns
    a transition whose `waitForDrain()` suspends until admitted commits finish. `finish()`
-   reopens only after all overlapping transitions finish. Older transitions cannot apply
-   a locator or preference change after a newer request supersedes them.
+   reopens only after all overlapping transitions finish. Writer generation is global,
+   but request currency is independent for AI preference, locator replacement, reset,
+   and session operations. Only a newer request of the same kind supersedes a mutation;
+   an unrelated auth event must not swallow a requested revoke or Vault switch.
 4. An admitted commit may finish using its captured root. Its index rebuild is part of
    the same synchronous worker operation; no trailing untracked rebuild may recreate it.
    The main actor only publishes current results after the awaited worker returns.
@@ -44,8 +46,10 @@ filesystem access, notification delivery, user callback or suspension runs under
   before mutation. Settings awaits this result. The old synchronous helper refuses a
   reset if commits are active, preserving existing policy tests without a blocking wait.
 - `AppSettings.setAIFeaturesEnabled(_:in:) -> Task<Void, Never>` closes synchronously,
-  awaits drain, then applies the latest requested preference. The Settings toggle and
-  onboarding entry use it; screenshot revocation remains connected after disable.
+  writes false immediately to refuse every new outbound authorization, then awaits
+  drain. True applies only after drain and only for the latest preference request.
+  The Settings toggle and onboarding entry use it; screenshot revocation remains
+  connected after disable. Existing provider cancellation is unchanged.
 - `SyncQueueObserver.clearSession` closes local compilation admission and returns a
   drain task while retaining its existing synchronous sync-session invalidation.
   Native auth listeners/sign-out await the local drain and recheck the SDK's exact

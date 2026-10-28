@@ -63,6 +63,24 @@ struct LocalCompilationCommitScopeTests {
         #expect(try scope.capture(vaultRoot: URL(fileURLWithPath: "/synthetic-vault")).isCurrent)
     }
 
+    @Test
+    func differentTransitionKindsDoNotSupersedeEachOther() {
+        let scope = LocalCompilationCommitScope()
+        let revoke = scope.close(kind: .aiPreference)
+        let session = scope.close(kind: .session)
+        let replacement = scope.close(kind: .vaultReplacement)
+        defer { revoke.finish(); session.finish(); replacement.finish() }
+        #expect(revoke.isCurrent)
+        #expect(session.isCurrent)
+        #expect(replacement.isCurrent)
+        let newerPreference = scope.close(kind: .aiPreference)
+        defer { newerPreference.finish() }
+        #expect(!revoke.isCurrent)
+        #expect(newerPreference.isCurrent)
+        #expect(session.isCurrent)
+        #expect(replacement.isCurrent)
+    }
+
     @Test @MainActor
     func deferredRawReceiptCannotNotifyAnotherVaultOrAResetGeneration() throws {
         let root = SyncRealmTestSupport.fixtureRoot.appendingPathComponent("compilation-receipts-\(UUID().uuidString)", isDirectory: true)
