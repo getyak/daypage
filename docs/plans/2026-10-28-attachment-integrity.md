@@ -86,6 +86,16 @@ new private directory, predeclared media/TUS UUIDs and an atomic progress ledger
 unknown/revoked scope cannot be replaced by a broader request. Another live run
 requires final helper review; the interrupted directory is never reused.
 
+The harness uses existing public interfaces to clear/reject the shared background
+observer before any live configuration or raw writes. The global Vault override
+always returns to a new-run empty sentinel, including between cases and after
+cleanup; delayed callbacks cannot fall back to a personal default Vault.
+Every explicit transfer also checks that the observer remains rejected and the
+outbox contains only the two predeclared fixture IDs. The nonce attestation
+records the observed rejected/inactive shared session, private Vault root and
+zero remote-apply outbound operations. No production debug or permission-bypass
+switch is introduced.
+
 DP-02 and DP-03 already have later fixes on main. Existing local-reset and
 diagnostics-consent tests passed in the package suite; no duplicate architecture
 change was made for those historical audit items. Actual App Store review and

@@ -20,11 +20,12 @@ import DayPageModels
 final class SupabaseMultiDeviceLiveTests: XCTestCase {
     func testTwoVaultsRoundTripCreateEditAndDelete() async throws {
         let fixtureMemoID = try declaredFixtureMemoID("media")
+        let containment = try prepareLiveContainment()
+        VaultInitializer.testOverrideURL = containment.inactive
+        try await blockSharedBackgroundSync()
         let configuration = try await SupabaseLiveTestConfiguration.load()
         let liveSession = try await makeLiveSession(configuration)
-        let baseDirectory = ProcessInfo.processInfo.environment["DAYPAGE_TEST_VAULT_ROOT"]
-            .map { URL(fileURLWithPath: $0, isDirectory: true) }
-            ?? FileManager.default.temporaryDirectory
+        let baseDirectory = containment.base
         let root = baseDirectory
             .appendingPathComponent("daypage-live-multidevice-\(UUID().uuidString)", isDirectory: true)
         let vaultA = root.appendingPathComponent("device-a", isDirectory: true)
@@ -32,7 +33,7 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         try prepare(vaultA)
         try prepare(vaultB)
         defer {
-            VaultInitializer.testOverrideURL = nil
+            VaultInitializer.testOverrideURL = containment.inactive
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -99,6 +100,8 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
             try SyncOutboxStore.pendingOperations().first(where: { $0.memoID == memo.id })
         )
         XCTAssertEqual(deletion.kind, .delete)
+        try await assertBackgroundSyncBlocked()
+        try assertOnlyDeclaredOutboxOperations()
         try recordLiveProgress("write_started", operation: deletion)
         _ = try await uploader.upload(operation: deletion)
         try SyncOutboxStore.acknowledge(operationID: deletion.operationID)
@@ -185,15 +188,17 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
 
     func testInterruptedTUSResumesFromServerOffset() async throws {
         let fixtureMemoID = try declaredFixtureMemoID("tus")
+        let containment = try prepareLiveContainment()
+        VaultInitializer.testOverrideURL = containment.inactive
+        try await blockSharedBackgroundSync()
         let configuration = try await SupabaseLiveTestConfiguration.load()
         let liveSession = try await makeLiveSession(configuration)
-        let baseDirectory = ProcessInfo.processInfo.environment["DAYPAGE_TEST_VAULT_ROOT"]
-            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        let baseDirectory = containment.base
         let root = baseDirectory
             .appendingPathComponent("daypage-live-tus-\(UUID().uuidString)", isDirectory: true)
         try prepare(root)
         defer {
-            VaultInitializer.testOverrideURL = nil
+            VaultInitializer.testOverrideURL = containment.inactive
             try? FileManager.default.removeItem(at: root)
         }
         try select(root, session: liveSession)
@@ -228,6 +233,8 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
             accessTokenProvider: tokenProvider
         )
         try recordLiveProgress("tus_attempt_started", operation: operation)
+        try await assertBackgroundSyncBlocked()
+        try assertOnlyDeclaredOutboxOperations()
         do {
             _ = try await firstUploader.upload(operation: operation)
             XCTFail("the first TUS attempt must be interrupted after a real chunk")
@@ -246,6 +253,8 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
             accessTokenProvider: tokenProvider
         )
         try recordLiveProgress("tus_resume_started", operation: operation)
+        try await assertBackgroundSyncBlocked()
+        try assertOnlyDeclaredOutboxOperations()
         _ = try await resumedUploader.upload(operation: operation)
         let resumed = await probe.snapshot()
         XCTAssertGreaterThanOrEqual(resumed.headRequests, 1)
@@ -392,6 +401,8 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         for memoID: UUID,
         using uploader: SupabaseSyncUploader
     ) async throws {
+        try await assertBackgroundSyncBlocked()
+        try assertOnlyDeclaredOutboxOperations()
         let operation = try XCTUnwrap(
             try SyncOutboxStore.pendingOperations().first(where: { $0.memoID == memoID })
         )
@@ -411,11 +422,15 @@ final class SupabaseMultiDeviceLiveTests: XCTestCase {
         }
         try recordLiveProgress("pull_started", memoID: scoped.memoID)
         try select(vault, session: session)
+        try await assertBackgroundSyncBlocked()
+        try assertOnlyDeclaredOutboxOperations()
         for _ in 0..<10 {
             let cursor = try SyncAccountStateStore.pullCursor(for: session.identity)
             let page = try await puller.pull(after: cursor, limit: 100)
             XCTAssertGreaterThanOrEqual(page.nextCursor, cursor)
             _ = try RawStorage.applyRemoteChanges(page.changes, sessionLease: session.lease)
+            XCTAssertTrue(try SyncOutboxStore.pendingOperations().isEmpty)
+            try assertOnlyDeclaredOutboxOperations()
             try SyncAccountStateStore.advancePullCursor(
                 to: page.nextCursor,
                 for: session.identity
@@ -524,7 +539,14 @@ final class FixtureScopedReadbackScopeTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
-        VaultInitializer.testOverrideURL = nil
+        if let root = ProcessInfo.processInfo.environment["DAYPAGE_ATTACHMENT_RUN_ROOT"] {
+            let sentinel = URL(fileURLWithPath: root).appendingPathComponent("vaults/inactive")
+            try FileManager.default.createDirectory(at: sentinel, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+            VaultInitializer.testOverrideURL = sentinel
+        } else {
+            VaultInitializer.testOverrideURL = nil
+        }
         if let vault { try FileManager.default.removeItem(at: vault) }
     }
 
@@ -533,6 +555,7 @@ final class FixtureScopedReadbackScopeTests: XCTestCase {
     }
 
     private func runProductionScopeProbe() async throws -> [String: Any] {
+        try await blockSharedBackgroundSync()
         let memoID = UUID()
         let ownerID = UUID()
         let realm = try SyncRealmTestSupport.realm(user: ownerID)
@@ -563,11 +586,19 @@ final class FixtureScopedReadbackScopeTests: XCTestCase {
         XCTAssertTrue(replay.changes.isEmpty)
         let queries = await underlying.calls
         let fileRequests = await fileProbe.calls
+        let pendingOperations = try SyncOutboxStore.pendingOperations().count
+        try await assertBackgroundSyncBlocked()
+        let background = await sharedBackgroundState()
         XCTAssertEqual(queries, 5)
         XCTAssertEqual(fileRequests, 0)
+        XCTAssertEqual(pendingOperations, 0)
         return ["production_endpoint": puller.endpoint.path, "scoped_metadata_requests": queries,
                 "file_requests": fileRequests, "tombstone_observed": tombstoneObserved,
-                "replay_empty": replay.changes.isEmpty]
+                "replay_empty": replay.changes.isEmpty,
+                "background_observer_rejected": background.rejected,
+                "background_session_active": background.sessionActive,
+                "global_vault_private": taskGlobalVaultIsPrivate(),
+                "remote_apply_pending_operations": pendingOperations]
     }
 
     func testUnexpectedRequestFailsClosedWithoutAnyForwarding() async throws {
@@ -615,6 +646,71 @@ final class FixtureScopedReadbackScopeTests: XCTestCase {
     }
 }
 
+private func prepareLiveContainment() throws -> (base: URL, inactive: URL) {
+    let base: URL
+    if ProcessInfo.processInfo.environment["DAYPAGE_ATTACHMENT_RUN_ROOT"] != nil {
+        base = try privateRunRoot().appendingPathComponent("vaults")
+        guard ProcessInfo.processInfo.environment["DAYPAGE_TEST_VAULT_ROOT"] == base.path else {
+            throw MemoSyncError.invalidResponse
+        }
+    } else {
+        base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("daypage-local-containment-\(UUID())")
+    }
+    let inactive = base.appendingPathComponent("inactive")
+    try FileManager.default.createDirectory(at: inactive, withIntermediateDirectories: true,
+                                            attributes: [.posixPermissions: 0o700])
+    return (base, inactive)
+}
+
+private func taskGlobalVaultIsPrivate() -> Bool {
+    guard let selected = VaultInitializer.testOverrideURL else { return false }
+    let active = VaultInitializer.vaultURL.resolvingSymlinksInPath().standardizedFileURL
+    guard active == selected.resolvingSymlinksInPath().standardizedFileURL else { return false }
+    if let root = ProcessInfo.processInfo.environment["DAYPAGE_ATTACHMENT_RUN_ROOT"] {
+        let base = URL(fileURLWithPath: root).appendingPathComponent("vaults")
+            .resolvingSymlinksInPath().standardizedFileURL
+        return active == base || active.path.hasPrefix(base.path + "/")
+    }
+    return true
+}
+
+@MainActor
+private func sharedBackgroundState() -> (rejected: Bool, sessionActive: Bool) {
+    (SyncQueueObserver.shared.isConfigurationRejected, SyncQueueService.shared.completion.sessionActive)
+}
+
+@MainActor
+private func blockSharedBackgroundSync() throws {
+    guard taskGlobalVaultIsPrivate() else { throw MemoSyncError.invalidResponse }
+    SyncQueueObserver.shared.clearSession(rejectedConfiguration: true)
+    SyncQueueService.shared.reloadFromOutbox()
+    try assertBackgroundSyncBlocked()
+}
+
+@MainActor
+private func assertBackgroundSyncBlocked() throws {
+    guard taskGlobalVaultIsPrivate() else { throw MemoSyncError.invalidResponse }
+    let state = sharedBackgroundState()
+    guard state.rejected, !state.sessionActive else {
+        throw MemoSyncError.invalidResponse
+    }
+}
+
+private func assertOnlyDeclaredOutboxOperations() throws {
+    guard taskGlobalVaultIsPrivate() else { throw MemoSyncError.invalidResponse }
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["DAYPAGE_ATTACHMENT_RUN_ROOT"] != nil else { return }
+    guard let path = environment["DAYPAGE_ATTACHMENT_PROGRESS_PATH"],
+          let ids = try readPrivateRunJSON(path: path)["fixture_ids"] as? [String: String] else {
+        throw MemoSyncError.invalidResponse
+    }
+    let allowed = Set(ids.values)
+    guard try SyncOutboxStore.pendingOperations().allSatisfy({
+        allowed.contains($0.memoID.uuidString.lowercased())
+    }) else { throw MemoSyncError.invalidResponse }
+}
+
 private func declaredFixtureMemoID(_ kind: String) throws -> UUID {
     let environment = ProcessInfo.processInfo.environment
     guard let url = environment["DAYPAGE_SYNC_E2E_URL"] else {
@@ -643,6 +739,10 @@ private func declaredFixtureMemoID(_ kind: String) throws -> UUID {
           proof["unexpected_forwarded"] as? Int == 0,
           proof["scoped_metadata_requests"] as? Int == 5,
           proof["file_requests"] as? Int == 0,
+          proof["background_observer_rejected"] as? Bool == true,
+          proof["background_session_active"] as? Bool == false,
+          proof["global_vault_private"] as? Bool == true,
+          proof["remote_apply_pending_operations"] as? Int == 0,
           (proof["rejected_inputs"] as? Int ?? 0) >= 5,
           proof["tombstone_observed"] as? Bool == true,
           proof["replay_empty"] as? Bool == true,
