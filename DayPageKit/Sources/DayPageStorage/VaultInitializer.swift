@@ -40,10 +40,38 @@ public enum VaultInitializer {
             return locator
         }
         set {
-            stateLock.lock()
-            defer { stateLock.unlock() }
-            locator = newValue
+            let transition = LocalCompilationCommitScope.shared.close(kind: .vaultReplacement)
+            if transition.isDrained {
+                setLocator(newValue)
+                transition.finish()
+            } else {
+                _ = completeReplacement(newValue, transition: transition)
+            }
         }
+    }
+
+    /// Callers that announce a switch or start new-root observers await this
+    /// task. Closing admission happens before any task is scheduled.
+    public static func replaceShared(with next: any VaultLocator) -> Task<Bool, Never> {
+        completeReplacement(next, transition: LocalCompilationCommitScope.shared.close(kind: .vaultReplacement))
+    }
+
+    private static func completeReplacement(
+        _ next: any VaultLocator, transition: LocalCompilationCommitScope.Transition
+    ) -> Task<Bool, Never> {
+        Task { @MainActor in
+            defer { transition.finish() }
+            await transition.waitForDrain()
+            guard transition.isCurrent else { return false }
+            setLocator(next)
+            return true
+        }
+    }
+
+    private static func setLocator(_ next: any VaultLocator) {
+        stateLock.lock()
+        locator = next
+        stateLock.unlock()
     }
 
     /// Test-only override. When non-nil, `vaultURL` returns this instead of the

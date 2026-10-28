@@ -46,6 +46,7 @@ current PRD is adopted and linked here.
 - [ADR-0023: Account tag imports](architecture/decisions/ADR-0023-account-tag-imports.md) — Accepted; shared-backend rollout and Web reading verified, native reading delivered via ADR-0025 (local synthetic acceptance only)
 - [ADR-0024: Account/origin/session binding](architecture/decisions/ADR-0024-account-origin-session-binding.md) — Accepted; native realm/session isolation implemented, live device gates parent-owned
 - [ADR-0025: Native tag projection and sync completion](architecture/decisions/ADR-0025-native-tag-projection-and-sync-completion.md) — Accepted; derived tag cache, consistency boundary and truthful sync completion implemented in DayPageKit + Apple hosts; real-account/device/live acceptance pending parent gates
+- [ADR-0026: Drained local compilation commits](architecture/decisions/ADR-0026-drained-local-compilation-commits.md) — Accepted for issue #824 remediation; background persistence and asynchronous scope closing
 - `docs/ADR-0001-*.md` through `docs/ADR-0005-*.md` are legacy-location decisions.
   Read their status fields and verify implementation before relying on them.
 

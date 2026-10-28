@@ -33,8 +33,20 @@ public final class WikiIndexService {
     /// detaching is safe. The returned task lets tests await completion.
     @discardableResult
     public func rebuild() -> Task<Void, Never> {
-        Task.detached(priority: .utility) {
-            let wikiURL = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+        let root = VaultInitializer.vaultURL
+        let token = try? LocalCompilationCommitScope.shared.capture(vaultRoot: root)
+        return Task.detached(priority: .utility) {
+            guard let token,
+                  let commit = try? LocalCompilationCommitScope.shared.beginCommit(token) else { return }
+            defer { commit.finish() }
+            guard VaultInitializer.vaultURL.standardizedFileURL == token.vaultRoot else { return }
+            Self.rebuildNow(vaultRoot: root)
+        }
+    }
+
+    /// Used inside the compilation worker's admitted commit, with no trailing task.
+    nonisolated static func rebuildNow(vaultRoot: URL) {
+            let wikiURL = vaultRoot.appendingPathComponent("wiki")
             let content = Self.buildIndexMarkdown(
                 daily: Self.scanDaily(wikiURL: wikiURL),
                 weekly: Self.scanWeekly(wikiURL: wikiURL),
@@ -44,9 +56,8 @@ public final class WikiIndexService {
             do {
                 try RawStorage.atomicWrite(string: content, to: wikiURL.appendingPathComponent("index.md"))
             } catch {
-                await DayPageLogger.shared.error("WikiIndexService: failed to write index.md: \(error)")
+                DayPageLogger.log(level: "ERROR", message: "WikiIndexService: failed to write index.md: \(error)")
             }
-        }
     }
 
     // MARK: - Scan (disk → entries)

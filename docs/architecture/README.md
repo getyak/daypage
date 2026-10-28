@@ -23,6 +23,7 @@
 - [ADR-0023](decisions/ADR-0023-account-tag-imports.md): exact imported labels and immutable account import receipts.
 - [ADR-0024](decisions/ADR-0024-account-origin-session-binding.md): Apple sync realm binding, session generations and recovery boundaries.
 - [ADR-0025](decisions/ADR-0025-native-tag-projection-and-sync-completion.md): native account-tag projection cache, consistency boundary and truthful sync completion.
+- [ADR-0026](decisions/ADR-0026-drained-local-compilation-commits.md): off-main local compilation persistence and asynchronous close/drain before scope changes.
 
 The overview is descriptive and should track executable reality. ADRs explain durable
 choices and trade-offs. Product requirements belong in a current PRD or issue, not in an

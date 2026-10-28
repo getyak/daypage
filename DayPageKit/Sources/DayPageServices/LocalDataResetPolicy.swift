@@ -134,6 +134,11 @@ public enum LocalDataResetPolicy {
         contextProvider: () -> Context,
         mutation: (URL) -> Void
     ) -> LocalDataResetDecision {
+        let transition = LocalCompilationCommitScope.shared.close(kind: .localReset)
+        defer { transition.finish() }
+        // Compatibility entry point never waits on a worker from MainActor.
+        // UI uses beginReset and awaits its drain instead.
+        guard transition.isDrained else { return .blocked(.unresolvedVault) }
         var context = contextProvider()
         // Freeze the exact resolved deletion target. The caller must not
         // consult the live locator again after authorization.
@@ -142,6 +147,31 @@ public enum LocalDataResetPolicy {
         guard decision.isAllowed else { return decision }
         mutation(context.activeVaultURL)
         return decision
+    }
+
+    @MainActor
+    public static func beginReset(
+        contextProvider: @escaping @MainActor () -> Context,
+        scope: LocalCompilationCommitScope = .shared,
+        mutation: @escaping @MainActor (URL) -> Void
+    ) -> Task<LocalDataResetDecision, Never> {
+        let initial = contextProvider()
+        let initialDecision = evaluate(initial)
+        guard initialDecision.isAllowed else { return Task { initialDecision } }
+        let target = initial.activeVaultURL.standardizedFileURL.resolvingSymlinksInPath()
+        let transition = scope.close(kind: .localReset)
+        return Task { @MainActor in
+            defer { transition.finish() }
+            await transition.waitForDrain()
+            guard transition.isCurrent else { return .blocked(.unresolvedVault) }
+            var current = contextProvider()
+            current.activeVaultURL = current.activeVaultURL.standardizedFileURL.resolvingSymlinksInPath()
+            let decision = evaluate(current)
+            guard decision.isAllowed else { return decision }
+            guard current.activeVaultURL == target else { return .blocked(.nonCanonicalVault) }
+            mutation(target)
+            return .allowed
+        }
     }
 
     // MARK: URL normalization

@@ -300,17 +300,20 @@ public enum AttachmentFileInspector {
     /// selected Vault. Missing leaves are allowed; symlinks (including
     /// dangling links) and non-directory ancestors are refused.
     static func safeWriteURL(_ url: URL) throws -> URL {
-        let selectedRoot = VaultInitializer.vaultURL.standardizedFileURL
+        let selectedRoot = VaultInitializer.vaultURL
         let root = selectedRoot.resolvingSymlinksInPath().standardizedFileURL
-        let candidate = url.standardizedFileURL
-        let relativePath: String
-        if candidate.path.hasPrefix(selectedRoot.path + "/") {
-            relativePath = String(candidate.path.dropFirst(selectedRoot.path.count + 1))
-        } else if candidate.path.hasPrefix(root.path + "/") {
-            relativePath = String(candidate.path.dropFirst(root.path.count + 1))
-        } else {
+        // Existing /private/tmp roots can standardize to /tmp while missing
+        // children retain /private/tmp. Derive the suffix from raw components
+        // first; never resolve the candidate and erase descendant-link evidence.
+        let candidate = url.pathComponents
+        guard selectedRoot.isFileURL, url.isFileURL,
+              !candidate.contains("."), !candidate.contains(".."),
+              let base = [selectedRoot.pathComponents, root.pathComponents].first(where: {
+                  candidate.count > $0.count && candidate.starts(with: $0)
+              }) else {
             throw AttachmentSyncError.invalidPath(url.lastPathComponent)
         }
+        let relativePath = candidate.dropFirst(base.count).joined(separator: "/")
         var current = root
         let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
         for (index, component) in components.enumerated() {

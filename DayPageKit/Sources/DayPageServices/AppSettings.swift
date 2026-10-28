@@ -120,6 +120,23 @@ public enum CardDensity: String, CaseIterable {
 // MARK: - AppSettings.Keys
 
 public extension AppSettings {
+    /// Revoke outbound authorization synchronously; enabling and transition
+    /// completion wait for admitted local saves without blocking MainActor.
+    @MainActor
+    static func setAIFeaturesEnabled(
+        _ enabled: Bool, in store: UserDefaults = .standard,
+        scope: LocalCompilationCommitScope = .shared
+    ) -> Task<Void, Never> {
+        let transition = scope.close(kind: .aiPreference)
+        if !enabled { store.set(false, forKey: Keys.aiFeaturesEnabled) }
+        return Task { @MainActor in
+            defer { transition.finish() }
+            await transition.waitForDrain()
+            guard transition.isCurrent else { return }
+            if enabled { store.set(true, forKey: Keys.aiFeaturesEnabled) }
+        }
+    }
+
     // C4 fix: master AI toggle. Defaults to true; flipping to false in Settings
     // makes CompilationService / VoiceService refuse outbound LLM calls even
     // when API keys remain configured. Read at every call site rather than

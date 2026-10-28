@@ -357,8 +357,16 @@ struct SettingsSyncDataView: View {
 
     private func rollbackToLocal() {
         Haptics.warn()
+        let replacement = VaultInitializer.replaceShared(with: LocalVaultLocator())
+        Task { @MainActor in
+            guard await replacement.value else { return }
+            finishRollbackToLocal()
+        }
+    }
+
+    private func finishRollbackToLocal() {
+        guard VaultInitializer.shared is LocalVaultLocator else { return }
         appSettings.vaultLocation = .local
-        VaultInitializer.shared = LocalVaultLocator()
         bannerCenter.show(AppBannerModel(
             kind: .info,
             title: NSLocalizedString("settings.icloud.rollback.done", comment: ""),
@@ -873,10 +881,17 @@ struct SettingsSyncDataView: View {
     // wipe data while a cloud account is authenticated. Blocked → vault, keys
     // and preferences are preserved untouched.
     private func purgeAllLocalData() {
-        let decision = LocalDataResetPolicy.performIfAllowed(
+        let reset = LocalDataResetPolicy.beginReset(
             contextProvider: { Self.liveResetContext() },
             mutation: { verifiedURL in performPurgeMutations(vaultURL: verifiedURL) }
         )
+        Task { @MainActor in
+            let decision = await reset.value
+            showResetDecision(decision)
+        }
+    }
+
+    private func showResetDecision(_ decision: LocalDataResetDecision) {
         if !decision.isAllowed {
             Haptics.warn()
             bannerCenter.show(AppBannerModel(

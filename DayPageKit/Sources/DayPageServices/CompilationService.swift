@@ -45,7 +45,19 @@ public final class CompilationService: ObservableObject {
     // MARK: Singleton
 
     public static let shared = CompilationService()
-    private init() {}
+    private let vaultRootProvider: @Sendable () -> URL
+    private let scope: LocalCompilationCommitScope
+    private let consent: any AIConsentChecking
+
+    init(
+        vaultRootProvider: @escaping @Sendable () -> URL = { VaultInitializer.vaultURL },
+        scope: LocalCompilationCommitScope = .shared,
+        consent: any AIConsentChecking = LiveAIConsent()
+    ) {
+        self.vaultRootProvider = vaultRootProvider
+        self.scope = scope
+        self.consent = consent
+    }
 
     // MARK: - Published Stage
 
@@ -77,6 +89,8 @@ public final class CompilationService: ObservableObject {
     ) async throws -> CompileOutcome {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
+        let vaultRoot = vaultRootProvider().standardizedFileURL
+        let token = try scope.capture(vaultRoot: vaultRoot)
 
         // Reset partial-failure tracking at the start of every run so the
         // BG service / UI can observe the latest result without stale data.
@@ -88,24 +102,25 @@ public final class CompilationService: ObservableObject {
         // main thread for tens of ms right as the user tapped 编译.
         stage = .extracting
         compilationProgress = .extracting
-        let dailyURL = dailyPageURL(for: dateString)
-        let (memos, rawContent, sourceHash, storedHash, existingDailyRevision) =
+        let dailyURL = vaultRoot.appendingPathComponent("wiki/daily/\(dateString).md")
+        let (memos, rawContent, sourceHash, storedHash, existingDailyRevision, hotContent) =
             try await Task.detached(priority: .userInitiated) {
                 let memos: [Memo]
                 do {
-                    memos = try RawStorage.read(for: date)
+                    memos = try RawStorage.read(dayString: dateString, vaultRoot: vaultRoot)
                 } catch {
                     throw CompilationError.parseFailure("读取原始备忘录失败：\(error.localizedDescription)")
                 }
                 guard !memos.isEmpty else {
                     throw CompilationError.emptyInput
                 }
-                let rawContent = (try? String(contentsOf: RawStorage.fileURL(for: date), encoding: .utf8)) ?? ""
+                let rawContent = (try? String(contentsOf: vaultRoot.appendingPathComponent("raw/\(dateString).md"), encoding: .utf8)) ?? ""
                 let hash = Self.sourceHash(of: memos)
                 let stored = (try? String(contentsOf: dailyURL, encoding: .utf8))
                     .flatMap { Self.extractSourceHash(from: $0) }
                 let revision = Self.dailyPageRevision(at: dailyURL)
-                return (memos, rawContent, hash, stored, revision)
+                let hot = CompilationFiles(vaultRoot: vaultRoot).loadHotContent()
+                return (memos, rawContent, hash, stored, revision, hot)
             }.value
         let entityOperationID = Self.entityOperationID(
             sourceHash: sourceHash,
@@ -141,7 +156,9 @@ public final class CompilationService: ObservableObject {
         if !force,
            let storedHash,
            storedHash == sourceHash {
-            appendLog(
+            try await CompilationPersistence.shared.recordSkipped(
+                token: token, scope: scope,
+                rootProvider: vaultRootProvider,
                 timestamp: iso8601Now(),
                 trigger: trigger,
                 durationSeconds: Date().timeIntervalSince(startTime),
@@ -163,8 +180,6 @@ public final class CompilationService: ObservableObject {
             throw CompilationError.offline
         }
 
-        let hotContent = loadHotContent()
-
         // Step 2: Build prompt
         let prompt = buildPrompt(
             dateString: dateString,
@@ -184,15 +199,20 @@ public final class CompilationService: ObservableObject {
         let parsed = try parseResponse(compiledText)
 
         // Step 5: Save results
-        try saveResults(
+        do {
+            try await saveResults(
             parsed,
             dateString: dateString,
             trigger: trigger,
             startTime: startTime,
             memoCount: memos.count,
             sourceHash: sourceHash,
-            entityOperationID: entityOperationID
-        )
+            entityOperationID: entityOperationID,
+            token: token
+            )
+        } catch is AIAuthorizationError {
+            throw CompilationError.aiDisabled
+        }
 
         stage = .done
         compilationProgress = .done
@@ -365,7 +385,7 @@ public final class CompilationService: ObservableObject {
     // MARK: - Step 4: Parse Response
 
     /// Per-memo annotation extracted from the LLM response.
-    public struct MemoUpdateInstruction {
+    public struct MemoUpdateInstruction: Sendable {
         let memoID: UUID
         let mood: String?
         let entityMentions: [String]
@@ -375,7 +395,7 @@ public final class CompilationService: ObservableObject {
     }
 
     /// Parsed output from the LLM response.
-    public struct ParsedCompilationOutput {
+    public struct ParsedCompilationOutput: Sendable {
         let dailyPageText: String
         let entityInstructions: [EntityUpdateInstruction]
         let memoUpdates: [MemoUpdateInstruction]
@@ -465,7 +485,6 @@ public final class CompilationService: ObservableObject {
 
     // MARK: - Step 5: Save Results
 
-    /// Persists the compiled daily page, entity updates, hot cache, and log entry.
     func saveResults(
         _ parsed: ParsedCompilationOutput,
         dateString: String,
@@ -473,234 +492,33 @@ public final class CompilationService: ObservableObject {
         startTime: Date,
         memoCount: Int,
         sourceHash: String,
-        entityOperationID: String
-    ) throws {
-        let dailyURL = dailyPageURL(for: dateString)
-
-        // The source hash is the durable "this compilation completed" marker.
-        // Apply throwable entity updates first so a partially-applied compile
-        // can be retried instead of being incorrectly skipped as unchanged.
-        // EntityPageService.apply is replay-safe, so a retry after a later
-        // entity instruction failed will not duplicate earlier instructions.
-        try EntityPageService.shared.apply(
-            instructions: parsed.entityInstructions,
-            date: dateString,
-            operationID: entityOperationID
+        entityOperationID: String,
+        token: LocalCompilationCommitScope.Token? = nil
+    ) async throws {
+        let token = try token ?? scope.capture(vaultRoot: vaultRootProvider())
+        let saved = try await CompilationPersistence.shared.save(
+            parsed, dateString: dateString, trigger: trigger, startTime: startTime,
+            memoCount: memoCount, sourceHash: sourceHash, entityOperationID: entityOperationID,
+            token: token, scope: scope, consent: consent, rootProvider: vaultRootProvider
         )
-
-        // Issue #814: stamp the source hash into the frontmatter so the next
-        // compile request can prove "nothing changed" without an LLM call.
-        let dailyText = Self.injectSourceHash(sourceHash, into: parsed.dailyPageText)
-        do {
-            try backupIfExists(at: dailyURL, dateString: dateString)
-            try writeFile(content: dailyText, to: dailyURL)
-        } catch let err as CompilationError {
-            throw err
-        } catch {
-            throw CompilationError.fileSystemError(error.localizedDescription)
+        // Finish admission before delivering UI effects. No worker ever posts
+        // synchronously to the main actor while holding a commit or disk lock.
+        saved.commit.finish()
+        try Task.checkCancellation()
+        guard token.isCurrent,
+              vaultRootProvider().standardizedFileURL == token.vaultRoot else {
+            throw CancellationError()
         }
-
-        let memoUpdateResult = applyMemoUpdates(parsed.memoUpdates, dateString: dateString)
-        if memoUpdateResult.failed > 0 {
-            lastMemoUpdateFailures = memoUpdateResult.failed
-        }
-        updateHotCache(summary: parsed.hotCacheText, compiledDate: dateString)
-
-        let elapsed = Date().timeIntervalSince(startTime)
-        appendLog(
-            timestamp: iso8601Now(),
-            trigger: trigger,
-            durationSeconds: elapsed,
-            memoCount: memoCount,
-            status: "success"
-        )
-
-        // Issue #814 (karpathy LLM-wiki pattern): keep vault/wiki/index.md —
-        // the wiki's table of contents — in sync after every compile. Pure
-        // local file scan, zero LLM cost; failures are logged, never thrown.
-        WikiIndexService.shared.rebuild()
+        lastMemoUpdateFailures = saved.failed
+        saved.receipt?.publishIfCurrent(isCurrent: { token.isCurrent })
     }
 
-    /// Back-fills mood and entityMentions into the raw memo file for each
-    /// MemoUpdateInstruction.
-    ///
-    /// Returns `(updated, failed)`:
-    /// - `updated`: number of memos whose mood/entityMentions were merged
-    ///   in-memory and (on a successful write) persisted to disk.
-    /// - `failed`: number of memo updates that could not be persisted,
-    ///   either because the day-file failed to read or because the atomic
-    ///   write threw. When > 0, a warning-level breadcrumb is recorded so
-    ///   we can track partial-success rate in production rather than
-    ///   reporting full success in the UI.
     func applyMemoUpdates(
-        _ updates: [MemoUpdateInstruction],
-        dateString: String
+        _ updates: [MemoUpdateInstruction], dateString: String
     ) -> (updated: Int, failed: Int) {
-        guard !updates.isEmpty else { return (0, 0) }
-        guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else {
-            return (0, 0)
-        }
-
-        let rawURL = RawStorage.fileURL(for: date)
-        var failedUpdates: [URL] = []
-        var changedCount = 0
-
-        do {
-            try RawStorage.mutate(for: date) { existing in
-                guard !existing.isEmpty else { return nil }
-                var memos = existing
-
-                for update in updates {
-                    guard let idx = memos.firstIndex(where: { $0.id == update.memoID }) else { continue }
-                    var memo = memos[idx]
-                    var thisMemoChanged = false
-                    if let mood = update.mood, !mood.isEmpty, mood != memo.mood {
-                        memo.mood = mood
-                        thisMemoChanged = true
-                    }
-                    if !update.entityMentions.isEmpty {
-                        let merged = Array(Set(memo.entityMentions + update.entityMentions)).sorted()
-                        if merged != memo.entityMentions {
-                            memo.entityMentions = merged
-                            thisMemoChanged = true
-                        }
-                    }
-                    if let note = update.marginNote, !note.isEmpty, note != memo.marginNote {
-                        memo.marginNote = note
-                        thisMemoChanged = true
-                    }
-                    memos[idx] = memo
-                    if thisMemoChanged { changedCount += 1 }
-                }
-
-                return changedCount > 0 ? memos : nil
-            }
-        } catch {
-            DayPageLogger.shared.error("applyMemoUpdates: mutate failed: \(error)")
-            // When the transform ran, the batched write covers every changed
-            // memo. If it never ran (read failure), all requested updates are
-            // considered failed, preserving the existing reporting contract.
-            let failureCount = changedCount > 0 ? changedCount : updates.count
-            failedUpdates = Array(repeating: rawURL, count: failureCount)
-        }
-
-        if !failedUpdates.isEmpty {
-            SentryReporter.breadcrumb(
-                category: "compilation",
-                level: .warning,
-                message: "applyMemoUpdates partial failure (mutate): count=\(failedUpdates.count) files=\(failedUpdates.map(\.lastPathComponent))"
-            )
-            return (updated: 0, failed: failedUpdates.count)
-        }
-
-        return (updated: changedCount, failed: 0)
-    }
-
-    // MARK: - URL Helpers
-
-    private func dailyPageURL(for dateString: String) -> URL {
-        VaultInitializer.vaultURL
-            .appendingPathComponent("wiki")
-            .appendingPathComponent("daily")
-            .appendingPathComponent("\(dateString).md")
-    }
-
-    private func trashURL(for dateString: String, timestamp: String) -> URL {
-        let trashDir = VaultInitializer.vaultURL
-            .appendingPathComponent("wiki")
-            .appendingPathComponent("daily")
-            .appendingPathComponent(".trash")
-        return trashDir.appendingPathComponent("\(dateString)_\(timestamp).md")
-    }
-
-    private func hotURL() -> URL {
-        VaultInitializer.vaultURL.appendingPathComponent("wiki").appendingPathComponent("hot.md")
-    }
-
-    private func logURL() -> URL {
-        VaultInitializer.vaultURL.appendingPathComponent("wiki").appendingPathComponent("log.md")
-    }
-
-    // MARK: - File Helpers
-
-    private func rawFileContent(for date: Date) -> String {
-        let url = RawStorage.fileURL(for: date)
-        do {
-            return try String(contentsOf: url, encoding: .utf8)
-        } catch {
-            DayPageLogger.shared.error("rawFileContent: \(error)")
-            return ""
-        }
-    }
-
-    private func loadHotContent() -> String {
-        let url = hotURL()
-        do {
-            return try String(contentsOf: url, encoding: .utf8)
-        } catch {
-            DayPageLogger.shared.info("loadHotContent: no hot cache yet")
-            return ""
-        }
-    }
-
-    private func backupIfExists(at url: URL, dateString: String) throws {
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-
-        // Create .trash directory if needed
-        let trashDir = url.deletingLastPathComponent().appendingPathComponent(".trash")
-        if !FileManager.default.fileExists(atPath: trashDir.path) {
-            try FileManager.default.createDirectory(at: trashDir, withIntermediateDirectories: true)
-        }
-
-        // Build a compact timestamp: YYYYMMDDHHmmss
-        let ts = backupTimestampFormatter.string(from: Date())
-        let backup = trashURL(for: dateString, timestamp: ts)
-        try FileManager.default.copyItem(at: url, to: backup)
-    }
-
-    private func writeFile(content: String, to url: URL) throws {
-        // Ensure parent directory exists
-        let dir = url.deletingLastPathComponent()
-        if !FileManager.default.fileExists(atPath: dir.path) {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        }
-        try RawStorage.atomicWrite(string: content, to: url)
-    }
-
-    // MARK: - Log
-
-    private func appendLog(
-        timestamp: String,
-        trigger: String,
-        durationSeconds: TimeInterval,
-        memoCount: Int,
-        status: String
-    ) {
-        let url = logURL()
-        let durationStr = String(format: "%.1f", durationSeconds)
-        let row = "| \(timestamp) | \(trigger) | \(durationStr) | \(memoCount) | \(status) |\n"
-
-        let existing: String?
-        do {
-            existing = try String(contentsOf: url, encoding: .utf8)
-        } catch {
-            existing = nil // 文件可能尚不存在 — 不是错误
-        }
-        if let prev = existing {
-            let updated = prev + row
-            do {
-                try RawStorage.atomicWrite(string: updated, to: url)
-            } catch {
-                DayPageLogger.shared.error("appendLog: failed to write compilation log: \(error)")
-            }
-        } else {
-            let header = "---\ntype: compilation_log\ncreated: \(timestamp)\n---\n\n# Compilation Log\n\n| timestamp | trigger | duration_s | memo_count | status |\n|-----------|---------|-----------|------------|--------|\n\(row)"
-            do {
-                try RawStorage.atomicWrite(string: header, to: url)
-            } catch {
-                DayPageLogger.shared.error("appendLog: failed to create compilation log: \(error)")
-            }
-        }
+        let result = CompilationFiles(vaultRoot: vaultRootProvider()).applyMemoUpdates(updates, dateString: dateString)
+        result.receipt?.publishIfCurrent()
+        return (result.updated, result.failed)
     }
 
     // MARK: - Prompt Builder
@@ -948,6 +766,309 @@ public final class CompilationService: ObservableObject {
         return hotCache.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    // MARK: - Date Formatters
+
+    private let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = AppSettings.currentTimeZone()
+        return f
+    }()
+
+    private func iso8601Now() -> String {
+        ISO8601DateFormatter.memo.string(from: Date())
+    }
+}
+
+private actor CompilationPersistence {
+    static let shared = CompilationPersistence()
+
+    struct Saved: Sendable {
+        let failed: Int
+        let receipt: RawStorage.MutationReceipt?
+        let commit: LocalCompilationCommitScope.Commit
+    }
+
+    func save(
+        _ parsed: CompilationService.ParsedCompilationOutput,
+        dateString: String, trigger: String, startTime: Date, memoCount: Int,
+        sourceHash: String, entityOperationID: String,
+        token: LocalCompilationCommitScope.Token, scope: LocalCompilationCommitScope,
+        consent: any AIConsentChecking, rootProvider: @Sendable () -> URL
+    ) throws -> Saved {
+        try Task.checkCancellation()
+        let commit = try scope.beginCommit(token)
+        do {
+            try consent.authorize()
+            guard rootProvider().standardizedFileURL == token.vaultRoot else { throw CancellationError() }
+            let current = try RawStorage.read(dayString: dateString, vaultRoot: token.vaultRoot)
+            guard CompilationService.sourceHash(of: current) == sourceHash else { throw CancellationError() }
+            let result = try CompilationFiles(vaultRoot: token.vaultRoot).save(
+                parsed, dateString: dateString, trigger: trigger, startTime: startTime,
+                memoCount: memoCount, sourceHash: sourceHash, entityOperationID: entityOperationID
+            )
+            return Saved(failed: result.failed, receipt: result.receipt, commit: commit)
+        } catch {
+            commit.finish()
+            throw error
+        }
+    }
+
+    func recordSkipped(
+        token: LocalCompilationCommitScope.Token, scope: LocalCompilationCommitScope,
+        rootProvider: @Sendable () -> URL, timestamp: String, trigger: String,
+        durationSeconds: TimeInterval, memoCount: Int, status: String
+    ) throws {
+        try Task.checkCancellation()
+        let commit = try scope.beginCommit(token)
+        defer { commit.finish() }
+        guard rootProvider().standardizedFileURL == token.vaultRoot else { throw CancellationError() }
+        CompilationFiles(vaultRoot: token.vaultRoot).appendLog(
+            timestamp: timestamp, trigger: trigger, durationSeconds: durationSeconds,
+            memoCount: memoCount, status: status
+        )
+    }
+}
+
+/// A root-bound synchronous worker value; never reads the mutable global locator.
+private struct CompilationFiles {
+    let vaultRoot: URL
+    typealias ParsedCompilationOutput = CompilationService.ParsedCompilationOutput
+    typealias MemoUpdateInstruction = CompilationService.MemoUpdateInstruction
+
+    // MARK: - Step 5: Save Results
+
+    /// Persists the compiled daily page, entity updates, hot cache, and log entry.
+    func save(
+        _ parsed: ParsedCompilationOutput,
+        dateString: String,
+        trigger: String,
+        startTime: Date,
+        memoCount: Int,
+        sourceHash: String,
+        entityOperationID: String
+    ) throws -> (failed: Int, receipt: RawStorage.MutationReceipt?) {
+        let dailyURL = dailyPageURL(for: dateString)
+
+        // The source hash is the durable "this compilation completed" marker.
+        // Apply throwable entity updates first so a partially-applied compile
+        // can be retried instead of being incorrectly skipped as unchanged.
+        // EntityPageService.apply is replay-safe, so a retry after a later
+        // entity instruction failed will not duplicate earlier instructions.
+        try EntityPageService(vaultRootOverride: vaultRoot).apply(
+            instructions: parsed.entityInstructions,
+            date: dateString,
+            operationID: entityOperationID
+        )
+
+        // Issue #814: stamp the source hash into the frontmatter so the next
+        // compile request can prove "nothing changed" without an LLM call.
+        let dailyText = CompilationService.injectSourceHash(sourceHash, into: parsed.dailyPageText)
+        do {
+            try backupIfExists(at: dailyURL, dateString: dateString)
+            try writeFile(content: dailyText, to: dailyURL)
+        } catch let err as CompilationError {
+            throw err
+        } catch {
+            throw CompilationError.fileSystemError(error.localizedDescription)
+        }
+
+        let memoUpdateResult = applyMemoUpdates(parsed.memoUpdates, dateString: dateString)
+        updateHotCache(summary: parsed.hotCacheText, compiledDate: dateString)
+
+        let elapsed = Date().timeIntervalSince(startTime)
+        appendLog(
+            timestamp: iso8601Now(),
+            trigger: trigger,
+            durationSeconds: elapsed,
+            memoCount: memoCount,
+            status: "success"
+        )
+
+        // Issue #814 (karpathy LLM-wiki pattern): keep vault/wiki/index.md —
+        // the wiki's table of contents — in sync after every compile. Pure
+        // local file scan, zero LLM cost; failures are logged, never thrown.
+        WikiIndexService.rebuildNow(vaultRoot: vaultRoot)
+        return (memoUpdateResult.failed, memoUpdateResult.receipt)
+    }
+
+    /// Back-fills mood and entityMentions into the raw memo file for each
+    /// MemoUpdateInstruction.
+    ///
+    /// Returns `(updated, failed)`:
+    /// - `updated`: number of memos whose mood/entityMentions were merged
+    ///   in-memory and (on a successful write) persisted to disk.
+    /// - `failed`: number of memo updates that could not be persisted,
+    ///   either because the day-file failed to read or because the atomic
+    ///   write threw. When > 0, a warning-level breadcrumb is recorded so
+    ///   we can track partial-success rate in production rather than
+    ///   reporting full success in the UI.
+    func applyMemoUpdates(
+        _ updates: [MemoUpdateInstruction],
+        dateString: String
+    ) -> (updated: Int, failed: Int, receipt: RawStorage.MutationReceipt?) {
+        guard !updates.isEmpty else { return (0, 0, nil) }
+        guard RawStorage.isValidDayString(dateString) else {
+            return (0, 0, nil)
+        }
+
+        let rawURL = vaultRoot.appendingPathComponent("raw/\(dateString).md")
+        var failedUpdates: [URL] = []
+        var changedCount = 0
+        var receipt: RawStorage.MutationReceipt?
+
+        do {
+            receipt = try RawStorage.mutateDeferringNotifications(dayString: dateString, vaultRoot: vaultRoot) { existing in
+                guard !existing.isEmpty else { return nil }
+                var memos = existing
+
+                for update in updates {
+                    guard let idx = memos.firstIndex(where: { $0.id == update.memoID }) else { continue }
+                    var memo = memos[idx]
+                    var thisMemoChanged = false
+                    if let mood = update.mood, !mood.isEmpty, mood != memo.mood {
+                        memo.mood = mood
+                        thisMemoChanged = true
+                    }
+                    if !update.entityMentions.isEmpty {
+                        let merged = Array(Set(memo.entityMentions + update.entityMentions)).sorted()
+                        if merged != memo.entityMentions {
+                            memo.entityMentions = merged
+                            thisMemoChanged = true
+                        }
+                    }
+                    if let note = update.marginNote, !note.isEmpty, note != memo.marginNote {
+                        memo.marginNote = note
+                        thisMemoChanged = true
+                    }
+                    memos[idx] = memo
+                    if thisMemoChanged { changedCount += 1 }
+                }
+
+                return changedCount > 0 ? memos : nil
+            }
+        } catch {
+            DayPageLogger.log(level: "ERROR", message: "applyMemoUpdates: mutate failed: \(error)")
+            // When the transform ran, the batched write covers every changed
+            // memo. If it never ran (read failure), all requested updates are
+            // considered failed, preserving the existing reporting contract.
+            let failureCount = changedCount > 0 ? changedCount : updates.count
+            failedUpdates = Array(repeating: rawURL, count: failureCount)
+        }
+
+        if !failedUpdates.isEmpty {
+            SentryReporter.breadcrumb(
+                category: "compilation",
+                level: .warning,
+                message: "applyMemoUpdates partial failure (mutate): count=\(failedUpdates.count) files=\(failedUpdates.map(\.lastPathComponent))"
+            )
+            return (updated: 0, failed: failedUpdates.count, receipt: nil)
+        }
+
+        return (updated: changedCount, failed: 0, receipt: receipt)
+    }
+
+    // MARK: - URL Helpers
+
+    private func dailyPageURL(for dateString: String) -> URL {
+        vaultRoot
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+            .appendingPathComponent("\(dateString).md")
+    }
+
+    private func trashURL(for dateString: String, timestamp: String) -> URL {
+        let trashDir = vaultRoot
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+            .appendingPathComponent(".trash")
+        return trashDir.appendingPathComponent("\(dateString)_\(timestamp).md")
+    }
+
+    private func hotURL() -> URL {
+        vaultRoot.appendingPathComponent("wiki").appendingPathComponent("hot.md")
+    }
+
+    private func logURL() -> URL {
+        vaultRoot.appendingPathComponent("wiki").appendingPathComponent("log.md")
+    }
+
+    // MARK: - File Helpers
+
+    func loadHotContent() -> String {
+        let url = hotURL()
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            DayPageLogger.log(level: "INFO", message: "loadHotContent: no hot cache yet")
+            return ""
+        }
+    }
+
+    private func backupIfExists(at url: URL, dateString: String) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+
+        // Create .trash directory if needed
+        let trashDir = url.deletingLastPathComponent().appendingPathComponent(".trash")
+        if !FileManager.default.fileExists(atPath: trashDir.path) {
+            try FileManager.default.createDirectory(at: trashDir, withIntermediateDirectories: true)
+        }
+
+        // Build a compact timestamp: YYYYMMDDHHmmss
+        let ts = backupTimestampFormatter.string(from: Date())
+        var backup = trashURL(for: dateString, timestamp: ts)
+        if FileManager.default.fileExists(atPath: backup.path) {
+            backup = trashURL(for: dateString, timestamp: "\(ts)_\(UUID().uuidString)")
+        }
+        try FileManager.default.copyItem(at: url, to: backup)
+    }
+
+    private func writeFile(content: String, to url: URL) throws {
+        // Ensure parent directory exists
+        let dir = url.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        try RawStorage.atomicWrite(string: content, to: url)
+    }
+
+    // MARK: - Log
+
+    func appendLog(
+        timestamp: String,
+        trigger: String,
+        durationSeconds: TimeInterval,
+        memoCount: Int,
+        status: String
+    ) {
+        let url = logURL()
+        let durationStr = String(format: "%.1f", durationSeconds)
+        let row = "| \(timestamp) | \(trigger) | \(durationStr) | \(memoCount) | \(status) |\n"
+
+        let existing: String?
+        do {
+            existing = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            existing = nil // 文件可能尚不存在 — 不是错误
+        }
+        if let prev = existing {
+            let updated = prev + row
+            do {
+                try RawStorage.atomicWrite(string: updated, to: url)
+            } catch {
+                DayPageLogger.log(level: "ERROR", message: "appendLog: failed to write compilation log: \(error)")
+            }
+        } else {
+            let header = "---\ntype: compilation_log\ncreated: \(timestamp)\n---\n\n# Compilation Log\n\n| timestamp | trigger | duration_s | memo_count | status |\n|-----------|---------|-----------|------------|--------|\n\(row)"
+            do {
+                try RawStorage.atomicWrite(string: header, to: url)
+            } catch {
+                DayPageLogger.log(level: "ERROR", message: "appendLog: failed to create compilation log: \(error)")
+            }
+        }
+    }
+
     /// 用新的热缓存摘要覆盖 vault/wiki/hot.md。
     /// 保留 frontmatter 结构（updated_at、covers_dates）。
     /// 防止低质量覆盖：若新摘要字符数不足现有内容的 50%，跳过写入并记录警告。
@@ -971,7 +1092,7 @@ public final class CompilationService: ObservableObject {
 
         // 保护：若新摘要异常短（不足已有的 50%），跳过覆盖
         if existingCharCount > 0 && summary.count < existingCharCount / 2 {
-            DayPageLogger.shared.warn("updateHotCache: new summary (\(summary.count) chars) is less than 50% of existing (\(existingCharCount) chars) — skipping overwrite to protect context")
+            DayPageLogger.log(level: "WARN", message: "updateHotCache: new summary (\(summary.count) chars) is less than 50% of existing (\(existingCharCount) chars) — skipping overwrite to protect context")
             return
         }
 
@@ -1011,7 +1132,7 @@ public final class CompilationService: ObservableObject {
         do {
             try RawStorage.atomicWrite(string: newContent, to: url)
         } catch {
-            DayPageLogger.shared.error("updateHotCache: failed to write hot cache: \(error)")
+            DayPageLogger.log(level: "ERROR", message: "updateHotCache: failed to write hot cache: \(error)")
         }
     }
 
@@ -1049,16 +1170,6 @@ public final class CompilationService: ObservableObject {
         }
         return dates
     }
-
-    // MARK: - Date Formatters
-
-    private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
-        return f
-    }()
 
     private let backupTimestampFormatter: DateFormatter = {
         let f = DateFormatter()

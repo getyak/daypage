@@ -338,7 +338,7 @@ struct CompilationPersistenceSafetyTests {
     }
 
     @Test @MainActor
-    func entityFailureDoesNotWriteSourceHashCompletionMarker() throws {
+    func entityFailureDoesNotWriteSourceHashCompletionMarker() async throws {
         let root = try makeCompilationSafetyVault()
         defer {
             VaultInitializer.testOverrideURL = nil
@@ -347,6 +347,9 @@ struct CompilationPersistenceSafetyTests {
         VaultInitializer.testOverrideURL = root
 
         let dailyDirectory = root.appendingPathComponent("wiki/daily", isDirectory: true)
+        let memo = Memo(created: Date(timeIntervalSince1970: 1_786_060_800), body: "Synthetic compilation input")
+        try RawStorage.atomicWrite(string: memo.toMarkdown(), to: root.appendingPathComponent("raw/2026-08-07.md"))
+        let service = CompilationService(vaultRootProvider: { root }, scope: LocalCompilationCommitScope(), consent: AllowAllAIConsent())
         try FileManager.default.createDirectory(at: dailyDirectory, withIntermediateDirectories: true)
         let dailyURL = dailyDirectory.appendingPathComponent("2026-08-07.md")
         let previousDaily = """
@@ -385,14 +388,14 @@ struct CompilationPersistenceSafetyTests {
             hotCacheText: ""
         )
 
-        #expect(throws: (any Error).self) {
-            try CompilationService.shared.saveResults(
+        await #expect(throws: (any Error).self) {
+            try await service.saveResults(
                 parsed,
                 dateString: "2026-08-07",
                 trigger: "test",
                 startTime: Date(),
                 memoCount: 1,
-                sourceHash: "new-hash",
+                sourceHash: CompilationService.sourceHash(of: [memo]),
                 entityOperationID: "new-hash"
             )
         }

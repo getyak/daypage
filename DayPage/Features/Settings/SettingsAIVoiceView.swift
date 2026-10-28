@@ -76,7 +76,9 @@ struct SettingsAIVoiceView: View {
     private var aiEngineSection: some View {
         Section {
             let _ = keyRefreshToken
-            Toggle(isOn: $aiFeaturesEnabled) {
+            Toggle(isOn: Binding(get: { aiFeaturesEnabled }, set: { enabled in
+                _ = AppSettings.setAIFeaturesEnabled(enabled)
+            })) {
                 SettingsLabel(title: NSLocalizedString("settings.ai.enabled", comment: "AI features master toggle"), systemImage: "sparkles")
             }
             .onChange(of: aiFeaturesEnabled) { enabled in

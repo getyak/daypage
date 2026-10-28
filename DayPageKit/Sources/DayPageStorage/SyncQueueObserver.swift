@@ -58,7 +58,9 @@ public final class SyncQueueObserver {
     /// commits through this lease; replacing or clearing the session
     /// invalidates it.
     private var lease: SyncSessionLease?
+    private var localPersistenceDrain: Task<Void, Never>?
     private let syncQueue: SyncQueueService
+    private let compilationScope: LocalCompilationCommitScope
     private let legacyIsConfigured: () -> Bool
 
     /// Injected by the app after it has a Supabase session. The unconfigured
@@ -68,9 +70,11 @@ public final class SyncQueueObserver {
     init(
         observeNotifications: Bool = true,
         syncQueue: SyncQueueService? = nil,
+        compilationScope: LocalCompilationCommitScope = .shared,
         legacyIsConfigured: @escaping () -> Bool = { SyncSettings.isConfigured }
     ) {
         self.syncQueue = syncQueue ?? .shared
+        self.compilationScope = compilationScope
         self.legacyIsConfigured = legacyIsConfigured
         guard observeNotifications else { return }
         observer = NotificationCenter.default.addObserver(
@@ -106,6 +110,9 @@ public final class SyncQueueObserver {
         puller: RemotePuller,
         periodicInterval: TimeInterval = 30
     ) throws {
+        let localTransition = compilationScope.close(kind: .session)
+        defer { localTransition.finish() }
+        guard localTransition.isDrained else { throw SyncRealmError.sessionInvalidated }
         do {
             try SyncAccountStateStore.bind(to: session.identity)
         } catch {
@@ -139,7 +146,14 @@ public final class SyncQueueObserver {
     /// Invalidating the lease linearizes against any in-flight commit: a
     /// commit that already entered the gate may finish (documented ordering),
     /// every later one is refused.
-    public func clearSession(rejectedConfiguration: Bool = false) {
+    @discardableResult
+    public func clearSession(rejectedConfiguration: Bool = false) -> Task<Void, Never> {
+        let localTransition = compilationScope.close(kind: .session)
+        let drain = Task { @MainActor in
+            await localTransition.waitForDrain()
+            localTransition.finish()
+        }
+        localPersistenceDrain = drain
         pendingReason = nil
         lease?.invalidate()
         lease = nil
@@ -152,6 +166,11 @@ public final class SyncQueueObserver {
         // Session gone → current completion proof is void.
         pendingInitialMetadata = false
         syncQueue.noteSessionCleared()
+        return drain
+    }
+
+    public func waitForLocalPersistence() async {
+        await localPersistenceDrain?.value
     }
 
     /// Whether the last configuration attempt was rejected. Hosts preserve
@@ -760,6 +779,7 @@ public final class SyncSessionInstallCoordinator {
     ) async -> Bool {
         do {
             let session = try await prove()
+            await observer.waitForLocalPersistence()
             // No suspension between the currency check and the synchronous
             // configuration commit: a newer reservation can not interleave.
             guard isCurrent(reservation, currentUserID: currentUserID),

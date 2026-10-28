@@ -264,7 +264,7 @@ final class VaultMigrationService: ObservableObject {
                     progress: { _, _ in }
                 )
                 // Swap runtime locator to iCloud
-                VaultInitializer.shared = locator
+                _ = await VaultInitializer.replaceShared(with: locator).value
             } catch {
                 self.migrationError = error.localizedDescription
             }

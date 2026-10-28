@@ -96,6 +96,24 @@ records the observed rejected/inactive shared session, private Vault root and
 zero remote-apply outbound operations. No production debug or permission-bypass
 switch is introduced.
 
+## Integration correction: first writes through system path aliases
+
+The save-performance integration used real `/private/tmp` fixtures and exposed a
+first-sidecar compatibility defect. Foundation can standardize an existing Vault
+root to `/tmp` while keeping its missing `_agent/sync` child under `/private/tmp`.
+Comparing only those standardized string prefixes wrongly rejected a legitimate
+first write as `invalidPath("attachment-transfers-v1.json")`.
+
+The guard now captures the selected root once, derives the relative suffix from
+its original or canonical path components, rejects dot/traversal/outside paths,
+then performs the same descendant-by-descendant type checks from the canonical
+trust root. It never resolves the complete candidate, so a descendant symlink
+cannot disappear before inspection. Existing symlink, directory-ancestor and
+regular-file leaf protections are retained. New actual-file fixtures reproduce
+the existing-root/missing-sidecar failure and retain negative coverage for a
+descendant link, neighboring root and explicit dot/traversal paths. No old
+assertion, storage format or live data is changed.
+
 DP-02 and DP-03 already have later fixes on main. Existing local-reset and
 diagnostics-consent tests passed in the package suite; no duplicate architecture
 change was made for those historical audit items. Actual App Store review and
