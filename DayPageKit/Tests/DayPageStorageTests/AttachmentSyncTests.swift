@@ -156,6 +156,60 @@ final class AttachmentSyncTests: XCTestCase {
         if let vault { try? FileManager.default.removeItem(at: vault) }
     }
 
+    func testFirstTransferSidecarWriteSupportsExistingPrivateTmpRoot() throws {
+        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("daypage-sidecar-alias-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer {
+            VaultInitializer.testOverrideURL = vault
+            try? FileManager.default.removeItem(at: root)
+        }
+        VaultInitializer.testOverrideURL = root
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("_agent").path))
+        let realm = try SyncRealmTestSupport.realm()
+
+        let result = try AttachmentTransferStore.recordPendingDownloads(
+            memoID: UUID(), descriptors: [], realm: realm
+        )
+
+        XCTAssertTrue(result.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: AttachmentTransferStore.stateURL.path))
+        XCTAssertFalse(try AttachmentTransferStore.progress(realm: realm).hasIncomplete)
+    }
+
+    func testPrivateTmpGuardRejectsDescendantLinksTraversalAndNeighborBoundary() throws {
+        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("daypage-sidecar-boundary-\(UUID())", isDirectory: true)
+        let neighbor = root.deletingLastPathComponent()
+            .appendingPathComponent(root.lastPathComponent + "-neighbor", isDirectory: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("raw/assets"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: neighbor, withIntermediateDirectories: false)
+        defer {
+            VaultInitializer.testOverrideURL = vault
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: neighbor)
+        }
+        VaultInitializer.testOverrideURL = root
+        let sentinel = neighbor.appendingPathComponent("keep.bin")
+        let bytes = Data("controlled neighbor sentinel".utf8)
+        try bytes.write(to: sentinel)
+        let link = root.appendingPathComponent("raw/assets/link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: neighbor)
+
+        XCTAssertThrowsError(try AttachmentFileInspector.safeWriteURL(
+            root.appendingPathComponent("raw/assets/link/keep.bin")
+        )) { error in
+            XCTAssertEqual(error as? AttachmentSyncError, .invalidPath("raw/assets/link/keep.bin"))
+        }
+        XCTAssertThrowsError(try AttachmentFileInspector.safeWriteURL(sentinel))
+        for suffix in ["raw/./fresh.bin", "raw/../fresh.bin"] {
+            let candidate = try XCTUnwrap(URL(string: root.absoluteString + suffix))
+            XCTAssertThrowsError(try AttachmentFileInspector.safeWriteURL(candidate))
+        }
+        XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: neighbor.path), ["keep.bin"])
+    }
+
     func testStreamingInspectionAndStableRetrySidecar() throws {
         let relativePath = "raw/assets/capture.png"
         let bytes = Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
