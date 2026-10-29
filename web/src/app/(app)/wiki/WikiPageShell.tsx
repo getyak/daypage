@@ -1,38 +1,20 @@
-"use client";
-
-import { useState } from "react";
-
-type Tab = "nav" | "page";
+import type { ReactNode } from "react";
+import "./wiki-reading.css";
 
 export function WikiPageShell({
   nav,
   main,
 }: {
-  nav: React.ReactNode;
-  main: React.ReactNode;
+  nav: ReactNode;
+  main: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("page");
-
   return (
-    <>
-      <div className="mobile-tab-bar" aria-label="Wiki sections">
-        <button
-          className={`mobile-tab-bar__btn${tab === "nav" ? " is-active" : ""}`}
-          onClick={() => setTab("nav")}
-        >
-          Pages
-        </button>
-        <button
-          className={`mobile-tab-bar__btn${tab === "page" ? " is-active" : ""}`}
-          onClick={() => setTab("page")}
-        >
-          Content
-        </button>
-      </div>
-      <div className={`wiki wiki--show-${tab === "nav" ? "nav" : "page"}`}>
-        <aside className="wiki__nav">{nav}</aside>
-        <main className="wiki__page">{main}</main>
-      </div>
-    </>
+    <div className="wiki-reader">
+      <details className="wiki-page-browser">
+        <summary>Browse pages</summary>
+        <nav className="wiki__nav" aria-label="Knowledge pages">{nav}</nav>
+      </details>
+      <div className="wiki__page">{main}</div>
+    </div>
   );
 }

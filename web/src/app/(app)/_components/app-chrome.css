@@ -1,0 +1,42 @@
+.app-topbar {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--accent-border);
+  background: var(--surface-white);
+}
+
+.app-topbar__identity,
+.app-topbar__context,
+.app-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.app-shell[data-capture="true"] > .sb,
+.app-shell[data-capture="true"] .app-topbar__context,
+.app-shell[data-capture="true"] .app-topbar__actions {
+  display: none;
+}
+
+.app-shell[data-capture="true"] .app-topbar {
+  border-bottom: 0;
+  background: var(--bg-warm);
+}
+
+/* Capture uses the same accessible navigation drawer at every viewport. */
+.app-shell[data-capture="true"] .mobile-menu-trigger {
+  display: inline-flex;
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-shell[data-capture="true"] .mobile-drawer,
+.app-shell[data-capture="true"] .mobile-drawer-backdrop {
+  display: block;
+}

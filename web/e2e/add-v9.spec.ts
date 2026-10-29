@@ -4,8 +4,8 @@
  * Locks down the six load-bearing pieces we shipped in the /add refactor
  * (see docs/web-design-v9.md and this PR's commit body):
  *   1. Capture starts with writing/voice, with no queue/compiled dashboard.
- *   2. Composer container reads with the v9 elevation tokens (--elev-flat
- *      baseline, --elev-raise + accent ring on focus).
+ *   2. Capture stays flat on focus, with a visible writing focus indicator
+ *      and navigation available on demand (GET-285).
  *   3. The empty editor has a clear placeholder without a repeated footer prompt.
  *   4. Primary CTA is the amber pill "收下" (not the old 28×28 send square).
  *   5. Pipeline banner appears at most once on the page — every per-row
@@ -68,15 +68,11 @@ test.describe("v9 design contract — /add", () => {
     await expect(organized.locator("div").first()).toBeVisible();
   });
 
-  // Contract #2 — Composer elevation tokens (flat baseline, raise on focus)
-  test("Composer boxShadow flips between flat baseline and lifted focus", async ({ page }) => {
+  // GET-285: focus belongs to writing rather than lifting a card.
+  test("capture stays flat and navigation yields to the writing surface", async ({ page }) => {
     const composer = page.getByTestId("add-composer");
     await expect(composer).toBeVisible();
 
-    // The Composer auto-focuses on mount (Round 5 UX: "open page = already
-    // writing"). So we start in the focused state, blur out to sample the
-    // baseline, then focus back and sample the lifted state. This proves the
-    // two shadow tokens are wired up and different.
     const textarea = composer.locator("textarea").first();
 
     // Blur by clicking the body outside the composer (top-left corner is a
@@ -88,10 +84,11 @@ test.describe("v9 design contract — /add", () => {
     const baselineShadow = await composer.evaluate(
       (el) => window.getComputedStyle(el).boxShadow,
     );
-    expect(baselineShadow).not.toBe("none");
-    const baselineBorder = await composer.evaluate(
-      (el) => window.getComputedStyle(el).borderTopColor,
-    );
+    expect(baselineShadow).toBe("none");
+    await expect(page.locator(".app-shell > .sb")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
+    const editorShare = await textarea.evaluate((el) => el.getBoundingClientRect().height / window.innerHeight);
+    expect(editorShare).toBeGreaterThanOrEqual(0.5);
 
     // Focus and re-sample.
     await textarea.focus();
@@ -100,15 +97,13 @@ test.describe("v9 design contract — /add", () => {
     const focusedShadow = await composer.evaluate(
       (el) => window.getComputedStyle(el).boxShadow,
     );
-    const focusedBorder = await composer.evaluate(
-      (el) => window.getComputedStyle(el).borderTopColor,
-    );
-
-    // Contract: BOTH boxShadow and border-color must change between the two
-    // states. Exact strings differ per browser / theme, so inequality is the
-    // stable assertion.
-    expect(focusedShadow).not.toBe(baselineShadow);
-    expect(focusedBorder).not.toBe(baselineBorder);
+    expect(focusedShadow).toBe("none");
+    const focus = await textarea.evaluate((el) => ({
+      outline: parseFloat(getComputedStyle(el).outlineWidth),
+      fontSize: parseFloat(getComputedStyle(el).fontSize),
+    }));
+    expect(focus.outline).toBeGreaterThanOrEqual(1);
+    expect(focus.fontSize).toBeGreaterThanOrEqual(16);
   });
 
   // Contract #3 — placeholder + hint copy
@@ -119,6 +114,46 @@ test.describe("v9 design contract — /add", () => {
     await textarea.focus();
     const hint = page.getByTestId("composer-hint");
     await expect(hint).toHaveCount(0);
+  });
+
+  test("navigation and New domain keep separate keyboard focus boundaries", async ({ page }) => {
+    const menuTrigger = page.getByRole("button", { name: "Open navigation menu", exact: true });
+    await menuTrigger.click();
+    const menu = page.getByRole("dialog", { name: "Navigation menu", exact: true });
+    const newDomain = menu.getByRole("button", { name: "New domain", exact: true });
+    await newDomain.click();
+    const dialog = page.getByRole("dialog", { name: "New Domain", exact: true });
+    const name = dialog.getByLabel("Domain name", { exact: true });
+    await expect(name).toBeFocused();
+    await expect(page.locator(".app-shell")).toHaveAttribute("inert", "");
+    await name.press("Shift+Tab");
+    const close = dialog.getByRole("button", { name: "Close", exact: true });
+    await expect(close).toBeFocused();
+    await close.press("Shift+Tab");
+    await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+    await dialog.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(newDomain).toBeFocused();
+    await expect(menu).toBeVisible();
+    await newDomain.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(menuTrigger).toBeFocused();
+  });
+
+  test("a failed save keeps the draft available after reload", async ({ page }) => {
+    const draft = "GET-285 synthetic save recovery";
+    await page.route("**/api/memos", (route) => route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Synthetic save failure" }),
+    }));
+    const editor = page.getByTestId("add-composer").locator("textarea").first();
+    await editor.fill(draft);
+    await page.getByTestId("composer-send").click();
+    await expect(page.getByRole("button", { name: "发送失败 · 点击重试", exact: true })).toBeVisible();
+    await expect(editor).toHaveValue(draft);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(editor).toHaveValue(draft);
   });
 
   // Contract #4 — Send CTA is the "收下" pill (not the old 28×28 icon)
