@@ -1,5 +1,13 @@
 # DayPage
 
+The iOS app is becoming a small local notebook: Markdown files, your own AI connection, and chat with your notes. It requires no DayPage account or database. Its sidebar contains only Archive, Feedback and Settings.
+
+Open **`DayPageLocal/DayPageLocal.xcodeproj`**, scheme **DayPage**. The shared local core is `DayPageCore/`; run `swift test --package-path DayPageCore` for its host tests. Debug builds use a separate QA bundle, while Release keeps the original app identifier and `Documents/vault` path. For old iCloud-only notes, import a downloaded Vault copy in Settings; originals remain untouched.
+
+The previous edition is preserved as a [source archive release](https://github.com/getyak/daypage/releases/tag/archive/cloud-2026-10-30). The original multi-client project and the other clients remain in the repository. Read [ADR-0027](docs/architecture/decisions/ADR-0027-local-ios-notebook.md) for scope, data compatibility and verification boundaries.
+
+The following describes the legacy edition and clients not included in the iOS-first refactor.
+
 DayPage is a local-first personal memory system. It captures text, voice, photos,
 location, and daily context as raw signals, then compiles them into Daily Pages,
 entity pages, and an explorable knowledge graph.
@@ -8,6 +16,7 @@ entity pages, and an explorable knowledge graph.
 
 | Area | Purpose |
 |---|---|
+| `DayPageLocal/`, `DayPageCore/` | Current local-only iOS application and file/AI core |
 | `DayPage/` | SwiftUI iOS app |
 | `DayPageMac/`, `DayPageWatch/`, `DayPageWidget/` | Apple companion surfaces |
 | `DayPageKit/` | Shared Swift models, storage, and services |
