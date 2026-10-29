@@ -53,3 +53,23 @@ The direction is informed by Day One's
 [Menu Bar Quick Entry](https://dayoneapp.com/guides/day-one-for-mac/menu-bar-quick-entry/)
 and Apple's [text input guidance](https://developer.apple.com/design/human-interface-guidelines/text-fields).
 These references guide hierarchy; they do not establish feature parity.
+
+## Quiet Web capture and reading (GET-285)
+
+`/add` and `/today` hide the permanent sidebar and repeated topbar actions.
+Navigation remains available through the navigation drawer at every viewport.
+The capture editor stays flat on focus and occupies at least half the viewport;
+voice, more input options, save feedback and retry remain with the Composer.
+Opening New domain from the drawer uses a separate modal focus boundary and
+returns focus to its trigger when closed.
+
+Wiki pages use a readable single column. Browse pages, Page options, and Sources
+and backlinks disclose supporting controls and provenance on request. The graph
+remains an optional view, includes a native page selector for keyboard use, and
+offers retry after a failed request. Selecting a page preserves the graph layout;
+reduced motion stops the force animation while keeping selection and drag usable.
+
+Project-scoped Impeccable guidance is installed under `.cursor/skills/impeccable/`;
+`web/PRODUCT.md` records the product constraints. Run its detector on the touched
+capture, chrome and Wiki files when refining those surfaces. A clean detector is
+only a mechanical gate; rendered interaction and responsive checks are required.

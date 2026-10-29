@@ -1,16 +1,25 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useTransition, useEffect, useCallback, useId } from "react";
+import { createPortal } from "react-dom";
+import { usePathname, useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 
 export function NewDomainButton() {
+  const pathname = usePathname();
+  return <NewDomainControl key={pathname} />;
+}
+
+function NewDomainControl() {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dialogId = useId();
 
   function slugify(s: string) {
     return s
@@ -24,14 +33,51 @@ export function NewDomainButton() {
     setLabel("");
     setError(null);
     setOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  function closeModal() {
+  const closeModal = useCallback(() => {
     setOpen(false);
     setLabel("");
     setError(null);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const shell = trigger?.closest<HTMLElement>(".app-shell");
+    const previousInert = shell?.inert ?? false;
+    const openingPath = window.location.pathname;
+    if (shell) shell.inert = true;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeModal();
+      }
+      if (event.key !== "Tab") return;
+      const items = panelRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])");
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKey);
+      if (shell) shell.inert = previousInert;
+      if (trigger?.isConnected && window.location.pathname === openingPath && !trigger.closest("[inert]")) {
+        trigger.focus({ preventScroll: true });
+      }
+    };
+  }, [open, closeModal]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,6 +116,7 @@ export function NewDomainButton() {
   return (
     <>
       <button
+        ref={triggerRef}
         className="sb__domain sb__domain--add"
         onClick={openModal}
         type="button"
@@ -80,12 +127,12 @@ export function NewDomainButton() {
         <span className="sb__domain-label">New domain</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 100,
+            zIndex: 1000,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -96,6 +143,10 @@ export function NewDomainButton() {
           }}
         >
           <div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogId}
             style={{
               background: "var(--surface-white)",
               border: "1px solid var(--accent-border)",
@@ -115,6 +166,7 @@ export function NewDomainButton() {
               }}
             >
               <span
+                id={dialogId}
                 style={{
                   fontFamily: "var(--font-heading)",
                   fontSize: "14px",
@@ -146,7 +198,7 @@ export function NewDomainButton() {
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: "16px" }}>
                 <label
-                  htmlFor="new-domain-name"
+                  htmlFor={`${dialogId}-name`}
                   style={{
                     display: "block",
                     fontSize: "12px",
@@ -160,7 +212,7 @@ export function NewDomainButton() {
                   Domain name
                 </label>
                 <input
-                  id="new-domain-name"
+                  id={`${dialogId}-name`}
                   ref={inputRef}
                   type="text"
                   value={label}
@@ -233,7 +285,7 @@ export function NewDomainButton() {
             </form>
           </div>
         </div>
-      )}
+      , document.body)}
     </>
   );
 }

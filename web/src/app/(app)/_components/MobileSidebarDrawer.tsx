@@ -46,6 +46,8 @@ export function MobileDrawerProvider({
     window.requestAnimationFrame(() => closeButtonRef.current?.focus());
 
     function onKey(e: KeyboardEvent) {
+      // A portalled child dialog owns its own keys and focus boundary.
+      if (e.target instanceof Node && !panelRef.current?.contains(e.target)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         close();
@@ -99,6 +101,7 @@ export function MobileDrawerProvider({
         aria-modal="true"
         aria-label="Navigation menu"
         aria-hidden={!isOpen}
+        inert={!isOpen}
         className={`mobile-drawer lg:hidden${isOpen ? " is-open" : ""}`}
       >
         {/* Close button */}

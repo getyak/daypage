@@ -30,25 +30,23 @@ function NetworkCard({ page }: { page: WikiPage }) {
   return (
     <Link
       href={`/wiki/${page.slug}`}
-      className="wiki-landing__card"
+      className="wiki-landing__entry"
       style={{ textDecoration: "none" }}
     >
-      <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <span className={`chip ${meta.chip}`} style={{ fontSize: "0.625rem" }}>
-          {meta.label}
-        </span>
+      <span className="wiki-landing__entry-title">{page.title}</span>
+      <span className="wiki-landing__entry-meta">
+        <span>{meta.label}</span>
         {page.backlink_count > 0 && (
-          <span className="meta" style={{ color: "var(--fg-subtle)" }}>
+          <span>
             {page.backlink_count} link{page.backlink_count !== 1 ? "s" : ""}
           </span>
         )}
-      </span>
-      <span className="wiki-landing__card-title">{page.title}</span>
       {page.source_count > 0 && (
-        <span style={{ fontSize: "0.75rem", color: "var(--fg-subtle)" }}>
+        <span>
           {page.source_count} source{page.source_count !== 1 ? "s" : ""}
         </span>
       )}
+      </span>
     </Link>
   );
 }
@@ -71,14 +69,14 @@ function FeaturedSection({
           marginBottom: "0.75rem",
         }}
       >
-        <h2 className="ds-section-label" style={{ color: "var(--fg-muted)" }}>
+        <h2 className="wiki-landing__section-title">
           {TYPE_META[type].plural}
         </h2>
         <span className="meta" style={{ color: "var(--fg-subtle)" }}>
           {pagesInGroup.length}
         </span>
       </div>
-      <div className="wiki-landing__grid">
+      <div className="wiki-landing__list">
         {pagesInGroup.map((p) => (
           <NetworkCard key={p.id} page={p} />
         ))}
@@ -101,22 +99,22 @@ export function WikiLanding({ livePages }: { livePages: WikiPage[] }) {
       {/* Header + graph entry point */}
       <header className="wiki-landing__header">
         <div>
-          <h1 className="ds-h2" style={{ margin: 0 }}>
+          <h1 className="wiki-landing__title">
             Your knowledge network
           </h1>
           <p
             className="ds-body-md"
             style={{ color: "var(--fg-muted)", margin: "0.375rem 0 0" }}
           >
-            The concepts and entities DayPage has woven from your memos. Raw
-            drafts wait in the sidebar under{" "}
-            <span style={{ color: "var(--fg-subtle)" }}>待编织 · 原料</span>.
+            Concepts and entities connected by your notes. Use Browse pages
+            to find Daily Pages and raw drafts.
           </p>
         </div>
         <Btn
           kind={showGraph ? "primary" : "secondary"}
           size="sm"
           onClick={() => setShowGraph((v) => !v)}
+          aria-pressed={showGraph}
         >
           {showGraph ? (
             <>
