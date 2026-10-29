@@ -115,7 +115,7 @@ export function Composer({ onSaved }: { onSaved?: () => void } = {}) {
   useEffect(() => {
     if (storedDraft === undefined || initialFocusHandled.current) return;
     initialFocusHandled.current = true;
-    if (!draftText(storedDraft)) taRef.current?.focus();
+    if (!draftText(storedDraft)) taRef.current?.focus({ preventScroll: true });
   }, [storedDraft]);
 
   useEffect(() => {
@@ -439,30 +439,9 @@ export function Composer({ onSaved }: { onSaved?: () => void } = {}) {
         const files = Array.from(e.dataTransfer.files);
         addFiles(files);
       }}
-      // 微动效：focus 时整体极轻"呼吸"，让"开始写"有物理反馈
-      animate={
-        reduced
-          ? undefined
-          : { scale: focused ? 1.0035 : 1, y: focused ? -1 : 0 }
-      }
-      transition={{ type: "spring", stiffness: 360, damping: 32, mass: 0.6 }}
       data-testid="add-composer"
       data-focused={focused ? "true" : "false"}
       className="ds-add-composer"
-      style={{
-        // v9: baseline reads at --elev-flat (0 1px 2px warm-brown 4%). On focus
-        // the composer steps forward to --elev-raise + an accent-soft outer
-        // ring, matching /home's .home-composer:focus-within cue so both
-        // capture surfaces share one "step onto the museum bench" moment.
-        background: "var(--surface-white, #fff)",
-        border: `1px solid ${focused ? "var(--accent-hover, #7A3F00)" : "var(--border-subtle, #EDE8DF)"}`,
-        borderRadius: 12,
-        boxShadow: focused
-          ? "0 0 0 3px var(--accent-soft, #F5EDE3), var(--elev-raise, 0 2px 6px rgba(60,40,15,0.08), 0 12px 24px -12px rgba(60,40,15,0.14))"
-          : "var(--elev-flat, 0 1px 2px rgba(60,40,15,0.04))",
-        transition: "border-color 180ms ease-out, box-shadow 180ms ease-out",
-        overflow: "hidden",
-      }}
     >
       {/* Editor */}
       <div style={{ position: "relative" }}>
@@ -517,22 +496,7 @@ export function Composer({ onSaved }: { onSaved?: () => void } = {}) {
           placeholder="此刻在想什么？"
           aria-label="记下此刻的念头"
           rows={6}
-          style={{
-            // field-sizing: content 让 textarea 跟随内容自适应（Chrome 123+ / Safari 17+）
-            // TS 类型未覆盖这个较新的 CSS 字段
-            fieldSizing: "content",
-            width: "100%",
-            minHeight: 180,
-            maxHeight: 320,
-            padding: "16px 18px",
-            border: "none",
-            outline: "none",
-            resize: "none",
-            background: "transparent",
-            font: "15px/1.65 var(--font-sans, system-ui)",
-            color: "var(--fg-primary, #2B2822)",
-            caretColor: "var(--accent, #5D3000)",
-          } as React.CSSProperties}
+          className="capture-editor"
         />
       </div>
 
@@ -728,7 +692,6 @@ export function Composer({ onSaved }: { onSaved?: () => void } = {}) {
           alignItems: "center",
           gap: 4,
           padding: "6px 8px",
-          borderTop: "1px solid rgba(43, 40, 34, 0.05)",
         }}
       >
         <ToolbarIconButton
@@ -1024,8 +987,8 @@ function ToolbarIconButton({
       onMouseLeave={() => setHover(false)}
       title={tooltip}
       style={{
-        width: 28,
-        height: 28,
+        width: 44,
+        height: 44,
         border: "none",
         background:
           active || hover ? "rgba(43, 40, 34, 0.06)" : "transparent",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useId } from "react";
+import { useReducedMotion } from "framer-motion";
 import * as d3Force from "d3-force";
 import * as d3Drag from "d3-drag";
 import * as d3Zoom from "d3-zoom";
@@ -65,14 +66,13 @@ function NodeDetailAside({
     <div
       style={{
         position: "absolute",
-        top: "1rem",
+        top: "4.75rem",
         right: "1rem",
-        width: "260px",
+        width: "min(320px, calc(100% - 2rem))",
         background: "var(--surface-white)",
         border: "1px solid var(--accent-border)",
         borderRadius: "var(--radius-md)",
         padding: "1rem",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         zIndex: 10,
         display: "flex",
         flexDirection: "column",
@@ -90,11 +90,9 @@ function NodeDetailAside({
         <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <span
             style={{
-              fontSize: "0.6875rem",
+              fontSize: "0.875rem",
               fontWeight: 600,
               color: NODE_COLORS[node.type],
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
             }}
           >
             {node.type}
@@ -122,8 +120,9 @@ function NodeDetailAside({
             flexShrink: 0,
             lineHeight: 1,
             padding: "0.125rem",
+            minWidth: 44,
           }}
-          aria-label="Close"
+          aria-label="Close page details"
         >
           ×
         </button>
@@ -171,7 +170,7 @@ function NodeDetailAside({
           transition: "background 100ms ease-out",
         }}
       >
-        Open page →
+        Open page
       </a>
     </div>
   );
@@ -183,38 +182,49 @@ export function WikiGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [selectedNode, setSelectedNode] = useState<PageNode | null>(null);
-  const [neighborIds, setNeighborIds] = useState<Set<string>>(new Set());
+  const reducedMotion = useReducedMotion();
+  const selectorId = useId();
+  const neighborIds = useMemo(() => {
+    const neighbors = new Set<string>();
+    if (selectedNode) {
+      for (const link of data?.links ?? []) {
+        if (link.from_page_id === selectedNode.id) neighbors.add(link.to_page_id);
+        if (link.to_page_id === selectedNode.id) neighbors.add(link.from_page_id);
+      }
+    }
+    return neighbors;
+  }, [data, selectedNode]);
 
   // Fetch graph data
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    fetch("/api/page_links")
-      .then((r) => r.json())
+    const controller = new AbortController();
+    fetch("/api/page_links", { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error("Graph unavailable");
+        return r.json();
+      })
       .then((d: GraphData) => {
+        if (!Array.isArray(d.nodes) || !Array.isArray(d.links)) throw new Error("Invalid graph response");
+        if (controller.signal.aborted) return;
         setData(d);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setError(true);
+        setLoading(false);
+      });
+    return () => controller.abort();
+  }, [reload]);
 
   const handleNodeClick = useCallback(
-    (node: PageNode, links: PageLink[]) => {
-      if (selectedNode?.id === node.id) {
-        setSelectedNode(null);
-        setNeighborIds(new Set());
-        return;
-      }
-      setSelectedNode(node);
-      const neighbors = new Set<string>();
-      for (const link of links) {
-        if (link.from_page_id === node.id) neighbors.add(link.to_page_id);
-        if (link.to_page_id === node.id) neighbors.add(link.from_page_id);
-      }
-      setNeighborIds(neighbors);
+    (node: PageNode) => {
+      setSelectedNode((current) => current?.id === node.id ? null : node);
     },
-    [selectedNode]
+    []
   );
 
   // Build and run d3 simulation
@@ -303,6 +313,12 @@ export function WikiGraph() {
 
     nodeSel
       .append("circle")
+      .attr("r", 22)
+      .attr("fill", "transparent");
+
+    nodeSel
+      .append("circle")
+      .attr("class", "node-mark")
       .attr("r", NODE_RADIUS)
       .attr("fill", (d) => NODE_COLORS[d.type])
       .attr("stroke", "var(--surface-white)")
@@ -312,30 +328,35 @@ export function WikiGraph() {
       .append("text")
       .attr("dy", NODE_RADIUS + 12)
       .attr("text-anchor", "middle")
-      .attr("font-size", "9px")
+      .attr("font-size", "12px")
       .attr("fill", "var(--fg-muted)")
       .attr("pointer-events", "none")
       .text((d) => (d.title.length > 20 ? d.title.slice(0, 18) + "…" : d.title));
 
     // Click handler (references current links data via closure)
     nodeSel.on("click", (_event, d) => {
-      handleNodeClick(d, data.links);
+      handleNodeClick(d);
     });
 
     // Drag behaviour
     const drag = d3Drag
       .drag<SVGGElement, SimNode>()
       .on("start", (event, d) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
+        if (!reducedMotion && !event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
       })
       .on("drag", (event, d) => {
         d.fx = event.x;
         d.fy = event.y;
+        if (reducedMotion) {
+          d.x = event.x;
+          d.y = event.y;
+          renderTick();
+        }
       })
       .on("end", (event, d) => {
-        if (!event.active) simulation.alphaTarget(0);
+        if (!reducedMotion && !event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
       });
@@ -343,7 +364,7 @@ export function WikiGraph() {
     nodeSel.call(drag);
 
     // Tick update
-    simulation.on("tick", () => {
+    const renderTick = () => {
       edgeSel
         .attr("x1", (d) => (d.source as SimNode).x ?? 0)
         .attr("y1", (d) => (d.source as SimNode).y ?? 0)
@@ -354,12 +375,18 @@ export function WikiGraph() {
         "transform",
         (d) => `translate(${d.x ?? 0},${d.y ?? 0})`
       );
-    });
+    };
+    simulation.on("tick", renderTick);
+    if (reducedMotion) {
+      simulation.stop();
+      simulation.tick(200);
+      renderTick();
+    }
 
     return () => {
       simulation.stop();
     };
-  }, [data, handleNodeClick]);
+  }, [data, handleNodeClick, reducedMotion]);
 
   // Apply highlight styles when selection changes
   useEffect(() => {
@@ -369,7 +396,7 @@ export function WikiGraph() {
     if (!selectedNode) {
       // Reset all
       svg
-        .selectAll<SVGGElement, SimNode>(".nodes g circle")
+        .selectAll<SVGGElement, SimNode>(".nodes g .node-mark")
         .attr("r", NODE_RADIUS)
         .attr("opacity", 1);
       svg
@@ -379,7 +406,7 @@ export function WikiGraph() {
     }
 
     svg
-      .selectAll<SVGGElement, SimNode>(".nodes g circle")
+      .selectAll<SVGGElement, SimNode>(".nodes g .node-mark")
       .attr("r", (d) =>
         d.id === selectedNode.id ? SELECTED_RADIUS : NODE_RADIUS
       )
@@ -394,7 +421,7 @@ export function WikiGraph() {
         const tgt = (d.target as SimNode).id;
         return src === selectedNode.id || tgt === selectedNode.id ? 0.9 : 0.1;
       });
-  }, [selectedNode, neighborIds, data]);
+  }, [selectedNode, neighborIds, data, reducedMotion]);
 
   if (loading) {
     return (
@@ -413,6 +440,17 @@ export function WikiGraph() {
     );
   }
 
+  if (error) {
+    return <div className="wiki-graph__state" role="alert">
+      <p>Your graph could not be loaded. Your pages are still available in list view.</p>
+      <button type="button" className="btn btn--secondary" onClick={() => {
+        setLoading(true);
+        setError(false);
+        setReload((value) => value + 1);
+      }}>Try again</button>
+    </div>;
+  }
+
   if (!data || data.nodes.length === 0) {
     return (
       <div
@@ -427,20 +465,6 @@ export function WikiGraph() {
           textAlign: "center",
         }}
       >
-        <div
-          style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "var(--radius-md)",
-            background: "var(--surface-sunken)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.5rem",
-          }}
-        >
-          🕸️
-        </div>
         <p
           className="ds-body-md"
           style={{ color: "var(--fg-muted)", maxWidth: "320px", margin: 0 }}
@@ -452,9 +476,20 @@ export function WikiGraph() {
   }
 
   return (
-    <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+    <div className="wiki-graph">
+      <div className="wiki-graph__selector">
+        <label htmlFor={selectorId}>Choose a page</label>
+        <select id={selectorId} value={selectedNode?.id ?? ""} onChange={(event) => {
+          setSelectedNode(data.nodes.find((node) => node.id === event.target.value) ?? null);
+        }}>
+          <option value="">All connections</option>
+          {data.nodes.map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
+        </select>
+      </div>
       <svg
         ref={svgRef}
+        role="img"
+        aria-label="Knowledge connections. Use Choose a page to explore each page."
         style={{ width: "100%", height: "100%", display: "block" }}
       />
 
@@ -463,23 +498,18 @@ export function WikiGraph() {
           node={selectedNode}
           onClose={() => {
             setSelectedNode(null);
-            setNeighborIds(new Set());
           }}
         />
       )}
 
       {/* Legend */}
+      <details className="wiki-graph-key">
+      <summary>Graph key</summary>
       <div
         style={{
-          position: "absolute",
-          bottom: "1rem",
-          left: "1rem",
           display: "flex",
           flexWrap: "wrap",
           gap: "0.5rem",
-          background: "var(--surface-white)",
-          border: "1px solid var(--accent-border)",
-          borderRadius: "var(--radius-sm)",
           padding: "0.5rem 0.75rem",
           opacity: 0.85,
         }}
@@ -510,6 +540,7 @@ export function WikiGraph() {
           </div>
         ))}
       </div>
+      </details>
     </div>
   );
 }

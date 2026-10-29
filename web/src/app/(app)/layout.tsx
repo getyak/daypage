@@ -14,6 +14,7 @@ import { MobileSidebarDrawer, HamburgerButton } from "./_components/MobileSideba
 import { DesktopSidebarShell } from "./_components/DesktopSidebarShell";
 import { BreadcrumbLabel } from "./_components/BreadcrumbLabel";
 import { PageTransition } from "./_components/PageTransition";
+import { AppChrome } from "./_components/AppChrome";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -146,7 +147,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen">
+    <AppChrome>
       {/* Sidebar — hidden on mobile, visible on lg+ (collapsible via DesktopSidebarShell) */}
       <DesktopSidebarShell>{sidebarContent}</DesktopSidebarShell>
 
@@ -165,18 +166,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             glass toolbar (see .today-mobile-active rule in globals.css). */}
         <header
           className="app-topbar"
-          style={{
-            height: "52px",
-            borderBottom: "1px solid var(--accent-border)",
-            background: "var(--surface-white)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 1rem 0 1rem",
-            flexShrink: 0,
-          }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+          <div className="app-topbar__identity">
             {/* Hamburger — visible on mobile only, inside MobileSidebarDrawer context */}
             <HamburgerButton />
             <span
@@ -190,6 +181,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             >
               DayPage
             </span>
+            <span className="app-topbar__context">
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
             <BreadcrumbLabel />
             <span
@@ -204,8 +196,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               ·
             </span>
             <TopbarDate />
+            </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div className="app-topbar__actions">
             <Link href="/chat" className="btn btn--soft btn--sm" aria-label="Ask — open chat">Ask</Link>
             <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
           </div>
@@ -229,6 +222,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </main>
       </div>
       </MobileSidebarDrawer>
-    </div>
+    </AppChrome>
   );
 }

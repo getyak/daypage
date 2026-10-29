@@ -81,10 +81,9 @@ export default async function AddPage() {
   }
 
   return (
-    <main
+    <section
       className="page capture-page"
       style={{
-        maxWidth: "760px",
         display: "flex",
         flexDirection: "column",
         gap: "1.5rem",
@@ -104,7 +103,7 @@ export default async function AddPage() {
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
         <h2 className="capture-section-title">待处理</h2>
-        <div className="card" style={{ padding: "1.25rem" }}>
+        <div className="capture-queue">
           <CompileQueue initialMemos={initialMemos} />
         </div>
       </section>
@@ -115,10 +114,10 @@ export default async function AddPage() {
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
         <summary>查看已整理内容</summary>
-        <div className="card" style={{ padding: "1.25rem" }}>
+        <div className="capture-queue">
           <RecentlyCompiled initialMemos={recentlyCompiled} />
         </div>
       </details>
-    </main>
+    </section>
   );
 }
