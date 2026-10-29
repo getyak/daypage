@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PYTHON ?= python3
 PNPM ?= pnpm
 SCHEME ?= DayPage
-PROJECT ?= DayPage.xcodeproj
+PROJECT ?= DayPageLocal/DayPageLocal.xcodeproj
 SIMULATOR_FALLBACK ?= iPhone 16
 DERIVED_DATA ?= build/DD
 
@@ -57,6 +57,7 @@ check-scripts:
 
 check-kit:
 	swift test --package-path DayPageKit
+	swift test --package-path DayPageCore
 
 check-web:
 	$(PNPM) web:lint

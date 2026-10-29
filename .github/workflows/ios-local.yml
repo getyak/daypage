@@ -1,0 +1,32 @@
+name: Local iOS notebook
+on:
+  pull_request:
+    paths:
+      - 'DayPageLocal/**'
+      - 'DayPageCore/**'
+      - 'DayPageLocalUITests/**'
+      - 'scripts/tests/test_local_ios_contract.py'
+      - '.github/workflows/ios-local.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'DayPageLocal/**'
+      - 'DayPageCore/**'
+      - 'DayPageLocalUITests/**'
+      - '.github/workflows/ios-local.yml'
+permissions:
+  contents: read
+concurrency:
+  group: local-ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: Local iOS core and app
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: swift test --package-path DayPageCore --jobs 2
+      - run: python3 scripts/tests/test_local_ios_contract.py
+      - name: Build the isolated local app
+        run: xcodebuild -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPage -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

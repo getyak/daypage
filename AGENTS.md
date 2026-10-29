@@ -9,7 +9,8 @@ weaken the safety, ownership, data, or release rules here.
 DayPage captures raw daily signals and compiles them into Daily Pages, entity pages,
 and a personal knowledge graph. This is a multi-surface repository:
 
-- `DayPage/`: SwiftUI iOS app; current navigation is a sidebar and Graph is implemented.
+- `DayPage/`: legacy SwiftUI iOS source retained for the archived edition and other Apple targets.
+- `DayPageLocal/`, `DayPageCore/`: current local-only iOS app and file/AI core (GET-326, ADR-0027). Build `DayPageLocal/DayPageLocal.xcodeproj`, scheme `DayPage`; `DayPage/` and the original project now serve the legacy edition and other Apple targets.
 - `DayPageMac/`, `DayPageWatch/`, `DayPageWidget/`: Apple platform companions.
 - `DayPageKit/`: Swift package and source of truth for shared models, storage, and services.
 - `DayPageTests/`: Xcode target tests; `DayPageKit/Tests/`: Swift package tests.
@@ -45,6 +46,7 @@ document and link to it.
   `\n\n---\n\n` files remain read-compatible. Assets remain under `vault/raw/assets/`.
 - Shared model/storage/service behavior belongs in `DayPageKit` unless an Apple target
   genuinely requires an adapter.
+- The local-only iOS boundary in ADR-0027 uses `DayPageCore`, without cloud/database dependencies. Keep its raw format compatible with legacy Vaults; do not pull legacy sync or credentials into the new app.
 - Secrets belong in ignored local files, keychain, or environment variables. Never
   commit API keys, auth state, personal vault content, transcripts, or runtime evidence.
 - Preserve iOS 16 compatibility in shared/iOS code unless an approved decision changes it.
@@ -120,6 +122,7 @@ crossing a boundary. The engineering facade is documented in
 - Repository contracts: `make doctor`
 - Full local checks: `make check`
 - Swift package: `swift test --package-path DayPageKit`
+- Local iOS core: `swift test --package-path DayPageCore`; dependency contracts: `python3 scripts/tests/test_local_ios_contract.py`; use the new local project for iOS builds/UI tests. The original project and tests cover the legacy clients.
 - iOS code: build the `DayPage` scheme and run affected `DayPageTests` on Simulator.
 - iOS UI: launch in Simulator and verify the affected flow; preview-only is insufficient.
 - Storage: inspect actual generated Markdown/YAML in an isolated test vault.

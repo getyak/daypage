@@ -1,0 +1,70 @@
+name: DayPageLocal
+options:
+  minimumXcodeGenVersion: 2.40.0
+  deploymentTarget:
+    iOS: "16.1"
+  developmentLanguage: en
+packages:
+  DayPageCore:
+    path: ../DayPageCore
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: 6RG2F8YY59
+    MARKETING_VERSION: 0.5.0
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  DayPage:
+    type: application
+    platform: iOS
+    sources:
+      - path: DayPageApp.swift
+      - path: NotebookModel.swift
+      - path: NotebookTheme.swift
+      - path: NotebookView.swift
+      - path: NoteViews.swift
+      - path: NoteChatView.swift
+      - path: SettingsView.swift
+      - path: FeedbackView.swift
+      - path: Resources
+      - path: PrivacyInfo.xcprivacy
+      - path: ../DayPage/App/Fonts/SourceSerif4-Regular.ttf
+      - path: ../DayPage/App/Fonts/SourceHanSerifSC-Regular.otf
+      - path: ../DayPage/App/Assets.xcassets
+    dependencies:
+      - package: DayPageCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)
+        PRODUCT_NAME: DayPage
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: DayPage.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          DAYPAGE_QA_BUNDLE_SUFFIX: .localqa
+        Release:
+          DAYPAGE_QA_BUNDLE_SUFFIX: ""
+  DayPageLocalUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ../DayPageLocalUITests
+    dependencies:
+      - target: DayPage
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.daypage.localuitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DayPage
+schemes:
+  DayPage:
+    build:
+      targets:
+        DayPage: all
+    test:
+      targets:
+        - DayPageLocalUITests

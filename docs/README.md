@@ -6,6 +6,8 @@ to drive a change.
 
 ## Current
 
+- [Local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — current iOS product boundary; other clients retain their previous architecture
+- [Local iOS setup and verification](engineering/local-ios-notebook.md)
 - [Repository constitution](../AGENTS.md)
 - [Architecture index](architecture/README.md)
 - [System overview](architecture/overview.md)
@@ -30,6 +32,7 @@ current PRD is adopted and linked here.
 
 ## Architecture decisions
 
+- [ADR-0027: A local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — Accepted for GET-326; native distribution is separate
 - [ADR-0012: Action Button screenshot capture and evidence-first understanding](architecture/decisions/ADR-0012-action-button-screenshot-capture.md) — Accepted
 - [ADR-0008: Local-first sync and OAuth-protected DayPage Cloud MCP](architecture/decisions/ADR-0008-local-first-sync-and-cloud-mcp.md) — Accepted
 - [ADR-0006: Repository Agent Team control plane](architecture/decisions/ADR-0006-repository-agent-team-control-plane.md) — Accepted
