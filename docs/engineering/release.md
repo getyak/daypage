@@ -41,6 +41,8 @@ in the same repository at exactly `GITHUB_SHA`. A general-CI success cannot
 replace local-iOS CI. Missing/queued runs wait within a shared one-hour budget;
 failure, cancellation, skipped conclusion, malformed/API error or timeout refuses
 publication. Requests are bounded to 30 seconds. Both jobs check out the exact SHA.
+After the waits, both latest runs are read again; a new pending or failed rerun
+refuses publication instead of carrying an old success into signing.
 
 The existing signing secrets belong to the existing App Store Connect app and
 match repository. Match's exact generated profile name is applied to the local

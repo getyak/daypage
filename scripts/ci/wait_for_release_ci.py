@@ -90,6 +90,17 @@ def main():
                         os.environ.get("GITHUB_REF", ""), workflow=workflow,
                         timeout=max(0, deadline - time.monotonic()),
                         fetch=lambda repo, sha, timeout: fetch_runs(repo, sha, timeout, workflow))
+        # A previously green workflow may have been rerun while the other one
+        # was building. Do not carry that old success across a long wait.
+        repo, sha = os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_SHA", "")
+        for workflow in ("ci.yml", "ios-local.yml"):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise GateError("timed out confirming candidate CI")
+            run = validate_packet(fetch_runs(repo, sha, min(30, remaining), workflow), repo, sha, workflow)
+            if (time.monotonic() >= deadline or not run or run.get("status") != "completed"
+                    or run.get("conclusion") != "success"):
+                raise GateError("candidate CI changed while waiting; retry after both workflows succeed")
     except GateError as error:
         print(f"[release-ci] {error}", file=sys.stderr)
         return 1
