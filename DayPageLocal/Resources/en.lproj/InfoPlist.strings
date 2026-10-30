@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "Record voice notes in your local notebook. Audio is never sent automatically.";
+"NSCameraUsageDescription" = "Take a photo to keep with a note in your local notebook.";

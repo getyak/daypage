@@ -26,6 +26,11 @@ For endpoint compatibility and platform transport behavior, see [LM Studio's ser
 
 ## Navigation and design
 
+The initial navigation and visual choices below were corrected by
+[ADR-0028](ADR-0028-local-product-continuity.md) after the user rejected the 0.5.0
+experience. Preserve the established Today stream, capture dock and mature local
+note operations; the three drawer destinations remain unchanged.
+
 The sidebar has exactly Archive, Feedback and Settings. Archive contains local search, writing and note chat. There is no login, graph, daily compilation, agent dashboard, scheduling or sync destination in this app. Feedback drafts remain local until the user opens a share or GitHub submission interface.
 
 The editable [Figma refinement](https://www.figma.com/design/el5wnKFHTBcgln16ktEztU/?node-id=420-1331) uses a warm paper canvas and a dark green notebook spine. SwiftUI adapts its spacing to safe areas, smaller screens and Dynamic Type; SF Symbols are native, and the existing bundled reading fonts are reused. Figma's cloud renderer could not render its SF Pro text reliably, so its editable CJK labels use Noto Sans/Serif SC; native controls retain system typography and prose uses the bundled Source Han Serif / Source Serif fonts.

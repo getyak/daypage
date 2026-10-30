@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "录制语音并保存到本机笔记中，录音不会自动发送到外部服务。";
+"NSCameraUsageDescription" = "拍摄照片并保存在你的本机笔记中。";

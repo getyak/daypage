@@ -32,6 +32,8 @@ current PRD is adopted and linked here.
 
 ## Architecture decisions
 
+- [ADR-0028: Local product continuity](architecture/decisions/ADR-0028-local-product-continuity.md) — Restores the established native experience on the local file core; supersedes GET-326's initial minimal UI
+
 - [ADR-0027: A local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — Accepted for GET-326; native distribution is separate
 - [ADR-0012: Action Button screenshot capture and evidence-first understanding](architecture/decisions/ADR-0012-action-button-screenshot-capture.md) — Accepted
 - [ADR-0008: Local-first sync and OAuth-protected DayPage Cloud MCP](architecture/decisions/ADR-0008-local-first-sync-and-cloud-mcp.md) — Accepted

@@ -18,8 +18,8 @@ struct SettingsView: View {
   var body: some View {
     Form {
       Section {
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Your AI.\nYour choice.").font(NotebookTheme.reading(30))
+        VStack(alignment: .leading, spacing: 8) {
+          Label("Your notebook", systemImage: "book.closed").font(NotebookTheme.reading(22))
           Text(
             "Writing works offline. Only when you send a question will the listed note excerpts go to the AI service you choose."
           )
@@ -154,7 +154,7 @@ struct SettingsView: View {
       .listRowBackground(NotebookTheme.card)
 
       Section {
-        Text("DayPage Local · 0.5\nMarkdown notes. No account. No database.")
+        Text("DayPage · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
           .font(.caption).foregroundStyle(.secondary)
       }
       .listRowBackground(Color.clear)

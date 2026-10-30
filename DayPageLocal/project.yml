@@ -22,6 +22,10 @@ targets:
       - path: NotebookModel.swift
       - path: NotebookTheme.swift
       - path: NotebookView.swift
+      - path: NotebookTimeline.swift
+      - path: NotebookArchive.swift
+      - path: CaptureDraftStore.swift
+      - path: CaptureMedia.swift
       - path: NoteViews.swift
       - path: NoteChatView.swift
       - path: SettingsView.swift

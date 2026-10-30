@@ -1,21 +1,14 @@
 import DayPageCore
 import SwiftUI
 
-private enum NotebookDestination: String, CaseIterable, Identifiable {
-  case archive, feedback, settings
-  var id: Self { self }
+private enum NotebookDestination: String {
+  case today, archive, feedback, settings
   var title: LocalizedStringKey {
     switch self {
+    case .today: return "Today"
     case .archive: return "Archive"
     case .feedback: return "Feedback"
     case .settings: return "Settings"
-    }
-  }
-  var icon: String {
-    switch self {
-    case .archive: return "books.vertical"
-    case .feedback: return "paperplane"
-    case .settings: return "gearshape"
     }
   }
 }
@@ -26,71 +19,94 @@ struct NotebookView: View {
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.dynamicTypeSize) private var typeSize
-  @State private var destination: NotebookDestination = .archive
+  @State private var destination: NotebookDestination = .today
   @State private var sidebarOpen = false
   @State private var path: [String] = []
+  @State private var selectedDay = NotebookDate.day(Date())
+  @State private var showingCalendar = false
+  @State private var search = ""
 
   var body: some View {
     GeometryReader { geometry in
       ZStack(alignment: .leading) {
         NavigationStack(path: $path) {
-          Group {
-            switch destination {
-            case .archive: ArchiveView()
-            case .feedback: FeedbackView()
-            case .settings: SettingsView()
-            }
-          }
-          .navigationTitle(destination.title)
-          .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-              Button {
-                showSidebar(true)
-              } label: {
-                Image(systemName: "line.3.horizontal")
+          VStack(spacing: 0) {
+            header
+            Rectangle().fill(NotebookTheme.line).frame(height: 0.5)
+            Group {
+              switch destination {
+              case .today:
+                NotebookTimeline(day: selectedDay, showAll: { destination = .archive })
+              case .archive:
+                ArchiveView(search: $search)
+              case .feedback:
+                FeedbackView()
+              case .settings:
+                SettingsView()
               }
-              .accessibilityLabel("Open sidebar")
-              .accessibilityIdentifier("open-sidebar")
-              .frame(minWidth: 44, minHeight: 44)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+          }
+          .toolbar(.hidden, for: .navigationBar)
+          .notebookSurface()
+          .safeAreaInset(edge: .bottom, spacing: 0) {
+            if destination == .today || destination == .archive {
+              CaptureDock()
             }
           }
           .navigationDestination(for: String.self) { id in
             if let entry = notebook.entries.first(where: { $0.id == id }) {
               NoteDetailView(entry: entry)
+                .toolbar(.visible, for: .navigationBar)
             } else {
-              Text("This note is no longer available. Reopen the archive to refresh it.").padding()
+              Text("This note is no longer available. Reopen the archive to refresh it.")
+                .padding().toolbar(.visible, for: .navigationBar)
             }
           }
-          .notebookSurface()
-          .toolbarBackground(NotebookTheme.paper, for: .navigationBar)
-          .toolbarBackground(.visible, for: .navigationBar)
         }
         .accessibilityHidden(sidebarOpen)
+        .overlay(alignment: .leading) {
+          if path.isEmpty && !sidebarOpen {
+            Color.clear.frame(width: 14).contentShape(Rectangle())
+              .gesture(DragGesture(minimumDistance: 24).onEnded { value in
+                if value.translation.width > 65 && abs(value.translation.width) > abs(value.translation.height) * 1.5 {
+                  showSidebar(true)
+                }
+              })
+              .accessibilityHidden(true)
+          }
+        }
 
         if sidebarOpen {
-          Color.black.opacity(0.28)
-            .ignoresSafeArea()
+          Color.black.opacity(0.22).ignoresSafeArea()
             .onTapGesture { showSidebar(false) }
             .accessibilityHidden(true)
           sidebar
-            .frame(
-              width: min(geometry.size.width * (typeSize.isAccessibilitySize ? 0.94 : 0.86), 360)
-            )
+            .frame(width: min(geometry.size.width * (typeSize.isAccessibilitySize ? 0.94 : 0.84), 350))
             .transition(.move(edge: .leading))
             .accessibilityAddTraits(.isModal)
+            .gesture(DragGesture(minimumDistance: 24).onEnded { value in
+              if value.translation.width < -65 && abs(value.translation.width) > abs(value.translation.height) * 1.5 {
+                showSidebar(false)
+              }
+            })
         }
       }
     }
+    .tint(NotebookTheme.accent)
     .preferredColorScheme(appearance == "dark" ? .dark : appearance == "light" ? .light : nil)
-    .alert(
-      "Something needs attention",
-      isPresented: Binding(get: { notebook.error != nil }, set: { if !$0 { notebook.error = nil } })
-    ) {
+    .alert("Something needs attention",
+           isPresented: Binding(get: { notebook.error != nil }, set: { if !$0 { notebook.error = nil } })) {
       Button("OK", role: .cancel) { notebook.error = nil }
-    } message: {
-      Text(notebook.error ?? "")
+    } message: { Text(notebook.error ?? "") }
+    .sheet(isPresented: $showingCalendar) {
+      NotebookCalendar(selectedDay: $selectedDay) { destination = .today }
+        .presentationDetents([.medium, .large])
     }
-    .onChange(of: scenePhase) { phase in if phase == .active { Task { await notebook.refresh() } } }
+    .onChange(of: scenePhase) { phase in
+      if phase == .active { Task { await notebook.refresh() } }
+      if phase != .active { notebook.saveDraft() }
+    }
     .onAppear {
       if NotebookModel.isQA, ProcessInfo.processInfo.arguments.contains("-qaOpenSidebar") {
         sidebarOpen = true
@@ -98,222 +114,131 @@ struct NotebookView: View {
     }
   }
 
+  private var header: some View {
+    HStack(spacing: 12) {
+      NotebookCircleButton(icon: "line.3.horizontal", label: "Open sidebar") { showSidebar(true) }
+        .accessibilityIdentifier("open-sidebar")
+      Spacer(minLength: 4)
+      if destination == .today {
+        Button { showingCalendar = true } label: {
+          HStack(spacing: 6) {
+            Text(NotebookDate.title(selectedDay)).font(NotebookTheme.reading(17))
+            Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium))
+          }
+          .foregroundStyle(NotebookTheme.muted)
+          .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose date")
+        .accessibilityIdentifier("choose-date")
+      } else {
+        Text(destination.title).font(NotebookTheme.reading(19))
+      }
+      Spacer(minLength: 4)
+      if destination == .today || destination == .archive {
+        NotebookCircleButton(icon: "magnifyingglass", label: "Search your notes") {
+          destination = .archive
+          search = ""
+        }
+        .accessibilityIdentifier("search-notes")
+      } else {
+        NotebookCircleButton(icon: "square.and.pencil", label: "Today") { destination = .today }
+          .accessibilityIdentifier("return-today")
+      }
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 10)
+    .frame(maxWidth: 820)
+    .frame(maxWidth: .infinity)
+    .background(NotebookTheme.paper)
+  }
+
   private var sidebar: some View {
     GeometryReader { geometry in
       ScrollView {
         VStack(alignment: .leading, spacing: 0) {
-          HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 8) {
-              Text("daypage")
-                .font(.custom("SourceSerif4-Regular", size: 36, relativeTo: .largeTitle))
-                .foregroundStyle(NotebookTheme.spineInk)
-              Text("A quiet local notebook")
-                .font(.subheadline)
-                .foregroundStyle(NotebookTheme.spineMuted)
-            }
-            Spacer(minLength: 8)
-            Button {
-              showSidebar(false)
-            } label: {
-              Image(systemName: "xmark").font(.body.weight(.medium)).frame(width: 44, height: 44)
-            }
-            .foregroundStyle(NotebookTheme.spineInk)
-            .accessibilityLabel("Close sidebar")
+          NotebookCircleButton(icon: "xmark", label: "Close sidebar") { showSidebar(false) }
             .accessibilityIdentifier("close-sidebar")
-          }
-          .padding(.bottom, 48)
-
-          VStack(spacing: 10) {
-            ForEach(NotebookDestination.allCases) { item in
-              Button {
-                destination = item
-                path = []
-                showSidebar(false)
-              } label: {
-                HStack(spacing: 16) {
-                  Image(systemName: item.icon)
-                    .font(.system(size: 21, weight: .regular))
-                    .frame(width: 28)
-                    .foregroundStyle(NotebookTheme.gold)
-                  Text(item.title).font(.body.weight(destination == item ? .semibold : .regular))
-                  Spacer(minLength: 0)
-                }
-                .foregroundStyle(NotebookTheme.spineInk)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .frame(minHeight: 58)
-                .background(
-                  destination == item ? NotebookTheme.spineSelection : .clear,
-                  in: RoundedRectangle(cornerRadius: 14)
-                )
-                .contentShape(Rectangle())
+            .padding(.bottom, 28)
+          Button {
+            destination = .today
+            selectedDay = NotebookDate.day(Date())
+            path = []
+            showSidebar(false)
+          } label: {
+            HStack(spacing: 14) {
+              Image(systemName: "book.closed").font(.system(size: 21))
+                .frame(width: 44, height: 44)
+                .background(NotebookTheme.card.opacity(0.7), in: Circle())
+              VStack(alignment: .leading, spacing: 4) {
+                Text("DayPage").font(NotebookTheme.reading(24))
+                Text("On this device").font(.caption).foregroundStyle(NotebookTheme.muted)
               }
-              .buttonStyle(.plain)
-              .accessibilityIdentifier("sidebar-" + item.rawValue)
-              .accessibilityAddTraits(destination == item ? .isSelected : [])
+              Spacer()
+              Image(systemName: "chevron.right").font(.caption)
             }
+            .foregroundStyle(NotebookTheme.ink)
+            .padding(.vertical, 8)
           }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("notebook-home")
+          .padding(.bottom, 34)
+
+          sidebarRow(.archive, icon: "books.vertical")
+          HStack(spacing: 8) {
+            Text("\(notebook.entries.count) notes")
+            Text("·")
+            Text("\(Set(notebook.entries.map(\.day)).count) days")
+          }
+          .font(.caption)
+          .foregroundStyle(NotebookTheme.muted)
+          .padding(.leading, 56)
+          .padding(.top, 12)
 
           Spacer(minLength: 48)
-
-          VStack(alignment: .leading, spacing: 24) {
-            Text("Your notes stay here.\nAI joins only when you ask.")
-              .font(NotebookTheme.reading(16))
-              .foregroundStyle(NotebookTheme.spineMuted)
-              .fixedSize(horizontal: false, vertical: true)
-            Label("LOCAL NOTEBOOK", systemImage: "internaldrive")
-              .font(.caption2.monospaced().weight(.medium))
-              .tracking(1.2)
-              .foregroundStyle(NotebookTheme.spineMuted)
-          }
-          .padding(.top, 28)
+          Divider().overlay(NotebookTheme.line).padding(.bottom, 16)
+          sidebarRow(.feedback, icon: "paperplane")
+          sidebarRow(.settings, icon: "gearshape")
+          Text("Your notes stay here.\nAI joins only when you ask.")
+            .font(.caption).foregroundStyle(NotebookTheme.muted)
+            .lineSpacing(4).padding(.horizontal, 16).padding(.top, 24)
         }
-        .frame(minHeight: max(0, geometry.size.height - 52), alignment: .topLeading)
-        .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .padding(.bottom, 28)
+        .frame(minHeight: max(0, geometry.size.height - 60), alignment: .topLeading)
+        .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 32)
       }
       .scrollIndicators(.hidden)
-      .background {
-        LinearGradient(
-          colors: [NotebookTheme.spineTop, NotebookTheme.spine], startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea(edges: .bottom)
-      }
+      .background(NotebookTheme.spine.ignoresSafeArea())
       .overlay(alignment: .trailing) {
-        Rectangle().fill(NotebookTheme.spineInk.opacity(0.08)).frame(width: 1).ignoresSafeArea()
+        Rectangle().fill(NotebookTheme.line).frame(width: 0.5).ignoresSafeArea()
       }
       .accessibilityIdentifier("notebook-sidebar")
       .accessibilityAction(.escape) { showSidebar(false) }
     }
   }
 
+  private func sidebarRow(_ item: NotebookDestination, icon: String) -> some View {
+    Button {
+      destination = item
+      path = []
+      showSidebar(false)
+    } label: {
+      HStack(spacing: 16) {
+        Image(systemName: icon).font(.system(size: 21)).frame(width: 24)
+        Text(item.title).font(.body.weight(destination == item ? .medium : .regular))
+        Spacer()
+      }
+      .foregroundStyle(destination == item ? NotebookTheme.readingAccent : NotebookTheme.secondary)
+      .padding(.horizontal, 16).frame(minHeight: 58)
+      .background(destination == item ? NotebookTheme.spineSelection : .clear,
+                  in: RoundedRectangle(cornerRadius: 14))
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("sidebar-" + item.rawValue)
+    .accessibilityAddTraits(destination == item ? .isSelected : [])
+  }
+
   private func showSidebar(_ open: Bool) {
     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { sidebarOpen = open }
-  }
-}
-
-struct ArchiveView: View {
-  @EnvironmentObject private var notebook: NotebookModel
-  @State private var search = ""
-  @State private var composing = false
-  @State private var chatting = false
-  private var entries: [NotebookEntry] {
-    guard !search.isEmpty else { return notebook.entries }
-    return notebook.entries.filter {
-      $0.memo.body.localizedStandardContains(search) || $0.day.contains(search)
-    }
-  }
-  private var days: [String] { Array(Set(entries.map(\.day))).sorted(by: >) }
-
-  var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 26) {
-        VStack(alignment: .leading, spacing: 12) {
-          Text("A place for passing thoughts.")
-            .font(NotebookTheme.reading(24)).foregroundStyle(.primary)
-          HStack(spacing: 8) {
-            Label("On this device", systemImage: "internaldrive")
-            Text("·")
-            Text("\(notebook.entries.count) notes")
-          }
-          .font(.caption).foregroundStyle(.secondary)
-        }
-        .padding(.top, 4)
-        HStack(spacing: 12) {
-          Button {
-            composing = true
-          } label: {
-            Label("Write a note", systemImage: "square.and.pencil").frame(
-              maxWidth: .infinity, minHeight: 44)
-          }
-          .buttonStyle(.borderedProminent)
-          .disabled(notebook.isLoading)
-          .accessibilityIdentifier("new-note")
-          Button {
-            chatting = true
-          } label: {
-            Image(systemName: "bubble.left.and.bubble.right").frame(width: 44, height: 44)
-          }
-          .buttonStyle(.bordered)
-          .disabled(notebook.isLoading)
-          .accessibilityLabel("Chat with notes")
-          .accessibilityIdentifier("chat-with-notes")
-        }
-        if notebook.isLoading {
-          ProgressView().frame(maxWidth: .infinity).padding(50)
-        } else if let issue = notebook.loadIssue {
-          Text(issue).foregroundStyle(.secondary).padding(.vertical)
-          Button("Try again") { Task { await notebook.refresh() } }
-        } else if entries.isEmpty {
-          VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: search.isEmpty ? "book.closed" : "magnifyingglass").font(
-              .system(size: 36, weight: .ultraLight))
-            Text(search.isEmpty ? "Start with one small thing." : "No matching notes")
-              .font(NotebookTheme.reading(24))
-            Text(
-              search.isEmpty
-                ? "No account. No setup. Just a thought worth keeping.\nHave an older Vault? Import a copy in Settings."
-                : "Try a different word or date."
-            )
-            .font(.subheadline).foregroundStyle(.secondary).lineSpacing(5)
-          }
-          .padding(.vertical, 50)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-          LazyVStack(alignment: .leading, spacing: 24) {
-            ForEach(days, id: \.self) { day in
-              VStack(alignment: .leading, spacing: 12) {
-                Text(day).font(.caption.monospaced()).foregroundStyle(.secondary)
-                ForEach(entries.filter { $0.day == day }) { entry in
-                  NavigationLink(value: entry.id) { MemoCard(entry: entry) }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("note-" + entry.memo.id.uuidString)
-                }
-              }
-            }
-          }
-        }
-      }
-      .padding(.horizontal, 24)
-      .padding(.bottom, 36)
-      .frame(maxWidth: 720)
-      .frame(maxWidth: .infinity)
-    }
-    .searchable(
-      text: $search, placement: .navigationBarDrawer(displayMode: .automatic),
-      prompt: "Search your notes"
-    )
-    .refreshable { await notebook.refresh() }
-    .sheet(isPresented: $composing) { NoteEditor() }
-    .sheet(isPresented: $chatting) { NoteChatView(selectedIDs: nil) }
-    .notebookSurface()
-  }
-}
-
-private struct MemoCard: View {
-  let entry: NotebookEntry
-  var body: some View {
-    VStack(alignment: .leading, spacing: 18) {
-      Text(entry.memo.body.isEmpty ? String(localized: "Attachment note") : entry.memo.body)
-        .font(NotebookTheme.reading(text: entry.memo.body)).lineSpacing(6).foregroundStyle(.primary)
-        .lineLimit(6).frame(maxWidth: .infinity, alignment: .leading)
-      HStack(spacing: 8) {
-        Text(entry.memo.created, style: .time)
-        if !entry.memo.attachments.isEmpty {
-          Label("\(entry.memo.attachments.count)", systemImage: "paperclip")
-        }
-        Spacer()
-        Image(systemName: "arrow.up.right").accessibilityHidden(true)
-      }
-      .font(.caption).foregroundStyle(.secondary)
-    }
-    .padding(20)
-    .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 16))
-    .overlay {
-      RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.04), lineWidth: 1)
-    }
-    .accessibilityElement(children: .combine)
   }
 }
