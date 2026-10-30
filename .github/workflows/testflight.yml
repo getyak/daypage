@@ -9,16 +9,11 @@ on:
     # changes. Control-plane-only changes can use workflow_dispatch after an
     # explicit release decision instead of shipping an unchanged binary.
     paths:
-      - "DayPage/**"
-      - "DayPageKit/**"
-      - "DayPageMac/**"
-      - "DayPageWatch/**"
-      - "DayPageWidget/**"
-      - "DayPageTests/**"
-      - "DayPage.xcodeproj/**"
-      - "design-tokens/**"
+      - "DayPageLocal/**"
+      - "DayPageCore/**"
+      - "DayPage/App/Fonts/**"
+      - "DayPage/App/Assets.xcassets/**"
       - "fastlane/**"
-      - "scripts/generate_secrets.sh"
       - "Gemfile"
       - "Gemfile.lock"
 
@@ -128,6 +123,17 @@ jobs:
             echo "Using manual override: $NEXT"
           else
             LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | head -n 1 || true)
+            CURRENT=$(grep -m1 -E 'MARKETING_VERSION = ' DayPageLocal/DayPageLocal.xcodeproj/project.pbxproj \
+              | sed -E 's/.*MARKETING_VERSION = ([^;]+);.*/\1/' | tr -d ' ')
+            if ! [[ "$CURRENT" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "::error::Local iOS MARKETING_VERSION must be numeric MAJOR.MINOR.PATCH."
+              exit 1
+            fi
+            # A new edition's checked-in version is a floor (0.5.0 > 0.4.101).
+            if [ -n "$LAST_TAG" ] && [ "$CURRENT" != "${LAST_TAG#v}" ] && \
+               [ "$(printf '%s\n' "$CURRENT" "${LAST_TAG#v}" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)" = "$CURRENT" ]; then
+              LAST_TAG=""
+            fi
             if [ -n "$LAST_TAG" ]; then
               BASE="${LAST_TAG#v}"
               IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
@@ -148,8 +154,6 @@ jobs:
                 exit 1
               fi
             else
-              CURRENT=$(grep -m1 -E 'MARKETING_VERSION = ' DayPage.xcodeproj/project.pbxproj \
-                | sed -E 's/.*MARKETING_VERSION = ([^;]+);.*/\1/' | tr -d ' ')
               if [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                 NEXT="$CURRENT"
               elif [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -231,9 +235,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: deriveddata-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: local-ios-deriveddata-${{ hashFiles('DayPageLocal/DayPageLocal.xcodeproj/project.pbxproj', 'DayPageCore/Package.swift') }}
           restore-keys: |
-            deriveddata-
+            local-ios-deriveddata-
 
       # ── 6. Validate Fastfile syntax ──────────────────────────────────────
       - name: Validate Fastfile
@@ -241,22 +245,8 @@ jobs:
           ruby -c fastlane/Fastfile
           bundle exec fastlane lanes > /dev/null
 
-      # ── 7. Write .env from GitHub Secret ─────────────────────────────────
-      - name: Write .env file
-        env:
-          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
-        run: |
-          echo "$ENV_FILE_CONTENT" > .env
-          echo ".env written ($(wc -l < .env) lines)"
-
-      - name: Apply shared backend public configuration
-        env:
-          DAYPAGE_SUPABASE_URL: ${{ secrets.DAYPAGE_SUPABASE_URL }}
-          DAYPAGE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.DAYPAGE_SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          set -euo pipefail
-          python3 scripts/ci/apply_release_supabase_overlay.py .env
-          bash scripts/ci/validate_release_supabase_config.sh .env
+      - name: Verify local-only app boundary
+        run: python3 scripts/tests/test_local_ios_contract.py
 
       # ── 8. Setup match SSH key ────────────────────────────────────────────
       # match 通过 SSH 访问 getyak/daypage-certs 私有 repo 拉取加密的证书和 profile。

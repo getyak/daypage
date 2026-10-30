@@ -5,6 +5,13 @@ on:
       - 'DayPageLocal/**'
       - 'DayPageCore/**'
       - 'DayPageLocalUITests/**'
+      - 'DayPage/App/Fonts/**'
+      - 'DayPage/App/Assets.xcassets/**'
+      - 'fastlane/**'
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - '.github/workflows/testflight.yml'
+      - 'scripts/ci/wait_for_release_ci.py'
       - 'scripts/tests/test_local_ios_contract.py'
       - '.github/workflows/ios-local.yml'
   push:
@@ -13,6 +20,13 @@ on:
       - 'DayPageLocal/**'
       - 'DayPageCore/**'
       - 'DayPageLocalUITests/**'
+      - 'DayPage/App/Fonts/**'
+      - 'DayPage/App/Assets.xcassets/**'
+      - 'fastlane/**'
+      - 'Gemfile'
+      - 'Gemfile.lock'
+      - '.github/workflows/testflight.yml'
+      - 'scripts/ci/wait_for_release_ci.py'
       - '.github/workflows/ios-local.yml'
 permissions:
   contents: read

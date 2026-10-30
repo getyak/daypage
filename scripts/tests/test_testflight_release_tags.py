@@ -38,6 +38,9 @@ class ReleaseTagTests(unittest.TestCase):
         self.sha = self.git("rev-parse", "HEAD").stdout.strip()
         self.git("remote", "add", "origin", str(self.remote))
         self.git("push", "origin", "HEAD:refs/heads/main")
+        project = self.repo / "DayPageLocal/DayPageLocal.xcodeproj"
+        project.mkdir(parents=True)
+        (project / "project.pbxproj").write_text("MARKETING_VERSION = 0.5.0;\n")
 
     def git(self, *args, cwd=None):
         return subprocess.run(["git", *args], cwd=cwd or self.repo, env=self.env,
@@ -129,6 +132,26 @@ class ReleaseTagTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(output.read_text().splitlines(),
                          ["release_version=0.4.96", "release_tag=v0.4.96"])
+
+    def test_automatic_version_honors_new_local_edition_floor(self):
+        self.git("tag", "v0.4.101")
+        self.assert_automatic_version("0.5.0")
+
+    def test_automatic_version_increments_latest_release_after_floor(self):
+        self.git("tag", "v0.5.3")
+        self.assert_automatic_version("0.5.4")
+
+    def test_first_release_uses_local_project_version_without_legacy_project(self):
+        self.assert_automatic_version("0.5.0")
+
+    def assert_automatic_version(self, expected):
+        output = self.root / "outputs"
+        env = {**self.env, "VERSION_OVERRIDE": "", "GITHUB_OUTPUT": str(output)}
+        result = subprocess.run(["bash", "-c", workflow_step("Compute next version")],
+                                cwd=self.repo, env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(output.read_text().splitlines(),
+                         ["release_version=" + expected, "release_tag=v" + expected])
 
     def test_lane_rejects_shell_code_before_invoking_fastlane(self):
         marker = self.root / "must-not-exist"

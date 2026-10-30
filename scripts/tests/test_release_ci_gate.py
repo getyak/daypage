@@ -50,6 +50,18 @@ class ReleaseCIGateTests(unittest.TestCase):
         self.assertEqual(self.run_gate([packet()]), 10)
         self.assertEqual(self.calls, [(REPO, SHA, 30)])
 
+    def test_local_gate_requires_its_own_workflow_identity(self):
+        self.assertEqual(self.run_gate([packet(path=".github/workflows/ios-local.yml")],
+                                       workflow="ios-local.yml"), 10)
+        with self.assertRaises(self.module.GateError):
+            self.run_gate([packet()], workflow="ios-local.yml")
+
+    def test_both_gates_share_one_hour_budget(self):
+        with mock.patch.object(self.module.time, "monotonic", side_effect=[10, 20, 30]), \
+             mock.patch.object(self.module, "wait_for_ci") as wait:
+            self.assertEqual(self.module.main(), 0)
+        self.assertEqual([call.kwargs.get("timeout") for call in wait.call_args_list], [3590, 3580])
+
     def test_discovery_then_latest_rerun_running_then_success(self):
         self.assertEqual(self.run_gate([
             {"total_count": 0, "workflow_runs": []},
@@ -114,8 +126,13 @@ class ReleaseCIGateTests(unittest.TestCase):
             gh.write_text('#!' + sys.executable + '\n'
                 'import os,pathlib,sys\n'
                 'assert sys.argv[1] == "api"\n'
-                'pathlib.Path(os.environ["FAKE_MARKER"]).touch()\n'
-                'sys.stdout.write(pathlib.Path(os.environ["FAKE_PACKET"]).read_text())\n')
+                'with pathlib.Path(os.environ["FAKE_MARKER"]).open("a") as f: f.write(sys.argv[2]+"\\n")\n'
+                'import json\n'
+                'p=json.loads(pathlib.Path(os.environ["FAKE_PACKET"]).read_text())\n'
+                'if "/workflows/ios-local.yml/" in sys.argv[2]:\n'
+                ' p["workflow_runs"][0]["path"]=".github/workflows/ios-local.yml"\n'
+                ' p["workflow_runs"][0]["conclusion"]=os.environ.get("FAKE_LOCAL_CONCLUSION","success")\n'
+                'sys.stdout.write(json.dumps(p))\n')
             gh.chmod(0o700)
             env = {"PATH": str(root) + os.pathsep + os.environ.get("PATH", ""),
                    "GITHUB_REPOSITORY": REPO, "GITHUB_SHA": SHA,
@@ -128,6 +145,12 @@ class ReleaseCIGateTests(unittest.TestCase):
                 self.assertEqual(result.returncode, expected)
                 self.assertTrue(marker.exists())
                 self.assertNotIn(b"private-token-sentinel", result.stdout + result.stderr)
+            fixture.write_text(json.dumps(packet()))
+            env["FAKE_LOCAL_CONCLUSION"] = "failure"
+            result = subprocess.run([sys.executable, str(SCRIPT)], env=env,
+                                    capture_output=True, timeout=5)
+            self.assertEqual(result.returncode, 1, "general CI success cannot bypass failed local-iOS CI")
+            self.assertIn("/workflows/ios-local.yml/", marker.read_text())
             marker.unlink()
             env["GITHUB_REF"] = "refs/heads/feature"
             result = subprocess.run([sys.executable, str(SCRIPT)], env=env,

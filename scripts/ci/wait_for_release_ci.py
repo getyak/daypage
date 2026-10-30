@@ -12,8 +12,8 @@ class GateError(Exception):
     pass
 
 
-def fetch_runs(repo, sha, timeout):
-    endpoint = (f"repos/{repo}/actions/workflows/ci.yml/runs?branch=main"
+def fetch_runs(repo, sha, timeout, workflow="ci.yml"):
+    endpoint = (f"repos/{repo}/actions/workflows/{workflow}/runs?branch=main"
                 f"&event=push&head_sha={sha}&per_page=1")
     try:
         result = subprocess.run(["gh", "api", endpoint], capture_output=True,
@@ -25,7 +25,7 @@ def fetch_runs(repo, sha, timeout):
         raise GateError("CI API response unavailable or malformed") from None
 
 
-def validate_packet(payload, repo, sha):
+def validate_packet(payload, repo, sha, workflow="ci.yml"):
     if not isinstance(payload, dict):
         raise GateError("invalid CI response")
     total, runs = payload.get("total_count"), payload.get("workflow_runs")
@@ -38,7 +38,7 @@ def validate_packet(payload, repo, sha):
     if not isinstance(run, dict):
         raise GateError("invalid CI run")
     for field, value in [("head_sha", sha), ("head_branch", "main"), ("event", "push"),
-                         ("path", ".github/workflows/ci.yml")]:
+                         ("path", f".github/workflows/{workflow}")]:
         if run.get(field) != value:
             raise GateError("CI run does not match the release candidate")
     for field in ["repository", "head_repository"]:
@@ -51,8 +51,8 @@ def validate_packet(payload, repo, sha):
 
 
 def wait_for_ci(repo, sha, ref, *, fetch=fetch_runs, clock=time.monotonic,
-                sleep=time.sleep, timeout=3600, interval=30):
-    if (ref != "refs/heads/main" or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*/[a-zA-Z0-9][a-zA-Z0-9_.-]*", repo)
+                sleep=time.sleep, timeout=3600, interval=30, workflow="ci.yml"):
+    if (workflow not in {"ci.yml", "ios-local.yml"} or ref != "refs/heads/main" or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*/[a-zA-Z0-9][a-zA-Z0-9_.-]*", repo)
             or not re.fullmatch(r"[0-9a-f]{40}", sha)):
         raise GateError("publication requires an exact main commit")
     deadline = clock() + timeout
@@ -61,12 +61,12 @@ def wait_for_ci(repo, sha, ref, *, fetch=fetch_runs, clock=time.monotonic,
         remaining = deadline - clock()
         if remaining <= 0:
             raise GateError("timed out waiting for candidate CI")
-        run = validate_packet(fetch(repo, sha, min(30, remaining)), repo, sha)
+        run = validate_packet(fetch(repo, sha, min(30, remaining)), repo, sha, workflow)
         if clock() >= deadline:
             raise GateError("timed out waiting for candidate CI")
         state = (run["id"], run["run_attempt"], run.get("status")) if run else None
         if state != last_state:
-            print(f"[release-ci] candidate CI state: {state}", flush=True)
+            print(f"[release-ci] {workflow} candidate CI state: {state}", flush=True)
             last_state = state
         if run:
             status = run.get("status")
@@ -84,8 +84,12 @@ def wait_for_ci(repo, sha, ref, *, fetch=fetch_runs, clock=time.monotonic,
 
 def main():
     try:
-        wait_for_ci(os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_SHA", ""),
-                    os.environ.get("GITHUB_REF", ""))
+        deadline = time.monotonic() + 3600
+        for workflow in ("ci.yml", "ios-local.yml"):
+            wait_for_ci(os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_SHA", ""),
+                        os.environ.get("GITHUB_REF", ""), workflow=workflow,
+                        timeout=max(0, deadline - time.monotonic()),
+                        fetch=lambda repo, sha, timeout: fetch_runs(repo, sha, timeout, workflow))
     except GateError as error:
         print(f"[release-ci] {error}", file=sys.stderr)
         return 1
