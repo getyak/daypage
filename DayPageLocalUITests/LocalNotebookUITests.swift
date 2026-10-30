@@ -23,7 +23,9 @@ final class LocalNotebookUITests: XCTestCase {
     editor.tap()
     editor.typeText(text)
     app.buttons["save-note"].tap()
-    XCTAssertTrue(visibleText(text).waitForExistence(timeout: 5))
+    // The collapsed card's AX label can be truncated along with its six-line
+    // visual preview. Verify the visible opening before testing full reading.
+    XCTAssertTrue(visibleText(String(text.prefix(120))).waitForExistence(timeout: 5))
   }
   private func screenshot(_ name: String) {
     let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -111,8 +113,165 @@ final class LocalNotebookUITests: XCTestCase {
   func testDarkArchive() {
     app.launchArguments += ["-qaSeedNotebook", "-local.appearance", "dark"]
     app.launch()
+    if !app.buttons["new-note"].waitForExistence(timeout: 3) { print("ROOT ACCESSIBILITY:\n" + app.debugDescription) }
     XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
     screenshot("local-archive-dark")
+  }
+
+  func testCaptureDraftAndAttachmentSurviveCollapseAndRelaunch() {
+    app.launchArguments += ["-qaSeedCaptureDraft"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    app.buttons["new-note"].tap()
+    let editor = app.textViews["note-editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 5))
+    editor.tap()
+    editor.typeText("A draft with a local file. #travel")
+    XCTAssertTrue(visibleText("Trip checklist.txt").exists)
+    screenshot("restored-capture-draft")
+    app.buttons["collapse-note"].tap()
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" || $0 == "-qaSeedCaptureDraft" }
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(editor.waitForExistence(timeout: 5))
+    XCTAssertTrue((editor.value as? String)?.contains("A draft with a local file.") == true)
+    XCTAssertTrue(visibleText("Trip checklist.txt").exists)
+    app.buttons["save-note"].tap()
+    XCTAssertTrue(visibleText("A draft with a local file.").waitForExistence(timeout: 8))
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(visibleText("A draft with a local file.").waitForExistence(timeout: 10))
+    screenshot("restored-file-note")
+  }
+
+  func testPinnedSearchAndRecoverableTrash() {
+    app.launch()
+    write("A local note worth finding again. #travel")
+    let note = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
+    note.tap()
+    app.buttons["Note actions"].tap()
+    app.buttons["pin-note"].tap()
+    XCTAssertTrue(visibleText("Pinned").waitForExistence(timeout: 5))
+    app.navigationBars.buttons.firstMatch.tap()
+    app.buttons["search-notes"].tap()
+    let search = app.textFields["archive-search"]
+    XCTAssertTrue(search.waitForExistence(timeout: 5))
+    search.tap()
+    search.typeText("worth finding")
+    app.buttons["filter-pinned"].tap()
+    XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
+    screenshot("restored-archive-search")
+    note.tap()
+    app.buttons["Note actions"].tap()
+    app.buttons["trash-note"].tap()
+    app.buttons["Move to Trash"].firstMatch.tap()
+    XCTAssertTrue(app.buttons["undo-trash"].waitForExistence(timeout: 5))
+    app.buttons["undo-trash"].tap()
+    XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
+    note.tap()
+    app.buttons["Note actions"].tap()
+    app.buttons["trash-note"].tap()
+    app.buttons["Move to Trash"].firstMatch.tap()
+    app.buttons["recently-deleted"].tap()
+    XCTAssertTrue(app.buttons["restore-note"].waitForExistence(timeout: 5))
+    screenshot("restored-recently-deleted")
+    app.buttons["restore-note"].tap()
+    XCTAssertTrue(visibleText("No deleted notes").waitForExistence(timeout: 5))
+    app.buttons["Done"].tap()
+    XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
+  }
+
+  func testRestoredTodayHasCompactHeaderAndPersistentCaptureDockInChinese() {
+    app.launchArguments = ["-qaNotebookSession", "-qaResetNotebook", "-qaSeedNotebook",
+                           "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertTrue(element("capture-dock").exists)
+    XCTAssertTrue(element("today-timeline").exists)
+    XCTAssertTrue(visibleText("把规则当作游戏").exists)
+    XCTAssertFalse(visibleText("A place for passing thoughts.").exists)
+    screenshot("restored-today-zh")
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["capture-photo"].exists)
+    XCTAssertTrue(app.buttons["capture-file"].exists)
+    XCTAssertTrue(app.buttons["capture-voice"].exists)
+    screenshot("restored-editor-zh")
+  }
+
+  func testFullAttachmentDraftKeepsCaptureSafeAndCanStillBeSaved() {
+    app.launchArguments += ["-qaSeedCaptureQuota"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["dock-voice"].isEnabled)
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["capture-voice"].isEnabled)
+    XCTAssertFalse(app.buttons["capture-photo"].isEnabled)
+    XCTAssertTrue(app.buttons["save-note"].isEnabled)
+    app.buttons["save-note"].tap()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["dock-voice"].isEnabled)
+    screenshot("restored-attachment-capacity")
+  }
+
+  func testArchiveSelectionOpensExplicitScopedChat() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(app.buttons["search-notes"].waitForExistence(timeout: 10))
+    app.buttons["search-notes"].tap()
+    app.buttons["select-notes"].tap()
+    let selections = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'select-note-'"))
+    XCTAssertGreaterThanOrEqual(selections.count, 2)
+    selections.element(boundBy: 0).tap()
+    selections.element(boundBy: 1).tap()
+    screenshot("restored-selection")
+    app.buttons["chat-selected-notes"].tap()
+    XCTAssertTrue(app.buttons["chat-setup-ai"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["send-chat"].isEnabled)
+  }
+
+  func testDayRolloverTracksTodayAndPreservesChosenHistoricalDay() {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.dateFormat = "yyyy-MM-dd"
+    let today = formatter.string(from: Date())
+    let yesterday = formatter.string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+    app.launchArguments += ["-qaSeedNotebook", "-qaForegroundPreviousDay"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertEqual(app.buttons["choose-date"].value as? String, today)
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaForegroundPreviousDay" }
+    app.launchArguments += ["-qaBrowsePreviousDay"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertEqual(app.buttons["choose-date"].value as? String, yesterday)
+    XCTAssertTrue(visibleText("Walked home without headphones.").exists)
+    screenshot("restored-history-on-empty-date")
+  }
+
+  func testLongMemoExpandsInPlaceAndCollapsesWithoutLosingCaptureDock() {
+    app.launch()
+    write(String(repeating: "A paragraph worth keeping and rereading. ", count: 30))
+    let note = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'" )).firstMatch
+    let expand = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'expand-note-'" )).firstMatch
+    XCTAssertTrue(expand.waitForExistence(timeout: 5))
+    let height = note.frame.height
+    expand.tap()
+    XCTAssertGreaterThan(note.frame.height, height + 100)
+    XCTAssertTrue(app.buttons["new-note"].isHittable)
+    screenshot("restored-inline-expansion")
+    for _ in 0..<8 {
+      if expand.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertTrue(expand.isHittable)
+    expand.tap()
+    XCTAssertLessThan(note.frame.height, height + 50)
   }
 
   func testExplicitChatWithIsolatedLoopbackFixtureAndReopenPersistence() async throws {

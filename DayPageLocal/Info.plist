@@ -9,6 +9,8 @@
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSRequiresIPhoneOS</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>Record voice notes that are saved in your local notebook. Audio is never sent automatically.</string>
+  <key>NSCameraUsageDescription</key><string>Take a photo to keep with a note in your local notebook.</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>UILaunchScreen</key><dict><key>UIColorName</key><string>NotebookPaper</string></dict>
   <key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
