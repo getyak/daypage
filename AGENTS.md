@@ -99,6 +99,9 @@ residual risk, not just “done.”
   unless the current task explicitly authorizes that exact side effect.
 - Release/TestFlight is a separate workflow with explicit authorization; it is never an
   automatic tail step of feature, fix, refactor, or verification work.
+- Active iOS releases use `DayPageLocal/DayPageLocal.xcodeproj` and sign only
+  `com.daypage.app`, without cloud `.env` configuration or legacy extensions.
+  Both general and local-iOS CI must pass at the exact main candidate SHA.
 - Never run destructive cleanup against a workspace, vault, simulator container, branch,
   worktree, database, or cloud environment without resolving the exact target and approval.
 

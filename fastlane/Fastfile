@@ -1,425 +1,151 @@
-# 加载根目录 .env 文件（fastlane 默认只读 fastlane/.env）。
-# 遵循 dotenv 语义：已存在的环境变量优先，.env 只补齐缺失项——
-# CI workflow 通过 step env 注入的 MATCH_PASSWORD / RELEASE_VERSION 等必须赢。
-# 进程级变量（PATH 等）无条件跳过：这里不做 shell 展开，.env 里一行
-# PATH="…:$PATH" 会把 $PATH 当字面量写入，让 fastlane 进程找不到 git
-# （Errno::ENOENT，CI run 29442308968 的死因）。
-env_file = File.expand_path("../.env", __dir__)
-if File.exist?(env_file)
-  File.foreach(env_file) do |line|
-    line.strip!
-    next if line.empty? || line.start_with?("#")
-    key, value = line.split("=", 2)
-    next if key.nil? || key.empty? || value.nil?
-    next if %w[PATH HOME SHELL GEM_HOME GEM_PATH].include?(key)
-    ENV[key] ||= value
-  end
-end
-
 default_platform(:ios)
 
-# ─────────────────────────────────────────────────────────────
-# App Store Connect API Key（CI 环境优先使用，本地开发可跳过）
-# 从环境变量读取，不硬编码任何密钥
-# ─────────────────────────────────────────────────────────────
 def api_key
-  return nil unless ENV["APP_STORE_CONNECT_API_KEY_ID"]
-
-  # 优先使用文件（避免多行字符串解析问题），回退到 key_content
   key_path = "/tmp/asc_key.p8"
+  options = {
+    key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    in_house: false
+  }
   if File.exist?(key_path)
-    app_store_connect_api_key(
-      key_id:        ENV["APP_STORE_CONNECT_API_KEY_ID"],
-      issuer_id:     ENV["APP_STORE_CONNECT_ISSUER_ID"],
-      key_filepath:  key_path,
-      in_house:      false
-    )
+    options[:key_filepath] = key_path
   else
-    app_store_connect_api_key(
-      key_id:        ENV["APP_STORE_CONNECT_API_KEY_ID"],
-      issuer_id:     ENV["APP_STORE_CONNECT_ISSUER_ID"],
-      key_content:   ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
-      in_house:      false
-    )
+    options[:key_content] = ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
   end
+  app_store_connect_api_key(**options)
 end
 
 platform :ios do
-  # ─────────────────────────────────────────────────────────────
-  # Lane: build_app_only
-  # 仅构建，不上传（用于 PR 验证）
-  # ─────────────────────────────────────────────────────────────
-  desc "Build the app (no upload) — for PR validation"
-  lane :build_only do
-    setup_secrets
+  def ios_project
+    "DayPageLocal/DayPageLocal.xcodeproj"
+  end
 
-    # 用 xcodebuild build 而非 archive，跳过代码签名，仅验证编译通过
+  desc "Build the local notebook without signing or uploading"
+  lane :build_only do
     sh(
       "xcodebuild",
-      "-scheme",        "DayPage",
-      "-project",       "DayPage.xcodeproj",
+      "-scheme", "DayPage",
+      "-project", ios_project,
       "-configuration", "Release",
-      "-destination",   "generic/platform=iOS",
-      "-sdk",           "iphoneos",
+      "-destination", "generic/platform=iOS",
+      "-sdk", "iphoneos",
       "CODE_SIGN_IDENTITY=",
       "CODE_SIGNING_REQUIRED=NO",
       "CODE_SIGNING_ALLOWED=NO",
-      "clean", "build"
+      "build"
     )
   end
 
-  # ─────────────────────────────────────────────────────────────
-  # Lane: beta
-  # 构建并上传到 TestFlight
-  # 触发：push to main
-  # ─────────────────────────────────────────────────────────────
-  desc "Build and upload to TestFlight"
+  desc "Build the local notebook and upload to TestFlight"
   lane :beta do
-    setup_secrets
-    validate_release_supabase_config
-    increment_build
-    release_api_key = api_key
-
-    # CI 专用临时 keychain，避免 xcodebuild archive 时触发 UI 权限弹窗后永久挂起
-    create_keychain(
-      name:               "ci_keychain",
-      password:           ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password",
-      default_keychain:   true,
-      unlock:             true,
-      timeout:            3600,
-      add_to_search_list: true
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.DayPageWidget",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.watchkitapp",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.share",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    configure_release_signing
-    profile_mapping     = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
-    profile_name        = profile_mapping.fetch("com.daypage.app")
-    widget_profile_name = profile_mapping.fetch("com.daypage.app.DayPageWidget")
-    watch_profile_name  = profile_mapping.fetch("com.daypage.app.watchkitapp")
-    share_profile_name  = profile_mapping.fetch("com.daypage.app.share")
-    build_app(
-      scheme:           "DayPage",
-      project:          "DayPage.xcodeproj",
-      configuration:    "Release",
-      export_method:    "app-store",
-      clean:            false,
-      output_directory: "build",
-      output_name:      "DayPage.ipa",
-      export_options:   {
-        method:               "app-store",
-        signingStyle:         "manual",
-        teamID:               ENV["DEVELOPMENT_TEAM"],
-        provisioningProfiles: {
-          "com.daypage.app"               => profile_name,
-          "com.daypage.app.DayPageWidget" => widget_profile_name,
-          "com.daypage.app.watchkitapp"   => watch_profile_name,
-          "com.daypage.app.share"         => share_profile_name
-        }
-      }
-    )
-
-    # NOTE: `skip_waiting_for_build_processing: true` only skips the wait
-    # IF `changelog` is NOT also passed. When changelog is given, fastlane
-    # still polls "Waiting for the build to show up in the build list" until
-    # the build appears — Apple's backend can take 30+ minutes, exhausting the
-    # 1h30m GitHub Actions job timeout and cancelling the run.
-    # Changelog is uploaded asynchronously by a separate workflow once ASC has
-    # finished processing the build. See .github/workflows/update-changelog.yml.
+    archive_local_app
+    # Processing and What to Test are verified by update-changelog.yml. Passing
+    # changelog here makes Fastlane wait even with skip_waiting enabled.
     upload_to_testflight(
-      api_key:                          app_store_connect_api_key(
-        key_id:       ENV["APP_STORE_CONNECT_API_KEY_ID"],
-        issuer_id:    ENV["APP_STORE_CONNECT_ISSUER_ID"],
-        key_filepath: "/tmp/asc_key.p8",
-        in_house:     false
-      ),
+      api_key: api_key,
+      app_identifier: "com.daypage.app",
       skip_waiting_for_build_processing: true
     )
-
-    # GitHub Release 由 workflow 步骤（softprops/action-gh-release）创建，
-    # 不再在 fastlane 里处理 —— 旧版 sh("gh release create …") 的 rescue
-    # 会静默吞掉失败，导致 v0.1.2 之后的 Release 长期缺失。
-
-    UI.success "TestFlight beta uploaded"
+    UI.success "TestFlight beta uploaded; Apple processing still requires verification"
   end
 
-  # ─────────────────────────────────────────────────────────────
-  # Lane: release
-  # 构建并提交 App Store 审核（手动触发）
-  # ─────────────────────────────────────────────────────────────
-  desc "Build and submit to App Store for review"
+  desc "Build the local notebook and submit to App Store review"
   lane :release do
-    setup_secrets
-    validate_release_supabase_config
-    increment_build
-    release_api_key = api_key
-
-    create_keychain(
-      name:               "ci_keychain",
-      password:           ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password",
-      default_keychain:   true,
-      unlock:             true,
-      timeout:            3600,
-      add_to_search_list: true
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.DayPageWidget",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.watchkitapp",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    match(
-      type:              "appstore",
-      readonly:          false,
-      force:             true,
-      api_key:           release_api_key,
-      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier:    "com.daypage.app.share",
-      keychain_name:     "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
-
-    configure_release_signing
-    profile_mapping     = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
-    profile_name        = profile_mapping.fetch("com.daypage.app")
-    widget_profile_name = profile_mapping.fetch("com.daypage.app.DayPageWidget")
-    watch_profile_name  = profile_mapping.fetch("com.daypage.app.watchkitapp")
-    share_profile_name  = profile_mapping.fetch("com.daypage.app.share")
-    build_app(
-      scheme:           "DayPage",
-      project:          "DayPage.xcodeproj",
-      configuration:    "Release",
-      export_method:    "app-store",
-      clean:            false,
-      output_directory: "build",
-      output_name:      "DayPage.ipa",
-      export_options:   {
-        method:               "app-store",
-        signingStyle:         "manual",
-        teamID:               ENV["DEVELOPMENT_TEAM"],
-        provisioningProfiles: {
-          "com.daypage.app"               => profile_name,
-          "com.daypage.app.DayPageWidget" => widget_profile_name,
-          "com.daypage.app.watchkitapp"   => watch_profile_name,
-          "com.daypage.app.share"         => share_profile_name
-        }
-      }
-    )
-
+    archive_local_app
     upload_to_app_store(
-      api_key:              api_key,
-      submit_for_review:    true,
-      automatic_release:    false,
-      force:                true,
-      skip_screenshots:     true,
-      skip_metadata:        false,
+      api_key: api_key,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      skip_screenshots: true,
+      skip_metadata: false,
       precheck_include_in_app_purchases: false
     )
-
     UI.success "App Store submission complete"
   end
 
-  # ─────────────────────────────────────────────────────────────
-  # Private helpers
-  # ─────────────────────────────────────────────────────────────
-  private_lane :setup_secrets do
-    # 在 CI 中，通过 GitHub Secrets 写入 .env，再运行脚本生成 GeneratedSecrets.swift
-    # generate_secrets.sh 已经集成在 Xcode Build Phase 里，这里不需要重复调用
-    UI.message "Secrets will be generated by Xcode Build Phase (generate_secrets.sh)"
+  # ADR-0027's local edition has one app target and no cloud configuration,
+  # generated provider credentials, Watch/Widget/Share extensions or databases.
+  private_lane :archive_local_app do
+    increment_build
+    release_api_key = api_key
+    create_keychain(
+      name: "ci_keychain",
+      password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      add_to_search_list: true
+    )
+    match(
+      type: "appstore",
+      readonly: false,
+      force: true,
+      api_key: release_api_key,
+      git_url: ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier: "com.daypage.app",
+      keychain_name: "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+    configure_release_signing
+    profiles = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
+    build_app(
+      scheme: "DayPage",
+      project: ios_project,
+      configuration: "Release",
+      export_method: "app-store",
+      clean: false,
+      output_directory: "build",
+      output_name: "DayPage.ipa",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: ENV["DEVELOPMENT_TEAM"],
+        provisioningProfiles: { "com.daypage.app" => profiles.fetch("com.daypage.app") }
+      }
+    )
   end
 
-  private_lane :validate_release_supabase_config do
-    script = File.expand_path("../scripts/ci/validate_release_supabase_config.sh", __dir__)
-    env_file = File.expand_path("../.env", __dir__)
-    sh("bash", script, env_file)
-  end
-
-  # `match(force: true)` can append a timestamp when replacing an invalidated
-  # profile whose previous name is still present in the certificates repo.
-  # Read the exact names returned by match and apply them per target before
-  # archive; a checked-in or environment-cached profile name can be stale.
+  # match may append a timestamp to a renewed profile. Use the exact name it
+  # returned, never a checked-in or cached profile name.
   private_lane :configure_release_signing do
-    profile_mapping = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
-    target_bundle_ids = {
-      "DayPage"       => "com.daypage.app",
-      "DayPageWidget" => "com.daypage.app.DayPageWidget",
-      "DayPageWatch"  => "com.daypage.app.watchkitapp",
-      "DayPageShare"  => "com.daypage.app.share"
-    }
-    missing = target_bundle_ids.values.reject { |bundle_id| profile_mapping[bundle_id] }
-    UI.user_error!("match did not provide profiles for: #{missing.join(', ')}") unless missing.empty?
-
-    target_bundle_ids.each do |target, bundle_id|
-      update_code_signing_settings(
-        use_automatic_signing: false,
-        path:                  "DayPage.xcodeproj",
-        team_id:               ENV["DEVELOPMENT_TEAM"],
-        targets:               [target],
-        build_configurations:  ["Release"],
-        code_sign_identity:    "Apple Distribution",
-        profile_name:          profile_mapping.fetch(bundle_id)
-      )
-    end
+    profiles = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
+    profile = profiles["com.daypage.app"]
+    UI.user_error!("match did not provide profiles for: com.daypage.app") unless profile
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: ios_project,
+      team_id: ENV["DEVELOPMENT_TEAM"],
+      targets: ["DayPage"],
+      build_configurations: ["Release"],
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile
+    )
   end
 
-  # 直接 sed 改 pbxproj，避开 agvtool 碰到 `GENERATE_INFOPLIST_FILE = YES`
-  # 等非文件取值时把 `YES` 当作文件路径去找的长期 bug。
-  # 参考现象：agvtool 在 log 里输出 `Cannot find "DayPage.xcodeproj/../YES"`，
-  # 导致 pbxproj 的 MARKETING_VERSION 根本没被写入，IPA 最终版本还是旧值。
+  # Avoid agvtool's generated-Info.plist path handling and leave the archived
+  # multi-client project untouched.
   def set_pbxproj_version(key, value)
-    path = File.expand_path("../DayPage.xcodeproj/project.pbxproj", __dir__)
+    path = File.expand_path("../#{ios_project}/project.pbxproj", __dir__)
     content = File.read(path)
     pattern = /#{Regexp.escape(key)} = [^;]+;/
-    replaced = content.gsub(pattern, "#{key} = #{value};")
-    File.write(path, replaced)
     count = content.scan(pattern).size
-    UI.message "pbxproj: set #{key} = #{value} (#{count} occurrence#{count == 1 ? '' : 's'})"
+    UI.user_error!("No #{key} setting in the local iOS project") if count.zero?
+    File.write(path, content.gsub(pattern, "#{key} = #{value};"))
+    UI.message "Local project: set #{key} = #{value} (#{count} settings)"
   end
 
   private_lane :increment_build do
-    # Marketing version 优先级：
-    #   1) RELEASE_VERSION 环境变量（CI 在打 tag 前注入，例如 0.0.2）
-    #   2) 最近的 git tag（例如 v1.2.0 → 1.2.0）
-    #   3) 保持 pbxproj 里的现有值
-    injected = ENV["RELEASE_VERSION"].to_s.strip
-    if injected =~ /\A\d+\.\d+\.\d+\z/
-      set_pbxproj_version("MARKETING_VERSION", injected)
-      UI.message "Marketing version set to #{injected} (from RELEASE_VERSION env)"
-    else
-      raw_tag = sh("git describe --tags --abbrev=0 2>/dev/null || echo ''").strip
-      if raw_tag =~ /\Av?(\d+\.\d+(\.\d+)?)\z/
-        marketing_version = $1
-        set_pbxproj_version("MARKETING_VERSION", marketing_version)
-        UI.message "Marketing version set to #{marketing_version} (from tag #{raw_tag})"
-      else
-        UI.message "No RELEASE_VERSION or semver tag found, keeping existing MARKETING_VERSION"
-      end
+    version = ENV["RELEASE_VERSION"].to_s.strip
+    unless version.empty?
+      UI.user_error!("RELEASE_VERSION must be numeric MAJOR.MINOR.PATCH") unless version =~ /\A\d+\.\d+\.\d+\z/
+      set_pbxproj_version("MARKETING_VERSION", version)
     end
-
-    # Build number 用 git commit 总数，保证单调递增
-    build_number = sh("git rev-list --count HEAD").strip
-    set_pbxproj_version("CURRENT_PROJECT_VERSION", build_number)
-    UI.message "Build number set to #{build_number}"
+    # Both the deploy and asynchronous Apple check use this exact commit count.
+    set_pbxproj_version("CURRENT_PROJECT_VERSION", sh("git rev-list --count HEAD").strip)
   end
 
-  # 把三版本信息（Marketing / Build / Tag+Commit）固定写到 changelog 开头，
-  # 方便在 TestFlight "What to Test" 里一眼看出这个包对应哪次提交。
-  def version_header
-    marketing = ENV["RELEASE_VERSION"].to_s.strip
-    marketing = nil if marketing.empty?
-    build = sh("git rev-list --count HEAD").strip
-    tag = ENV["GITHUB_REF_NAME"].to_s.strip
-    tag = nil if tag.empty?
-    commit = sh("git rev-parse --short HEAD").strip
-    lines = []
-    lines << "Version: #{marketing} (#{build})" if marketing
-    lines << "Tag: #{tag}" if tag
-    lines << "Commit: #{commit}"
-    lines.join("\n")
-  end
-
-  # TestFlight changelog 优先来自 RELEASE_CHANGELOG_FILE（CI 注入 PR title+body），
-  # 否则回退到最近 10 条 git commit message。无论哪种来源，都会在开头插入 version_header。
-  def resolve_changelog
-    body = nil
-    path = ENV["RELEASE_CHANGELOG_FILE"].to_s.strip
-    if !path.empty? && File.exist?(path)
-      content = File.read(path).strip
-      unless content.empty?
-        UI.message "Using changelog from #{path} (#{content.bytesize} bytes)"
-        body = content
-      end
-    end
-    if body.nil?
-      UI.message "RELEASE_CHANGELOG_FILE not provided; falling back to recent commits"
-      body = changelog_from_git_commits(
-        commits_count: 10,
-        pretty:        "- %s"
-      )
-    end
-
-    header = version_header
-    combined = "#{header}\n\n---\n\n#{body}".strip
-    # TestFlight What-to-Test 上限 4000 字符，留一点余地。
-    combined.byteslice(0, 3800) || combined
-  end
-
-  private_lane :notify_success do |message|
-    UI.success message
-  end
-
-  # 错误处理
   error do |lane, exception|
     UI.error "Lane #{lane} failed: #{exception.message}"
   end
-
-
 end

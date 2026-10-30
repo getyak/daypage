@@ -99,15 +99,6 @@ class ReleaseOverlayTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), self.original)
         self.assertEqual(sorted(p.name for p in self.path.parent.iterdir()), [".env"])
 
-    def test_workflow_applies_required_pair_before_validation_and_signing(self):
-        workflow = (ROOT / ".github/workflows/testflight.yml").read_text()
-        overlay = workflow.index("python3 scripts/ci/apply_release_supabase_overlay.py .env")
-        validator = workflow.index("bash scripts/ci/validate_release_supabase_config.sh .env")
-        self.assertLess(overlay, validator)
-        self.assertLess(validator, workflow.index("- name: Run Fastlane"))
-        for name in ["DAYPAGE_SUPABASE_URL", "DAYPAGE_SUPABASE_PUBLISHABLE_KEY"]:
-            self.assertIn("${{ secrets." + name + " }}", workflow)
-
     def test_ruby_is_discovered_and_executed_by_actual_runner(self):
         runner = ROOT / "scripts/ci/run_script_tests.sh"
         result = subprocess.run(["bash", str(runner), "--list"], capture_output=True, timeout=10)

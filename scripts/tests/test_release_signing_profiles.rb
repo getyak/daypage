@@ -197,10 +197,7 @@ end
 class TestReleaseSigningProfiles < Minitest::Test
   SHIPPED_FASTFILE = File.expand_path("../../fastlane/Fastfile", __dir__).freeze
   TARGETS = {
-    "DayPage"       => "com.daypage.app",
-    "DayPageWidget" => "com.daypage.app.DayPageWidget",
-    "DayPageWatch"  => "com.daypage.app.watchkitapp",
-    "DayPageShare"  => "com.daypage.app.share"
+    "DayPage" => "com.daypage.app"
   }.freeze
   ALL_IDENTIFIERS = TARGETS.values.freeze
   LANES = %w[beta release].freeze
@@ -221,10 +218,12 @@ class TestReleaseSigningProfiles < Minitest::Test
 
   # ── Per-lane behavior (both beta and release) ───────────────────────────
   LANES.each do |lane_name|
-    define_method("test_#{lane_name}_match_requests_all_four_exact_identifiers") do
+    define_method("test_#{lane_name}_match_requests_only_current_app_identifier") do
       calls = harness.execute(lane_name)
       match_calls = calls.select { |call| call.action == :match }
-      assert_equal 4, match_calls.size, "expected exactly four match calls"
+      assert_equal ["increment_build"], calls.select { |call| call.action == :lane_stub }.map { |call| call.params[:lane] },
+                   "local releases must not generate or validate cloud credentials"
+      assert_equal 1, match_calls.size, "the local notebook has one signed app target"
       assert_equal ALL_IDENTIFIERS.sort,
                    match_calls.map { |call| call.params[:app_identifier] }.sort
       match_calls.each do |call|
@@ -247,17 +246,18 @@ class TestReleaseSigningProfiles < Minitest::Test
                      "#{target} must use manual signing"
         assert_equal "Apple Distribution", call.params[:code_sign_identity]
         assert_equal ["Release"], call.params[:build_configurations]
-        assert_equal "DayPage.xcodeproj", call.params[:path]
+        assert_equal "DayPageLocal/DayPageLocal.xcodeproj", call.params[:path]
         assert_equal ENV["DEVELOPMENT_TEAM"], call.params[:team_id]
         assert_equal self.class.generated(identifier), call.params[:profile_name],
                      "#{target} must receive the profile match generated for #{identifier}"
       end
     end
 
-    define_method("test_#{lane_name}_export_provisioning_profiles_exactly_match_all_four") do
+    define_method("test_#{lane_name}_exports_only_current_local_project") do
       calls = harness.execute(lane_name)
       build_calls = calls.select { |call| call.action == :build_app }
       assert_equal 1, build_calls.size, "expected exactly one archive/export build_app"
+      assert_equal "DayPageLocal/DayPageLocal.xcodeproj", build_calls.first.params[:project]
       export_options = build_calls.first.params[:export_options]
       expected = {}
       ALL_IDENTIFIERS.each { |identifier| expected[identifier] = self.class.generated(identifier) }
@@ -266,16 +266,16 @@ class TestReleaseSigningProfiles < Minitest::Test
       assert_equal "app-store", export_options[:method]
     end
 
-    define_method("test_#{lane_name}_missing_share_mapping_fails_before_archive_or_upload") do
-      h = harness(match_omits: ["com.daypage.app.share"])
+    define_method("test_#{lane_name}_missing_app_mapping_fails_before_archive_or_upload") do
+      h = harness(match_omits: ["com.daypage.app"])
       error = assert_raises(UserError) { h.execute(lane_name) }
-      assert_includes error.message, "com.daypage.app.share",
-                      "the failure must name the missing Share identifier"
+      assert_includes error.message, "com.daypage.app",
+                      "the failure must name the missing app identifier"
       actions = h.calls.map(&:action)
       assert_empty actions.select { |action| action == :build_app },
-                   "no archive/export may run with a missing Share mapping"
+                   "no archive/export may run with a missing app mapping"
       assert_empty actions.select { |action| %i[upload_to_testflight upload_to_app_store].include?(action) },
-                   "no upload may run with a missing Share mapping"
+                   "no upload may run with a missing app mapping"
     end
 
     define_method("test_#{lane_name}_preserves_release_upload_behavior") do
@@ -312,6 +312,19 @@ class TestReleaseSigningProfiles < Minitest::Test
     h = harness
     assert_raises(RefusedOperation) { h.sh("xcodebuild", "-version") }
     assert_raises(RefusedOperation) { h.sh("git", "push") }
+  end
+
+  def test_version_writes_change_local_project_and_preserve_archived_project
+    h = harness
+    local = File.join(@isolate, "DayPageLocal", "DayPageLocal.xcodeproj")
+    legacy = File.join(@isolate, "DayPage.xcodeproj")
+    [local, legacy].each do |path|
+      FileUtils.mkdir_p(path)
+      File.write(File.join(path, "project.pbxproj"), "MARKETING_VERSION = 0.5.0;\n")
+    end
+    h.set_pbxproj_version("MARKETING_VERSION", "0.5.1")
+    assert_equal "MARKETING_VERSION = 0.5.1;\n", File.read(File.join(local, "project.pbxproj"))
+    assert_equal "MARKETING_VERSION = 0.5.0;\n", File.read(File.join(legacy, "project.pbxproj"))
   end
 
   # Profile name match generates for an identifier (see FastfileHarness#match).
