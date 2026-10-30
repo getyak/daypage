@@ -57,7 +57,9 @@ class ReleaseCIGateTests(unittest.TestCase):
             self.run_gate([packet()], workflow="ios-local.yml")
 
     def test_both_gates_share_one_hour_budget(self):
-        with mock.patch.object(self.module.time, "monotonic", side_effect=[10, 20, 30, 40, 41, 50, 51]), \
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": REPO, "GITHUB_SHA": SHA,
+                                          "GITHUB_REF": "refs/heads/main"}), \
+             mock.patch.object(self.module.time, "monotonic", side_effect=[10, 20, 30, 40, 41, 50, 51]), \
              mock.patch.object(self.module, "wait_for_ci") as wait, \
              mock.patch.object(self.module, "fetch_runs", side_effect=lambda repo, sha, timeout, workflow:
                                packet(path=f".github/workflows/{workflow}")):
