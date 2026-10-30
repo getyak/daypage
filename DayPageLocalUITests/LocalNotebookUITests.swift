@@ -233,6 +233,25 @@ final class LocalNotebookUITests: XCTestCase {
     XCTAssertFalse(app.buttons["send-chat"].isEnabled)
   }
 
+  func testDayRolloverTracksTodayAndPreservesChosenHistoricalDay() {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.dateFormat = "yyyy-MM-dd"
+    let today = formatter.string(from: Date())
+    let yesterday = formatter.string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+    app.launchArguments += ["-qaSeedNotebook", "-qaForegroundPreviousDay"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertEqual(app.buttons["choose-date"].value as? String, today)
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaForegroundPreviousDay" }
+    app.launchArguments += ["-qaBrowsePreviousDay"]
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    XCTAssertEqual(app.buttons["choose-date"].value as? String, yesterday)
+  }
+
   func testLongMemoExpandsInPlaceAndCollapsesWithoutLosingCaptureDock() {
     app.launch()
     write(String(repeating: "A paragraph worth keeping and rereading. ", count: 30))

@@ -1,4 +1,5 @@
 import DayPageCore
+import Combine
 import SwiftUI
 
 private enum NotebookDestination: String {
@@ -23,6 +24,7 @@ struct NotebookView: View {
   @State private var sidebarOpen = false
   @State private var path: [String] = []
   @State private var selectedDay = NotebookDate.day(Date())
+  @State private var observedToday = NotebookDate.day(Date())
   @State private var showingCalendar = false
   @State private var search = ""
 
@@ -100,14 +102,37 @@ struct NotebookView: View {
       Button("OK", role: .cancel) { notebook.error = nil }
     } message: { Text(notebook.error ?? "") }
     .sheet(isPresented: $showingCalendar) {
-      NotebookCalendar(selectedDay: $selectedDay) { destination = .today }
+      NotebookCalendar(selectedDay: $selectedDay) {
+        // An explicit date choice has fresh intent, including the brief window
+        // after midnight before the periodic Today refresh has fired.
+        observedToday = NotebookDate.day(Date())
+        destination = .today
+      }
         .presentationDetents([.medium, .large])
     }
     .onChange(of: scenePhase) { phase in
-      if phase == .active { Task { await notebook.refresh() } }
+      if phase == .active {
+        refreshTodaySelection()
+        Task { await notebook.refresh() }
+      }
       if phase != .active { notebook.saveDraft() }
     }
+    .onChange(of: notebook.entries.first?.id) { _ in refreshTodaySelection() }
+    .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+      refreshTodaySelection()
+    }
     .onAppear {
+      #if DEBUG
+      if NotebookModel.isQA {
+        let previous = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        if ProcessInfo.processInfo.arguments.contains("-qaForegroundPreviousDay") {
+          selectedDay = NotebookDate.day(previous)
+          observedToday = selectedDay
+        } else if ProcessInfo.processInfo.arguments.contains("-qaBrowsePreviousDay") {
+          selectedDay = NotebookDate.day(previous)
+        }
+      }
+      #endif
       if NotebookModel.isQA, ProcessInfo.processInfo.arguments.contains("-qaOpenSidebar") {
         sidebarOpen = true
       }
@@ -131,6 +156,7 @@ struct NotebookView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Choose date")
         .accessibilityIdentifier("choose-date")
+        .accessibilityValue(selectedDay)
       } else {
         Text(destination.title).font(NotebookTheme.reading(19))
       }
@@ -163,6 +189,7 @@ struct NotebookView: View {
           Button {
             destination = .today
             selectedDay = NotebookDate.day(Date())
+            observedToday = selectedDay
             path = []
             showSidebar(false)
           } label: {
@@ -240,5 +267,11 @@ struct NotebookView: View {
 
   private func showSidebar(_ open: Bool) {
     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { sidebarOpen = open }
+  }
+
+  private func refreshTodaySelection() {
+    let today = NotebookDate.day(Date())
+    if selectedDay == observedToday { selectedDay = today }
+    observedToday = today
   }
 }
