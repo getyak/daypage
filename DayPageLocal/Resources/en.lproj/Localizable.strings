@@ -160,6 +160,8 @@
 "You can restore it from Recently Deleted in Archive. Attachments are kept." = "You can restore it from Recently Deleted in Archive. Attachments are kept.";
 "Your notebook" = "Your notebook";
 "%lld days" = "%lld days";
+"%lld note" = "%lld note";
+"%lld day" = "%lld day";
 "Capture a thought…" = "Capture a thought…";
 "Continue your draft" = "Continue your draft";
 "Couldn't read this notebook" = "Couldn't read this notebook";

@@ -86,7 +86,7 @@ struct ArchiveView: View {
                 HStack {
                   Text(NotebookDate.title(day)).font(NotebookTheme.mono(12))
                   Spacer()
-                  Text("\(entries.filter { $0.day == day }.count) notes").font(.caption2)
+                  Text(NotebookTheme.noteCount(entries.filter { $0.day == day }.count)).font(.caption2)
                 }
                 .foregroundStyle(NotebookTheme.muted)
                 .padding(.top, 14).padding(.horizontal, 2)

@@ -32,6 +32,16 @@ enum NotebookTheme {
     .custom("Menlo-Regular", size: size, relativeTo: .caption)
   }
 
+  static func noteCount(_ count: Int) -> String {
+    String.localizedStringWithFormat(
+      NSLocalizedString(count == 1 ? "%lld note" : "%lld notes", comment: "Saved note count"), count)
+  }
+
+  static func dayCount(_ count: Int) -> String {
+    String.localizedStringWithFormat(
+      NSLocalizedString(count == 1 ? "%lld day" : "%lld days", comment: "Days with notes"), count)
+  }
+
   private static func adaptive(_ light: UInt32, _ dark: UInt32) -> Color {
     func value(_ rgb: UInt32) -> UIColor {
       UIColor(red: CGFloat((rgb >> 16) & 255) / 255,

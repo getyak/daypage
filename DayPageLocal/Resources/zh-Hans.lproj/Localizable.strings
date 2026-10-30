@@ -160,6 +160,8 @@
 "You can restore it from Recently Deleted in Archive. Attachments are kept." = "可以在归档的“最近删除”中恢复，附件会保留。";
 "Your notebook" = "你的笔记本";
 "%lld days" = "%lld 天";
+"%lld note" = "%lld 条记录";
+"%lld day" = "%lld 天";
 "Capture a thought…" = "记下此刻…";
 "Continue your draft" = "继续写草稿";
 "Couldn't read this notebook" = "暂时无法读取笔记";

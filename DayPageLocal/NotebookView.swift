@@ -186,9 +186,9 @@ struct NotebookView: View {
 
           sidebarRow(.archive, icon: "books.vertical")
           HStack(spacing: 8) {
-            Text("\(notebook.entries.count) notes")
+            Text(NotebookTheme.noteCount(notebook.entries.count))
             Text("·")
-            Text("\(Set(notebook.entries.map(\.day)).count) days")
+            Text(NotebookTheme.dayCount(Set(notebook.entries.map(\.day)).count))
           }
           .font(.caption)
           .foregroundStyle(NotebookTheme.muted)

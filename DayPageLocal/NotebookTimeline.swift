@@ -36,7 +36,7 @@ struct NotebookTimeline: View {
         } else {
           ForEach(entries) { entry in LocalMemoCard(entry: entry) }
           HStack(spacing: 7) {
-            Text("\(entries.count) notes")
+            Text(NotebookTheme.noteCount(entries.count))
             Text("·")
             Text("All saved on this device")
           }
