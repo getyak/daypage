@@ -192,5 +192,6 @@
 "This recording is still here. Free some draft space or try adding it again." = "录音仍保留在这里。请释放一些草稿空间，或重试添加。";
 "Free some draft attachment space to record audio." = "请先移除一些草稿附件，留出录音空间。";
 "Recent notes" = "最近的记录";
+"No notes on this date." = "这一天还没有记录。";
 "This draft could not be read. Its original file has been preserved." = "暂时无法读取草稿，原始文件已保留。";
 "Use up to 10 nonempty attachments, each no larger than 25 MB, with a valid file type." = "最多添加 10 个有效附件，单个文件不超过 25 MB。";

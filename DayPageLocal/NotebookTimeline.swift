@@ -52,8 +52,19 @@ struct NotebookTimeline: View {
     .notebookSurface()
   }
 
-  private var emptyDay: some View {
-    VStack(alignment: .leading, spacing: 28) {
+  @ViewBuilder private var emptyDay: some View {
+    if !notebook.entries.isEmpty {
+      HStack(spacing: 12) {
+        Text("No notes on this date.").font(.subheadline).foregroundStyle(NotebookTheme.muted)
+        Spacer(minLength: 8)
+        Button(action: showAll) {
+          Image(systemName: "books.vertical").frame(width: 44, height: 44)
+        }
+        .accessibilityLabel("Browse previous notes").accessibilityIdentifier("browse-previous")
+      }
+      .padding(.horizontal, 4)
+    } else {
+      VStack(alignment: .leading, spacing: 28) {
       VStack(alignment: .leading, spacing: 12) {
         Text("A little space\nfor whatever comes to mind.")
           .font(NotebookTheme.reading(25)).lineSpacing(6)
@@ -67,16 +78,10 @@ struct NotebookTimeline: View {
         Image(systemName: "waveform")
       }
       .font(.system(size: 19, weight: .light)).foregroundStyle(NotebookTheme.accent.opacity(0.8))
-      if !notebook.entries.isEmpty {
-        Button(action: showAll) {
-          Label("Browse previous notes", systemImage: "books.vertical")
-            .font(.subheadline).frame(minHeight: 44)
-        }
-        .accessibilityIdentifier("browse-previous")
-      }
     }
     .padding(.horizontal, 12)
     .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+    }
   }
 }
 

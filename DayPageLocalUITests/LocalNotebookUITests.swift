@@ -250,6 +250,8 @@ final class LocalNotebookUITests: XCTestCase {
     app.launch()
     XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
     XCTAssertEqual(app.buttons["choose-date"].value as? String, yesterday)
+    XCTAssertTrue(visibleText("Walked home without headphones.").exists)
+    screenshot("restored-history-on-empty-date")
   }
 
   func testLongMemoExpandsInPlaceAndCollapsesWithoutLosingCaptureDock() {
