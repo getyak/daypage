@@ -32,5 +32,21 @@ class LocalIOSContract(unittest.TestCase):
             self.assertEqual(plistlib.load(f), {})
 
 
+class LocalPrivacyContract(unittest.TestCase):
+    def test_file_metadata_reasons_cover_vault_and_selected_files(self):
+        with (ROOT / "DayPageLocal/PrivacyInfo.xcprivacy").open("rb") as file:
+            manifest = plistlib.load(file)
+        categories = {
+            item["NSPrivacyAccessedAPIType"]: set(item["NSPrivacyAccessedAPITypeReasons"])
+            for item in manifest["NSPrivacyAccessedAPITypes"]
+        }
+        category = "NSPrivacyAccessedAPICategoryFileTimestamp"
+        self.assertIn(category, categories, "Vault path guards read file metadata")
+        self.assertTrue({"C617.1", "3B52.1"}.issubset(categories[category]))
+        self.assertIn("CA92.1", categories["NSPrivacyAccessedAPICategoryUserDefaults"])
+        self.assertFalse(manifest["NSPrivacyTracking"])
+        self.assertEqual(manifest["NSPrivacyCollectedDataTypes"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
