@@ -178,13 +178,21 @@ final class LocalNotebookUITests: XCTestCase {
     app.navigationBars["Note"].buttons["Note actions"].tap()
     app.buttons["trash-note"].tap()
     app.buttons["Move to Trash"].firstMatch.tap()
-    app.buttons["recently-deleted"].tap()
+    let returnedToSearch = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: app.buttons["search-undo-trash"])
+    XCTAssertEqual(XCTWaiter.wait(for: [returnedToSearch], timeout: 5), .completed)
+    let deleted = element("search-list").buttons["recently-deleted"]
+    XCTAssertTrue(deleted.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.frame.contains(deleted.frame))
+    // List's AX row extends past its inset content. Its synthesized safe point
+    // can land on that padding/scrollbar; the current center is inside the label.
+    deleted.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     XCTAssertTrue(app.buttons["restore-note"].waitForExistence(timeout: 5))
     screenshot("restored-recently-deleted")
     app.buttons["restore-note"].tap()
     XCTAssertTrue(visibleText("No deleted notes").waitForExistence(timeout: 5))
     app.buttons["Done"].tap()
-    XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
+    XCTAssertTrue(foundNote.waitForExistence(timeout: 5))
+    XCTAssertTrue(foundNote.label.contains("A local note worth finding again."))
   }
 
   func testRestoredTodayHasCompactHeaderAndPersistentCaptureDockInChinese() {

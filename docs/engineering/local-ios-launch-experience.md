@@ -37,6 +37,10 @@ Debug-only QA additions require both the isolated bundle `com.daypage.app.localq
 
 The existing loopback fixture verifies actual request/response handling without sending notes to a real provider. Real devices, camera/microphone hardware, signed-device Keychain, external Files providers and real AI providers remain separate acceptance gates. Do not stop a borrowed simulator or bypass the shared-device lease to force compact/iPad evidence.
 
+The native harness scopes search controls separately from the underlying browsing stack. UIKit remote-share close buttons and List row wrappers can report misleading hit regions; checks resolve the current visible control bounds and verify actual dismissal, entry and restoration.
+
+The general CI caches Swift package checkouts and repositories under `RUNNER_TEMP/daypage-source-packages`. Both Xcode jobs use that explicit source path. SDK module caches and compiled products are rebuilt on the current runner image: restoring an older DerivedData cache caused a confirmed SDK-header timestamp mismatch during this task. Test/build gates and pinned Actions are preserved.
+
 ## Evidence for this task
 
 - Core: 77 tests passed, including 5,000-record grouping/query tests, Gregorian calendar cases and bounded/full-text sharing policy.

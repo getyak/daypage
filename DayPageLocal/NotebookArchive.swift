@@ -92,8 +92,11 @@ struct ArchiveView: View {
           }
         }
         Button { showingTrash = true } label: {
-          Label("Recently Deleted", systemImage: "trash").font(.subheadline).frame(minHeight: 44)
+          Label("Recently Deleted", systemImage: "trash").font(.subheadline)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(NotebookTheme.muted).accessibilityIdentifier("recently-deleted")
         .listRowSeparator(.hidden).listRowBackground(Color.clear)
       }
