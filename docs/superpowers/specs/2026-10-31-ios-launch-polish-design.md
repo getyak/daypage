@@ -4,7 +4,7 @@ The user requests a coherent App Store quality pass across all current local iOS
 
 ## Direction and scope
 
-Retain ADR-0028's warm paper, amber controls, serif reading and local-only files. Make Today the stable home; every secondary page exposes a direct return to Today. Search is a separate, dismissible task that returns to the page that opened it. Archive is for chronological rediscovery, with a summary and month grouping before optional filters. Preserve sidebar destinations Archive, Feedback and Settings.
+Retain ADR-0028's warm paper, amber controls, serif reading and local-only files. Make Today the stable home; every secondary page exposes a direct return to Today. Search is a separate, dismissible task that returns to the page that opened it. Archive is for chronological rediscovery, with a summary, optional filters and date groups that include month and year. Preserve sidebar destinations Archive, Feedback and Settings.
 
 Alternatives considered: adding more controls to the existing archive leaves search and browsing indistinguishable; adopting a new tab/navigation system discards the established capture-first structure. Selected by the agent under the user's standing autonomous implementation instructions: preserve the shell, separate search and browsing, use native list swipe actions and focused modal workflows.
 

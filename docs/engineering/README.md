@@ -2,6 +2,7 @@
 
 - [Setup](setup.md)
 - [Testing and evidence](testing.md)
+- [Local iOS launch experience](local-ios-launch-experience.md)
 - [Contributing](contributing.md)
 - [Release safety](release.md)
 - [Security and privacy](security.md)

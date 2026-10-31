@@ -8,6 +8,7 @@ to drive a change.
 
 - [Local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — current iOS product boundary; other clients retain their previous architecture
 - [Local iOS setup and verification](engineering/local-ios-notebook.md)
+- [Local iOS launch experience](engineering/local-ios-launch-experience.md)
 - [Repository constitution](../AGENTS.md)
 - [Architecture index](architecture/README.md)
 - [System overview](architecture/overview.md)
