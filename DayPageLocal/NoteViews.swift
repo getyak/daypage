@@ -380,7 +380,6 @@ struct NoteDetailView: View {
   @State private var destination: DetailSheet?
   @State private var confirmingTrash = false
   @State private var working = false
-  @State private var shareItems: [Any] = []
   private enum DetailSheet: String, Identifiable {
     case edit, chat, share
     var id: String { rawValue }
@@ -439,7 +438,7 @@ struct NoteDetailView: View {
               current.memo.pinnedAt == nil ? "Pin note" : "Unpin note",
               systemImage: current.memo.pinnedAt == nil ? "pin" : "pin.slash")
           }.accessibilityIdentifier("pin-note")
-          Button(action: share) { Label("Share note", systemImage: "square.and.arrow.up") }
+          Button { destination = .share } label: { Label("Share note", systemImage: "square.and.arrow.up") }
             .accessibilityIdentifier("share-note")
           Divider()
           Button(role: .destructive) {
@@ -460,11 +459,11 @@ struct NoteDetailView: View {
       switch destination {
       case .edit: NoteEditor(entry: current)
       case .chat: NoteChatView(selectedIDs: [current.id])
-      case .share: NoteShareSheet(items: shareItems)
+      case .share: NoteSharePreview(entry: current)
       }
     }
-    .confirmationDialog(
-      "Move this note to Trash?", isPresented: $confirmingTrash, titleVisibility: .visible
+    .alert(
+      "Move this note to Trash?", isPresented: $confirmingTrash
     ) {
       Button("Move to Trash", role: .destructive) {
         working = true
@@ -507,17 +506,6 @@ struct NoteDetailView: View {
     case .photo: return "photo"
     case .location: return "mappin"
     case .mixed: return "paperclip"
-    }
-  }
-  private func share() {
-    working = true
-    let entry = current
-    Task {
-      defer { working = false }
-      do {
-        shareItems = try await noteShareItems(entry: entry, store: notebook.store)
-        destination = .share
-      } catch { notebook.report(error) }
     }
   }
 }

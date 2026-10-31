@@ -305,15 +305,6 @@ struct NoteShareSheet: UIViewControllerRepresentable {
 }
 
 @MainActor
-func noteShareItems(entry: NotebookEntry, store: NotebookStore) async throws -> [Any] {
-  var items: [Any] = entry.memo.body.isEmpty ? [] : [entry.memo.body]
-  for attachment in entry.memo.attachments {
-    items.append(try await store.assetURL(attachment.file, for: entry))
-  }
-  return items
-}
-
-@MainActor
 private final class LocalVoiceRecorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
   enum Phase { case ready, requesting, recording, paused, stopped }
   @Published private(set) var phase = Phase.ready

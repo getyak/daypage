@@ -6,15 +6,20 @@ struct NotebookTimeline: View {
   let day: String
   let showAll: () -> Void
   private var entries: [NotebookEntry] {
-    notebook.entries.filter { $0.day == day }.sorted {
+    notebook.catalog.entriesByDay[day, default: []].sorted {
       if ($0.memo.pinnedAt != nil) != ($1.memo.pinnedAt != nil) { return $0.memo.pinnedAt != nil }
       return $0.memo.created > $1.memo.created
     }
   }
 
   var body: some View {
-    ScrollView {
-      LazyVStack(alignment: .leading, spacing: 12) {
+    List {
+      Group {
+        if day != NotebookDate.day(Date()) {
+          Text("New notes are saved to Today.")
+            .font(.caption).foregroundStyle(NotebookTheme.muted)
+            .padding(.vertical, 6)
+        }
         if notebook.isLoading {
           ProgressView().frame(maxWidth: .infinity).padding(.top, 80)
         } else if let issue = notebook.loadIssue {
@@ -44,9 +49,10 @@ struct NotebookTimeline: View {
           .frame(maxWidth: .infinity).padding(.top, 16).padding(.bottom, 20)
         }
       }
-      .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 24)
-      .frame(maxWidth: 760).frame(maxWidth: .infinity)
+      .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+      .listRowBackground(Color.clear).listRowSeparator(.hidden)
     }
+    .listStyle(.plain).scrollContentBackground(.hidden)
     .accessibilityIdentifier("today-timeline")
     .refreshable { await notebook.refresh() }
     .notebookSurface()
@@ -88,14 +94,23 @@ struct NotebookTimeline: View {
 struct LocalMemoCard: View {
   @EnvironmentObject private var notebook: NotebookModel
   let entry: NotebookEntry
+  let interactionEnabled: Bool
   @State private var deleting = false
   @State private var expanded = false
   @State private var fullHeight: CGFloat = 0
   @State private var visibleHeight: CGFloat = 0
-  @State private var shareItems: [Any] = []
-  @State private var sharing = false
-  @State private var preparingShare = false
+  @State private var destination: CardSheet?
+  @State private var working = false
+  private enum CardSheet: String, Identifiable {
+    case chat, share
+    var id: String { rawValue }
+  }
   private var tags: [String] { NoteTags.values(in: entry.memo.body) }
+
+  init(entry: NotebookEntry, interactionEnabled: Bool = true) {
+    self.entry = entry
+    self.interactionEnabled = interactionEnabled
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -130,18 +145,15 @@ struct LocalMemoCard: View {
                   systemImage: entry.memo.type == .voice ? "waveform" : "paperclip")
               .font(NotebookTheme.reading(17)).foregroundStyle(NotebookTheme.secondary)
           }
-          HStack(spacing: 8) {
-            Text(entry.memo.created, style: .time).font(.caption)
-            if entry.memo.pinnedAt != nil { Image(systemName: "pin.fill").font(.caption2) }
-            if !entry.namespace.isEmpty { Image(systemName: "tray.and.arrow.down").font(.caption2) }
-            Spacer()
-          }
-          .foregroundStyle(NotebookTheme.muted)
         }
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("note-" + entry.memo.id.uuidString)
+      .accessibilityAction(named: Text(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note"), pin)
+      .accessibilityAction(named: Text("Chat about this note")) { open(.chat) }
+      .accessibilityAction(named: Text("Share note")) { open(.share) }
+      .accessibilityAction(named: Text("Move to Trash")) { requestTrash() }
 
       if expanded || fullHeight > visibleHeight + 2 {
         Button { expanded.toggle() } label: {
@@ -164,36 +176,91 @@ struct LocalMemoCard: View {
           }
         }
       }
+      HStack(spacing: 8) {
+        Text(entry.memo.created, style: .time).font(.caption)
+        if entry.memo.pinnedAt != nil {
+          Image(systemName: "pin.fill").font(.caption2).accessibilityLabel("Pinned")
+        }
+        if !entry.namespace.isEmpty { Image(systemName: "tray.and.arrow.down").font(.caption2) }
+        Spacer(minLength: 8)
+        Menu { actionButtons } label: {
+          Image(systemName: "ellipsis").frame(width: 44, height: 44)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Note actions")
+        .accessibilityIdentifier("card-actions-" + entry.memo.id.uuidString)
+      }
+      .foregroundStyle(NotebookTheme.muted)
     }
     .padding(17)
     .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 16))
     .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(NotebookTheme.line, lineWidth: 0.7) }
     .contextMenu {
-      Button {
-        Task { await notebook.pin(entry) }
-      } label: {
-        Label(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note", systemImage: "pin")
-      }
-      Button {
-        guard !preparingShare else { return }
-        preparingShare = true
-        Task {
-          defer { preparingShare = false }
-          do {
-            shareItems = try await noteShareItems(entry: entry, store: notebook.store)
-            sharing = true
-          } catch { notebook.report(error) }
-        }
-      } label: { Label("Share note", systemImage: "square.and.arrow.up") }
-      Button(role: .destructive) { deleting = true } label: {
-        Label("Move to Trash", systemImage: "trash")
+      if interactionEnabled { actionButtons }
+    }
+    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+      if interactionEnabled {
+        Button(action: pin) {
+          Label(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note",
+                systemImage: entry.memo.pinnedAt == nil ? "pin" : "pin.slash")
+        }.tint(NotebookTheme.accent).accessibilityIdentifier("swipe-pin-note")
+        Button { open(.chat) } label: {
+          Label("Chat about this note", systemImage: "sparkles")
+        }.tint(NotebookTheme.readingAccent).accessibilityIdentifier("swipe-chat-note")
       }
     }
-    .confirmationDialog("Move this note to Trash?", isPresented: $deleting, titleVisibility: .visible) {
-      Button("Move to Trash", role: .destructive) { Task { _ = await notebook.trash(entry) } }
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+      if interactionEnabled {
+        Button { requestTrash() } label: {
+          Label("Move to Trash", systemImage: "trash")
+        }.tint(.red).accessibilityIdentifier("swipe-trash-note")
+        Button { open(.share) } label: {
+          Label("Share note", systemImage: "square.and.arrow.up")
+        }.tint(NotebookTheme.accent).accessibilityIdentifier("swipe-share-note")
+      }
+    }
+    .disabled(!interactionEnabled || working)
+    .alert("Move this note to Trash?", isPresented: $deleting) {
+      Button("Move to Trash", role: .destructive) {
+        working = true
+        Task { _ = await notebook.trash(entry); working = false }
+      }
       Button("Cancel", role: .cancel) {}
     } message: { Text("You can restore it from Recently Deleted in Archive. Attachments are kept.") }
-    .sheet(isPresented: $sharing) { NoteShareSheet(items: shareItems) }
+    .sheet(item: $destination) { destination in
+      switch destination {
+      case .chat: NoteChatView(selectedIDs: [entry.id])
+      case .share: NoteSharePreview(entry: entry)
+      }
+    }
+    .frame(maxWidth: 760).frame(maxWidth: .infinity)
+  }
+
+  @ViewBuilder private var actionButtons: some View {
+    Button(action: pin) {
+      Label(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note",
+            systemImage: entry.memo.pinnedAt == nil ? "pin" : "pin.slash")
+    }
+    Button { open(.chat) } label: { Label("Chat about this note", systemImage: "sparkles") }
+    Button { open(.share) } label: { Label("Share note", systemImage: "square.and.arrow.up") }
+    Divider()
+    Button(role: .destructive) { requestTrash() } label: {
+      Label("Move to Trash", systemImage: "trash")
+    }
+  }
+
+  private func pin() {
+    guard interactionEnabled, !working else { return }
+    working = true
+    Task { await notebook.pin(entry); working = false }
+  }
+  private func open(_ destination: CardSheet) {
+    guard interactionEnabled, !working else { return }
+    self.destination = destination
+  }
+  private func requestTrash() {
+    guard interactionEnabled, !working else { return }
+    deleting = true
   }
 }
 
@@ -323,10 +390,6 @@ struct NotebookEmptyState: View {
 
 enum NoteTags {
   static func values(in text: String) -> [String] {
-    guard let regex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_-]+)"#) else { return [] }
-    let range = NSRange(text.startIndex..., in: text)
-    return Array(Set(regex.matches(in: text, range: range).compactMap { result in
-      Range(result.range(at: 1), in: text).map { String(text[$0]) }
-    })).sorted()
+    NotebookCatalog.tags(in: text)
   }
 }
