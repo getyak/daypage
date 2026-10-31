@@ -77,6 +77,9 @@ class TestFlightChangelogTests(unittest.TestCase):
         self.group_next_url = None
         self.readback_build_override = None
         self.readback_version_override = None
+        self.group_build_ids = {"team-1": [BUILD_ID]}
+        self.extra_build_ids = {}
+        self.build_links_next_url = None
 
     def request(self, method, path, token, *, body=None, query=None):
         self.calls.append((method, path, body, query))
@@ -94,6 +97,11 @@ class TestFlightChangelogTests(unittest.TestCase):
         if method == "GET" and path == f"/v1/builds/{BUILD_ID}/buildBetaDetail":
             return 200, {"data": copy.deepcopy(self.detail)}
         if method == "GET" and path == "/v1/betaGroups":
+            if query and "filter[builds]" in query:
+                return 400, {"errors": [{"code": "PARAMETER_ERROR.INVALID",
+                                          "source": {"parameter": "filters"}}]}
+            raise AssertionError("Group readback must stay scoped to the verified app route")
+        if method == "GET" and path == f"/v1/apps/{APP_ID}/betaGroups":
             if query and query.get("cursor") == "next":
                 return 200, {"data": copy.deepcopy(self.extra_groups)}
             result = {"data": copy.deepcopy(self.groups)}
@@ -101,6 +109,17 @@ class TestFlightChangelogTests(unittest.TestCase):
                 result["links"] = {"next": self.module.ASC_BASE + path + "?cursor=next"}
             if self.group_next_url is not None:
                 result["links"] = {"next": self.group_next_url}
+            return 200, result
+        if method == "GET" and path.startswith("/v1/betaGroups/") and path.endswith("/relationships/builds"):
+            group_id = path.split("/")[3]
+            ids = self.group_build_ids.get(group_id, [])
+            if query and query.get("cursor") == "next":
+                ids = self.extra_build_ids[group_id]
+            result = {"data": [{"type": "builds", "id": build_id} for build_id in ids]}
+            if group_id in self.extra_build_ids and not (query and query.get("cursor") == "next"):
+                result["links"] = {"next": self.module.ASC_BASE + path + "?cursor=next"}
+            if self.build_links_next_url:
+                result["links"] = {"next": self.build_links_next_url}
             return 200, result
         if method == "GET" and path == f"/v1/builds/{BUILD_ID}/betaBuildLocalizations":
             if not self.localization_exists:
@@ -182,9 +201,7 @@ class TestFlightChangelogTests(unittest.TestCase):
             self.assertNotIn(private, self.receipt.read_text())
         self.assertTrue(self.notes_saved)
         self.assertEqual([method for method, *_ in self.calls if method != "GET"], ["PATCH"])
-        group_query = next(query for method, path, _, query in self.calls if path == "/v1/betaGroups")
-        self.assertEqual(group_query["filter[app]"], APP_ID)
-        self.assertEqual(group_query["filter[builds]"], BUILD_ID)
+        self.assertTrue(any(path == f"/v1/apps/{APP_ID}/betaGroups" for _, path, _, _ in self.calls))
 
     def test_ready_for_beta_testing_does_not_mean_in_beta_testing(self):
         self.detail["attributes"]["internalBuildState"] = "READY_FOR_BETA_TESTING"
@@ -204,6 +221,7 @@ class TestFlightChangelogTests(unittest.TestCase):
     def test_group_pages_are_read_without_private_tester_data_or_distribution_writes(self):
         self.extra_groups = [{"type": "betaGroups", "id": "external-1",
                               "attributes": {"name": "Existing external group", "isInternalGroup": False}}]
+        self.group_build_ids["external-1"] = [BUILD_ID]
         self.assertEqual(self.run_updater(), 0)
         groups = json.loads(self.receipt.read_text())["betaGroups"]
         self.assertEqual([group["id"] for group in groups], ["team-1", "external-1"])
@@ -213,7 +231,8 @@ class TestFlightChangelogTests(unittest.TestCase):
     def test_app_build_and_readback_auth_errors_remain_failures_without_payload_leak(self):
         for status in (401, 403):
             for path in (f"/v1/apps/{APP_ID}", "/v1/builds", f"/v1/builds/{BUILD_ID}/buildBetaDetail",
-                         f"/v1/builds/{BUILD_ID}", "/v1/betaGroups"):
+                         f"/v1/builds/{BUILD_ID}", f"/v1/apps/{APP_ID}/betaGroups",
+                         "/v1/betaGroups/team-1/relationships/builds"):
                 with self.subTest(status=status, path=path):
                     self.failures = {("GET", path): status}
                     with self.assertRaisesRegex(RuntimeError, f"HTTP {status}") as error:
@@ -264,15 +283,57 @@ class TestFlightChangelogTests(unittest.TestCase):
         self.assertTrue(self.notes_saved)
         self.assertFalse(self.receipt.exists())
 
-    def test_foreign_or_broadened_group_pagination_never_receives_credentials(self):
-        for next_url in ("https://outside.invalid/v1/betaGroups?cursor=next",
-                         self.module.ASC_BASE + "/v1/betaGroups?filter%5Bapp%5D=999999"):
+    def test_foreign_or_different_app_group_pagination_never_receives_credentials(self):
+        for next_url in (f"https://outside.invalid/v1/apps/{APP_ID}/betaGroups?cursor=next",
+                         self.module.ASC_BASE + "/v1/apps/999999/betaGroups?cursor=next"):
             with self.subTest(next_url=next_url):
                 self.group_next_url = next_url
                 before = len(self.calls)
                 with self.assertRaises(RuntimeError): self.run_updater()
                 new_calls = self.calls[before:]
-                self.assertEqual(sum(path == "/v1/betaGroups" for _, path, _, _ in new_calls), 1)
+                self.assertEqual(sum(path == f"/v1/apps/{APP_ID}/betaGroups" for _, path, _, _ in new_calls), 1)
+                self.assertFalse(self.receipt.exists())
+
+    def test_live_unsupported_build_filter_is_replaced_by_exact_group_linkage(self):
+        self.groups.append({"type": "betaGroups", "id": "unrelated-1",
+                            "attributes": {"name": "Other build group", "isInternalGroup": True}})
+        self.group_build_ids["unrelated-1"] = [BUILD_ID + "-other"]
+        self.assertEqual(self.run_updater(), 0)
+        self.assertEqual([group["id"] for group in json.loads(self.receipt.read_text())["betaGroups"]], ["team-1"])
+        self.assertFalse(any(path == "/v1/betaGroups" for _, path, _, _ in self.calls))
+        self.assertEqual([method for method, *_ in self.calls if method != "GET"], ["PATCH"])
+
+    def test_target_build_on_second_linkage_page_is_not_missed(self):
+        self.group_build_ids["team-1"] = ["older-build"]
+        self.extra_build_ids["team-1"] = [BUILD_ID]
+        self.assertEqual(self.run_updater(), 0)
+        self.assertEqual([group["id"] for group in json.loads(self.receipt.read_text())["betaGroups"]], ["team-1"])
+        linkage_calls = [query for _, path, _, query in self.calls if path.endswith("/relationships/builds")]
+        self.assertEqual(len(linkage_calls), 2)
+
+    def test_invalid_build_linkage_never_produces_a_receipt(self):
+        for identifier in (None, "", 2037):
+            with self.subTest(identifier=identifier):
+                self.group_build_ids["team-1"] = [identifier]
+                with self.assertRaisesRegex(RuntimeError, "invalid group build identity"):
+                    self.run_updater()
+                self.assertFalse(self.receipt.exists())
+
+    def test_full_group_resources_still_require_attributes(self):
+        del self.groups[0]["attributes"]
+        with self.assertRaisesRegex(RuntimeError, "invalid betaGroups resource"):
+            self.run_updater()
+        self.assertFalse(self.receipt.exists())
+
+    def test_foreign_or_different_group_linkage_page_does_not_emit_receipt(self):
+        for next_url in ("https://outside.invalid/v1/betaGroups/team-1/relationships/builds?cursor=next",
+                         self.module.ASC_BASE + "/v1/betaGroups/unrelated-1/relationships/builds?cursor=next"):
+            with self.subTest(next_url=next_url):
+                self.build_links_next_url = next_url
+                before = len(self.calls)
+                with self.assertRaises(RuntimeError): self.run_updater()
+                new_calls = self.calls[before:]
+                self.assertEqual(sum(path.endswith("/relationships/builds") for _, path, _, _ in new_calls), 1)
                 self.assertFalse(self.receipt.exists())
 
     def test_receipt_and_provenance_remain_optional_for_existing_callers(self):

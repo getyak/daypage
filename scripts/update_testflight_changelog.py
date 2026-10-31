@@ -138,9 +138,8 @@ def validate_build(build: dict, included: list, app_id: str, build_number: str,
     return build
 
 
-def list_resources(token: str, path: str, kind: str, *, query=None) -> list[dict]:
-    """Read all existing resources; never send a bearer token to a pagination host."""
-    items = []
+def collection_pages(token: str, path: str, *, query=None):
+    """Bound pagination to the same ASC origin and exact resource path."""
     seen = set()
     original_query = dict(query or {})
     for _ in range(100):
@@ -149,10 +148,10 @@ def list_resources(token: str, path: str, kind: str, *, query=None) -> list[dict
             raise RuntimeError(f"GET {path} failed: HTTP {status}")
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
             raise RuntimeError(f"GET {path} returned an invalid collection")
-        items.extend(require_resource(item, kind) for item in payload["data"])
+        yield payload["data"]
         next_url = (payload.get("links") or {}).get("next")
         if not next_url:
-            return items
+            return
         if not isinstance(next_url, str) or next_url in seen:
             raise RuntimeError("ASC returned invalid or repeated pagination")
         seen.add(next_url)
@@ -166,6 +165,24 @@ def list_resources(token: str, path: str, kind: str, *, query=None) -> list[dict
                 raise RuntimeError("ASC pagination changed the requested resource scope")
         query = {**original_query, **next_query}
     raise RuntimeError("ASC pagination exceeded its bounded page limit")
+
+
+def list_resources(token: str, path: str, kind: str, *, query=None) -> list[dict]:
+    return [require_resource(item, kind)
+            for page in collection_pages(token, path, query=query) for item in page]
+
+
+def group_build_ids(token: str, group_id: str) -> set[str]:
+    """The documented relationship returns build identities, not full resources."""
+    path = "/v1/betaGroups/" + urllib.parse.quote(group_id, safe="") + "/relationships/builds"
+    identifiers = set()
+    for page in collection_pages(token, path, query={"limit": 200}):
+        for item in page:
+            if (not isinstance(item, dict) or item.get("type") != "builds"
+                    or not isinstance(item.get("id"), str) or not item["id"].strip()):
+                raise RuntimeError("ASC returned an invalid group build identity")
+            identifiers.add(item["id"])
+    return identifiers
 
 
 def find_build(token: str, app_id: str, build_number: str,
@@ -278,13 +295,14 @@ def release_readback(token: str, app: dict, build_id: str, build_number: str,
     validate_build(build, included, app["id"], build_number, marketing_version, build_id=build_id)
     detail, _ = get_resource(token, path + "/buildBetaDetail", "buildBetaDetails",
                              query={"fields[buildBetaDetails]": "internalBuildState,externalBuildState"})
-    # The documented collection endpoint supports app/build filters and
-    # pagination; a direct GET /builds/{id}/betaGroups is not documented.
-    groups = list_resources(token, "/v1/betaGroups", "betaGroups",
-                            query={"filter[app]": app["id"], "filter[builds]": build_id,
-                                   "limit": 200, "fields[betaGroups]": "name,isInternalGroup"})
+    # ASC rejects filter[builds] on the group collection despite listing it in
+    # documentation. Read this app's groups and verify exact build membership.
+    groups = list_resources(token, "/v1/apps/" + urllib.parse.quote(app["id"], safe="") + "/betaGroups",
+                            "betaGroups", query={"limit": 200, "fields[betaGroups]": "name,isInternalGroup"})
     safe_groups = []
     for group in groups:
+        if build_id not in group_build_ids(token, group["id"]):
+            continue
         attributes = group["attributes"]
         if not isinstance(attributes.get("name"), str) or not isinstance(attributes.get("isInternalGroup"), bool):
             raise RuntimeError("ASC returned incomplete beta group metadata")
