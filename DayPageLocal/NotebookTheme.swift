@@ -1,3 +1,4 @@
+import DayPageCore
 import SwiftUI
 import UIKit
 
@@ -79,17 +80,13 @@ extension View {
 
 enum NotebookDate {
   static func day(_ date: Date) -> String {
-    date.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).locale(Locale(identifier: "sv_SE")))
+    NotebookCalendarMonth.dayKey(for: date)
   }
   static func title(_ day: String) -> String {
     guard let date = date(day) else { return day }
     return date.formatted(.dateTime.month(.wide).day())
   }
   static func date(_ day: String) -> Date? {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.calendar = Calendar(identifier: .gregorian)
-    formatter.dateFormat = "yyyy-MM-dd"
-    return formatter.date(from: day)
+    NotebookCalendarMonth.date(for: day)
   }
 }

@@ -5,6 +5,8 @@ import SwiftUI
 @MainActor
 final class NotebookModel: ObservableObject {
   @Published private(set) var entries: [NotebookEntry] = []
+  @Published private(set) var catalog = NotebookCatalog(entries: [])
+  @Published private(set) var lastCapturedNoteID: UUID?
   @Published private(set) var configuration: AIConfiguration
   @Published var draft = ""
   @Published var error: String?
@@ -123,6 +125,17 @@ final class NotebookModel: ObservableObject {
       #endif
       #if DEBUG
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedNotebook"),
+          ProcessInfo.processInfo.arguments.contains("-qaSeedLargeNotebook"),
+          try await store.entries().isEmpty
+        {
+          let calendar = Calendar(identifier: .gregorian)
+          for index in 0..<360 {
+            let day = calendar.date(byAdding: .day, value: -(index / 3), to: Date()) ?? Date()
+            let time = calendar.date(bySettingHour: 9 + (index % 3) * 4, minute: 10, second: 0, of: day) ?? day
+            try await store.append(Memo(created: time, body: "Synthetic history \(index). A moment to revisit. #history"))
+          }
+        }
+        if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedNotebook"),
           try await store.entries().isEmpty
         {
           let samples =
@@ -153,7 +166,9 @@ final class NotebookModel: ObservableObject {
 
   func refresh() async {
     do {
-      entries = try await store.entries()
+      let snapshot = try await store.entries()
+      catalog = NotebookCatalog(entries: snapshot)
+      entries = snapshot
       loadIssue = nil
     } catch {
       loadIssue = String(
@@ -187,6 +202,7 @@ final class NotebookModel: ObservableObject {
   func save(body: String, editing entry: NotebookEntry?) async -> Bool {
     guard !isSaving, !changingCapture, entry != nil || captureDraftReady else { return false }
     isSaving = true
+    let capturedID = entry == nil ? captureMemoID : nil
     defer {
       isSaving = false
       flushDeferredDraft()
@@ -225,6 +241,7 @@ final class NotebookModel: ObservableObject {
         needsDraftSave = false
       }
       await refresh()
+      if let capturedID { lastCapturedNoteID = capturedID }
       return true
     } catch {
       report(error)

@@ -115,6 +115,9 @@ final class LocalNotebookUITests: XCTestCase {
     app.launch()
     if !app.buttons["new-note"].waitForExistence(timeout: 3) { print("ROOT ACCESSIBILITY:\n" + app.debugDescription) }
     XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-archive"].tap()
+    XCTAssertTrue(element("archive-summary").waitForExistence(timeout: 5))
     screenshot("local-archive-dark")
   }
 
@@ -151,7 +154,7 @@ final class LocalNotebookUITests: XCTestCase {
     write("A local note worth finding again. #travel")
     let note = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
     note.tap()
-    app.buttons["Note actions"].tap()
+    app.navigationBars["Note"].buttons["Note actions"].tap()
     app.buttons["pin-note"].tap()
     XCTAssertTrue(visibleText("Pinned").waitForExistence(timeout: 5))
     app.navigationBars.buttons.firstMatch.tap()
@@ -163,15 +166,16 @@ final class LocalNotebookUITests: XCTestCase {
     app.buttons["filter-pinned"].tap()
     XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
     screenshot("restored-archive-search")
-    note.tap()
-    app.buttons["Note actions"].tap()
+    let foundNote = element("search-list").buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
+    foundNote.tap()
+    app.navigationBars["Note"].buttons["Note actions"].tap()
     app.buttons["trash-note"].tap()
     app.buttons["Move to Trash"].firstMatch.tap()
-    XCTAssertTrue(app.buttons["undo-trash"].waitForExistence(timeout: 5))
-    app.buttons["undo-trash"].tap()
+    XCTAssertTrue(app.buttons["search-undo-trash"].waitForExistence(timeout: 5))
+    app.buttons["search-undo-trash"].tap()
     XCTAssertTrue(visibleText("A local note worth finding again.").waitForExistence(timeout: 5))
-    note.tap()
-    app.buttons["Note actions"].tap()
+    foundNote.tap()
+    app.navigationBars["Note"].buttons["Note actions"].tap()
     app.buttons["trash-note"].tap()
     app.buttons["Move to Trash"].firstMatch.tap()
     app.buttons["recently-deleted"].tap()

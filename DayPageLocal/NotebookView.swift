@@ -27,6 +27,7 @@ struct NotebookView: View {
   @State private var observedToday = NotebookDate.day(Date())
   @State private var showingCalendar = false
   @State private var search = ""
+  @State private var showingSearch = false
 
   var body: some View {
     GeometryReader { geometry in
@@ -40,7 +41,7 @@ struct NotebookView: View {
               case .today:
                 NotebookTimeline(day: selectedDay, showAll: { destination = .archive })
               case .archive:
-                ArchiveView(search: $search)
+                ArchiveView(search: .constant(""))
               case .feedback:
                 FeedbackView()
               case .settings:
@@ -66,7 +67,7 @@ struct NotebookView: View {
             }
           }
         }
-        .accessibilityHidden(sidebarOpen)
+        .accessibilityHidden(sidebarOpen || showingSearch)
         .overlay(alignment: .leading) {
           if path.isEmpty && !sidebarOpen {
             Color.clear.frame(width: 14).contentShape(Rectangle())
@@ -108,7 +109,28 @@ struct NotebookView: View {
         observedToday = NotebookDate.day(Date())
         destination = .today
       }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+    }
+    .sheet(isPresented: $showingSearch) {
+      NavigationStack {
+        ArchiveView(search: $search, searching: true)
+          .navigationTitle("Search").navigationBarTitleDisplayMode(.inline)
+          .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+              Button("Close") { showingSearch = false }
+                .accessibilityIdentifier("close-search")
+            }
+          }
+          .navigationDestination(for: String.self) { id in
+            if let entry = notebook.entries.first(where: { $0.id == id }) {
+              NoteDetailView(entry: entry)
+            } else {
+              NotebookEmptyState(icon: "doc", title: "Note unavailable",
+                detail: String(localized: "Close search and refresh your notebook."))
+            }
+          }
+      }
+      .presentationDetents([.large])
     }
     .onChange(of: scenePhase) { phase in
       if phase == .active {
@@ -118,6 +140,13 @@ struct NotebookView: View {
       if phase != .active { notebook.saveDraft() }
     }
     .onChange(of: notebook.entries.first?.id) { _ in refreshTodaySelection() }
+    .onChange(of: notebook.lastCapturedNoteID) { id in
+      guard id != nil else { return }
+      selectedDay = NotebookDate.day(Date())
+      observedToday = selectedDay
+      destination = .today
+      path = []
+    }
     .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
       refreshTodaySelection()
     }
@@ -140,36 +169,48 @@ struct NotebookView: View {
   }
 
   private var header: some View {
-    HStack(spacing: 12) {
-      NotebookCircleButton(icon: "line.3.horizontal", label: "Open sidebar") { showSidebar(true) }
-        .accessibilityIdentifier("open-sidebar")
-      Spacer(minLength: 4)
-      if destination == .today {
-        Button { showingCalendar = true } label: {
-          HStack(spacing: 6) {
-            Text(NotebookDate.title(selectedDay)).font(NotebookTheme.reading(17))
-            Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium))
+    ZStack {
+      Group {
+        if destination == .today {
+          Button { showingCalendar = true } label: {
+            HStack(spacing: 6) {
+              Text(NotebookDate.title(selectedDay)).font(NotebookTheme.reading(17))
+              Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium))
+            }
+            .foregroundStyle(NotebookTheme.muted).frame(minHeight: 44)
           }
-          .foregroundStyle(NotebookTheme.muted)
-          .frame(minHeight: 44)
+          .buttonStyle(.plain).accessibilityLabel("Choose date")
+          .accessibilityIdentifier("choose-date").accessibilityValue(selectedDay)
+        } else {
+          Text(destination.title).font(NotebookTheme.reading(19))
+            .lineLimit(1).minimumScaleFactor(0.8)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Choose date")
-        .accessibilityIdentifier("choose-date")
-        .accessibilityValue(selectedDay)
-      } else {
-        Text(destination.title).font(NotebookTheme.reading(19))
       }
-      Spacer(minLength: 4)
-      if destination == .today || destination == .archive {
-        NotebookCircleButton(icon: "magnifyingglass", label: "Search your notes") {
-          destination = .archive
-          search = ""
-        }
-        .accessibilityIdentifier("search-notes")
-      } else {
-        NotebookCircleButton(icon: "square.and.pencil", label: "Today") { destination = .today }
+      .frame(maxWidth: .infinity)
+      .padding(.horizontal, destination == .today ? 56 : 100)
+
+      HStack(spacing: 12) {
+        NotebookCircleButton(icon: "line.3.horizontal", label: "Open sidebar") { showSidebar(true) }
+          .accessibilityIdentifier("open-sidebar")
+        if destination != .today {
+          NotebookCircleButton(icon: "chevron.left", label: "Today") {
+            destination = .today
+            selectedDay = NotebookDate.day(Date())
+            observedToday = selectedDay
+            path = []
+          }
           .accessibilityIdentifier("return-today")
+        }
+        Spacer(minLength: 4)
+        if destination == .today || destination == .archive {
+          NotebookCircleButton(icon: "magnifyingglass", label: "Search your notes") {
+            search = ""
+            showingSearch = true
+          }
+          .accessibilityIdentifier("search-notes")
+        } else {
+          Color.clear.frame(width: 44, height: 44).accessibilityHidden(true)
+        }
       }
     }
     .padding(.horizontal, 20)

@@ -14,6 +14,10 @@ final class NoteSharePolicyTests: XCTestCase {
 
   func testImageBudgetRejectsOversizedAndInvalidDimensionsBeforeRasterization() {
     XCTAssertTrue(NoteSharePolicy.canRenderImage(width: 360, height: 2_000, scale: 2))
+    XCTAssertTrue(NoteSharePolicy.canRenderImage(width: 360, height: 2_400, scale: 2))
+    XCTAssertFalse(NoteSharePolicy.canRenderImage(width: 360, height: 2_401, scale: 2))
+    XCTAssertTrue(NoteSharePolicy.canRenderImage(width: 1_000, height: 1_000, scale: 2))
+    XCTAssertFalse(NoteSharePolicy.canRenderImage(width: 1_000.1, height: 1_000, scale: 2))
     XCTAssertFalse(NoteSharePolicy.canRenderImage(width: 360, height: 2_401, scale: 1))
     XCTAssertFalse(NoteSharePolicy.canRenderImage(width: 360, height: 20_000, scale: 2))
     XCTAssertFalse(NoteSharePolicy.canRenderImage(width: 360, height: .infinity, scale: 2))

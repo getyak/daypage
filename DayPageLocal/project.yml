@@ -24,6 +24,8 @@ targets:
       - path: NotebookView.swift
       - path: NotebookTimeline.swift
       - path: NotebookArchive.swift
+      - path: NotebookCalendar.swift
+      - path: NoteSharePreview.swift
       - path: CaptureDraftStore.swift
       - path: CaptureMedia.swift
       - path: NoteViews.swift
