@@ -128,7 +128,7 @@ struct NoteChatView: View {
         }
       }
       .notebookSurface()
-      .navigationTitle(selectedIDs == nil ? "Chat with notes" : "Chat about this note")
+      .navigationTitle(selectedIDs == nil ? "Chat with notes" : selectedIDs?.count == 1 ? "Chat about this note" : "Chat with selection")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
@@ -154,8 +154,15 @@ struct NoteChatView: View {
   private var contextHeader: some View {
     VStack(alignment: .leading, spacing: 10) {
       if configured {
-        Label(notebook.configuration.model, systemImage: "slider.horizontal.3").font(
-          .caption.weight(.medium))
+        HStack(spacing: 8) {
+          Label(notebook.configuration.model, systemImage: "sparkles")
+            .font(.caption.weight(.medium)).lineLimit(2)
+          Spacer()
+          Button { settingsOpen = true } label: {
+            Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
+          }.accessibilityLabel("AI connection").accessibilityIdentifier("chat-ai-settings")
+            .disabled(session.sending)
+        }
         Text("Only the excerpts below and this conversation will be sent when you tap Send.")
           .font(.caption).foregroundStyle(.secondary)
         DisclosureGroup("\(context.entries.count) notes included") {
@@ -168,9 +175,23 @@ struct NoteChatView: View {
         .font(.caption)
         .accessibilityIdentifier("chat-context")
       } else {
-        Text("Connect your own AI to talk with your notes.").font(NotebookTheme.reading(22))
-        Button("Set up AI in Settings") { settingsOpen = true }.frame(minHeight: 44)
-          .accessibilityIdentifier("chat-setup-ai")
+        HStack(alignment: .top, spacing: 12) {
+          Image(systemName: "sparkles").foregroundStyle(NotebookTheme.accent).padding(.top, 4)
+          VStack(alignment: .leading, spacing: 8) {
+            Text("AI, when you need it.").font(NotebookTheme.reading(21))
+            Text("Connect your own AI to talk with your notes.").font(.subheadline)
+              .foregroundStyle(NotebookTheme.muted)
+            Text("Your question stays on this device until you send it.").font(.caption)
+              .foregroundStyle(NotebookTheme.muted)
+            Button("Set up AI in Settings") { settingsOpen = true }.frame(minHeight: 44)
+              .accessibilityIdentifier("chat-setup-ai")
+          }
+        }
+      }
+      if context.entries.isEmpty {
+        Text(selectedIDs == nil ? LocalizedStringKey("Save a note first, then come back to explore it with AI.") : LocalizedStringKey("These notes are no longer available. Close chat and choose notes again."))
+          .font(.caption).foregroundStyle(NotebookTheme.muted)
+          .accessibilityIdentifier("chat-empty-context")
       }
     }
     .padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -183,7 +204,22 @@ struct NoteChatView: View {
           if session.conversation.messages.isEmpty {
             Text("What would you like to revisit?").font(NotebookTheme.reading(24)).foregroundStyle(
               .secondary
-            ).padding(.vertical, 36)
+            ).padding(.top, 16)
+            if !context.entries.isEmpty && session.draft.isEmpty {
+              VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+                  Button { session.draft = suggestion } label: {
+                    HStack(spacing: 10) {
+                      Text(suggestion).font(.subheadline).multilineTextAlignment(.leading)
+                      Spacer(minLength: 8)
+                      Image(systemName: "arrow.up.left").font(.caption)
+                    }
+                    .padding(14).frame(minHeight: 44)
+                    .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 12))
+                  }.buttonStyle(.plain).accessibilityIdentifier("chat-suggestion-\(index)")
+                }
+              }
+            }
           }
           ForEach(session.conversation.messages) { message in
             VStack(alignment: .leading, spacing: 8) {
@@ -205,14 +241,27 @@ struct NoteChatView: View {
           if let error = session.error {
             Text(error).font(.callout).foregroundStyle(.secondary).accessibilityIdentifier(
               "chat-error")
+            if !session.ready {
+              Button("Try again") { Task { await session.load(notebook: notebook, selectedIDs: selectedIDs) } }
+                .frame(minHeight: 44)
+            }
           }
+          Color.clear.frame(height: 1).id("chat-bottom")
         }
         .padding(20)
       }
-      .onChange(of: session.conversation.messages.count) { _ in
-        if let id = session.conversation.messages.last?.id { proxy.scrollTo(id, anchor: .bottom) }
-      }
+      .scrollDismissesKeyboard(.interactively)
+      .onChange(of: session.conversation.messages.count) { _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
+      .onChange(of: session.sending) { _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
     }
+  }
+
+  private var suggestions: [String] {
+    selectedIDs == nil
+      ? [String(localized: "What has been on my mind lately?"),
+         String(localized: "Find a thought I might want to revisit.")]
+      : [String(localized: "Help me reflect on these notes."),
+         String(localized: "What ideas could I explore next?")]
   }
 
   private var composer: some View {
