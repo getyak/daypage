@@ -259,14 +259,17 @@ jobs:
           fi
           xcodebuild -version
 
-      - name: Cache DerivedData
+      # SDK module caches contain header timestamps from a specific runner
+      # image. Reuse package sources only; compile modules fresh on this image.
+      - name: Cache Swift package sources
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/Library/Developer/Xcode/DerivedData
-          key: deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/daypage-source-packages/checkouts
+            ${{ runner.temp }}/daypage-source-packages/repositories
+          key: spm-sources-v1-${{ runner.os }}-${{ hashFiles('DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
-            deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
-            deriveddata-tests-
+            spm-sources-v1-${{ runner.os }}-
 
       # Same CI placeholder used by the build job. Required because the test
       # build links against the app target which references Secrets.*.
@@ -283,6 +286,7 @@ jobs:
           xcodebuild test \
             -scheme DayPage \
             -destination "$DEST" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/daypage-source-packages" \
             -configuration Debug \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
@@ -320,14 +324,17 @@ jobs:
           xcrun --show-sdk-path --sdk iphonesimulator
           xcrun --show-sdk-version --sdk iphonesimulator
 
-      - name: Cache DerivedData
+      # Share fetched sources with xcode-tests, without restoring its compiled
+      # modules, SDK stat caches, build products or plugin executables.
+      - name: Cache Swift package sources
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: build/DD
-          key: deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/daypage-source-packages/checkouts
+            ${{ runner.temp }}/daypage-source-packages/repositories
+          key: spm-sources-v1-${{ runner.os }}-${{ hashFiles('DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
-            deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
-            deriveddata-ci-
+            spm-sources-v1-${{ runner.os }}-
 
       # CI builds use one deterministic, non-sensitive placeholder. Real
       # credentials remain runtime-only and are never read by this workflow.
@@ -352,6 +359,7 @@ jobs:
           xcodebuild \
             -scheme DayPage \
             -destination "$DEST" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/daypage-source-packages" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
             -derivedDataPath $PWD/build/DD \
