@@ -91,6 +91,23 @@ review, installation and physical-device behavior remain separate checks.
 Retain the previous binary/source tag as a rollback reference; this workflow
 does not migrate, rewrite or delete user data.
 
+Manual publishing resolves a missing event commit message from the exact checked-out
+candidate. For a previously uploaded build with an empty changelog artifact, update
+the matching GitHub release notes and dispatch only `update-changelog.yml` with
+that release tag and its original publication run ID; the updater recovers those
+notes without rebuilding, reuploading or relabeling the binary.
+
+The metadata updater confirms the App Store Connect app's Bundle ID and exact
+iOS prerelease/build identity before changing notes, then reads the saved notes,
+processing/testing state and existing beta groups back. Its
+`testflight-verification-v<version>` artifact contains `release-receipt.json` with
+only non-sensitive identity, provenance and state fields. `ready: true` means an
+unexpired `VALID` build whose internal Apple state is `IN_BETA_TESTING`; group
+metadata is evidence only, not a claim that any particular person installed it.
+`ready: false` is distinct from successful upload or successful notes update.
+The updater creates no tester/group membership and submits no external review.
+Authentication, ownership or note-readback failure leaves no success receipt.
+
 ## Other surfaces
 
 The shared-backend overlay/validator and legacy privacy/data-safety gates remain
