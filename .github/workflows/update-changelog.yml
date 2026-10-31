@@ -126,10 +126,12 @@ jobs:
           fi
           BUILD_NUMBER=$(git rev-list --count "$DEPLOYED_REF")
           MARKETING="${TAG#v}"
+          SOURCE_SHA=$(git rev-parse "${DEPLOYED_REF}^{commit}")
 
           echo "build_number=$BUILD_NUMBER"   >> "$GITHUB_OUTPUT"
           echo "marketing_version=$MARKETING" >> "$GITHUB_OUTPUT"
           echo "release_tag=$TAG"             >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SOURCE_SHA"       >> "$GITHUB_OUTPUT"
           echo "Resolved build_number=$BUILD_NUMBER, marketing=$MARKETING, tag=$TAG"
 
       - name: Download changelog artifact from deploy run
@@ -142,6 +144,24 @@ jobs:
           # at the right source. For manual dispatch, run_id from inputs is used.
           run-id: ${{ steps.resolve.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Recover missing release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.ids.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if ! python3 -c 'from pathlib import Path; import sys; sys.exit(0 if Path("changelog/changelog.txt").read_text().strip() else 1)'; then
+            if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Invalid release tag for notes recovery."
+              exit 1
+            fi
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --json body --jq '.body // ""' > changelog/changelog.txt.recovered
+            python3 -c 'from pathlib import Path; import sys; sys.exit(0 if Path("changelog/changelog.txt.recovered").read_text().strip() else 1)'
+            mv changelog/changelog.txt.recovered changelog/changelog.txt
+            echo "Recovered notes from the matching GitHub release."
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -165,5 +185,18 @@ jobs:
           LOCALE:                en-US
           MAX_WAIT_SECONDS:      "1800"
           POLL_INTERVAL_SECONDS: "30"
+          EXPECTED_BUNDLE_ID:    com.daypage.app
+          RELEASE_SOURCE_SHA:   ${{ steps.ids.outputs.source_sha }}
+          RELEASE_TAG:          ${{ steps.ids.outputs.release_tag }}
+          RELEASE_RECEIPT_FILE: release-receipt.json
         run: |
           python3 scripts/update_testflight_changelog.py
+
+      - name: Save Apple build verification receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testflight-verification-${{ steps.ids.outputs.release_tag }}
+          path: release-receipt.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -183,6 +183,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          # workflow_dispatch has no head_commit payload. Resolve notes from
+          # the exact checked-out candidate rather than writing an empty file.
+          if [ -z "${COMMIT_MSG:-}" ]; then
+            COMMIT_MSG=$(git log -1 --format=%B "$GITHUB_SHA" --)
+          fi
+
           PR_NUM=$(printf '%s' "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -n1 | tr -d '#' || true)
 
           CHANGELOG_FILE="$RUNNER_TEMP/changelog.txt"

@@ -17,6 +17,9 @@
 #   LOCALE                             — beta-build-localization locale (default "en-US")
 #   MAX_WAIT_SECONDS                   — total seconds to wait for build to reach processingState=VALID (default 1800)
 #   POLL_INTERVAL_SECONDS              — seconds between polls (default 30)
+#   EXPECTED_BUNDLE_ID                 — app identity guard (default com.daypage.app)
+#   RELEASE_RECEIPT_FILE               — optional path for a non-sensitive JSON readback
+#   RELEASE_SOURCE_SHA / RELEASE_TAG   — optional release provenance for the receipt
 #
 # Exits 0 on success, non-zero with diagnostic on failure.
 
@@ -25,17 +28,13 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-
-try:
-    import jwt  # PyJWT
-except ImportError:
-    print("ERROR: PyJWT not installed. Run: pip install pyjwt cryptography", file=sys.stderr)
-    sys.exit(2)
+from datetime import datetime, timezone
 
 ASC_BASE = "https://api.appstoreconnect.apple.com"
 
@@ -49,6 +48,10 @@ def env(name: str, default: str | None = None, *, required: bool = True) -> str:
 
 
 def make_jwt(key_id: str, issuer_id: str, private_key_pem: str) -> str:
+    try:
+        import jwt  # PyJWT is needed only when the live CI caller signs a token.
+    except ImportError:
+        raise RuntimeError("PyJWT not installed. Run: pip install pyjwt cryptography") from None
     # ASC tokens have a max lifetime of 20 minutes; we re-mint each polling
     # round to stay safe across long waits.
     now = int(time.time())
@@ -59,7 +62,10 @@ def make_jwt(key_id: str, issuer_id: str, private_key_pem: str) -> str:
         "aud": "appstoreconnect-v1",
     }
     headers = {"kid": key_id, "typ": "JWT"}
-    return jwt.encode(payload, private_key_pem, algorithm="ES256", headers=headers)
+    try:
+        return jwt.encode(payload, private_key_pem, algorithm="ES256", headers=headers)
+    except Exception:
+        raise RuntimeError("Could not sign the App Store Connect API token") from None
 
 
 def asc_request(method: str, path: str, token: str, *, body: dict | None = None,
@@ -78,11 +84,88 @@ def asc_request(method: str, path: str, token: str, *, body: dict | None = None,
             payload = resp.read().decode()
             return resp.status, (json.loads(payload) if payload else {})
     except urllib.error.HTTPError as e:
-        body_text = e.read().decode(errors="replace")
-        try:
-            return e.code, json.loads(body_text)
-        except json.JSONDecodeError:
-            return e.code, {"raw": body_text}
+        # Error payloads are opaque and can contain sensitive diagnostics.
+        # Callers report the operation and status, never serialize that body.
+        e.close()
+        return e.code, {}
+    except urllib.error.URLError:
+        raise RuntimeError(f"{method} {path} request failed") from None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise RuntimeError(f"{method} {path} returned invalid JSON") from None
+
+
+def require_resource(resource: dict, kind: str) -> dict:
+    if (not isinstance(resource, dict) or resource.get("type") != kind
+            or not isinstance(resource.get("id"), str) or not resource["id"].strip()
+            or not isinstance(resource.get("attributes"), dict)):
+        raise RuntimeError(f"ASC returned an invalid {kind} resource")
+    return resource
+
+
+def get_resource(token: str, path: str, kind: str, *, query=None) -> tuple[dict, list]:
+    status, payload = asc_request("GET", path, token, query=query)
+    if status != 200:
+        raise RuntimeError(f"GET {path} failed: HTTP {status}")
+    if not isinstance(payload, dict) or not isinstance(payload.get("included", []), list):
+        raise RuntimeError(f"GET {path} returned an invalid response")
+    return require_resource(payload.get("data"), kind), payload.get("included", [])
+
+
+def verify_app(token: str, app_id: str, expected_bundle: str) -> dict:
+    path = "/v1/apps/" + urllib.parse.quote(app_id, safe="")
+    app, _ = get_resource(token, path, "apps", query={"fields[apps]": "bundleId"})
+    if app["id"] != app_id or app["attributes"].get("bundleId") != expected_bundle:
+        raise RuntimeError("App identity or bundle ID does not match the expected release target")
+    return app
+
+
+def validate_build(build: dict, included: list, app_id: str, build_number: str,
+                   marketing_version: str, *, build_id: str | None = None) -> dict:
+    require_resource(build, "builds")
+    relationships = build.get("relationships") or {}
+    app = (relationships.get("app") or {}).get("data") or {}
+    version_link = (relationships.get("preReleaseVersion") or {}).get("data") or {}
+    versions = [item for item in included if isinstance(item, dict)
+                and item.get("type") == "preReleaseVersions" and item.get("id") == version_link.get("id")]
+    if (build["attributes"].get("version") != build_number
+            or (build_id is not None and build["id"] != build_id)
+            or app.get("type") != "apps" or app.get("id") != app_id
+            or version_link.get("type") != "preReleaseVersions" or len(versions) != 1
+            or (versions[0].get("attributes") or {}).get("version") != marketing_version
+            or (versions[0].get("attributes") or {}).get("platform") != "IOS"
+            or not isinstance(build["attributes"].get("processingState"), str)):
+        raise RuntimeError("ASC build identity/version does not match the exact release target")
+    return build
+
+
+def list_resources(token: str, path: str, kind: str, *, query=None) -> list[dict]:
+    """Read all existing resources; never send a bearer token to a pagination host."""
+    items = []
+    seen = set()
+    original_query = dict(query or {})
+    for _ in range(100):
+        status, payload = asc_request("GET", path, token, query=query)
+        if status != 200:
+            raise RuntimeError(f"GET {path} failed: HTTP {status}")
+        if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+            raise RuntimeError(f"GET {path} returned an invalid collection")
+        items.extend(require_resource(item, kind) for item in payload["data"])
+        next_url = (payload.get("links") or {}).get("next")
+        if not next_url:
+            return items
+        if not isinstance(next_url, str) or next_url in seen:
+            raise RuntimeError("ASC returned invalid or repeated pagination")
+        seen.add(next_url)
+        parsed = urllib.parse.urlsplit(urllib.parse.urljoin(ASC_BASE, next_url))
+        if (parsed.scheme != "https" or parsed.netloc != "api.appstoreconnect.apple.com"
+                or parsed.path != path or parsed.fragment):
+            raise RuntimeError("ASC pagination must stay on the same App Store Connect resource")
+        next_query = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
+        for key, value in original_query.items():
+            if key.startswith("filter[") and next_query.get(key, value) != str(value):
+                raise RuntimeError("ASC pagination changed the requested resource scope")
+        query = {**original_query, **next_query}
+    raise RuntimeError("ASC pagination exceeded its bounded page limit")
 
 
 def find_build(token: str, app_id: str, build_number: str,
@@ -96,14 +179,19 @@ def find_build(token: str, app_id: str, build_number: str,
             "filter[version]": build_number,
             "filter[preReleaseVersion.version]": marketing_version,
             "limit": 5,
-            "include": "preReleaseVersion",
+            "include": "app,preReleaseVersion",
         },
     )
     if status != 200:
-        print(f"GET /v1/builds failed: HTTP {status} {payload}", file=sys.stderr)
+        raise RuntimeError(f"GET /v1/builds failed: HTTP {status}")
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise RuntimeError("ASC returned an invalid builds collection")
+    items = payload["data"]
+    if not items:
         return None
-    items = payload.get("data") or []
-    return items[0] if items else None
+    if len(items) != 1 or not isinstance(payload.get("included"), list):
+        raise RuntimeError("ASC returned an ambiguous or incomplete build identity")
+    return validate_build(items[0], payload["included"], app_id, build_number, marketing_version)
 
 
 def wait_for_processed_build(token_factory, app_id: str, build_number: str,
@@ -139,20 +227,12 @@ def wait_for_processed_build(token_factory, app_id: str, build_number: str,
 
 def upsert_localization(token: str, build_id: str, locale: str,
                         whats_new: str) -> None:
-    status, payload = asc_request(
-        "GET",
-        f"/v1/builds/{build_id}/betaBuildLocalizations",
-        token,
-        query={"limit": 50},
-    )
-    if status != 200:
-        raise RuntimeError(f"GET betaBuildLocalizations failed: HTTP {status} {payload}")
-
-    existing = None
-    for item in payload.get("data") or []:
-        if item.get("attributes", {}).get("locale") == locale:
-            existing = item
-            break
+    localizations = list_resources(token, f"/v1/builds/{urllib.parse.quote(build_id, safe='')}/betaBuildLocalizations",
+                                   "betaBuildLocalizations", query={"limit": 200})
+    matching = [item for item in localizations if item["attributes"].get("locale") == locale]
+    if len(matching) > 1:
+        raise RuntimeError("ASC returned more than one localization for the requested locale")
+    existing = matching[0] if matching else None
 
     if existing:
         loc_id = existing["id"]
@@ -164,11 +244,11 @@ def upsert_localization(token: str, build_id: str, locale: str,
             }
         }
         status, payload = asc_request("PATCH",
-                                      f"/v1/betaBuildLocalizations/{loc_id}",
+                                      f"/v1/betaBuildLocalizations/{urllib.parse.quote(loc_id, safe='')}",
                                       token, body=body)
         if status not in (200, 204):
             raise RuntimeError(
-                f"PATCH betaBuildLocalization failed: HTTP {status} {payload}"
+                f"PATCH betaBuildLocalization failed: HTTP {status}"
             )
         print(f"Updated existing betaBuildLocalization {loc_id} (locale={locale})")
     else:
@@ -185,9 +265,77 @@ def upsert_localization(token: str, build_id: str, locale: str,
                                       token, body=body)
         if status not in (200, 201):
             raise RuntimeError(
-                f"POST betaBuildLocalizations failed: HTTP {status} {payload}"
+                f"POST betaBuildLocalizations failed: HTTP {status}"
             )
         print(f"Created betaBuildLocalization (locale={locale})")
+
+
+def release_readback(token: str, app: dict, build_id: str, build_number: str,
+                     marketing_version: str, locale: str, whats_new: str,
+                     source_sha: str, release_tag: str) -> dict:
+    path = "/v1/builds/" + urllib.parse.quote(build_id, safe="")
+    build, included = get_resource(token, path, "builds", query={"include": "app,preReleaseVersion"})
+    validate_build(build, included, app["id"], build_number, marketing_version, build_id=build_id)
+    detail, _ = get_resource(token, path + "/buildBetaDetail", "buildBetaDetails",
+                             query={"fields[buildBetaDetails]": "internalBuildState,externalBuildState"})
+    # The documented collection endpoint supports app/build filters and
+    # pagination; a direct GET /builds/{id}/betaGroups is not documented.
+    groups = list_resources(token, "/v1/betaGroups", "betaGroups",
+                            query={"filter[app]": app["id"], "filter[builds]": build_id,
+                                   "limit": 200, "fields[betaGroups]": "name,isInternalGroup"})
+    safe_groups = []
+    for group in groups:
+        attributes = group["attributes"]
+        if not isinstance(attributes.get("name"), str) or not isinstance(attributes.get("isInternalGroup"), bool):
+            raise RuntimeError("ASC returned incomplete beta group metadata")
+        safe_groups.append({"id": group["id"], "name": attributes["name"],
+                            "isInternalGroup": attributes["isInternalGroup"]})
+    localizations = list_resources(token, path + "/betaBuildLocalizations", "betaBuildLocalizations",
+                                   query={"limit": 200})
+    matching = [item for item in localizations if item["attributes"].get("locale") == locale]
+    if len(matching) != 1 or matching[0]["attributes"].get("whatsNew") != whats_new:
+        raise RuntimeError("ASC did not return the exact updated What to Test text")
+
+    attributes = build["attributes"]
+    expiry = attributes.get("expirationDate")
+    expiration = None
+    if expiry is not None:
+        try:
+            expiration = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+            if expiration.tzinfo is None:
+                raise ValueError()
+        except (AttributeError, TypeError, ValueError):
+            raise RuntimeError("ASC returned an invalid build expiration date") from None
+    internal = detail["attributes"].get("internalBuildState")
+    external = detail["attributes"].get("externalBuildState")
+    if not isinstance(internal, str) or not isinstance(external, str):
+        raise RuntimeError("ASC returned incomplete testing state")
+    ready = (attributes.get("processingState") == "VALID" and attributes.get("expired") is False
+             and expiration is not None and expiration > datetime.now(timezone.utc)
+             and internal == "IN_BETA_TESTING")
+    return {
+        "appId": app["id"], "bundleId": app["attributes"]["bundleId"],
+        "marketingVersion": marketing_version, "buildNumber": build_number, "buildId": build_id,
+        "processingState": attributes["processingState"], "expired": attributes.get("expired"),
+        "expirationDate": expiry, "internalBuildState": internal, "externalBuildState": external,
+        "betaGroups": safe_groups, "ready": ready, "sourceSha": source_sha, "releaseTag": release_tag,
+        "notesLocale": locale, "notesVerified": True,
+    }
+
+
+def write_receipt(path: Path, receipt: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=".testflight-receipt-", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(receipt, stream, indent=2, ensure_ascii=False)
+            stream.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -201,6 +349,14 @@ def main() -> int:
     locale = env("LOCALE", "en-US", required=False)
     max_wait = int(env("MAX_WAIT_SECONDS", "1800", required=False))
     poll_interval = int(env("POLL_INTERVAL_SECONDS", "30", required=False))
+    expected_bundle = env("EXPECTED_BUNDLE_ID", "com.daypage.app")
+    receipt_file = env("RELEASE_RECEIPT_FILE", required=False)
+    receipt_path = Path(receipt_file) if receipt_file else None
+    if receipt_path is not None:
+        if receipt_path.is_symlink():
+            raise RuntimeError("Release receipt path must not be a symbolic link")
+        # A failed retry must not leave a previous success receipt behind.
+        receipt_path.unlink(missing_ok=True)
 
     changelog_text = Path(changelog_path).read_text(encoding="utf-8").strip()
     if not changelog_text:
@@ -214,16 +370,13 @@ def main() -> int:
 
     print(f"Updating changelog for build {marketing_version} ({build_number}), locale={locale}")
     print(f"  app_id={app_id}, max_wait={max_wait}s, poll_interval={poll_interval}s")
-    print(f"  changelog ({len(changelog_text)} chars):")
-    for line in changelog_text.splitlines()[:20]:
-        print(f"    {line}")
-    if len(changelog_text.splitlines()) > 20:
-        print("    ...")
+    print(f"  changelog: {len(changelog_text)} chars")
 
     def token_factory() -> str:
         return make_jwt(key_id, issuer_id, key_pem)
 
-    print("Waiting for build to reach processingState=VALID...")
+    app = verify_app(token_factory(), app_id, expected_bundle)
+    print("Verified app bundle identity. Waiting for build to reach processingState=VALID...")
     build = wait_for_processed_build(
         token_factory, app_id, build_number, marketing_version,
         max_wait, poll_interval,
@@ -232,7 +385,14 @@ def main() -> int:
     print(f"Build is VALID: id={build_id}")
 
     upsert_localization(token_factory(), build_id, locale, changelog_text)
-    print("Changelog updated successfully.")
+    receipt = release_readback(token_factory(), app, build_id, build_number, marketing_version,
+                               locale, changelog_text, env("RELEASE_SOURCE_SHA", required=False),
+                               env("RELEASE_TAG", required=False))
+    if receipt_path is not None:
+        write_receipt(receipt_path, receipt)
+    print("Changelog update verified by Apple readback.")
+    print(f"Internal testing state: {receipt['internalBuildState']}; ready={receipt['ready']}; "
+          f"existing beta groups={len(receipt['betaGroups'])}")
     return 0
 
 
