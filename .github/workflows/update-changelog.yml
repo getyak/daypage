@@ -173,7 +173,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyjwt cryptography
 
-      - name: Update TestFlight changelog
+      - name: Read-only Apple API diagnostic
         env:
           APP_STORE_CONNECT_API_KEY_ID:      ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID:       ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -190,13 +190,64 @@ jobs:
           RELEASE_TAG:          ${{ steps.ids.outputs.release_tag }}
           RELEASE_RECEIPT_FILE: release-receipt.json
         run: |
-          python3 scripts/update_testflight_changelog.py
+          python3 - <<'PY'
+          import importlib.util,json,os,urllib.request,urllib.error,urllib.parse
+          spec=importlib.util.spec_from_file_location("asc","scripts/update_testflight_changelog.py")
+          asc=importlib.util.module_from_spec(spec);spec.loader.exec_module(asc)
+          token=asc.make_jwt(os.environ["APP_STORE_CONNECT_API_KEY_ID"],os.environ["APP_STORE_CONNECT_ISSUER_ID"],os.environ["APP_STORE_CONNECT_API_KEY_CONTENT"])
+          app_id=os.environ["ASC_APP_ID"];number=os.environ["BUILD_NUMBER"];version=os.environ["MARKETING_VERSION"]
+          app=asc.verify_app(token,app_id,"com.daypage.app")
+          build=asc.find_build(token,app_id,number,version)
+          if not build:raise RuntimeError("Exact released iOS build not found")
+          build_id=build["id"]
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,*args,**kwargs):return None
+          opener=urllib.request.build_opener(NoRedirect)
+          def sanitize(value,limit):
+              return str(value).replace(token,"[redacted]").replace(os.environ["APP_STORE_CONNECT_API_KEY_CONTENT"],"[redacted]")[:limit]
+          def request(path,query=None):
+              url=asc.ASC_BASE+path+("?"+urllib.parse.urlencode(query) if query else "")
+              req=urllib.request.Request(url,headers={"Authorization":"Bearer "+token,"Accept":"application/json"})
+              try:
+                  with opener.open(req,timeout=30) as response:return response.status,json.load(response)
+              except urllib.error.HTTPError as error:
+                  status=error.code
+                  try:data=json.load(error)
+                  except Exception:data={}
+                  safe=[]
+                  for item in data.get("errors",[]):
+                      entry={key:sanitize(item.get(key,""),160) for key in ["code","title"]}
+                      entry["parameter"]=sanitize((item.get("source") or {}).get("parameter",""),100)
+                      safe.append(entry)
+                  return status,{"errors":safe}
+          status,detail=request("/v1/builds/"+urllib.parse.quote(build_id,safe="")+"/buildBetaDetail")
+          if status!=200:raise RuntimeError("Beta detail read failed")
+          result={"appId":app_id,"bundleId":"com.daypage.app","marketingVersion":version,"buildNumber":number,"buildId":build_id,"processingState":build["attributes"].get("processingState"),"expired":build["attributes"].get("expired"),"expirationDate":build["attributes"].get("expirationDate"),"betaDetail":detail["data"]["attributes"],"sourceSha":os.environ["RELEASE_SOURCE_SHA"],"readOnlyDiagnostic":True,"queries":[]}
+          variants=[("app_path","/v1/apps/"+app_id+"/betaGroups",{"limit":50}),
+                    ("app_only","/v1/betaGroups",{"filter[app]":app_id,"limit":50}),
+                    ("app_build","/v1/betaGroups",{"filter[app]":app_id,"filter[builds]":build_id,"limit":50}),
+                    ("app_fields","/v1/betaGroups",{"filter[app]":app_id,"fields[betaGroups]":"name,isInternalGroup","limit":200}),
+                    ("exact_failed_query","/v1/betaGroups",{"filter[app]":app_id,"filter[builds]":build_id,"fields[betaGroups]":"name,isInternalGroup","limit":200})]
+          for label,path,query in variants:
+              status,data=request(path,query)
+              row={"label":label,"status":status}
+              if status==200:
+                  row["groups"]=[{"id":g["id"],"name":g.get("attributes",{}).get("name"),"isInternalGroup":g.get("attributes",{}).get("isInternalGroup")} for g in data.get("data",[])]
+                  if label=="app_path" and row["groups"]:
+                      group_id=row["groups"][0]["id"]
+                      code,links=request("/v1/betaGroups/"+urllib.parse.quote(group_id,safe="")+"/relationships/builds",{"limit":200})
+                      row["buildLinks"]={"status":code,"targetOnFirstPage":any(x.get("id")==build_id for x in links.get("data",[]))}
+              else:row["errors"]=data.get("errors",[])
+              result["queries"].append(row)
+          with open("apple-diagnostic.json","w") as stream:json.dump(result,stream,indent=2)
+          print(json.dumps(result))
+          PY
 
       - name: Save Apple build verification receipt
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: testflight-verification-${{ steps.ids.outputs.release_tag }}
-          path: release-receipt.json
+          name: testflight-diagnostic-${{ steps.ids.outputs.release_tag }}
+          path: apple-diagnostic.json
           if-no-files-found: ignore
           retention-days: 30
