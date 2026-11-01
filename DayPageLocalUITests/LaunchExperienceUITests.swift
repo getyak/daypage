@@ -551,9 +551,21 @@ final class LaunchExperienceUITests: XCTestCase {
     }
     field.tap()
     let previous = field.value as? String
-    // iPhone selects a paragraph with a one-finger triple tap. This URL field
-    // contains one paragraph; use its native selection instead of a key shortcut.
-    field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+    // A URL is not a reliable paragraph-selection target. Observe and invoke
+    // the native editing action; never infer whole-field selection from taps.
+    field.press(forDuration: 1.1)
+    let selectAllButton = app.buttons["Select All"]
+    let selectAllMenuItem = app.menuItems["Select All"]
+    let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      (selectAllButton.exists && selectAllButton.isHittable) ||
+        (selectAllMenuItem.exists && selectAllMenuItem.isHittable)
+    }, object: nil)
+    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 3) == .completed else {
+      XCTFail("The native Select All editing action must be visible before replacing the custom address")
+      return
+    }
+    let selectAll = selectAllButton.exists && selectAllButton.isHittable ? selectAllButton : selectAllMenuItem
+    selectAll.tap()
     field.typeText(XCUIKeyboardKey.delete.rawValue)
     let cleared = field.value as? String
     XCTAssertTrue(cleared == "" || cleared == "https://your-provider.example/v1",
