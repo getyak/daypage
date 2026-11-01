@@ -2,6 +2,13 @@ import XCTest
 
 final class LaunchExperienceUITests: XCTestCase {
   private let app = XCUIApplication()
+  private var editableAIKeys: XCUIElementQuery {
+    // iOS may expose an additional privacy mirror with the same identifier.
+    // The editable field keeps its public, localized placeholder.
+    app.secureTextFields.matching(identifier: "ai-key")
+      .matching(NSPredicate(format: "placeholderValue IN %@", ["API key", "API 密钥"]))
+  }
+  private var aiKeyField: XCUIElement { editableAIKeys.firstMatch }
   override func setUp() {
     continueAfterFailure = false
     app.launchArguments = ["-qaNotebookSession", "-qaResetNotebook", "-qaSeedNotebook", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
@@ -58,12 +65,17 @@ final class LaunchExperienceUITests: XCTestCase {
       // Unsigned Simulator runs exercise the real denied-Keychain path. The
       // signed QA run covers successful storage in the separate key tests.
       XCTAssertFalse(app.alerts.firstMatch.exists)
-      let key = app.secureTextFields["ai-key"]
+      let key = aiKeyField
+      XCTAssertTrue(key.waitForExistence(timeout: 5))
+      XCTAssertEqual(editableAIKeys.count, 1)
       key.tap()
       key.typeText("get351-unpersisted-error-draft\n")
       let draft = key.value as? String
+      XCTAssertFalse(draft?.isEmpty ?? true)
+      XCTAssertNotEqual(draft, "API key")
       app.buttons["ai-key-retry"].tap()
       XCTAssertTrue(keyIssue.exists)
+      XCTAssertEqual(editableAIKeys.count, 1)
       XCTAssertEqual(key.value as? String, draft)
       XCTAssertTrue(app.buttons["ai-provider"].exists)
       capture("ai-key-unavailable-inline")
@@ -154,7 +166,7 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("Automatic"))
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-deepSeek"].tap()
-    let key = app.secureTextFields["ai-key"]
+    let key = aiKeyField
     clear(key)
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-openAI"].tap()
@@ -322,7 +334,7 @@ final class LaunchExperienceUITests: XCTestCase {
     app.launchArguments += ["-qaEndpoint", serviceA]
     app.launch()
     openSettings()
-    let key = app.secureTextFields["ai-key"]
+    let key = aiKeyField
     XCTAssertTrue(key.waitForExistence(timeout: 5))
     clear(key)
     key.typeText("get351-disposable-fixture-key\n")
@@ -364,7 +376,7 @@ final class LaunchExperienceUITests: XCTestCase {
     app.launchArguments += ["-qaEndpoint", serviceA]
     app.launch()
     openSettings()
-    let key = app.secureTextFields["ai-key"]
+    let key = aiKeyField
     XCTAssertTrue(key.waitForExistence(timeout: 5))
     key.tap()
     key.typeText("get351-disposable-legacy-key\n")
