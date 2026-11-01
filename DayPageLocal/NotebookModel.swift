@@ -7,6 +7,8 @@ final class NotebookModel: ObservableObject {
   @Published private(set) var entries: [NotebookEntry] = []
   @Published private(set) var catalog = NotebookCatalog(entries: [])
   @Published private(set) var lastCapturedNoteID: UUID?
+  // A one-shot UI request, separate from the last capture's navigation event.
+  @Published private(set) var pendingCaptureRevealID: UUID?
   @Published private(set) var configuration: AIConfiguration
   @Published var draft = ""
   @Published var error: String?
@@ -241,12 +243,20 @@ final class NotebookModel: ObservableObject {
         needsDraftSave = false
       }
       await refresh()
-      if let capturedID { lastCapturedNoteID = capturedID }
+      if let capturedID {
+        pendingCaptureRevealID = capturedID
+        lastCapturedNoteID = capturedID
+      }
       return true
     } catch {
       report(error)
       return false
     }
+  }
+
+  func acknowledgeCaptureReveal(_ id: UUID) {
+    guard pendingCaptureRevealID == id else { return }
+    pendingCaptureRevealID = nil
   }
 
   @discardableResult

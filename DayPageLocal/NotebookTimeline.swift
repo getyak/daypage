@@ -12,8 +12,34 @@ struct NotebookTimeline: View {
       return $0.memo.created > $1.memo.created
     }
   }
+  private var captureRevealTarget: String? {
+    guard let id = notebook.pendingCaptureRevealID,
+      day == NotebookDate.day(Date()), !notebook.isLoading, notebook.loadIssue == nil
+    else { return nil }
+    // Imports can reuse a memo UUID. Scroll using the local record's full ID.
+    return notebook.catalog.entriesByDay[day, default: []].first {
+      $0.namespace.isEmpty && $0.memo.id == id
+    }?.id
+  }
 
   var body: some View {
+    ScrollViewReader { proxy in
+      timeline
+        .task(id: captureRevealTarget) {
+          guard let target = captureRevealTarget, let id = notebook.pendingCaptureRevealID else { return }
+          // Let the parent's capture event switch to Today and the List lay out
+          // its new rows before consuming the request. This also runs on first
+          // appearance when a capture originated in Archive.
+          await Task.yield()
+          guard !Task.isCancelled, captureRevealTarget == target,
+            notebook.pendingCaptureRevealID == id else { return }
+          proxy.scrollTo(target, anchor: .top)
+          notebook.acknowledgeCaptureReveal(id)
+        }
+    }
+  }
+
+  private var timeline: some View {
     List {
       Group {
         if day != NotebookDate.day(Date()) {
@@ -37,6 +63,7 @@ struct NotebookTimeline: View {
         } else {
           ForEach(entries) { entry in
             LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
+              .id(entry.id)
           }
           HStack(spacing: 7) {
             Text(NotebookTheme.noteCount(entries.count))
