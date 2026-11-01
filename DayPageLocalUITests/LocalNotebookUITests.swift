@@ -180,12 +180,19 @@ final class LocalNotebookUITests: XCTestCase {
     app.buttons["Move to Trash"].firstMatch.tap()
     let returnedToSearch = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: app.buttons["search-undo-trash"])
     XCTAssertEqual(XCTWaiter.wait(for: [returnedToSearch], timeout: 5), .completed)
+    let visibleKeyboard = app.keyboards.allElementsBoundByIndex.contains { keyboard in
+      guard keyboard.exists else { return false }
+      let overlap = keyboard.frame.intersection(app.frame)
+      return !overlap.isNull && overlap.width > 1 && overlap.height > 1
+    }
+    XCTAssertFalse(visibleKeyboard, "Returning from a note must not steal search focus")
     let deleted = element("search-list").buttons["recently-deleted"]
     XCTAssertTrue(deleted.waitForExistence(timeout: 5))
     XCTAssertTrue(app.frame.contains(deleted.frame))
     // List's AX row extends past its inset content. Its synthesized safe point
     // can land on that padding/scrollbar; the current center is inside the label.
     deleted.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    XCTAssertTrue(app.navigationBars["Recently Deleted"].waitForExistence(timeout: 5), "The footer must open the recovery page")
     XCTAssertTrue(app.buttons["restore-note"].waitForExistence(timeout: 5))
     screenshot("restored-recently-deleted")
     app.buttons["restore-note"].tap()

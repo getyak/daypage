@@ -6,11 +6,11 @@ Scope: [GitHub #950](https://github.com/getyak/daypage/issues/950), with the [GE
 
 Today remains home. Archive, Settings and Feedback expose a direct Today action while retaining the drawer. Search opens its own dismissible navigation stack; its query does not filter the underlying Archive. Closing search returns to its origin, and note detail retains native back navigation.
 
-Archive is chronological browsing with an overview, date/type/tag/pinned filters and explicit reset. Empty notebooks, empty search results, loading and file-read failures have distinct states. A transient catalog caches tags, day counts and unfiltered groups; filtered results group records in one pass. It is not another persistence store.
+Archive is chronological browsing with an overview, date/type/tag/pinned filters and explicit reset. Search focuses its field on initial arrival; returning from note detail or recovery keeps the browsing location without reopening the keyboard. Empty notebooks, empty search results, loading and file-read failures have distinct states. A transient catalog caches tags, day counts and unfiltered groups; filtered results group records in one pass. It is not another persistence store.
 
 Cards are native List rows on iOS 16.1 and later. Each has a complete localized year/month/day and clock time at its top left, plus a restrained top-right menu with a 44-point hit area. Its ordinary reading button updates the owning navigation path without a List disclosure chevron; attachments and menu controls remain independent. External recent/day/month headings are removed, while chronology and filters remain. Swipe right exposes pin/unpin and scoped chat; swipe left exposes previewed sharing and recoverable Trash. Full swipe does not act. The menu and accessibility actions expose the same abilities. Selection disables gestures and content navigation. Capture drafts and edited-note drafts retain their existing independent recovery paths.
 
-New notes record the present moment. When saving from a historical date or Archive, return to Today so the saved note stays visible; editing an existing note preserves its reading location. Reading cards stay within a 760-point column on wider layouts.
+New notes record the present moment. When saving from a historical date or Archive, return to Today and reveal that specific local record once, without changing time/pin ordering or selecting a matching imported UUID. The reveal request waits for the corresponding list/date and is consumed after scrolling; ordinary date navigation does not repeat it. Editing an existing note preserves its reading location. Reading cards stay within a 760-point column on wider layouts.
 
 ## Dates
 

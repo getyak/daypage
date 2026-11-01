@@ -27,6 +27,7 @@ struct ArchiveView: View {
   @State private var selectedIDs: Set<String> = []
   @State private var chattingWithSelection = false
   @FocusState private var searchFocused: Bool
+  @State private var focusedOnArrival = false
   private var filtered: Bool { filter != .all || selectedTag != nil || selectedDay != nil || !search.isEmpty }
 
   var body: some View {
@@ -104,7 +105,12 @@ struct ArchiveView: View {
     .sheet(isPresented: $showingTrash) { RecentlyDeletedView() }
     .sheet(isPresented: $chattingWithSelection) { NoteChatView(selectedIDs: selectedIDs) }
     .onChange(of: notebook.entries.map(\.id)) { selectedIDs.formIntersection(Set($0)) }
-    .task { if searching { searchFocused = true } }
+    .task {
+      if searching && !focusedOnArrival {
+        focusedOnArrival = true
+        searchFocused = true
+      }
+    }
   }
 
   private var summary: some View {
