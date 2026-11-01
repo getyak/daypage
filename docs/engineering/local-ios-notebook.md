@@ -40,6 +40,8 @@ Verify `CFBundleIdentifier == com.daypage.app.localqa` and read back the generat
 
 The unentitled build is also useful as an explicit negative test: opening AI setup must show inline Retry, keep the typed key/question and avoid a root alert. Confirm the `ai-key-unavailable-inline` test attachment and retry activity before claiming that branch ran. The properly entitled QA run separately exercises real Simulator Keychain save, delete and reopen behavior. Neither is physical-device Keychain acceptance.
 
+When the managed local device is occupied, the existing Local iOS notebook workflow has an optional `native_ui` manual input. It runs the same unsigned recovery and fully signed UI matrix on an isolated macOS runner using `scripts/qa/run_local_native_ci.sh`, a runner-owned loopback fixture and synthetic QA data. It is disabled for ordinary PR/push runs. Receipts and XCTest evidence are retained for seven days; build products, real credentials and distribution steps are excluded. Run it explicitly with `gh workflow run ios-local.yml --ref <branch> -f native_ui=true` and check the exact-source receipt before accepting the result.
+
 ## Verification recorded for GET-326
 
 - Complete DayPageCore suite: 29 tests passed, including legacy separators, unknown YAML preservation, 80 concurrent appends from two stores, invalid import isolation, nested export/import recovery, chat editor leases, Chinese retrieval, endpoint boundaries and request shape.

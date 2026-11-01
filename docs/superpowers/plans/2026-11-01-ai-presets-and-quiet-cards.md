@@ -42,7 +42,10 @@ Preserve raw Vault and AIConfiguration coding shape, custom endpoints, local HTT
 
 ### 4. Integration, review and delivery
 
+Execution note: the managed local device lease is occupied by another active project for an extended session. Add a credential-free, explicitly dispatched native CI matrix on an isolated macOS runner, preserving the existing automatic build/core gates and keeping all provider traffic on the synthetic loopback fixture. This gives the same app a second verification route without taking another project's device or changing release authorization.
+
 - [x] Run storage/resource audit, core tests, local iOS contracts and doctor; build/test only active project through dev-ios-session.
 - [ ] Save synthetic Simulator screenshots and receipts outside Git. No real-provider claim without credentials.
+- [ ] Add and execute an optional, credential-free hosted native matrix while retaining managed local verification.
 - [ ] Update current docs, record official-source and actual validation limits; independently review and fix confirmed important findings.
 - [ ] Create one linked PR for GitHub #955 and Linear GET-351; wait for all exact-head applicable checks, merge, and read back. Close Linear after acceptance.
