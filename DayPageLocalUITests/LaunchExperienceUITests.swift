@@ -107,8 +107,29 @@ final class LaunchExperienceUITests: XCTestCase {
     app.buttons["sidebar-archive"].tap()
     let summary = app.staticTexts["archive-summary"]
     XCTAssertTrue(summary.waitForExistence(timeout: 20))
+    // Creating 360 actual files is fixture preparation, not notebook read
+    // latency. Keep the count contract, then verify a fresh read separately.
+    let seeded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS '360 notes'"), object: summary)
+    let seedResult = XCTWaiter.wait(for: [seeded], timeout: 120)
+    if seedResult != .completed {
+      let state = XCTAttachment(string: "Fixture summary: \(summary.label)\n\(app.debugDescription)")
+      state.name = "large-archive-fixture-state"; state.lifetime = .keepAlways; add(state)
+    }
+    XCTAssertEqual(seedResult, .completed)
+    XCTAssertTrue(summary.label.contains("120 days"))
+    app.terminate()
+    app.launchArguments.removeAll { ["-qaResetNotebook", "-qaSeedNotebook", "-qaSeedLargeNotebook"].contains($0) }
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-archive"].tap()
     let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS '360 notes'"), object: summary)
-    XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 30), .completed)
+    let readResult = XCTWaiter.wait(for: [loaded], timeout: 20)
+    if readResult != .completed {
+      let state = XCTAttachment(string: "Read summary: \(summary.label)\n\(app.debugDescription)")
+      state.name = "large-archive-read-state"; state.lifetime = .keepAlways; add(state)
+    }
+    XCTAssertEqual(readResult, .completed)
     XCTAssertTrue(summary.label.contains("120 days"))
     app.swipeUp()
     app.swipeUp()
@@ -565,6 +586,9 @@ final class LaunchExperienceUITests: XCTestCase {
     app.buttons["save-note"].tap()
     XCTAssertTrue(chooser.waitForExistence(timeout: 5))
     XCTAssertEqual(chooser.value as? String, today)
-    XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'A new thought stays visible'")).firstMatch.exists)
+    let saved = app.buttons.matching(NSPredicate(format: "label CONTAINS 'A new thought stays visible'")).firstMatch
+    XCTAssertTrue(saved.waitForExistence(timeout: 5))
+    let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: saved)
+    XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 5), .completed)
   }
 }
