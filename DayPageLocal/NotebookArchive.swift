@@ -17,6 +17,7 @@ struct ArchiveView: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Binding var search: String
   var searching = false
+  let onOpenNote: (String) -> Void
   @State private var filter: NotebookEntryKind = .all
   @State private var selectedTag: String?
   @State private var selectedDay: String?
@@ -26,6 +27,7 @@ struct ArchiveView: View {
   @State private var selectedIDs: Set<String> = []
   @State private var chattingWithSelection = false
   @FocusState private var searchFocused: Bool
+  @State private var focusedOnArrival = false
   private var filtered: Bool { filter != .all || selectedTag != nil || selectedDay != nil || !search.isEmpty }
 
   var body: some View {
@@ -64,31 +66,22 @@ struct ArchiveView: View {
         .listRowSeparator(.hidden).listRowBackground(Color.clear)
 
         ForEach(result.sections) { section in
-          Section {
-            ForEach(section.entries) { entry in
-              HStack(alignment: .top, spacing: 8) {
-                if selecting {
-                  Button { toggleSelection(entry.id) } label: {
-                    Image(systemName: selectedIDs.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                      .font(.system(size: 22)).frame(width: 44, height: 44)
-                  }
-                  .buttonStyle(.plain).accessibilityLabel("Select note")
-                  .accessibilityIdentifier("select-note-" + entry.memo.id.uuidString)
-                  .accessibilityAddTraits(selectedIDs.contains(entry.id) ? .isSelected : [])
+          ForEach(section.entries) { entry in
+            HStack(alignment: .top, spacing: 8) {
+              if selecting {
+                Button { toggleSelection(entry.id) } label: {
+                  Image(systemName: selectedIDs.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22)).frame(width: 44, height: 44)
                 }
-                LocalMemoCard(entry: entry, interactionEnabled: !selecting)
+                .buttonStyle(.plain).accessibilityLabel("Select note")
+                .accessibilityIdentifier("select-note-" + entry.memo.id.uuidString)
+                .accessibilityAddTraits(selectedIDs.contains(entry.id) ? .isSelected : [])
               }
-              .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-              .listRowSeparator(.hidden).listRowBackground(Color.clear)
+              LocalMemoCard(entry: entry, interactionEnabled: !selecting,
+                            onOpen: { searchFocused = false; onOpenNote(entry.id) })
             }
-          } header: {
-            HStack {
-              Text(dayTitle(section.day)).textCase(nil)
-              Spacer()
-              Text(NotebookTheme.noteCount(section.entries.count))
-            }
-            .font(NotebookTheme.mono(11)).foregroundStyle(NotebookTheme.muted)
-            .padding(.vertical, 5)
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowSeparator(.hidden).listRowBackground(Color.clear)
           }
         }
         Button { showingTrash = true } label: {
@@ -112,7 +105,12 @@ struct ArchiveView: View {
     .sheet(isPresented: $showingTrash) { RecentlyDeletedView() }
     .sheet(isPresented: $chattingWithSelection) { NoteChatView(selectedIDs: selectedIDs) }
     .onChange(of: notebook.entries.map(\.id)) { selectedIDs.formIntersection(Set($0)) }
-    .task { if searching { searchFocused = true } }
+    .task {
+      if searching && !focusedOnArrival {
+        focusedOnArrival = true
+        searchFocused = true
+      }
+    }
   }
 
   private var summary: some View {

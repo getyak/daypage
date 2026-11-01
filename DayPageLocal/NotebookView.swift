@@ -28,6 +28,7 @@ struct NotebookView: View {
   @State private var showingCalendar = false
   @State private var search = ""
   @State private var showingSearch = false
+  @State private var searchPath: [String] = []
 
   var body: some View {
     GeometryReader { geometry in
@@ -39,9 +40,10 @@ struct NotebookView: View {
             Group {
               switch destination {
               case .today:
-                NotebookTimeline(day: selectedDay, showAll: { destination = .archive })
+                NotebookTimeline(day: selectedDay, showAll: { destination = .archive },
+                                 onOpenNote: { path.append($0) })
               case .archive:
-                ArchiveView(search: .constant(""))
+                ArchiveView(search: .constant(""), onOpenNote: { path.append($0) })
               case .feedback:
                 FeedbackView()
               case .settings:
@@ -112,8 +114,8 @@ struct NotebookView: View {
         .presentationDetents([.large])
     }
     .sheet(isPresented: $showingSearch) {
-      NavigationStack {
-        ArchiveView(search: $search, searching: true)
+      NavigationStack(path: $searchPath) {
+        ArchiveView(search: $search, searching: true, onOpenNote: { searchPath.append($0) })
           .navigationTitle("Search").navigationBarTitleDisplayMode(.inline)
           .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -205,6 +207,7 @@ struct NotebookView: View {
         if destination == .today || destination == .archive {
           NotebookCircleButton(icon: "magnifyingglass", label: "Search your notes") {
             search = ""
+            searchPath = []
             showingSearch = true
           }
           .accessibilityIdentifier("search-notes")

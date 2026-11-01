@@ -5,14 +5,41 @@ struct NotebookTimeline: View {
   @EnvironmentObject private var notebook: NotebookModel
   let day: String
   let showAll: () -> Void
+  let onOpenNote: (String) -> Void
   private var entries: [NotebookEntry] {
     notebook.catalog.entriesByDay[day, default: []].sorted {
       if ($0.memo.pinnedAt != nil) != ($1.memo.pinnedAt != nil) { return $0.memo.pinnedAt != nil }
       return $0.memo.created > $1.memo.created
     }
   }
+  private var captureRevealTarget: String? {
+    guard let id = notebook.pendingCaptureRevealID,
+      day == NotebookDate.day(Date()), !notebook.isLoading, notebook.loadIssue == nil
+    else { return nil }
+    // Imports can reuse a memo UUID. Scroll using the local record's full ID.
+    return notebook.catalog.entriesByDay[day, default: []].first {
+      $0.namespace.isEmpty && $0.memo.id == id
+    }?.id
+  }
 
   var body: some View {
+    ScrollViewReader { proxy in
+      timeline
+        .task(id: captureRevealTarget) {
+          guard let target = captureRevealTarget, let id = notebook.pendingCaptureRevealID else { return }
+          // Let the parent's capture event switch to Today and the List lay out
+          // its new rows before consuming the request. This also runs on first
+          // appearance when a capture originated in Archive.
+          await Task.yield()
+          guard !Task.isCancelled, captureRevealTarget == target,
+            notebook.pendingCaptureRevealID == id else { return }
+          proxy.scrollTo(target, anchor: .top)
+          notebook.acknowledgeCaptureReveal(id)
+        }
+    }
+  }
+
+  private var timeline: some View {
     List {
       Group {
         if day != NotebookDate.day(Date()) {
@@ -29,17 +56,15 @@ struct NotebookTimeline: View {
         } else if entries.isEmpty {
           emptyDay
           if !notebook.entries.isEmpty {
-            Text("Recent notes").font(.caption).foregroundStyle(NotebookTheme.muted)
-              .padding(.horizontal, 2).padding(.top, 8)
             ForEach(notebook.entries.prefix(3)) { entry in
-              VStack(alignment: .leading, spacing: 8) {
-                Text(NotebookDate.title(entry.day)).font(.caption2).foregroundStyle(NotebookTheme.muted)
-                LocalMemoCard(entry: entry)
-              }
+              LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
             }
           }
         } else {
-          ForEach(entries) { entry in LocalMemoCard(entry: entry) }
+          ForEach(entries) { entry in
+            LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
+              .id(entry.id)
+          }
           HStack(spacing: 7) {
             Text(NotebookTheme.noteCount(entries.count))
             Text("·")
@@ -93,8 +118,10 @@ struct NotebookTimeline: View {
 
 struct LocalMemoCard: View {
   @EnvironmentObject private var notebook: NotebookModel
+  @Environment(\.locale) private var locale
   let entry: NotebookEntry
   let interactionEnabled: Bool
+  let onOpen: () -> Void
   @State private var deleting = false
   @State private var expanded = false
   @State private var fullHeight: CGFloat = 0
@@ -106,15 +133,30 @@ struct LocalMemoCard: View {
     var id: String { rawValue }
   }
   private var tags: [String] { NoteTags.values(in: entry.memo.body) }
+  private var timestamp: String {
+    // The record's day is authoritative even when an imported creation instant
+    // falls on a different local date. Only its clock time comes from created.
+    let dateStyle = Date.FormatStyle(date: .long, time: .omitted, locale: locale,
+                                    calendar: Calendar(identifier: .gregorian))
+    let date = NotebookDate.date(entry.day)?.formatted(dateStyle) ?? entry.day
+    let time = entry.memo.created.formatted(
+      Date.FormatStyle(date: .omitted, time: .shortened, locale: locale))
+    return date + " · " + time
+  }
 
-  init(entry: NotebookEntry, interactionEnabled: Bool = true) {
+  init(entry: NotebookEntry, interactionEnabled: Bool = true, onOpen: @escaping () -> Void) {
     self.entry = entry
     self.interactionEnabled = interactionEnabled
+    self.onOpen = onOpen
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      NavigationLink(value: entry.id) {
+      header
+      Button {
+        guard interactionEnabled, !working else { return }
+        onOpen()
+      } label: {
         VStack(alignment: .leading, spacing: 16) {
           if !entry.memo.body.isEmpty {
             Text(entry.memo.body)
@@ -146,10 +188,12 @@ struct LocalMemoCard: View {
               .font(NotebookTheme.reading(17)).foregroundStyle(NotebookTheme.secondary)
           }
         }
+        .frame(minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("note-" + entry.memo.id.uuidString)
+      .accessibilityHint("Open note")
       .accessibilityAction(named: Text(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note"), pin)
       .accessibilityAction(named: Text("Chat about this note")) { open(.chat) }
       .accessibilityAction(named: Text("Share note")) { open(.share) }
@@ -176,21 +220,6 @@ struct LocalMemoCard: View {
           }
         }
       }
-      HStack(spacing: 8) {
-        Text(entry.memo.created, style: .time).font(.caption)
-        if entry.memo.pinnedAt != nil {
-          Image(systemName: "pin.fill").font(.caption2).accessibilityLabel("Pinned")
-        }
-        if !entry.namespace.isEmpty { Image(systemName: "tray.and.arrow.down").font(.caption2) }
-        Spacer(minLength: 8)
-        Menu { actionButtons } label: {
-          Image(systemName: "ellipsis").frame(width: 44, height: 44)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Note actions")
-        .accessibilityIdentifier("card-actions-" + entry.memo.id.uuidString)
-      }
-      .foregroundStyle(NotebookTheme.muted)
     }
     .padding(17)
     .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 16))
@@ -234,6 +263,32 @@ struct LocalMemoCard: View {
       }
     }
     .frame(maxWidth: 760).frame(maxWidth: .infinity)
+  }
+
+  private var header: some View {
+    HStack(alignment: .top, spacing: 8) {
+      HStack(alignment: .firstTextBaseline, spacing: 6) {
+        Text(timestamp).font(.caption)
+          .fixedSize(horizontal: false, vertical: true)
+          .accessibilityIdentifier("card-timestamp-" + entry.memo.id.uuidString)
+        if entry.memo.pinnedAt != nil {
+          Image(systemName: "pin.fill").font(.caption2).accessibilityLabel("Pinned")
+        }
+        if !entry.namespace.isEmpty {
+          Image(systemName: "tray.and.arrow.down").font(.caption2)
+            .accessibilityLabel("Imported note")
+        }
+      }
+      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      Menu { actionButtons } label: {
+        Image(systemName: "ellipsis").font(.system(size: 14, weight: .regular))
+          .frame(width: 44, height: 44).contentShape(Rectangle())
+      }
+      .buttonStyle(.borderless)
+      .accessibilityLabel("Note actions")
+      .accessibilityIdentifier("card-actions-" + entry.memo.id.uuidString)
+    }
+    .foregroundStyle(NotebookTheme.muted)
   }
 
   @ViewBuilder private var actionButtons: some View {

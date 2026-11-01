@@ -24,6 +24,9 @@
 - [ADR-0024](decisions/ADR-0024-account-origin-session-binding.md): Apple sync realm binding, session generations and recovery boundaries.
 - [ADR-0025](decisions/ADR-0025-native-tag-projection-and-sync-completion.md): native account-tag projection cache, consistency boundary and truthful sync completion.
 - [ADR-0026](decisions/ADR-0026-drained-local-compilation-commits.md): off-main local compilation persistence and asynchronous close/drain before scope changes.
+- [ADR-0027](decisions/ADR-0027-local-ios-notebook.md): the active local-only notebook and optional personal AI boundary.
+- [ADR-0028](decisions/ADR-0028-local-product-continuity.md): preserve the established native notebook experience on local files.
+- [ADR-0029](decisions/ADR-0029-personal-ai-provider-presets.md): official direct AI presets and explicit automatic or fixed model selection.
 
 The overview is descriptive and should track executable reality. ADRs explain durable
 choices and trade-offs. Product requirements belong in a current PRD or issue, not in an

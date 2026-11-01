@@ -7,6 +7,8 @@ final class NotebookModel: ObservableObject {
   @Published private(set) var entries: [NotebookEntry] = []
   @Published private(set) var catalog = NotebookCatalog(entries: [])
   @Published private(set) var lastCapturedNoteID: UUID?
+  // A one-shot UI request, separate from the last capture's navigation event.
+  @Published private(set) var pendingCaptureRevealID: UUID?
   @Published private(set) var configuration: AIConfiguration
   @Published var draft = ""
   @Published var error: String?
@@ -241,12 +243,20 @@ final class NotebookModel: ObservableObject {
         needsDraftSave = false
       }
       await refresh()
-      if let capturedID { lastCapturedNoteID = capturedID }
+      if let capturedID {
+        pendingCaptureRevealID = capturedID
+        lastCapturedNoteID = capturedID
+      }
       return true
     } catch {
       report(error)
       return false
     }
+  }
+
+  func acknowledgeCaptureReveal(_ id: UUID) {
+    guard pendingCaptureRevealID == id else { return }
+    pendingCaptureRevealID = nil
   }
 
   @discardableResult
@@ -366,13 +376,15 @@ final class NotebookModel: ObservableObject {
 
   func saveConnection(_ proposed: AIConfiguration, key: String) throws {
     var config = proposed
-    config.usesAPIKey = !key.isEmpty
+    let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+    config.usesAPIKey = AIProvider.matching(configuration: config).requiresAPIKey || !key.isEmpty
+    if config.usesAPIKey && key.isEmpty { throw AIError.unauthorized }
     let origin = try config.origin
     _ = try config.endpoint
     let encoded = try JSONEncoder().encode(config)
-    if config.usesAPIKey || (configuration.usesAPIKey && (try? configuration.origin) == origin) {
-      try KeychainSecretStore.save(key, origin: origin)
-    }
+    // Saving an anonymous custom connection must also remove any older key for
+    // that origin, even when another connection was the most recently saved one.
+    try KeychainSecretStore.save(key, origin: origin)
     preferences.set(encoded, forKey: Self.connectionKey)
     configuration = config
   }
