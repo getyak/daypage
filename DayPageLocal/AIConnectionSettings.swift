@@ -92,6 +92,8 @@ struct AIConnectionSettings<AdditionalSettings: View>: View {
             Spacer()
             if let url = currentKeyURL {
               Link("Get an API key", destination: url).font(.caption)
+                .frame(minHeight: 44).contentShape(Rectangle())
+                .buttonStyle(.borderless)
                 .accessibilityIdentifier("ai-get-key")
             }
           }
@@ -103,7 +105,10 @@ struct AIConnectionSettings<AdditionalSettings: View>: View {
           if let keyReadIssue {
             Text(keyReadIssue).font(.caption).foregroundStyle(.secondary)
               .accessibilityIdentifier("ai-key-read-issue")
-            Button("Retry saved key") { reloadKey(force: true); changed() }
+            Button { reloadKey(force: true); changed() } label: {
+              Text("Retry saved key").frame(minHeight: 44, alignment: .leading)
+            }
+              .buttonStyle(.borderless)
               .accessibilityIdentifier("ai-key-retry")
           }
         }

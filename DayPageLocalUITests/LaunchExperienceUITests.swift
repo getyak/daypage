@@ -70,10 +70,12 @@ final class LaunchExperienceUITests: XCTestCase {
       XCTAssertEqual(editableAIKeys.count, 1)
       key.tap()
       key.typeText("get351-unpersisted-error-draft\n")
+      XCTAssertEqual(app.state, .runningForeground)
       let draft = key.value as? String
       XCTAssertFalse(draft?.isEmpty ?? true)
       XCTAssertNotEqual(draft, "API key")
       app.buttons["ai-key-retry"].tap()
+      XCTAssertEqual(app.state, .runningForeground, "Retry must not activate the separate provider link")
       XCTAssertTrue(keyIssue.exists)
       XCTAssertEqual(editableAIKeys.count, 1)
       XCTAssertEqual(key.value as? String, draft)
@@ -152,6 +154,7 @@ final class LaunchExperienceUITests: XCTestCase {
   }
 
   private func capture(_ name: String) {
+    XCTAssertEqual(app.state, .runningForeground, "A background app is not valid visual evidence")
     let image = XCTAttachment(screenshot: app.screenshot())
     image.name = name
     image.lifetime = .keepAlways
