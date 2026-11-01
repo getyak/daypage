@@ -174,6 +174,7 @@ public struct AIClient {
       "messages": payload, "stream": false, "max_tokens": 2048,
     ]
     let provider = AIProvider.matching(configuration: configuration)
+    let modelName = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     if provider == .anthropic {
       // Native Messages: system is top-level, not a system-role message.
       // https://platform.claude.com/docs/en/api/messages/create
@@ -194,7 +195,26 @@ public struct AIClient {
       let reasoning = model.hasPrefix("gpt-5") || model.hasPrefix("gpt-6") || model.range(of: "^o[1-9]", options: .regularExpression) != nil
       body["max_completion_tokens"] = reasoning ? 8192 : 4096
       if reasoning, !model.contains("-pro") { body["reasoning_effort"] = "low" }
-    } else if provider == .kimi, configuration.model.lowercased().hasPrefix("kimi-k3") {
+    } else if provider == .gemini, AIModelCatalog.supportsGeminiThinkingModel(modelName) {
+      // Google's compatibility layer maps low effort to supported 2.5/3/4
+      // thinking settings. The joint cap leaves room for a visible answer.
+      // https://ai.google.dev/gemini-api/docs/openai#thinking
+      // https://ai.google.dev/gemini-api/docs/thinking#token-limits-and-max_output_tokens
+      body["max_tokens"] = 8192
+      body["reasoning_effort"] = "low"
+    } else if provider == .glm, modelName == "glm-5.3" {
+      // GLM-5.3 rejects disabled thinking; default effort is max.
+      // https://docs.z.ai/guides/overview/migrate-to-glm-new
+      body["max_tokens"] = 8192
+      body["reasoning_effort"] = "low"
+      body["thinking"] = ["type": "enabled"]
+    } else if provider == .openRouter {
+      // Gateway-wide reasoning uses the unified object, not a vendor-specific
+      // top-level effort field. Exclusion hides reasoning, not its token cost.
+      // https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+      body["max_tokens"] = 8192
+      body["reasoning"] = ["effort": "low", "exclude": true]
+    } else if provider == .kimi, modelName.hasPrefix("kimi-k3") {
       // K3 always thinks and requires preserved reasoning for native assistant
       // turns. Persist only visible messages: quote bounded old dialogue as
       // untrusted user context and leave the latest user question independent.
@@ -202,6 +222,17 @@ public struct AIClient {
       body.removeValue(forKey: "max_tokens")
       body["max_completion_tokens"] = 8192
       body["reasoning_effort"] = "low"
+    } else if provider == .deepSeek, ["deepseek-flash", "deepseek-v4-pro"].contains(modelName) {
+      // Current DeepSeek defaults to thinking; this lightweight note chat uses
+      // the documented non-thinking mode without changing the chosen model.
+      // https://api-docs.deepseek.com/api/create-chat-completion/
+      body["thinking"] = ["type": "disabled"]
+    }
+    // The gateway K3 branch is a conservative adaptation to the upstream K3
+    // contract, not a claim that ordinary gateway chat was observed to fail.
+    let needsQuotedKimiHistory = (provider == .kimi && modelName.hasPrefix("kimi-k3"))
+      || (provider == .openRouter && modelName.hasPrefix("moonshotai/kimi-k3"))
+    if needsQuotedKimiHistory {
       let visible = Array(payload.dropFirst(2))
       if visible.contains(where: { $0["role"] == "assistant" }), let current = visible.last {
         guard current["role"] == "user" else { throw AIError.configuration }
@@ -211,11 +242,6 @@ public struct AIClient {
           current,
         ]
       }
-    } else if provider == .deepSeek, ["deepseek-flash", "deepseek-v4-pro"].contains(configuration.model.lowercased()) {
-      // Current DeepSeek defaults to thinking; this lightweight note chat uses
-      // the documented non-thinking mode without changing the chosen model.
-      // https://api-docs.deepseek.com/api/create-chat-completion/
-      body["thinking"] = ["type": "disabled"]
     }
     request.httpBody = try JSONSerialization.data(withJSONObject: body)
     return request

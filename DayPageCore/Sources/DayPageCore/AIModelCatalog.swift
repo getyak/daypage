@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 public struct AIModelOption: Identifiable, Equatable, Sendable {
@@ -70,6 +71,15 @@ public struct AIModelCatalog: Sendable {
         let models = payload["data"] as? [[String: Any]], models.count <= 2000,
         entries.count + models.count <= 2000 else { throw AIError.invalidResponse }
       entries += models.compactMap { entry($0, provider: provider) }
+      let hasMore: Bool
+      if let raw = payload["has_more"] {
+        // JSONSerialization bridges numbers and booleans to NSNumber; an
+        // integer 0/1 must not be accepted as the API's boolean pagination flag.
+        guard let flag = raw as? NSNumber, CFGetTypeID(flag) == CFBooleanGetTypeID() else {
+          throw AIError.invalidResponse
+        }
+        hasMore = flag.boolValue
+      } else { hasMore = false }
       var nextURL: URL?
       if let rawLinks = payload["links"], !(rawLinks is NSNull), !(rawLinks is [String: Any]) {
         throw AIError.invalidResponse
@@ -78,7 +88,7 @@ public struct AIModelCatalog: Sendable {
         guard let next = rawNext as? String, !next.isEmpty,
           let parsed = URL(string: next, relativeTo: url)?.absoluteURL else { throw AIError.invalidResponse }
         nextURL = parsed
-      } else if payload["has_more"] as? Bool == true {
+      } else if hasMore {
         guard provider == .anthropic, let cursor = payload["last_id"] as? String,
           !cursor.isEmpty, cursor.count <= 256 else { throw AIError.invalidResponse }
         var next = components
@@ -108,6 +118,12 @@ public struct AIModelCatalog: Sendable {
     let created: TimeInterval
     let tier: Int
   }
+  static func supportsGeminiThinkingModel(_ model: String) -> Bool {
+    // Only the currently documented 2.5/3/4 families. Unknown future API
+    // families remain an explicit fixed-model choice until verified.
+    // https://ai.google.dev/gemini-api/docs/openai#thinking
+    model.lowercased().range(of: "^gemini-(?:2\\.5|[34](?:\\.[0-9]+)?)(?:-|$)", options: .regularExpression) != nil
+  }
   private func entry(_ item: [String: Any], provider: AIProvider) -> Entry? {
     guard var id = item["id"] as? String, !id.isEmpty, id.count <= 256,
       !id.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
@@ -132,11 +148,16 @@ public struct AIModelCatalog: Sendable {
     }
     switch provider {
     case .openAI:
-      guard lower.range(of: "^gpt-[456](?:[.\\-]|$)", options: .regularExpression) != nil else { return nil }
+      // Pro-series models and snapshots require Responses, which this app
+      // does not implement. Search/deep-research are outside plain note chat.
+      // https://developers.openai.com/api/docs/models/gpt-5-pro
+      guard lower.range(of: "^gpt-[456](?:[.\\-]|$)", options: .regularExpression) != nil,
+        lower.range(of: "^gpt-[0-9]+(?:\\.[0-9]+)?-pro(?:-|$)", options: .regularExpression) == nil,
+        !lower.contains("search") else { return nil }
     case .anthropic:
       guard lower.hasPrefix("claude-") else { return nil }
     case .gemini:
-      guard lower.range(of: "^gemini-[0-9]", options: .regularExpression) != nil else { return nil }
+      guard Self.supportsGeminiThinkingModel(lower) else { return nil }
     case .deepSeek:
       guard lower.hasPrefix("deepseek-") else { return nil }
     case .kimi:
@@ -166,6 +187,16 @@ public struct AIModelCatalog: Sendable {
     // Selection policy: full general-purpose lines before budget variants;
     // release time for Claude/OpenRouter, semantic model version elsewhere.
     // Sources provide availability/release metadata, not a universal quality score.
+    if provider == .gemini {
+      // A newer supported generation must not lose to an old '-pro' suffix.
+      // This is a version policy, not a benchmark or universal quality claim.
+      // https://ai.google.dev/gemini-api/docs/pricing
+      func version(_ id: String) -> [Int] {
+        id.split(separator: "-").dropFirst().first?.split(separator: ".").compactMap { Int($0) } ?? []
+      }
+      let left = version(a.option.id), right = version(b.option.id)
+      if left != right { return right.lexicographicallyPrecedes(left) }
+    }
     if a.tier != b.tier { return a.tier > b.tier }
     if (provider == .anthropic || provider == .openRouter), a.created != b.created { return a.created > b.created }
     let comparison = a.option.id.compare(b.option.id, options: [.numeric, .caseInsensitive])

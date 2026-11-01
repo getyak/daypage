@@ -36,6 +36,14 @@ final class AIModelCatalogTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer fixture-key")
     }
 
+    func testOpenAIAutomaticExcludesResponsesOnlyProSnapshotsAndSearchSpecializations() async throws {
+        let fixture = try AIFixture([["data": [["id": "gpt-5"], ["id": "gpt-5-pro"],
+                                               ["id": "gpt-5-pro-2025-10-06"], ["id": "gpt-5-search-api"],
+                                               ["id": "gpt-5.6-deep-research"]]]])
+        let resolved = try await catalog(fixture).resolve(configuration: AIProvider.openAI.configuration, apiKey: "fixture-key")
+        XCTAssertEqual(resolved.model, "gpt-5")
+    }
+
     func testFixedModelDoesNotFetchOrChangeSavedChoice() async throws {
         let fixture = try AIFixture([])
         var configuration = AIProvider.openAI.configuration
@@ -67,6 +75,15 @@ final class AIModelCatalogTests: XCTestCase {
                                                ["id": "kimi-k3.1-pro"], ["id": "kimi-k3.2-code"]]]])
         let resolved = try await catalog(fixture).resolve(configuration: AIProvider.kimi.configuration, apiKey: "fixture-key")
         XCTAssertEqual(resolved.model, "kimi-k3.1-pro")
+    }
+
+    func testGeminiCurrentGenerationPrecedesOldProWithoutChoosingPreviewOrUnknownFamily() async throws {
+        let fixture = try AIFixture([["data": [["id": "gemini-2.5-pro"], ["id": "gemini-4-argon"],
+                                               ["id": "gemini-4-flash-preview"], ["id": "gemini-99-unknown"]]]])
+        let resolved = try await catalog(fixture).resolve(configuration: AIProvider.gemini.configuration, apiKey: "fixture-key")
+        XCTAssertEqual(resolved.model, "gemini-4-argon")
+        let requests = await fixture.recorded()
+        XCTAssertEqual(requests.first?.url?.host, "generativelanguage.googleapis.com")
     }
 
     func testQwenAutomaticUsesDocumentedRollingAliasWithoutInventingModelsAPI() async throws {
@@ -118,6 +135,14 @@ final class AIModelCatalogTests: XCTestCase {
         let fixture = try AIFixture([["data": [["id": "gpt-6-astra"]], "links": ["next": 42]]])
         do { _ = try await catalog(fixture).models(configuration: AIProvider.openAI.configuration, apiKey: "fixture-key"); XCTFail("Do not hide incomplete catalog") }
         catch { XCTAssertTrue(error is AIError) }
+    }
+
+    func testHasMoreMustBeAJSONBooleanRatherThanAStringNumberObjectOrNull() async throws {
+        for raw in ["true", 0, 1, ["unexpected": true], NSNull()] as [Any] {
+            let fixture = try AIFixture([["data": [["id": "gpt-6-astra"]], "has_more": raw]])
+            do { _ = try await catalog(fixture).models(configuration: AIProvider.openAI.configuration, apiKey: "fixture-key"); XCTFail("Do not treat malformed pagination as a complete model list") }
+            catch { XCTAssertTrue(error is AIError) }
+        }
     }
 
     func testOpenRouterRespectsUserCatalogAndOnlyCurrentChatEndpoints() async throws {

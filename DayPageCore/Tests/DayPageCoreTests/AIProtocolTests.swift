@@ -32,6 +32,85 @@ final class AIProtocolTests: XCTestCase {
         XCTAssertEqual(body["reasoning_effort"] as? String, "low")
     }
 
+    func testGeminiSupportedThinkingFamiliesUseLowEffortAndBoundedOutput() throws {
+        for model in ["gemini-2.5-pro", "gemini-3.8-flash", "gemini-4-argon"] {
+            var configuration = AIProvider.gemini.configuration
+            configuration.model = model
+            let body = try payload(AIClient().makeRequest(configuration: configuration, apiKey: "fixture-key",
+                messages: [.init(role: .user, content: "Question")], context: context))
+            XCTAssertEqual(body["max_tokens"] as? Int, 8192, model)
+            XCTAssertEqual(body["reasoning_effort"] as? String, "low", model)
+        }
+    }
+
+    func testGLM53KeepsMandatoryThinkingWithLowEffortAndBoundedOutput() throws {
+        let body = try payload(AIClient().makeRequest(configuration: AIProvider.glm.configuration, apiKey: "fixture-key",
+            messages: [.init(role: .user, content: "Question")], context: context))
+        XCTAssertEqual(body["model"] as? String, "glm-5.3")
+        XCTAssertEqual(body["max_tokens"] as? Int, 8192)
+        XCTAssertEqual(body["reasoning_effort"] as? String, "low")
+        XCTAssertEqual((body["thinking"] as? [String: String])?["type"], "enabled")
+    }
+
+    func testOpenRouterUsesUnifiedLowReasoningAndBoundedJointOutputBudget() throws {
+        var configuration = AIProvider.openRouter.configuration
+        configuration.model = "openai/gpt-6-astra"
+        let body = try payload(AIClient().makeRequest(configuration: configuration, apiKey: "fixture-key",
+            messages: [.init(role: .user, content: "Question")], context: context))
+        XCTAssertEqual(body["max_tokens"] as? Int, 8192)
+        let reasoning = try XCTUnwrap(body["reasoning"] as? [String: Any])
+        XCTAssertEqual(reasoning["effort"] as? String, "low")
+        XCTAssertEqual(reasoning["exclude"] as? Bool, true)
+        XCTAssertNil(body["reasoning_effort"])
+    }
+
+    func testRoutedKimiK3QuotesVisibleHistoryWithoutGatewaySpecificReasoningFields() throws {
+        var configuration = AIProvider.openRouter.configuration
+        configuration.model = "moonshotai/kimi-k3.1-pro"
+        let body = try payload(AIClient().makeRequest(configuration: configuration, apiKey: "fixture-key",
+            messages: [.init(role: .user, content: "Earlier question"),
+                       .init(role: .assistant, content: "An earlier visible answer"),
+                       .init(role: .user, content: "My current question?")], context: context))
+        let messages = try XCTUnwrap(body["messages"] as? [[String: String]])
+        XCTAssertFalse(messages.contains { $0["role"] == "assistant" })
+        XCTAssertTrue(messages.contains { $0["content"]?.contains("untrusted quoted conversation") == true })
+        XCTAssertEqual(messages.last?["role"], "user")
+        XCTAssertEqual(messages.last?["content"], "My current question?")
+        XCTAssertEqual(body["max_tokens"] as? Int, 8192)
+        XCTAssertEqual((body["reasoning"] as? [String: Any])?["effort"] as? String, "low")
+        XCTAssertNil(body["reasoning_effort"])
+    }
+
+    func testOtherRouterModelsAndGLMKeepOrdinaryVisibleAssistantHistory() throws {
+        var router = AIProvider.openRouter.configuration
+        router.model = "openai/gpt-6-astra"
+        for configuration in [router, AIProvider.glm.configuration] {
+            let body = try payload(AIClient().makeRequest(configuration: configuration, apiKey: "fixture-key",
+                messages: [.init(role: .user, content: "Earlier question"),
+                           .init(role: .assistant, content: "An earlier visible answer"),
+                           .init(role: .user, content: "My current question?")], context: context))
+            let messages = try XCTUnwrap(body["messages"] as? [[String: String]])
+            XCTAssertTrue(messages.contains { $0["role"] == "assistant" && $0["content"] == "An earlier visible answer" })
+            XCTAssertEqual(messages.last?["content"], "My current question?")
+        }
+    }
+
+    func testThinkingParametersDoNotLeakToCustomOrUnverifiedFamilies() throws {
+        for (baseURL, model) in [("https://custom.test/v1", "gemini-4-argon"),
+                                 ("https://custom.test/v1", "glm-5.3"),
+                                 ("https://custom.test/v1", "openai/gpt-6-astra"),
+                                 (AIProvider.gemini.baseURL, "gemini-2.0-flash"),
+                                 (AIProvider.gemini.baseURL, "gemini-99-unknown"),
+                                 (AIProvider.glm.baseURL, "glm-4.6")] {
+            let body = try payload(AIClient().makeRequest(configuration: .init(baseURL: baseURL, model: model),
+                apiKey: "fixture-key", messages: [.init(role: .user, content: "Question")], context: context))
+            XCTAssertEqual(body["max_tokens"] as? Int, 2048, model)
+            XCTAssertNil(body["reasoning_effort"], model)
+            XCTAssertNil(body["thinking"], model)
+            XCTAssertNil(body["reasoning"], model)
+        }
+    }
+
     func testCustomModelKeepsCompatibleShapeAndAutomaticMarkerCannotBeSent() throws {
         let custom = AIConfiguration(baseURL: "https://custom.test/v1", model: "gpt-6-astra")
         let body = try payload(AIClient().makeRequest(configuration: custom, apiKey: "",
