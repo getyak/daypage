@@ -47,7 +47,7 @@ run_logged() {
     tail -n 60 "$daypage_log" >&2
     # Preserve the actual failing assertions even when the final suite tail
     # contains only teardown. Test traffic and keys are synthetic in this job.
-    rg -n '(error:|Test Case.*failed|AssertionError)' "$daypage_log" >&2 || true
+    grep -En '(error:|Test Case.*failed|AssertionError)' "$daypage_log" >&2 || true
     return "$daypage_command_exit"
   fi
 }
