@@ -30,7 +30,8 @@ public struct AIConfiguration: Codable, Equatable, Sendable {
       var components = try validatedComponents(checkTransport: true)
       let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
       components.path = "/" + (path.isEmpty ? "v1" : path)
-      if !components.path.hasSuffix("/chat/completions") { components.path += "/chat/completions" }
+      let suffix = AIProvider.matching(configuration: self) == .anthropic ? "/messages" : "/chat/completions"
+      if !components.path.hasSuffix(suffix) { components.path += suffix }
       guard let url = components.url else { throw AIError.configuration }
       return url
     }
@@ -48,7 +49,7 @@ public struct AIConfiguration: Codable, Equatable, Sendable {
       return value
     }
   }
-  private func validatedComponents(checkTransport: Bool) throws -> URLComponents {
+  func validatedComponents(checkTransport: Bool) throws -> URLComponents {
     guard var c = URLComponents(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
       let rawHost = c.host, !rawHost.isEmpty, c.user == nil, c.password == nil,
       c.query == nil, c.fragment == nil
@@ -84,6 +85,7 @@ public enum AIError: LocalizedError {
   case configuration, unauthorized, rateLimited
   case rejected(Int)
   case invalidResponse, tooLarge
+  case modelDiscoveryUnavailable, noModels
   public var errorDescription: String? {
     switch self {
     case .configuration:
@@ -96,6 +98,10 @@ public enum AIError: LocalizedError {
       return "The AI service returned HTTP \(code). Your notes have not changed."
     case .invalidResponse: return "The AI service returned an unreadable response."
     case .tooLarge: return "The AI response exceeded the size limit."
+    case .modelDiscoveryUnavailable:
+      return "A live model list is unavailable for this service. Choose a fixed model ID, or automatic selection where supported."
+    case .noModels:
+      return "No supported general-purpose models were returned. Try again or enter a fixed model ID."
     }
   }
 }
