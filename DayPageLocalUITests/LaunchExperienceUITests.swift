@@ -399,6 +399,18 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("fixture-model"))
   }
 
+  func testProviderWithoutARequiredKeyOffersSetupBeforeSending() {
+    app.launchArguments += ["-qaEndpoint", "https://api.openai.com/v1"]
+    app.launch()
+    XCTAssertTrue(app.buttons["chat-with-notes"].waitForExistence(timeout: 10))
+    app.buttons["chat-with-notes"].tap()
+    XCTAssertTrue(app.buttons["chat-setup-ai"].waitForExistence(timeout: 5))
+    let question = app.textFields["chat-question"]
+    question.tap()
+    question.typeText("Reflect on these notes")
+    XCTAssertFalse(app.buttons["send-chat"].isEnabled)
+  }
+
   private func saveConnection() {
     let save = app.buttons["save-ai-connection"]
     reveal(save)

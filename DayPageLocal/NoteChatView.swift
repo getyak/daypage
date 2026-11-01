@@ -112,7 +112,11 @@ struct NoteChatView: View {
   private var context: NoteContext {
     .build(entries: notebook.entries, question: session.draft, selectedIDs: selectedIDs)
   }
-  private var configured: Bool { (try? notebook.configuration.endpoint) != nil }
+  private var configured: Bool {
+    let configuration = notebook.configuration
+    return (try? configuration.endpoint) != nil
+      && (!AIProvider.matching(configuration: configuration).requiresAPIKey || configuration.usesAPIKey)
+  }
   private var aiTitle: String {
     let configuration = notebook.configuration
     let name = NSLocalizedString(AIProvider.matching(configuration: configuration).name, comment: "AI provider")
