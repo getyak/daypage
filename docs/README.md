@@ -9,6 +9,7 @@ to drive a change.
 - [Local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — current iOS product boundary; other clients retain their previous architecture
 - [Local iOS setup and verification](engineering/local-ios-notebook.md)
 - [Local iOS launch experience](engineering/local-ios-launch-experience.md)
+- [Personal AI setup](engineering/local-ai-setup.md)
 - [Repository constitution](../AGENTS.md)
 - [Architecture index](architecture/README.md)
 - [System overview](architecture/overview.md)
@@ -32,6 +33,8 @@ the active GitHub issue, accepted ADRs, code, and tests define the contract unti
 current PRD is adopted and linked here.
 
 ## Architecture decisions
+
+- [ADR-0029: Personal AI provider presets](architecture/decisions/ADR-0029-personal-ai-provider-presets.md) — direct official providers, explicit automatic/fixed models and existing local privacy boundaries
 
 - [ADR-0028: Local product continuity](architecture/decisions/ADR-0028-local-product-continuity.md) — Restores the established native experience on the local file core; supersedes GET-326's initial minimal UI
 

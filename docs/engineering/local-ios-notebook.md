@@ -4,7 +4,7 @@ Open `DayPageLocal/DayPageLocal.xcodeproj`, scheme `DayPage`. This is the active
 
 The application stores notes as Markdown at `Documents/vault/raw/YYYY-MM-DD.md`, with attachments under `raw/assets`. It does not require a DayPage account, backend or database. It reads existing local files without migration. Import in Settings copies a downloaded older Vault into a separate namespace; the source stays untouched. Exports contain original files, imported notes and local conversations. Keep an independent copy of an old iCloud Vault until the imported result has been checked.
 
-Configure a compatible AI address and model in Settings. Leave the key blank for anonymous local servers; enter a key for services that require one. Keys are device-only Keychain items scoped to service origin, and changing the model does not change that origin. For a model running on a computer, use the computer's LAN address rather than the iPhone's localhost. Local HTTP must be explicitly enabled. A connection test sends no notes. Note chat displays the excerpts that will be sent and opens a network request only after Send.
+Choose an AI provider and enter its API key in Settings; the app supplies the address and defaults to automatic model updates where supported. Fixed models and custom/local servers remain available. See [personal AI setup](local-ai-setup.md) for provider, region, model, privacy and recovery behavior. Keys are device-only Keychain items scoped to service origin. Local HTTP requires explicit permission. Connection tests send no notes; note chat previews excerpts and sends them only after explicit Send.
 
 ## Development
 
@@ -29,6 +29,14 @@ python3 scripts/qa/local_notebook_ai_fixture.py
 ```
 
 The chat UI test checks the fixture's health marker before sending synthetic data; it skips that case when this task-owned fixture is absent. A full run with the fixture exercises actual HTTP request/response handling, scoped note context and chat persistence across reopening/relaunch. It is not a real-provider or signed-device credential test.
+
+## Simulator Keychain verification for GET-351
+
+`CODE_SIGNING_ALLOWED=NO` is sufficient for compilation, but the resulting Simulator app may lack an application identifier and Keychain access groups. iOS 26.5 then returns `-34018` for actual Keychain reads and writes. Do not treat those rejected operations as successful saves or remove the storage assertions.
+
+For Keychain runtime tests, ad hoc sign only the task-owned Debug product after verifying `CFBundleIdentifier == com.daypage.app.localqa`. Use its own QA application identifier and access group, for example `6RG2F8YY59.com.daypage.app.localqa` with this repository's current development team. Read back the resulting entitlements before installing it through the managed device session. This needs no distribution certificate or Apple account, and must not grant access to `com.daypage.app`'s production keychain group. Retain the signing receipt with the test artifacts.
+
+The unentitled build is also useful as an explicit negative test: opening AI setup must show inline Retry, keep the typed key/question and avoid a root alert. Confirm the `ai-key-unavailable-inline` test attachment and retry activity before claiming that branch ran. The properly entitled QA run separately exercises real Simulator Keychain save, delete and reopen behavior. Neither is physical-device Keychain acceptance.
 
 ## Verification recorded for GET-326
 

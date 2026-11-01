@@ -1,6 +1,6 @@
 # Local iOS launch experience
 
-Scope: [GitHub #950](https://github.com/getyak/daypage/issues/950), the active `DayPageLocal` app. This prepares the current local experience; it does not submit a public App Store version or publish a TestFlight build. Broader distribution work remains separate in [#922](https://github.com/getyak/daypage/issues/922).
+Scope: [GitHub #950](https://github.com/getyak/daypage/issues/950), with the [GET-351 follow-up](https://github.com/getyak/daypage/issues/955), in the active `DayPageLocal` app. These feature changes do not submit a public App Store version or themselves authorize a TestFlight build. Broader distribution work remains separate in [#922](https://github.com/getyak/daypage/issues/922).
 
 ## Navigation and capture
 
@@ -8,7 +8,7 @@ Today remains home. Archive, Settings and Feedback expose a direct Today action 
 
 Archive is chronological browsing with an overview, date/type/tag/pinned filters and explicit reset. Empty notebooks, empty search results, loading and file-read failures have distinct states. A transient catalog caches tags, day counts and unfiltered groups; filtered results group records in one pass. It is not another persistence store.
 
-Cards are native List rows on iOS 16.1 and later. Swipe right exposes pin/unpin and scoped chat; swipe left exposes previewed sharing and recoverable Trash. Full swipe does not act. A visible menu and accessibility actions expose the same abilities. Selection disables gestures and content navigation. Capture drafts and edited-note drafts retain their existing independent recovery paths.
+Cards are native List rows on iOS 16.1 and later. Each has a complete localized year/month/day and clock time at its top left, plus a restrained top-right menu with a 44-point hit area. Its ordinary reading button updates the owning navigation path without a List disclosure chevron; attachments and menu controls remain independent. External recent/day/month headings are removed, while chronology and filters remain. Swipe right exposes pin/unpin and scoped chat; swipe left exposes previewed sharing and recoverable Trash. Full swipe does not act. The menu and accessibility actions expose the same abilities. Selection disables gestures and content navigation. Capture drafts and edited-note drafts retain their existing independent recovery paths.
 
 New notes record the present moment. When saving from a historical date or Archive, return to Today so the saved note stays visible; editing an existing note preserves its reading location. Reading cards stay within a 760-point column on wider layouts.
 
@@ -18,7 +18,7 @@ The calendar stages changes until Done. Each saved date has a record dot; the se
 
 ## Personal AI
 
-AI is optional. An unconfigured chat opens setup while preserving the question. Empty notebooks and unavailable selections explain why Send is disabled. Suggested questions only fill the local draft. Configured chat shows its model and source excerpts; only explicit Send starts a note-bearing request. Cancellation and request failure preserve the question. Connection tests send no notes. No credentials, providers or background requests are added.
+AI is optional. An unconfigured chat opens setup while preserving the question. Empty notebooks and unavailable selections explain why Send is disabled. Suggested questions only fill the local draft. Configured chat shows its fixed model or provider/automatic choice and source excerpts; only explicit Send starts a note-bearing request. Cancellation and request failure preserve the question. Connection tests send no notes. [Provider presets and available-model choices](local-ai-setup.md) simplify setup without creating credentials or background requests.
 
 ## Sharing
 
