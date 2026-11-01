@@ -427,9 +427,10 @@ final class LaunchExperienceUITests: XCTestCase {
   private func expectResolvedAIModel(_ expected: String, timeout: TimeInterval,
     file: StaticString = #filePath, line: UInt = #line) throws {
     try showAISettingsOverview(file: file, line: line)
-    // The identifier belongs to a SwiftUI Label, whose exposed AX element type
-    // can differ across SDKs. Keep an exact identifier and exact model value.
-    let resolved = app.descendants(matching: .any).matching(identifier: "ai-resolved-model").firstMatch
+    // Runner logs resolve this identifier to the checkmark Image first.
+    // Require actual model text, retaining exact identity and model value.
+    let resolved = app.staticTexts.matching(identifier: "ai-resolved-model")
+      .matching(NSPredicate(format: "label == %@", expected)).firstMatch
     let completed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
       self.isInAIViewport(resolved) && resolved.label == expected
     }, object: nil)
