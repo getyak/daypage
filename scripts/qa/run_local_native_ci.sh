@@ -45,6 +45,9 @@ run_logged() {
   if "$@" > "$daypage_log" 2>&1; then return 0; else
     local daypage_command_exit=$?
     tail -n 60 "$daypage_log" >&2
+    # Preserve the actual failing assertions even when the final suite tail
+    # contains only teardown. Test traffic and keys are synthetic in this job.
+    rg -n '(error:|Test Case.*failed|AssertionError)' "$daypage_log" >&2 || true
     return "$daypage_command_exit"
   fi
 }
@@ -99,14 +102,20 @@ daypage_signed="$daypage_native_root/SignedDerivedData"
 # accepted as negative evidence merely because XCTest itself returned success.
 run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO
+daypage_negative_exit=0
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
-  -resultBundlePath "$daypage_evidence/negative-keychain.xcresult"
+  -resultBundlePath "$daypage_evidence/negative-keychain.xcresult" || daypage_negative_exit=$?
+daypage_negative_export_exit=0
 run_logged "$daypage_evidence/negative-export.log" xcrun xcresulttool export attachments \
-  --path "$daypage_evidence/negative-keychain.xcresult" --output-path "$daypage_evidence/negative-attachments"
+  --path "$daypage_evidence/negative-keychain.xcresult" --output-path "$daypage_evidence/negative-attachments" || daypage_negative_export_exit=$?
+daypage_negative_summary_exit=0
 run_logged "$daypage_evidence/negative-summary.log" xcrun xcresulttool get test-results summary \
-  --path "$daypage_evidence/negative-keychain.xcresult" --compact
+  --path "$daypage_evidence/negative-keychain.xcresult" --compact || daypage_negative_summary_exit=$?
+if ((daypage_negative_exit != 0)); then exit "$daypage_negative_exit"; fi
+if ((daypage_negative_export_exit != 0)); then exit "$daypage_negative_export_exit"; fi
+if ((daypage_negative_summary_exit != 0)); then exit "$daypage_negative_summary_exit"; fi
 python3 - "$daypage_evidence" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
@@ -158,13 +167,19 @@ if ! grep -q 'sectname __entitlements' "$daypage_evidence/macho.log"; then
   echo "The QA executable is missing its simulated Mach-O entitlements." >&2
   exit 1
 fi
+daypage_signed_exit=0
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}" \
-  -resultBundlePath "$daypage_evidence/signed-full-ui.xcresult"
+  -resultBundlePath "$daypage_evidence/signed-full-ui.xcresult" || daypage_signed_exit=$?
+daypage_signed_summary_exit=0
 run_logged "$daypage_evidence/signed-summary.log" xcrun xcresulttool get test-results summary \
-  --path "$daypage_evidence/signed-full-ui.xcresult" --compact
+  --path "$daypage_evidence/signed-full-ui.xcresult" --compact || daypage_signed_summary_exit=$?
+daypage_signed_export_exit=0
 run_logged "$daypage_evidence/signed-export.log" xcrun xcresulttool export attachments \
-  --path "$daypage_evidence/signed-full-ui.xcresult" --output-path "$daypage_evidence/signed-attachments"
+  --path "$daypage_evidence/signed-full-ui.xcresult" --output-path "$daypage_evidence/signed-attachments" || daypage_signed_export_exit=$?
+if ((daypage_signed_exit != 0)); then exit "$daypage_signed_exit"; fi
+if ((daypage_signed_summary_exit != 0)); then exit "$daypage_signed_summary_exit"; fi
+if ((daypage_signed_export_exit != 0)); then exit "$daypage_signed_export_exit"; fi
 python3 - "$daypage_evidence" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])

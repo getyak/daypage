@@ -77,12 +77,21 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: local-native-ui-${{ github.sha }}-${{ github.run_attempt }}
+          name: local-native-ui-evidence-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/daypage-native-ui/evidence/*.log
             ${{ runner.temp }}/daypage-native-ui/evidence/*.json
             ${{ runner.temp }}/daypage-native-ui/evidence/*.plist
-            ${{ runner.temp }}/daypage-native-ui/evidence/*.xcresult
-            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.png
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.txt
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/manifest.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Preserve full XCTest bundles
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: local-native-ui-xcresult-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/daypage-native-ui/evidence/*.xcresult
           retention-days: 7
           if-no-files-found: warn
