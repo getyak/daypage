@@ -47,10 +47,17 @@ struct AIConnectionSettings<AdditionalSettings: View>: View {
       && (!provider.requiresAPIKey || !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
   }
   private var endpointBinding: Binding<String> {
-    Binding(get: { connection.baseURL }, set: { connection.baseURL = $0 })
+    Binding(get: {
+      // Existing connections may contain a trailing slash, explicit HTTPS port
+      // or full completion path. Match their region by the validated origin.
+      let origin = try? connection.origin
+      return provider.endpoints.first(where: {
+        (try? AIConfiguration(baseURL: $0.baseURL).origin) == origin
+      })?.baseURL ?? connection.baseURL
+    }, set: { connection.baseURL = $0 })
   }
   private var currentKeyURL: URL? {
-    provider.endpoints.first(where: { $0.baseURL == connection.baseURL })?.keyURL ?? provider.keyURL
+    provider.endpoints.first(where: { $0.baseURL == endpointBinding.wrappedValue })?.keyURL ?? provider.keyURL
   }
 
   var body: some View {

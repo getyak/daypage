@@ -389,6 +389,16 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertFalse(app.staticTexts["ai-key-read-issue"].exists, "The empty value must come from a successful Keychain read")
   }
 
+  func testExistingProviderURLKeepsItsCorrectRegion() {
+    app.launchArguments += ["-qaEndpoint", "https://DASHSCOPE-INTL.aliyuncs.com:443/compatible-mode/v1/"]
+    app.launch()
+    openSettings()
+    let region = app.descendants(matching: .any).matching(identifier: "ai-region").firstMatch
+    XCTAssertTrue(region.waitForExistence(timeout: 5))
+    XCTAssertTrue(region.label.contains("Singapore") || (region.value as? String)?.contains("Singapore") == true)
+    XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("fixture-model"))
+  }
+
   private func saveConnection() {
     let save = app.buttons["save-ai-connection"]
     reveal(save)
