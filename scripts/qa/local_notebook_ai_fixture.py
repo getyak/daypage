@@ -1,5 +1,6 @@
 """Task-owned loopback fixture. Synthetic UI tests only; never logs request text/keys."""
 import json
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -12,11 +13,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"GET-326-local-fixture")
+        elif self.path == "/v1/models":
+            assert not self.headers.get("Authorization"), "Anonymous fixture must not receive a key"
+            content = json.dumps({"data": [{"id": "fixture-model"}, {"id": "fixture-alternative"}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
         else:
             self.send_error(404)
 
     def do_POST(self):
-        if self.path != "/v1/chat/completions":
+        if self.path not in ("/v1/chat/completions", "/slow/v1/chat/completions"):
             self.send_error(404)
             return
         size = int(self.headers.get("Content-Length", "0"))
@@ -27,6 +36,8 @@ class Handler(BaseHTTPRequestHandler):
         assert payload.get("model") == "fixture-model"
         assert not self.headers.get("Authorization"), "Anonymous fixture must not receive any key"
         assert not payload.get("tools"), "Note chat has no tool capability"
+        if self.path == "/slow/v1/chat/completions":
+            time.sleep(5)
         content = json.dumps({"choices": [{"message": {"content": "Fixture reply: these excerpts are local synthetic notes. Your own configured AI will answer here."}}]}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

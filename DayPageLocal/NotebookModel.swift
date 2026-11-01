@@ -366,13 +366,15 @@ final class NotebookModel: ObservableObject {
 
   func saveConnection(_ proposed: AIConfiguration, key: String) throws {
     var config = proposed
-    config.usesAPIKey = !key.isEmpty
+    let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+    config.usesAPIKey = AIProvider.matching(configuration: config).requiresAPIKey || !key.isEmpty
+    if config.usesAPIKey && key.isEmpty { throw AIError.unauthorized }
     let origin = try config.origin
     _ = try config.endpoint
     let encoded = try JSONEncoder().encode(config)
-    if config.usesAPIKey || (configuration.usesAPIKey && (try? configuration.origin) == origin) {
-      try KeychainSecretStore.save(key, origin: origin)
-    }
+    // Saving an anonymous custom connection must also remove any older key for
+    // that origin, even when another connection was the most recently saved one.
+    try KeychainSecretStore.save(key, origin: origin)
     preferences.set(encoded, forKey: Self.connectionKey)
     configuration = config
   }

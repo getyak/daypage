@@ -66,7 +66,7 @@ final class LocalNotebookUITests: XCTestCase {
       app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar-'")).count, 3)
     screenshot("local-sidebar")
     app.buttons["sidebar-settings"].tap()
-    XCTAssertTrue(element("ai-base-url").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("ai-provider").waitForExistence(timeout: 5))
     XCTAssertTrue(app.secureTextFields["ai-key"].exists)
     XCTAssertFalse(app.buttons["Sign in"].exists)
     screenshot("local-ai-settings")
@@ -83,7 +83,7 @@ final class LocalNotebookUITests: XCTestCase {
     XCTAssertTrue(app.buttons["chat-setup-ai"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.buttons["send-chat"].isEnabled)
     app.buttons["chat-setup-ai"].tap()
-    XCTAssertTrue(element("ai-base-url").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("ai-provider").waitForExistence(timeout: 5))
     screenshot("local-chat-configuration")
   }
 
@@ -104,10 +104,10 @@ final class LocalNotebookUITests: XCTestCase {
     screenshot("local-sidebar-accessibility")
     settings.tap()
     for _ in 0..<4 {
-      if element("ai-base-url").exists { break }
+      if element("ai-provider").exists { break }
       app.swipeUp()
     }
-    XCTAssertTrue(element("ai-base-url").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("ai-provider").waitForExistence(timeout: 5))
   }
 
   func testDarkArchive() {

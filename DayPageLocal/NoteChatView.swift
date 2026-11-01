@@ -113,6 +113,14 @@ struct NoteChatView: View {
     .build(entries: notebook.entries, question: session.draft, selectedIDs: selectedIDs)
   }
   private var configured: Bool { (try? notebook.configuration.endpoint) != nil }
+  private var aiTitle: String {
+    let configuration = notebook.configuration
+    let name = NSLocalizedString(AIProvider.matching(configuration: configuration).name, comment: "AI provider")
+    if configuration.model == AIModelCatalog.automaticModel {
+      return name + " · " + String(localized: "Automatic · latest")
+    }
+    return configuration.model
+  }
 
   var body: some View {
     NavigationStack {
@@ -155,7 +163,7 @@ struct NoteChatView: View {
     VStack(alignment: .leading, spacing: 10) {
       if configured {
         HStack(spacing: 8) {
-          Label(notebook.configuration.model, systemImage: "sparkles")
+          Label(aiTitle, systemImage: "sparkles")
             .font(.caption.weight(.medium)).lineLimit(2)
           Spacer()
           Button { settingsOpen = true } label: {
