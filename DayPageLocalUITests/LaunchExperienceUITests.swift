@@ -550,13 +550,14 @@ final class LaunchExperienceUITests: XCTestCase {
       app.swipeDown()
     }
     field.tap()
-    // A tap may put the caret inside the URL. Select and clear the whole field,
-    // then prove the requested input before testing persistence or Keychain.
-    field.typeKey("a", modifierFlags: .command)
+    let previous = field.value as? String
+    // iPhone selects a paragraph with a one-finger triple tap. This URL field
+    // contains one paragraph; use its native selection instead of a key shortcut.
+    field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
     field.typeText(XCUIKeyboardKey.delete.rawValue)
     let cleared = field.value as? String
     XCTAssertTrue(cleared == "" || cleared == "https://your-provider.example/v1",
-      "The custom address must be empty before entering its replacement")
+      "The custom address must be empty before entering its replacement; synthetic URL before=\(String(reflecting: previous)), after=\(String(reflecting: cleared))")
     field.typeText(address)
     XCTAssertEqual(field.value as? String, address, "The entire custom address must be replaced")
     app.textFields["ai-model"].tap()
