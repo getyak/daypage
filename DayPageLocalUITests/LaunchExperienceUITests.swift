@@ -355,6 +355,7 @@ final class LaunchExperienceUITests: XCTestCase {
     openSettings()
     setCustomAddress(serviceA)
     XCTAssertEqual(key.value as? String, "API key")
+    XCTAssertFalse(app.staticTexts["ai-key-read-issue"].exists, "A failed read must not look like a deleted key")
   }
 
   func testSavedAnonymousIntentDoesNotReloadAHistoricalKey() {
@@ -385,6 +386,7 @@ final class LaunchExperienceUITests: XCTestCase {
     openSettings()
     setCustomAddress(serviceA)
     XCTAssertEqual(key.value as? String, "API key", "Saving anonymous must remove the historical stored key too")
+    XCTAssertFalse(app.staticTexts["ai-key-read-issue"].exists, "The empty value must come from a successful Keychain read")
   }
 
   private func saveConnection() {
