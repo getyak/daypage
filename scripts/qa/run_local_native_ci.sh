@@ -138,10 +138,16 @@ for path in folder.rglob('*.xcent*'):
     except (OSError, ValueError, plistlib.InvalidFileException): continue
     app_id = value.get('application-identifier')
     if not isinstance(app_id, str) or not (app_id == bundle or app_id.endswith('.' + bundle)): continue
-    groups = value.get('keychain-access-groups')
-    assert isinstance(groups, list) and groups and all(group == app_id for group in groups), 'Unexpected production or foreign Keychain group'
+    # Apple uses the application identifier as the private default when there
+    # are no explicit Keychain groups. Xcode's simulated variant may therefore
+    # contain only application-identifier; that is not a shared-group grant.
+    # https://developer.apple.com/documentation/security/ksecattraccessgroup
+    groups = value.get('keychain-access-groups', [])
+    assert isinstance(groups, list) and all(group == app_id for group in groups), 'Unexpected production or foreign Keychain group'
+    assert value.get('com.apple.security.application-groups', []) == [], 'Shared app groups are not allowed in this QA identity'
+    effective_groups = list(dict.fromkeys([*groups, app_id]))
     receipts.append({'generatedFile': str(path.relative_to(derived)), 'applicationIdentifier': app_id,
-                     'keychainAccessGroups': groups})
+                     'explicitKeychainAccessGroups': groups, 'keychainAccessGroups': effective_groups})
 assert receipts, 'Xcode did not generate the QA Simulator Keychain entitlements'
 (output / 'simulator-entitlements.json').write_text(json.dumps(receipts, indent=2) + '\n')
 PY
