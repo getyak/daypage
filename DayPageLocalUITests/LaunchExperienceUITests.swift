@@ -161,7 +161,7 @@ final class LaunchExperienceUITests: XCTestCase {
     add(image)
   }
 
-  func testProviderSetupNeedsOnlyChoicesAndKeepsKeyDraftsSeparate() {
+  func testProviderSetupNeedsOnlyChoicesAndKeepsKeyDraftsSeparate() throws {
     app.launch()
     openSettings()
     XCTAssertTrue(app.buttons["ai-provider"].waitForExistence(timeout: 5))
@@ -169,7 +169,7 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("Automatic"))
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-deepSeek"].tap()
-    let key = aiKeyField
+    let key = try visibleAIKeyField()
     clear(key)
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-openAI"].tap()
@@ -177,11 +177,11 @@ final class LaunchExperienceUITests: XCTestCase {
     key.typeText("get351-not-a-real-key")
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-deepSeek"].tap()
-    XCTAssertEqual(key.value as? String, "API key", "A different service must not inherit the typed key")
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty, "A different service must not inherit the typed key")
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("Automatic"))
     app.buttons["ai-provider"].tap()
     app.buttons["ai-provider-openAI"].tap()
-    XCTAssertNotEqual(key.value as? String, "API key", "Switching back retains the unsaved local key draft")
+    XCTAssertFalse(try aiKeySemanticValue().isEmpty, "Switching back retains the unsaved local key draft")
     capture("ai-provider-first-en")
     app.buttons["ai-model-picker"].tap()
     XCTAssertTrue(app.buttons["ai-model-auto"].waitForExistence(timeout: 5))
@@ -208,8 +208,7 @@ final class LaunchExperienceUITests: XCTestCase {
     let test = app.buttons["test-ai-connection"]
     reveal(test)
     test.tap()
-    XCTAssertTrue(app.staticTexts["ai-resolved-model"].waitForExistence(timeout: 10))
-    XCTAssertEqual(app.staticTexts["ai-resolved-model"].label, "fixture-model")
+    try expectResolvedAIModel("fixture-model", timeout: 10)
     capture("ai-custom-connected")
     app.terminate()
     app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
@@ -221,7 +220,9 @@ final class LaunchExperienceUITests: XCTestCase {
     openSettings()
     XCTAssertTrue(app.buttons["ai-model-picker"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("fixture-model"))
-    XCTAssertEqual(app.textFields["ai-base-url"].value as? String, "http://127.0.0.1:18763/v1")
+    let restoredAddress = app.textFields["ai-base-url"]
+    reveal(restoredAddress)
+    XCTAssertEqual(restoredAddress.value as? String, "http://127.0.0.1:18763/v1")
   }
 
   func testCardHeaderContainsFullDateAndMenuAboveTheReadingSurface() {
@@ -279,11 +280,9 @@ final class LaunchExperienceUITests: XCTestCase {
     test.tap()
     app.swipeUp()
     app.swipeDown()
-    let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: test)
-    XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 15), .completed)
-    reveal(app.staticTexts["ai-resolved-model"])
-    XCTAssertTrue(app.staticTexts["ai-resolved-model"].waitForExistence(timeout: 15))
-    XCTAssertEqual(app.staticTexts["ai-resolved-model"].label, "fixture-model")
+    // The Test row may be virtualized after these scrolls. Check the actual
+    // completion result in the visible AI section, not an offscreen button.
+    try expectResolvedAIModel("fixture-model", timeout: 15)
   }
 
   func testChineseCardHeaderAtLargeTextInDarkMode() {
@@ -331,26 +330,115 @@ final class LaunchExperienceUITests: XCTestCase {
     app.buttons["sidebar-settings"].tap()
   }
 
-  func testClearedCustomKeyDoesNotReturnAfterSwitchingServices() {
+  private enum AIInspectionError: Error { case unavailable }
+
+  private func attachAIInspectionFailure() {
+    let state = XCTAttachment(string: "Application state: \(app.state)")
+    state.name = "ai-inspection-state"
+    state.lifetime = .keepAlways
+    add(state)
+    guard app.state == .runningForeground else { return }
+    let redacted = app.debugDescription.split(separator: "\n", omittingEmptySubsequences: false)
+      .map { $0.contains("SecureTextField") ? "<SecureTextField redacted>" : String($0) }
+      .joined(separator: "\n")
+    let hierarchy = XCTAttachment(string: redacted)
+    hierarchy.name = "ai-inspection-hierarchy"
+    hierarchy.lifetime = .keepAlways
+    add(hierarchy)
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "ai-inspection-foreground"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+  }
+
+  private func failAIInspection(_ message: String, file: StaticString, line: UInt) throws -> Never {
+    attachAIInspectionFailure()
+    XCTFail(message, file: file, line: line)
+    throw AIInspectionError.unavailable
+  }
+
+  private func isInAIViewport(_ element: XCUIElement) -> Bool {
+    guard app.state == .runningForeground, element.exists else { return false }
+    let frame = element.frame
+    return !frame.isEmpty && app.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
+  }
+
+  private func showAISettingsOverview(file: StaticString = #filePath, line: UInt = #line) throws {
+    guard app.state == .runningForeground else {
+      try failAIInspection("AI settings must be inspected in the foreground", file: file, line: line)
+    }
+    let provider = app.buttons["ai-provider"]
+    // Form virtualizes its rows. Rewind to the known AI section rather than
+    // waiting for a lower, possibly disabled/offscreen control to reappear.
+    for _ in 0..<6 {
+      if isInAIViewport(provider) { return }
+      app.swipeDown()
+    }
+    guard isInAIViewport(provider) else {
+      try failAIInspection("The AI settings section did not return to the viewport", file: file, line: line)
+    }
+  }
+
+  private func visibleAIKeyField(file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
+    try showAISettingsOverview(file: file, line: line)
+    let field = aiKeyField
+    guard field.waitForExistence(timeout: 5), editableAIKeys.count == 1,
+      isInAIViewport(field), field.isHittable else {
+      try failAIInspection("The editable AI key field must exist and be visible", file: file, line: line)
+    }
+    return field
+  }
+
+  private func aiKeySemanticValue(file: StaticString = #filePath, line: UInt = #line) throws -> String {
+    let field = try visibleAIKeyField(file: file, line: line)
+    guard !app.staticTexts["ai-key-read-issue"].exists else {
+      try failAIInspection("An unsuccessful Keychain read cannot establish an empty key", file: file, line: line)
+    }
+    guard let value = field.value as? String else {
+      try failAIInspection("The AI key field must expose a String value", file: file, line: line)
+    }
+    // Different iOS versions expose an empty SecureField as either an empty
+    // value or its exact localized placeholder. Every other value remains
+    // nonempty, including masked credential text; nil never becomes empty.
+    return ["API key", "API 密钥"].contains(value) ? "" : value
+  }
+
+  private func expectResolvedAIModel(_ expected: String, timeout: TimeInterval,
+    file: StaticString = #filePath, line: UInt = #line) throws {
+    try showAISettingsOverview(file: file, line: line)
+    // The identifier belongs to a SwiftUI Label, whose exposed AX element type
+    // can differ across SDKs. Keep an exact identifier and exact model value.
+    let resolved = app.descendants(matching: .any).matching(identifier: "ai-resolved-model").firstMatch
+    let completed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      self.isInAIViewport(resolved) && resolved.label == expected
+    }, object: nil)
+    guard XCTWaiter.wait(for: [completed], timeout: timeout) == .completed else {
+      try failAIInspection("The visible resolved AI model did not equal \(expected)", file: file, line: line)
+    }
+    XCTAssertEqual(app.state, .runningForeground, file: file, line: line)
+    XCTAssertEqual(resolved.label, expected, file: file, line: line)
+  }
+
+  func testClearedCustomKeyDoesNotReturnAfterSwitchingServices() throws {
     let serviceA = "https://get351-a.invalid/v1"
     let serviceB = "https://get351-b.invalid/v1"
     app.launchArguments += ["-qaEndpoint", serviceA]
     app.launch()
     openSettings()
-    let key = aiKeyField
-    XCTAssertTrue(key.waitForExistence(timeout: 5))
+    let key = try visibleAIKeyField()
     clear(key)
     key.typeText("get351-disposable-fixture-key\n")
     saveConnection()
 
     setCustomAddress(serviceB)
-    XCTAssertEqual(key.value as? String, "API key")
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty)
     saveConnection()
 
     setCustomAddress(serviceA)
-    XCTAssertNotEqual(key.value as? String, "API key")
-    clear(key)
-    key.typeText("\n")
+    XCTAssertFalse(try aiKeySemanticValue().isEmpty)
+    let restoredKey = try visibleAIKeyField()
+    clear(restoredKey)
+    restoredKey.typeText("\n")
     saveConnection()
     app.terminate()
     app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
@@ -359,9 +447,10 @@ final class LaunchExperienceUITests: XCTestCase {
     }
     app.launch()
     openSettings()
-    XCTAssertTrue(key.waitForExistence(timeout: 5))
-    XCTAssertEqual(key.value as? String, "API key", "Explicitly cleared service credentials must stay removed")
-    XCTAssertEqual(app.textFields["ai-base-url"].value as? String, serviceA)
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty, "Explicitly cleared service credentials must stay removed")
+    let restoredAddress = app.textFields["ai-base-url"]
+    reveal(restoredAddress)
+    XCTAssertEqual(restoredAddress.value as? String, serviceA)
     // A fresh draft at B forces an actual Keychain read for A, rather than
     // merely trusting A's saved anonymous preference or its in-memory cache.
     app.terminate()
@@ -369,18 +458,17 @@ final class LaunchExperienceUITests: XCTestCase {
     app.launch()
     openSettings()
     setCustomAddress(serviceA)
-    XCTAssertEqual(key.value as? String, "API key")
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty)
     XCTAssertFalse(app.staticTexts["ai-key-read-issue"].exists, "A failed read must not look like a deleted key")
   }
 
-  func testSavedAnonymousIntentDoesNotReloadAHistoricalKey() {
+  func testSavedAnonymousIntentDoesNotReloadAHistoricalKey() throws {
     let serviceA = "https://get351-anonymous.invalid/v1"
     let serviceB = "https://get351-anonymous-other.invalid/v1"
     app.launchArguments += ["-qaEndpoint", serviceA]
     app.launch()
     openSettings()
-    let key = aiKeyField
-    XCTAssertTrue(key.waitForExistence(timeout: 5))
+    let key = try visibleAIKeyField()
     key.tap()
     key.typeText("get351-disposable-legacy-key\n")
     saveConnection()
@@ -390,8 +478,7 @@ final class LaunchExperienceUITests: XCTestCase {
     // deleting the stored key: this reproduces an older anonymous preference.
     app.launch()
     openSettings()
-    XCTAssertTrue(key.waitForExistence(timeout: 5))
-    XCTAssertEqual(key.value as? String, "API key")
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty)
     saveConnection()
     app.terminate()
     if let index = app.launchArguments.firstIndex(of: "-qaEndpoint") {
@@ -400,7 +487,7 @@ final class LaunchExperienceUITests: XCTestCase {
     app.launch()
     openSettings()
     setCustomAddress(serviceA)
-    XCTAssertEqual(key.value as? String, "API key", "Saving anonymous must remove the historical stored key too")
+    XCTAssertTrue(try aiKeySemanticValue().isEmpty, "Saving anonymous must remove the historical stored key too")
     XCTAssertFalse(app.staticTexts["ai-key-read-issue"].exists, "The empty value must come from a successful Keychain read")
   }
 
