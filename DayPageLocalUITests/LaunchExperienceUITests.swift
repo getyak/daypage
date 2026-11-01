@@ -549,8 +549,15 @@ final class LaunchExperienceUITests: XCTestCase {
       app.swipeDown()
     }
     field.tap()
-    let value = field.value as? String ?? ""
-    field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count) + address)
+    // A tap may put the caret inside the URL. Select and clear the whole field,
+    // then prove the requested input before testing persistence or Keychain.
+    field.typeKey("a", modifierFlags: .command)
+    field.typeText(XCUIKeyboardKey.delete.rawValue)
+    let cleared = field.value as? String
+    XCTAssertTrue(cleared == "" || cleared == "https://your-provider.example/v1",
+      "The custom address must be empty before entering its replacement")
+    field.typeText(address)
+    XCTAssertEqual(field.value as? String, address, "The entire custom address must be replaced")
     app.textFields["ai-model"].tap()
     app.textFields["ai-model"].typeText("\n")
   }
