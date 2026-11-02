@@ -7,6 +7,7 @@ final class ChatSession: ObservableObject {
   @Published var conversation = Conversation()
   @Published var draft = ""
   @Published var sending = false
+  @Published private(set) var switching = false
   @Published var ready = false
   @Published var error: String?
   @Published private(set) var recovery: Recovery = .none
@@ -70,7 +71,9 @@ final class ChatSession: ObservableObject {
     try await store.save(conversation, revision: revision, lease: lease)
   }
   func open(id: UUID) async -> Bool {
-    guard !sending, let store else { return false }
+    guard !sending, !switching, let store else { return false }
+    switching = true
+    defer { switching = false }
     draftTask?.cancel()
     do {
       try await flush()
@@ -84,7 +87,9 @@ final class ChatSession: ObservableObject {
     }
   }
   func newConversation() async {
-    guard !sending, let store else { return }
+    guard !sending, !switching, let store else { return }
+    switching = true
+    defer { switching = false }
     draftTask?.cancel()
     do {
       try await flush()
@@ -134,7 +139,7 @@ final class ChatSession: ObservableObject {
     }
   }
   func send(notebook: NotebookModel, context: NoteContext, retry: Bool = false) {
-    guard ready, !sending else { return }
+    guard ready, !sending, !switching else { return }
     let question = (retry ? conversation.messages.last(where: { $0.role == .user })?.content ?? "" : draft)
       .trimmingCharacters(in: .whitespacesAndNewlines)
     guard !question.isEmpty, question.count <= 4000 else { return }

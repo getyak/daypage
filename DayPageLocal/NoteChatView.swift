@@ -48,9 +48,10 @@ struct NoteChatView: View {
         ToolbarItemGroup(placement: .primaryAction) {
           Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
+            .disabled(session.switching)
           Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
-            .disabled(session.sending)
+            .disabled(session.sending || session.switching)
         }
       }
       .disabled(!session.ready && session.error == nil)
@@ -99,7 +100,7 @@ struct NoteChatView: View {
       }.buttonStyle(.plain).frame(maxWidth: 145).accessibilityLabel("AI models")
         .accessibilityIdentifier("chat-ai-settings").disabled(session.sending)
     }.padding(.horizontal, 16).padding(.top, 4)
-      .disabled(!session.ready || session.sending)
+      .disabled(!session.ready || session.sending || session.switching)
   }
   private var contextHeader: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -140,7 +141,7 @@ struct NoteChatView: View {
       HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
           .font(.body).lineLimit(1...6).padding(.leading, 14).padding(.vertical, 12)
-          .disabled(!session.ready || session.sending).accessibilityIdentifier("chat-question")
+          .disabled(!session.ready || session.sending || session.switching).accessibilityIdentifier("chat-question")
         Button {
           if session.sending { session.cancel() }
           else { session.send(notebook: notebook, context: context) }
@@ -149,7 +150,7 @@ struct NoteChatView: View {
             .font(.body.weight(.semibold)).foregroundStyle(.white)
             .frame(width: 44, height: 44).background(NotebookTheme.accent, in: Circle())
         }
-        .disabled(!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000))
+        .disabled(session.switching || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
         .accessibilityLabel(session.sending ? "Cancel request" : "Send")
         .accessibilityIdentifier(session.sending ? "cancel-chat" : "send-chat")
         .padding(4)

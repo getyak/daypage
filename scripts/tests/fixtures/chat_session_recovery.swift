@@ -97,6 +97,14 @@ import Foundation
       precondition(!streamed.draft.isEmpty)
     }
     print("PASS: redirect and oversized responses fail without losing drafts")
+    let beforeSwitch = try await notebook.conversations.history().conversations.count
+    streamed.draft = "Flush this before switching"
+    let firstSwitch = Task { await streamed.newConversation() }
+    let secondSwitch = Task { await streamed.newConversation() }
+    await firstSwitch.value; await secondSwitch.value
+    let afterSwitch = try await notebook.conversations.history().conversations.count
+    precondition(afterSwitch == beforeSwitch + 1, "Concurrent navigation must not race two session transitions")
+    print("PASS: rapid conversation navigation is serialized and flushes the old draft")
   }
   @MainActor private static func waitForReply(_ session: ChatSession) async throws {
     for _ in 0..<80 {
