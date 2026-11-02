@@ -107,6 +107,9 @@ final class LocalNotebookUITests: XCTestCase {
     XCTAssertTrue(settings.isHittable)
     screenshot("local-sidebar-accessibility")
     settings.tap()
+    let models = app.buttons["settings-ai-models"]
+    XCTAssertTrue(models.waitForExistence(timeout: 5))
+    models.tap()
     for _ in 0..<4 {
       if element("ai-provider").exists { break }
       app.swipeUp()
