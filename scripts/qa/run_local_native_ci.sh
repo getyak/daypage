@@ -96,7 +96,10 @@ daypage_common=(-project "$daypage_project" -scheme DayPage -configuration Debug
   -destination "$daypage_destination" -jobs 2 -parallel-testing-enabled NO
   -maximum-concurrent-test-simulator-destinations 1)
 daypage_negative="$daypage_native_root/NegativeDerivedData"
-daypage_signed="$daypage_native_root/SignedDerivedData"
+# The negative receipt is finalized before rebuilding with signing enabled.
+# Reuse compiled sources/macros; Xcode must regenerate and verify the signed
+# executable's actual entitlements below, then run every positive UI journey.
+daypage_signed="$daypage_negative"
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
@@ -130,6 +133,8 @@ PY
 
 # Let Xcode generate simulated Mach-O entitlements and the local ad hoc
 # signature. This never accesses a Developer ID key or changes release signing.
+shasum -a 256 "$daypage_negative/Build/Products/Debug-iphonesimulator/DayPage.app/DayPage" \
+  > "$daypage_evidence/negative-executable.sha256"
 daypage_signing=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES)
 run_logged "$daypage_evidence/signed-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}"
