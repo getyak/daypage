@@ -46,7 +46,11 @@ When the managed local device is occupied, the existing Local iOS notebook workf
 
 ## Code merges without a TestFlight release
 
-When a task authorizes merging code but not publishing a binary, include `[skip testflight]` in the merge commit message. The release workflow checks this marker before starting either its candidate-CI job or its upload job; ordinary CI still runs. Read back that both publication jobs were skipped for the exact merge commit. Manual TestFlight dispatch remains a separate explicitly authorized action.
+When a task authorizes merging code but not publishing a binary, the automatic release workflow requires `[skip testflight]` in the actual main commit message. It checks that message before starting either its candidate-CI job or its upload job; ordinary CI still runs. A marker in a PR description or label does not satisfy this check. Manual TestFlight dispatch remains a separate explicitly authorized action.
+
+This repository uses Merge Queue. GitHub [ignores the custom commit body when a PR uses Merge Queue](https://docs.github.com/en/graphql/reference/pulls#enablepullrequestautomergeinput), so passing the marker through `gh pr merge --body-file` does not protect a queued merge. The current repository settings retain the PR title in the merge message (`merge_commit_title=MERGE_MESSAGE`, `merge_commit_message=PR_TITLE`), but a title marker alone is also insufficient: the queue can merge up to five PRs in a batch, and the workflow checks only the push's final commit. An earlier app PR's marker can therefore be absent from the checked message. This is a whole-push guard, not a reliable per-PR opt-out for batched queue merges. Before enqueueing app changes without release authorization, establish a server-enforced opt-out covering the entire push; do not rely on a custom body or PR title alone.
+
+After merging, read back the exact main commit message and, when the app-path filter starts a release run, confirm both publication jobs were skipped. A canceled run is a recovery action, not proof that the marker worked.
 
 ## Verification recorded for GET-326
 
