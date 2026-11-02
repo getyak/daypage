@@ -2,6 +2,19 @@ import XCTest
 @testable import DayPageCore
 
 final class ChatHistoryTests: XCTestCase {
+  func testRetryOfTheSameQuestionDoesNotConsumeAnotherCharacterTurn() {
+    let first = ChatCharacter(name: "Moss")
+    let second = ChatCharacter(name: "River")
+    var conversation = Conversation(messages: [.init(role: .user, content: "A question")])
+    conversation.characters = [first, second]
+    conversation.rotatesCharacters = true
+    conversation.messages.append(.init(role: .assistant, content: "Partial", character: first, delivery: .interrupted))
+    conversation.messages.append(.init(role: .assistant, content: "Retried answer", character: first, delivery: .complete))
+    XCTAssertEqual(conversation.nextCharacter.id, second.id)
+    conversation.messages.append(.init(role: .user, content: "Next question"))
+    conversation.messages.append(.init(role: .assistant, content: "Next answer", character: second, delivery: .complete))
+    XCTAssertEqual(conversation.nextCharacter.id, first.id)
+  }
   func testLegacyFilesAppearAcrossScopesAndCorruptionIsReportedWithoutRewrite() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }

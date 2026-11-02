@@ -31,8 +31,16 @@ public struct Conversation: Codable, Identifiable, Sendable {
   public var updatedAt: Date?
   public var nextCharacter: ChatCharacter {
     let choices = characters.flatMap { $0.isEmpty ? nil : $0 } ?? [.companion]
-    let index = rotatesCharacters == true ? messages.filter { $0.role == .assistant }.count % choices.count : 0
-    return choices[index]
+    guard rotatesCharacters == true else { return choices[0] }
+    // Retries append another assistant attempt to the same user turn. Count
+    // those adjacent attempts once so a retry never skips a character.
+    var replyTurns = 0
+    var previousRole: ChatMessage.Role?
+    for message in messages {
+      if message.role == .assistant && previousRole != .assistant { replyTurns += 1 }
+      previousRole = message.role
+    }
+    return choices[replyTurns % choices.count]
   }
   public var title: String {
     String((messages.first(where: { $0.role == .user })?.content ?? draft).prefix(70))
