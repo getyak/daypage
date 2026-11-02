@@ -16,7 +16,7 @@ class LocalIOSContract(unittest.TestCase):
         objects = json.loads(result)["objects"]
         app = next(o for o in objects.values() if o.get("isa") == "PBXNativeTarget" and o.get("name") == "DayPage")
         products = [objects[key]["productName"] for key in app.get("packageProductDependencies", [])]
-        self.assertEqual(products, ["DayPageCore"])
+        self.assertEqual(set(products), {"DayPageCore", "SwiftStreamingMarkdown"})
         self.assertEqual(app.get("dependencies", []), [])
         sources = next(objects[p] for p in app["buildPhases"] if objects[p]["isa"] == "PBXSourcesBuildPhase")
         filenames = [objects[objects[b]["fileRef"]]["path"] for b in sources["files"]]

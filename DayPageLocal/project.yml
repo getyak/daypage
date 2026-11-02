@@ -7,6 +7,9 @@ options:
 packages:
   DayPageCore:
     path: ../DayPageCore
+  SwiftStreamingMarkdown:
+    url: https://github.com/microsoft/SwiftStreamingMarkdown
+    revision: 5f7c04e0558df6146f90d482edb62cb456986bda
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -30,6 +33,8 @@ targets:
       - path: CaptureMedia.swift
       - path: NoteViews.swift
       - path: NoteChatView.swift
+      - path: ChatSession.swift
+      - path: ChatLibraryViews.swift
       - path: SettingsView.swift
       - path: AIConnectionSettings.swift
       - path: FeedbackView.swift
@@ -40,6 +45,7 @@ targets:
       - path: ../DayPage/App/Assets.xcassets
     dependencies:
       - package: DayPageCore
+      - package: SwiftStreamingMarkdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)

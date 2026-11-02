@@ -7,9 +7,19 @@ struct SettingsView: View {
   @AppStorage("local.appearance") private var appearance = "system"
   @State private var importing = false
   @State private var exporting = false
+  @State private var modelsOpen = false
 
   var body: some View {
-    AIConnectionSettings {
+    Form {
+      Section {
+        Button { modelsOpen = true } label: {
+          HStack {
+            Label("AI models", systemImage: "sparkles")
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+          }.frame(minHeight: 44)
+        }.accessibilityIdentifier("settings-ai-models")
+      }.listRowBackground(NotebookTheme.card)
       Section("On this device") {
         Button { importing = true } label: {
           Label(notebook.isImporting ? "Importing a copy…" : "Import a copy of an older Vault",
@@ -40,6 +50,13 @@ struct SettingsView: View {
       .listRowBackground(Color.clear)
     }
     .scrollContentBackground(.hidden).scrollDismissesKeyboard(.interactively).notebookSurface()
+    .sheet(isPresented: $modelsOpen) {
+      NavigationStack {
+        AIModelsView().toolbar {
+          ToolbarItem(placement: .confirmationAction) { Button("Done") { modelsOpen = false } }
+        }
+      }
+    }
     .fileImporter(isPresented: $importing, allowedContentTypes: [.folder]) { result in
       switch result {
       case .success(let url): Task { await notebook.importVault(url) }
@@ -50,6 +67,14 @@ struct SettingsView: View {
                   contentType: .folder, defaultFilename: "DayPage Vault") { result in
       if case .failure(let error) = result { notebook.report(error) }
     }
+  }
+}
+
+struct AIModelsView: View {
+  var body: some View {
+    AIConnectionSettings { EmptyView() }
+      .navigationTitle("AI models").navigationBarTitleDisplayMode(.inline)
+      .scrollContentBackground(.hidden).scrollDismissesKeyboard(.interactively).notebookSurface()
   }
 }
 

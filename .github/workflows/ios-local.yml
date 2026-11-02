@@ -20,6 +20,9 @@ on:
       - '.github/workflows/testflight.yml'
       - 'scripts/ci/wait_for_release_ci.py'
       - 'scripts/tests/test_local_ios_contract.py'
+      - 'scripts/tests/test_chat_session_recovery.py'
+      - 'scripts/tests/fixtures/chat_session_recovery.swift'
+      - 'scripts/tests/fixtures/chat_stream_server.py'
       - 'scripts/tests/test_capture_draft_transactions.py'
       - 'scripts/tests/fixtures/capture_draft_transactions.swift'
       - '.github/workflows/ios-local.yml'
@@ -36,6 +39,9 @@ on:
       - 'Gemfile.lock'
       - '.github/workflows/testflight.yml'
       - 'scripts/ci/wait_for_release_ci.py'
+      - 'scripts/tests/test_chat_session_recovery.py'
+      - 'scripts/tests/fixtures/chat_session_recovery.swift'
+      - 'scripts/tests/fixtures/chat_stream_server.py'
       - 'scripts/tests/test_capture_draft_transactions.py'
       - 'scripts/tests/fixtures/capture_draft_transactions.swift'
       - '.github/workflows/ios-local.yml'
@@ -53,8 +59,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: swift test --package-path DayPageCore --jobs 2
       - run: python3 scripts/tests/test_local_ios_contract.py
+      - name: Verify chat draft recovery and selected-note boundaries
+        run: python3 scripts/tests/test_chat_session_recovery.py --build-path DayPageCore/.build
       - name: Verify capture draft commit and recovery
         run: python3 scripts/tests/test_capture_draft_transactions.py
+      - name: Enable the pinned chat renderer macro
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
       - name: Build the isolated local app
         run: xcodebuild -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPage -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
@@ -62,14 +74,20 @@ jobs:
     name: Native iOS UI (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.native_ui
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Enable the pinned chat renderer macro
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
       - name: Verify unsigned recovery and signed native journeys
+        # Xcode keeps its normal macro validation; trust only the reviewed exact Equatable revision.
+        # The runner is ephemeral and has no shared workstation trust settings.
         env:
           DAYPAGE_NATIVE_CI_OUTPUT_DIR: ${{ runner.temp }}/daypage-native-ui/evidence
         run: bash scripts/qa/run_local_native_ci.sh
@@ -82,6 +100,7 @@ jobs:
             ${{ runner.temp }}/daypage-native-ui/evidence/*.log
             ${{ runner.temp }}/daypage-native-ui/evidence/*.json
             ${{ runner.temp }}/daypage-native-ui/evidence/*.plist
+            ${{ runner.temp }}/daypage-native-ui/evidence/*.sha256
             ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.png
             ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.txt
             ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/manifest.json

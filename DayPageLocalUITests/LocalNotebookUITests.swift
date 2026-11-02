@@ -66,10 +66,14 @@ final class LocalNotebookUITests: XCTestCase {
       app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar-'")).count, 3)
     screenshot("local-sidebar")
     app.buttons["sidebar-settings"].tap()
+    XCTAssertTrue(app.buttons["settings-ai-models"].waitForExistence(timeout: 5))
+    XCTAssertFalse(element("ai-provider").exists)
+    app.buttons["settings-ai-models"].tap()
     XCTAssertTrue(element("ai-provider").waitForExistence(timeout: 5))
     XCTAssertTrue(app.secureTextFields["ai-key"].exists)
     XCTAssertFalse(app.buttons["Sign in"].exists)
     screenshot("local-ai-settings")
+    app.buttons["Done"].tap()
     app.buttons["open-sidebar"].tap()
     app.buttons["sidebar-feedback"].tap()
     XCTAssertTrue(element("feedback-draft").waitForExistence(timeout: 5))
@@ -103,6 +107,9 @@ final class LocalNotebookUITests: XCTestCase {
     XCTAssertTrue(settings.isHittable)
     screenshot("local-sidebar-accessibility")
     settings.tap()
+    let models = app.buttons["settings-ai-models"]
+    XCTAssertTrue(models.waitForExistence(timeout: 5))
+    models.tap()
     for _ in 0..<4 {
       if element("ai-provider").exists { break }
       app.swipeUp()

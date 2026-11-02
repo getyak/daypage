@@ -67,6 +67,7 @@ pathlib.Path(sys.argv[1]).write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 xcrun simctl list devices available --json > "$daypage_evidence/runner-simulators.json"
 daypage_destination="$(python3 scripts/ci/select_simulator.py --input "$daypage_evidence/runner-simulators.json" --format destination)"
+daypage_simulator="$(python3 scripts/ci/select_simulator.py --input "$daypage_evidence/runner-simulators.json" --format udid)"
 printf '%s\n' "$daypage_destination" > "$daypage_evidence/destination.log"
 
 # Own the fixture process; never borrow an existing service on this port.
@@ -96,12 +97,21 @@ daypage_common=(-project "$daypage_project" -scheme DayPage -configuration Debug
   -destination "$daypage_destination" -jobs 2 -parallel-testing-enabled NO
   -maximum-concurrent-test-simulator-destinations 1)
 daypage_negative="$daypage_native_root/NegativeDerivedData"
-daypage_signed="$daypage_native_root/SignedDerivedData"
+# The negative receipt is finalized before rebuilding with signing enabled.
+# Reuse compiled sources/macros; Xcode must regenerate and verify the signed
+# executable's actual entitlements below, then run every positive UI journey.
+daypage_signed="$daypage_negative"
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
 run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO
+# Start only this disposable runner's selected device and wait for SpringBoard
+# readiness before asking XCTest to launch the unsigned app for the first time.
+run_logged "$daypage_evidence/simulator-boot.log" python3 - "$daypage_simulator" <<'PY'
+import subprocess, sys
+subprocess.run(['xcrun', 'simctl', 'bootstatus', sys.argv[1], '-b'], check=True, timeout=180)
+PY
 daypage_negative_exit=0
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
@@ -130,6 +140,8 @@ PY
 
 # Let Xcode generate simulated Mach-O entitlements and the local ad hoc
 # signature. This never accesses a Developer ID key or changes release signing.
+shasum -a 256 "$daypage_negative/Build/Products/Debug-iphonesimulator/DayPage.app/DayPage" \
+  > "$daypage_evidence/negative-executable.sha256"
 daypage_signing=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES)
 run_logged "$daypage_evidence/signed-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}"
@@ -185,9 +197,16 @@ import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 summary = json.loads((root / 'signed-summary.log').read_text())
 assert summary['result'] == 'Passed' and summary['failedTests'] == 0 and summary['skippedTests'] == 0, 'Every native UI test must execute and pass'
-assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= 41, 'The complete current UI suite did not execute'
+assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= 46, 'The complete current UI suite did not execute'
+records = json.loads((root / 'signed-attachments/manifest.json').read_text())
+names = [attachment.get('suggestedHumanReadableName', '') for record in records
+         for attachment in record.get('attachments', [])]
+required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
+                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size']
+assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
 receipt = {'passed': True, 'source': json.loads((root / 'provenance.json').read_text()),
-           'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary}
+           'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary,
+           'requiredChatAttachments': required_chat}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the denied-Keychain recovery branch and the complete signed native UI suite."

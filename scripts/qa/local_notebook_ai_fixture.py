@@ -38,6 +38,28 @@ class Handler(BaseHTTPRequestHandler):
         assert not payload.get("tools"), "Note chat has no tool capability"
         if self.path == "/slow/v1/chat/completions":
             time.sleep(5)
+        if payload.get("stream"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            chunks = [
+                {"reasoning_content": "I will use only the supplied excerpts."},
+                {"content": "Fixture reply: **local synthetic notes**.\n\n"},
+                {"content": "## A small reflection\n\n- One idea to keep\n- One question to revisit\n\n"},
+                {"content": "```swift\nlet thought = \"keep\"\n```\n\n"},
+                {"content": "| Thought | Next step |\n| --- | --- |\n| A walk | Keep noticing |\n"},
+            ]
+            try:
+                for delta in chunks:
+                    frame = {"choices": [{"delta": delta}]}
+                    self.wfile.write(("data: " + json.dumps(frame) + "\n\n").encode())
+                    self.wfile.flush()
+                    time.sleep(0.35)
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
         content = json.dumps({"choices": [{"message": {"content": "Fixture reply: these excerpts are local synthetic notes. Your own configured AI will answer here."}}]}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
