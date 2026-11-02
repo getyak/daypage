@@ -9,7 +9,7 @@ packages:
     path: ../DayPageCore
   SwiftStreamingMarkdown:
     url: https://github.com/microsoft/SwiftStreamingMarkdown
-    exactVersion: 0.7.0
+    revision: 5f7c04e0558df6146f90d482edb62cb456986bda
 settings:
   base:
     SWIFT_VERSION: "5.0"
