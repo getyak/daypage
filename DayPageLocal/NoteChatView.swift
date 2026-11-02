@@ -156,7 +156,7 @@ struct NoteChatView: View {
           else { questionFocused = false; session.send(notebook: notebook, context: context) }
         } label: {
           Image(systemName: session.sending ? "stop.fill" : "arrow.up")
-            .font(.body.weight(.semibold)).foregroundStyle(.white)
+            .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
             .frame(width: 44, height: 44).background(NotebookTheme.accent, in: Circle())
         }
         .disabled(session.switching || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
@@ -228,7 +228,8 @@ private struct ChatTranscript: View {
         .overlay(alignment: .bottomTrailing) {
           if !followsLatest {
             Button { followsLatest = true; proxy.scrollTo("chat-bottom", anchor: .bottom) } label: {
-              Image(systemName: "arrow.down").frame(width: 44, height: 44).background(.regularMaterial, in: Circle())
+              Image(systemName: "arrow.down").font(.system(size: 17, weight: .medium))
+                .frame(width: 44, height: 44).background(.regularMaterial, in: Circle())
             }.accessibilityLabel("Latest messages").padding(12)
           }
         }
