@@ -2,6 +2,14 @@ import XCTest
 @testable import DayPageCore
 
 final class AIStreamingTests: XCTestCase {
+  func testJSONFallbackRejectsPartialAndFilteredReplies() throws {
+    let partial = Data(#"{"type":"message","stop_reason":"max_tokens","content":[{"type":"text","text":"partial"}]}"#.utf8)
+    XCTAssertThrowsError(try AIJSONReply.events(data: partial, provider: .anthropic))
+    let filtered = Data(#"{"choices":[{"finish_reason":"content_filter","message":{"content":"partial"}}]}"#.utf8)
+    XCTAssertThrowsError(try AIJSONReply.events(data: filtered, provider: .openAI))
+    let full = Data(#"{"type":"message","stop_reason":"end_turn","content":[{"type":"thinking","thinking":"Brief summary"},{"type":"text","text":"Complete"}]}"#.utf8)
+    XCTAssertEqual(try AIJSONReply.events(data: full, provider: .anthropic), [.reasoning("Brief summary"), .text("Complete"), .finished])
+  }
   func testOpenAITextAndReasoningRemainSeparateAndRequireTerminalEvent() throws {
     var parser = AIStreamDecoder()
     XCTAssertEqual(try parser.consume(line: "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"A short summary\"}}]}"), [])

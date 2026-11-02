@@ -1,0 +1,108 @@
+import DayPageCore
+import Foundation
+
+@MainActor final class NotebookModel {
+  let conversations: ConversationStore
+  var configuration = AIConfiguration(baseURL: "http://127.0.0.1:1/v1", model: "fixture-model", allowsLocalHTTP: true)
+  init(root: URL) { conversations = ConversationStore(root: root) }
+}
+
+@main enum ChatSessionRecoveryChecks {
+  @MainActor static func main() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("chat-session-check-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let notebook = NotebookModel(root: root)
+    let scope = "only-this-selected-note"
+    let old = Conversation(scope: scope, messages: [.init(role: .user, content: "Old question"), .init(role: .assistant, content: "Completed answer")])
+    try await notebook.conversations.save(old)
+    let session = ChatSession()
+    await session.load(notebook: notebook, selectedIDs: [scope])
+    precondition(session.ready)
+    session.draft = "A new unsent question"
+    let marker = try FileManager.default.contentsOfDirectory(at: root.appendingPathComponent(".daypage"), includingPropertiesForKeys: nil)
+      .first { $0.lastPathComponent.hasPrefix("chat-scope-") }!
+    try FileManager.default.removeItem(at: marker)
+    try FileManager.default.createDirectory(at: marker, withIntermediateDirectories: true)
+    session.persistDraft()
+    try await Task.sleep(nanoseconds: 500_000_000)
+    precondition(session.error != nil)
+    precondition(!session.canRetryReply, "Saving a draft must never offer to resend an old question")
+    try FileManager.default.removeItem(at: marker)
+    await session.recover(notebook: notebook, context: .build(entries: [], question: ""))
+    precondition(session.draft == "A new unsent question")
+    precondition(session.conversation.messages.count == 2, "Save recovery must not send or append a reply")
+    let saved = try await notebook.conversations.load(id: old.id)
+    precondition(saved.draft == session.draft)
+
+    let chatFile = root.appendingPathComponent(".daypage/chats/\(old.id).json")
+    try Data("broken".utf8).write(to: chatFile)
+    let failedLoad = ChatSession()
+    await failedLoad.load(notebook: notebook, selectedIDs: [scope])
+    precondition(!failedLoad.ready && failedLoad.error != nil)
+    await failedLoad.newConversation()
+    precondition(failedLoad.ready)
+    precondition(failedLoad.conversation.scope == scope, "A failed selected-note load must not broaden a new chat to all notes")
+    let retained = try Data(contentsOf: chatFile)
+    precondition(retained == Data("broken".utf8), "Keep unreadable history untouched")
+    print("PASS: save recovery preserves the new draft; failed history keeps selected-note scope")
+    let port = CommandLine.arguments[1]
+    let streamed = ChatSession()
+    await streamed.load(notebook: notebook, selectedIDs: nil)
+    notebook.configuration.baseURL = "http://127.0.0.1:\(port)/valid/v1"
+    streamed.draft = "A streaming question"
+    streamed.send(notebook: notebook, context: .build(entries: [], question: ""))
+    try await waitForReply(streamed)
+    precondition(streamed.conversation.messages.last?.content == "你好 **world**")
+    precondition(streamed.conversation.messages.last?.reasoning == "Provider summary")
+    precondition(streamed.conversation.messages.last?.delivery == .complete)
+    precondition(streamed.draft.isEmpty)
+    print("PASS: real fragmented UTF-8/CRLF stream completes and saves separate reasoning")
+
+    notebook.configuration.baseURL = "http://127.0.0.1:\(port)/truncated/v1"
+    streamed.draft = "A truncated question"
+    streamed.send(notebook: notebook, context: .build(entries: [], question: ""))
+    try await waitForReply(streamed)
+    precondition(streamed.conversation.messages.last?.content == "你好 **world**")
+    precondition(streamed.conversation.messages.last?.delivery == .interrupted)
+    precondition(streamed.draft == "A truncated question")
+    let count = streamed.conversation.messages.count
+    streamed.draft = "Edited after interruption"
+    await streamed.recover(notebook: notebook, context: .build(entries: [], question: ""))
+    precondition(streamed.conversation.messages.count == count)
+    precondition(streamed.draft == "Edited after interruption")
+    print("PASS: truncated stream preserves partial output; retry never overwrites an edited draft")
+
+    notebook.configuration.baseURL = "http://127.0.0.1:\(port)/cancel/v1"
+    streamed.draft = "A cancelled question"
+    streamed.send(notebook: notebook, context: .build(entries: [], question: ""))
+    for _ in 0..<50 {
+      if streamed.conversation.messages.last?.content.isEmpty == false { break }
+      try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    precondition(streamed.sending && streamed.conversation.messages.last?.content.isEmpty == false)
+    streamed.cancel()
+    try await waitForReply(streamed)
+    let savedPartial = try await notebook.conversations.load(id: streamed.conversation.id)
+    precondition(savedPartial.messages.last?.delivery == .interrupted)
+    precondition(savedPartial.draft == "A cancelled question")
+    precondition(savedPartial.messages.last?.content == "你好 **world**")
+    print("PASS: cancelling live transport durably preserves received content and question")
+
+    for mode in ["redirect", "oversized"] {
+      notebook.configuration.baseURL = "http://127.0.0.1:\(port)/\(mode)/v1"
+      streamed.draft = "A bounded question"
+      streamed.send(notebook: notebook, context: .build(entries: [], question: ""))
+      try await waitForReply(streamed)
+      precondition(streamed.conversation.messages.last?.delivery == .interrupted)
+      precondition(!streamed.draft.isEmpty)
+    }
+    print("PASS: redirect and oversized responses fail without losing drafts")
+  }
+  @MainActor private static func waitForReply(_ session: ChatSession) async throws {
+    for _ in 0..<80 {
+      if !session.sending { return }
+      try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    preconditionFailure("The local fixture did not finish within 8 seconds")
+  }
+}

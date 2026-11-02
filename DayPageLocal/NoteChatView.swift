@@ -37,8 +37,8 @@ struct NoteChatView: View {
         contextHeader
         Divider().overlay(NotebookTheme.line)
         ChatTranscript(session: session, hasNotes: !context.entries.isEmpty) {
-          session.send(notebook: notebook, context: context, retry: true)
-        } reload: { await session.load(notebook: notebook, selectedIDs: selectedIDs) }
+          await session.recover(notebook: notebook, context: context)
+        }
       }
       .safeAreaInset(edge: .bottom, spacing: 0) { composer }
       .notebookSurface()
@@ -50,6 +50,7 @@ struct NoteChatView: View {
             .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
           Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 36, minHeight: 44) }
             .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
+            .disabled(session.sending)
         }
       }
       .disabled(!session.ready && session.error == nil)
@@ -170,8 +171,7 @@ private struct ChatBottomPreference: PreferenceKey {
 private struct ChatTranscript: View {
   @ObservedObject var session: ChatSession
   let hasNotes: Bool
-  let retry: () -> Void
-  let reload: () async -> Void
+  let recover: () async -> Void
   @State private var followsLatest = true
   @State private var dragging = false
   @State private var bottom: CGFloat = 0
@@ -185,10 +185,11 @@ private struct ChatTranscript: View {
             if let error = session.error {
               VStack(alignment: .leading, spacing: 4) {
                 Text(error).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("chat-error")
-                Button("Try again") {
-                  if session.ready { retry() } else { Task { await reload() } }
-                }.font(.subheadline).frame(minHeight: 44)
-                  .disabled(session.sending).accessibilityIdentifier("chat-retry")
+                if session.recovery != .none {
+                  Button(session.recovery == .load || session.canRetryReply ? "Try again" : "Retry saving") { Task { await recover() } }
+                    .font(.subheadline).frame(minHeight: 44)
+                    .disabled(session.sending).accessibilityIdentifier("chat-retry")
+                }
               }
             }
             if !session.ready && session.error == nil { ProgressView().padding(.top, 24) }

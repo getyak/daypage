@@ -282,6 +282,7 @@
 "Free some draft attachment space to record audio." = "请先移除一些草稿附件，留出录音空间。";
 "Recent notes" = "最近的记录";
 "Conversation" = "对话";
+"Retry saving" = "重试保存";
 "AI models" = "AI 模型";
 "Conversation history" = "对话历史";
 "New conversation" = "新对话";

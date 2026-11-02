@@ -27,6 +27,7 @@
 - [ADR-0027](decisions/ADR-0027-local-ios-notebook.md): the active local-only notebook and optional personal AI boundary.
 - [ADR-0028](decisions/ADR-0028-local-product-continuity.md): preserve the established native notebook experience on local files.
 - [ADR-0029](decisions/ADR-0029-personal-ai-provider-presets.md): official direct AI presets and explicit automatic or fixed model selection.
+- [ADR-0030](decisions/ADR-0030-local-chat-characters-and-streaming.md): local conversation history, character snapshots, bounded streaming and native Markdown.
 
 The overview is descriptive and should track executable reality. ADRs explain durable
 choices and trade-offs. Product requirements belong in a current PRD or issue, not in an

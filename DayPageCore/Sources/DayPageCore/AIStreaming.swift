@@ -4,6 +4,37 @@ public enum AIStreamEvent: Equatable, Sendable {
   case text(String), reasoning(String), finished
 }
 
+enum AIJSONReply {
+  static func events(data: Data, provider: AIProvider) throws -> [AIStreamEvent] {
+    guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], object["error"] == nil else {
+      throw AIError.invalidResponse
+    }
+    var events: [AIStreamEvent] = []
+    let text: String?
+    if provider == .anthropic {
+      guard let reason = object["stop_reason"] as? String, ["end_turn", "stop_sequence"].contains(reason) else {
+        throw AIError.invalidResponse
+      }
+      let blocks = object["content"] as? [[String: Any]] ?? []
+      for block in blocks where block["type"] as? String == "thinking" {
+        if let summary = block["thinking"] as? String { events.append(.reasoning(summary)) }
+      }
+      text = blocks.filter { $0["type"] as? String == "text" }.compactMap { $0["text"] as? String }.joined(separator: "\n\n")
+    } else {
+      let choice = (object["choices"] as? [[String: Any]])?.first
+      // Older local servers omit finish_reason. An explicit unsuccessful reason is never success.
+      if let reason = choice?["finish_reason"] as? String, reason != "stop" { throw AIError.invalidResponse }
+      let message = choice?["message"] as? [String: Any]
+      text = message?["content"] as? String
+      if let reasoning = (message?["reasoning_content"] ?? message?["reasoning"]) as? String {
+        events.append(.reasoning(reasoning))
+      }
+    }
+    guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.invalidResponse }
+    return events + [.text(text), .finished]
+  }
+}
+
 /// SSE events are delimited by blank lines, not TCP chunks or individual data lines.
 struct AIStreamDecoder {
   private var data: [String] = []
@@ -106,24 +137,9 @@ extension AIClient {
         guard buffer.count < limit else { throw AIError.tooLarge }
         buffer.append(byte)
       }
-      guard let object = try? JSONSerialization.jsonObject(with: buffer) as? [String: Any], object["error"] == nil else {
-        throw AIError.invalidResponse
+      for event in try AIJSONReply.events(data: buffer, provider: AIProvider.matching(configuration: resolved)) {
+        try await onEvent(event)
       }
-      let text: String?
-      if AIProvider.matching(configuration: resolved) == .anthropic {
-        let blocks = object["content"] as? [[String: Any]] ?? []
-        text = blocks.filter { $0["type"] as? String == "text" }.compactMap { $0["text"] as? String }.joined(separator: "\n\n")
-      } else {
-        let choices = object["choices"] as? [[String: Any]]
-        guard choices?.first?["finish_reason"] as? String != "length" else { throw AIError.invalidResponse }
-        let message = choices?.first?["message"] as? [String: Any]
-        text = message?["content"] as? String
-        if let reasoning = (message?["reasoning_content"] ?? message?["reasoning"]) as? String {
-          try await onEvent(.reasoning(reasoning))
-        }
-      }
-      guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.invalidResponse }
-      try await onEvent(.text(text)); try await onEvent(.finished)
     }
   }
 }
