@@ -60,7 +60,7 @@ jobs:
       - run: swift test --package-path DayPageCore --jobs 2
       - run: python3 scripts/tests/test_local_ios_contract.py
       - name: Verify chat draft recovery and selected-note boundaries
-        run: python3 scripts/tests/test_chat_session_recovery.py
+        run: python3 scripts/tests/test_chat_session_recovery.py --build-path DayPageCore/.build
       - name: Verify capture draft commit and recovery
         run: python3 scripts/tests/test_capture_draft_transactions.py
       - name: Enable the pinned chat renderer macro
