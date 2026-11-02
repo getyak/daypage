@@ -106,6 +106,8 @@ final class ChatExperienceUITests: XCTestCase {
     XCTAssertTrue(app.textFields["chat-question"].isHittable)
     XCTAssertGreaterThanOrEqual(app.buttons["chat-characters"].frame.height, 44)
     XCTAssertGreaterThanOrEqual(app.buttons["chat-ai-settings"].frame.height, 44)
+    XCTAssertTrue(app.staticTexts["A little room to think."].isHittable,
+      "An empty conversation must begin at its greeting, rather than the last suggestion.")
     capture("chat-accessibility-size")
   }
 }

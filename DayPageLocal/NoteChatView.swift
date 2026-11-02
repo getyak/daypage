@@ -6,6 +6,7 @@ struct NoteChatView: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   let selectedIDs: Set<String>?
   @StateObject private var session = ChatSession()
   @State private var sheet: ChatSheet?
@@ -80,26 +81,31 @@ struct NoteChatView: View {
       Button { sheet = .characters } label: {
         HStack(spacing: 10) {
           Text(String(session.conversation.nextCharacter.name.prefix(1)))
-            .font(.system(.headline, design: .rounded)).foregroundStyle(NotebookTheme.accent)
+            .font(.system(size: 17, weight: .semibold, design: .rounded)).foregroundStyle(NotebookTheme.accent)
             .frame(width: 34, height: 34).background(NotebookTheme.accent.opacity(0.1), in: Circle())
           VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 5) {
               Text(session.conversation.nextCharacter.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-              Image(systemName: session.conversation.rotatesCharacters == true ? "arrow.triangle.2.circlepath" : "chevron.down").font(.caption2)
+              Image(systemName: session.conversation.rotatesCharacters == true ? "arrow.triangle.2.circlepath" : "chevron.down")
+                .font(.system(size: 11))
             }
-            Text(session.conversation.nextCharacter.role).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            if !dynamicTypeSize.isAccessibilitySize {
+              Text(session.conversation.nextCharacter.role).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
           }
         }.frame(minHeight: 44).contentShape(Rectangle())
       }.buttonStyle(.plain).accessibilityLabel("Characters").accessibilityIdentifier("chat-characters")
+        .accessibilityValue("\(session.conversation.nextCharacter.name), \(session.conversation.nextCharacter.role)")
       Spacer(minLength: 0)
       Button { sheet = .models } label: {
         HStack(spacing: 5) {
-          Image(systemName: "sparkles")
-          Text(modelTitle).lineLimit(1).truncationMode(.middle)
+          Image(systemName: "sparkles").font(.system(size: 14))
+          if !dynamicTypeSize.isAccessibilitySize { Text(modelTitle).lineLimit(1).truncationMode(.middle) }
         }.font(.caption).padding(.horizontal, 10).frame(minHeight: 34)
           .background(NotebookTheme.card, in: Capsule())
           .frame(minHeight: 44).contentShape(Rectangle())
-      }.buttonStyle(.plain).frame(maxWidth: 145).accessibilityLabel("AI models")
+      }.buttonStyle(.plain).frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : 145).accessibilityLabel("AI models")
+        .accessibilityValue(modelTitle)
         .accessibilityIdentifier("chat-ai-settings").disabled(session.sending)
     }.padding(.horizontal, 16).padding(.top, 4)
       .disabled(!session.ready || session.sending || session.switching)
@@ -184,7 +190,7 @@ private struct ChatTranscript: View {
       ScrollViewReader { proxy in
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 14) {
-            if session.conversation.messages.isEmpty && session.ready { greeting }
+            if session.conversation.messages.isEmpty && session.ready { greeting.id("chat-start") }
             ForEach(session.conversation.messages) { message in ChatMessageRow(message: message).id(message.id) }
             if let error = session.error {
               VStack(alignment: .leading, spacing: 4) {
@@ -212,9 +218,13 @@ private struct ChatTranscript: View {
           if !dragging, value < geometry.size.height + 60 { followsLatest = true }
         }
         .onChange(of: session.update) { _ in
-          if followsLatest { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+          if followsLatest, !session.conversation.messages.isEmpty { proxy.scrollTo("chat-bottom", anchor: .bottom) }
         }
-        .onChange(of: session.conversation.id) { _ in followsLatest = true; proxy.scrollTo("chat-bottom", anchor: .bottom) }
+        .onChange(of: session.conversation.id) { _ in
+          followsLatest = true
+          proxy.scrollTo(session.conversation.messages.isEmpty ? "chat-start" : "chat-bottom",
+            anchor: session.conversation.messages.isEmpty ? .top : .bottom)
+        }
         .overlay(alignment: .bottomTrailing) {
           if !followsLatest {
             Button { followsLatest = true; proxy.scrollTo("chat-bottom", anchor: .bottom) } label: {
