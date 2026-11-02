@@ -190,9 +190,16 @@ import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 summary = json.loads((root / 'signed-summary.log').read_text())
 assert summary['result'] == 'Passed' and summary['failedTests'] == 0 and summary['skippedTests'] == 0, 'Every native UI test must execute and pass'
-assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= 41, 'The complete current UI suite did not execute'
+assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= 46, 'The complete current UI suite did not execute'
+records = json.loads((root / 'signed-attachments/manifest.json').read_text())
+names = [attachment.get('suggestedHumanReadableName', '') for record in records
+         for attachment in record.get('attachments', [])]
+required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
+                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size']
+assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
 receipt = {'passed': True, 'source': json.loads((root / 'provenance.json').read_text()),
-           'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary}
+           'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary,
+           'requiredChatAttachments': required_chat}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the denied-Keychain recovery branch and the complete signed native UI suite."
