@@ -349,6 +349,8 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
     app.buttons["open-sidebar"].tap()
     app.buttons["sidebar-settings"].tap()
+    XCTAssertTrue(app.buttons["settings-ai-models"].waitForExistence(timeout: 5))
+    app.buttons["settings-ai-models"].tap()
   }
 
   private enum AIInspectionError: Error { case unavailable }

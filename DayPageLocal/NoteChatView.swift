@@ -1,312 +1,283 @@
 import DayPageCore
 import SwiftUI
-
-@MainActor
-private final class ChatSession: ObservableObject {
-  @Published var conversation = Conversation()
-  @Published var draft = ""
-  @Published var sending = false
-  @Published var ready = false
-  @Published var error: String?
-  private var revision: UInt64 = 0
-  private var task: Task<Void, Never>?
-  private var store: ConversationStore?
-  private var lease: UUID?
-
-  func load(notebook: NotebookModel, selectedIDs: Set<String>?) async {
-    guard !ready else { return }
-    let scope = selectedIDs.map { $0.sorted().joined(separator: "\n") } ?? "all-notes"
-    store = notebook.conversations
-    do {
-      let session = try await notebook.conversations.beginSession(scope: scope)
-      conversation = session.conversation
-      lease = session.lease
-      revision = 0
-    } catch {
-      self.error = String(
-        localized: "The previous conversation could not be read. Its file is still on this device.")
-      return
-    }
-    draft = conversation.draft
-    ready = true
-  }
-
-  func persistDraft() {
-    guard ready, !sending, let store else { return }
-    conversation.draft = draft
-    revision += 1
-    let snapshot = conversation
-    let version = revision
-    let lease = lease
-    Task {
-      do { try await store.save(snapshot, revision: version, lease: lease) } catch {
-        self.error = String(
-          localized: "Your draft could not be saved. Keep this screen open and try again.")
-      }
-    }
-  }
-
-  func send(notebook: NotebookModel, context: NoteContext) {
-    guard ready, !sending, !context.entries.isEmpty else { return }
-    let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !question.isEmpty, question.count <= 4000 else { return }
-    let config = notebook.configuration
-    do {
-      let origin = try config.origin
-      _ = try config.endpoint
-      let key = config.usesAPIKey ? try KeychainSecretStore.read(origin: origin) : ""
-      sending = true
-      error = nil
-      if conversation.messages.last?.role != .user
-        || conversation.messages.last?.content != question
-      {
-        conversation.messages.append(.init(role: .user, content: question))
-      }
-      conversation.draft = question
-      revision += 1
-      let initial = conversation
-      let initialVersion = revision
-      let lease = lease
-      task = Task {
-        defer { sending = false }
-        do {
-          try await notebook.conversations.save(initial, revision: initialVersion, lease: lease)
-          let answer = try await AIClient().complete(
-            configuration: config, apiKey: key, messages: initial.messages, context: context)
-          try Task.checkCancellation()
-          conversation.messages.append(.init(role: .assistant, content: answer))
-          conversation.draft = ""
-          draft = ""
-          revision += 1
-          try await notebook.conversations.save(conversation, revision: revision, lease: lease)
-        } catch {
-          if Task.isCancelled {
-            self.error = String(localized: "Request cancelled. Your question has been kept.")
-          } else if let error = error as? AIError {
-            self.error = NSLocalizedString(error.localizedDescription, comment: "AI error")
-          } else {
-            self.error = String(
-              localized:
-                "Could not get a reply. Your question is saved on this device; check the connection and try again."
-            )
-          }
-        }
-      }
-    } catch {
-      if let keyError = error as? KeychainSecretStore.Failure {
-        self.error = NSLocalizedString(keyError.localizedDescription, comment: "Keychain error")
-      } else {
-        self.error = String(localized: "Check your AI connection in Settings before sending.")
-      }
-    }
-  }
-  func cancel() { task?.cancel() }
-}
+import SwiftStreamingMarkdown
 
 struct NoteChatView: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.scenePhase) private var scenePhase
   let selectedIDs: Set<String>?
   @StateObject private var session = ChatSession()
-  @State private var settingsOpen = false
+  @State private var sheet: ChatSheet?
+  private enum ChatSheet: String, Identifiable {
+    case models, characters, history
+    var id: String { rawValue }
+  }
   private var context: NoteContext {
-    .build(entries: notebook.entries, question: session.draft, selectedIDs: selectedIDs)
+    let scope = session.conversation.scope
+    let ids: Set<String>? = scope == "all-notes" ? nil : Set(scope.components(separatedBy: "\n"))
+    return .build(entries: session.conversation.includesNotes == false ? [] : notebook.entries,
+      question: session.draft, selectedIDs: ids)
   }
   private var configured: Bool {
-    let configuration = notebook.configuration
-    return (try? configuration.endpoint) != nil
-      && (!AIProvider.matching(configuration: configuration).requiresAPIKey || configuration.usesAPIKey)
+    let config = notebook.configuration
+    return (try? config.endpoint) != nil
+      && (!AIProvider.matching(configuration: config).requiresAPIKey || config.usesAPIKey)
   }
-  private var aiTitle: String {
-    let configuration = notebook.configuration
-    let name = NSLocalizedString(AIProvider.matching(configuration: configuration).name, comment: "AI provider")
-    if configuration.model == AIModelCatalog.automaticModel {
-      return name + " · " + String(localized: "Automatic · latest")
-    }
-    return configuration.model
+  private var modelTitle: String {
+    let config = notebook.configuration
+    return config.model == AIModelCatalog.automaticModel
+      ? NSLocalizedString(AIProvider.matching(configuration: config).name, comment: "AI provider")
+      : config.model
   }
-
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
+        characterHeader
         contextHeader
-        Divider()
-        messagesView
-        composer
-        if session.draft.count > 4000 {
-          Text("Keep the question under 4,000 characters.").font(.caption).foregroundStyle(
-            .secondary
-          ).padding(.bottom, 8)
-        }
+        Divider().overlay(NotebookTheme.line)
+        ChatTranscript(session: session, hasNotes: !context.entries.isEmpty) {
+          session.send(notebook: notebook, context: context, retry: true)
+        } reload: { await session.load(notebook: notebook, selectedIDs: selectedIDs) }
       }
+      .safeAreaInset(edge: .bottom, spacing: 0) { composer }
       .notebookSurface()
-      .navigationTitle(selectedIDs == nil ? "Chat with notes" : selectedIDs?.count == 1 ? "Chat about this note" : "Chat with selection")
-      .navigationBarTitleDisplayMode(.inline)
+      .navigationTitle("Conversation").navigationBarTitleDisplayMode(.inline)
       .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Close") {
-            session.cancel()
-            dismiss()
-          }
+        ToolbarItem(placement: .cancellationAction) { Button("Close") { session.leave(); dismiss() } }
+        ToolbarItemGroup(placement: .primaryAction) {
+          Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 36, minHeight: 44) }
+            .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
+          Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 36, minHeight: 44) }
+            .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
         }
       }
+      .disabled(!session.ready && session.error == nil)
     }
     .task { await session.load(notebook: notebook, selectedIDs: selectedIDs) }
     .onChange(of: session.draft) { _ in session.persistDraft() }
-    .onDisappear { session.cancel() }
-    .sheet(isPresented: $settingsOpen) {
+    .onChange(of: scenePhase) { phase in if phase != .active { session.leave() } }
+    .onDisappear { session.leave() }
+    .sheet(item: $sheet) { destination in
       NavigationStack {
-        SettingsView().navigationTitle("Settings").toolbar {
-          ToolbarItem(placement: .confirmationAction) { Button("Done") { settingsOpen = false } }
+        Group {
+          switch destination {
+          case .models: AIModelsView()
+          case .characters: ChatCharactersView(session: session)
+          case .history: ChatHistoryView(session: session, store: notebook.conversations)
+          }
         }
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
       }
+      .presentationDetents([.large])
     }
   }
-
+  private var characterHeader: some View {
+    HStack(spacing: 8) {
+      Button { sheet = .characters } label: {
+        HStack(spacing: 10) {
+          Text(String(session.conversation.nextCharacter.name.prefix(1)))
+            .font(.system(.headline, design: .rounded)).foregroundStyle(NotebookTheme.accent)
+            .frame(width: 34, height: 34).background(NotebookTheme.accent.opacity(0.1), in: Circle())
+          VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+              Text(session.conversation.nextCharacter.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+              Image(systemName: session.conversation.rotatesCharacters == true ? "arrow.triangle.2.circlepath" : "chevron.down").font(.caption2)
+            }
+            Text(session.conversation.nextCharacter.role).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+          }
+        }.frame(minHeight: 44).contentShape(Rectangle())
+      }.buttonStyle(.plain).accessibilityLabel("Characters").accessibilityIdentifier("chat-characters")
+      Spacer(minLength: 0)
+      Button { sheet = .models } label: {
+        HStack(spacing: 5) {
+          Image(systemName: "sparkles")
+          Text(modelTitle).lineLimit(1).truncationMode(.middle)
+        }.font(.caption).padding(.horizontal, 10).frame(minHeight: 44)
+          .background(NotebookTheme.card, in: Capsule())
+      }.buttonStyle(.plain).frame(maxWidth: 145).accessibilityLabel("AI models")
+        .accessibilityIdentifier("chat-ai-settings").disabled(session.sending)
+    }.padding(.horizontal, 16).padding(.top, 4)
+      .disabled(!session.ready || session.sending)
+  }
   private var contextHeader: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      if configured {
-        HStack(spacing: 8) {
-          Label(aiTitle, systemImage: "sparkles")
-            .font(.caption.weight(.medium)).lineLimit(2)
-          Spacer()
-          Button { settingsOpen = true } label: {
-            Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
-          }.accessibilityLabel("AI connection").accessibilityIdentifier("chat-ai-settings")
-            .disabled(session.sending)
-        }
-        Text("Only the excerpts below and this conversation will be sent when you tap Send.")
-          .font(.caption).foregroundStyle(.secondary)
-        DisclosureGroup("\(context.entries.count) notes included") {
-          ScrollView {
-            Text(context.text).font(.caption).textSelection(.enabled).frame(
-              maxWidth: .infinity, alignment: .leading)
+    VStack(alignment: .leading, spacing: 0) {
+      DisclosureGroup {
+        VStack(alignment: .leading, spacing: 8) {
+          Toggle("Include note excerpts", isOn: Binding(get: { session.conversation.includesNotes != false },
+            set: { value in Task { await session.setIncludesNotes(value) } }))
+            .disabled(session.sending).font(.subheadline)
+          Text("Only these excerpts and this conversation are sent when you tap Send.")
+            .font(.caption).foregroundStyle(.secondary)
+          if !context.text.isEmpty {
+            ScrollView { Text(context.text).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+              .frame(maxHeight: 160)
           }
-          .frame(maxHeight: 220)
-        }
-        .font(.caption)
-        .accessibilityIdentifier("chat-context")
-      } else {
-        HStack(alignment: .top, spacing: 12) {
-          Image(systemName: "sparkles").foregroundStyle(NotebookTheme.accent).padding(.top, 4)
-          VStack(alignment: .leading, spacing: 8) {
-            Text("AI, when you need it.").font(NotebookTheme.reading(21))
-            Text("Connect your own AI to talk with your notes.").font(.subheadline)
-              .foregroundStyle(NotebookTheme.muted)
-            Text("Your question stays on this device until you send it.").font(.caption)
-              .foregroundStyle(NotebookTheme.muted)
-            Button("Set up AI in Settings") { settingsOpen = true }.frame(minHeight: 44)
-              .accessibilityIdentifier("chat-setup-ai")
-          }
-        }
+        }.padding(.bottom, 10)
+      } label: {
+        Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
+          .font(.caption).foregroundStyle(.secondary).frame(minHeight: 36)
+      }.accessibilityIdentifier("chat-context")
+      if !configured {
+        Button { sheet = .models } label: {
+          HStack {
+            Label("Connect your AI", systemImage: "sparkles").font(.subheadline)
+            Spacer()
+            Image(systemName: "arrow.up.right").font(.caption)
+          }.frame(minHeight: 44)
+        }.accessibilityIdentifier("chat-setup-ai")
       }
-      if context.entries.isEmpty {
-        Text(selectedIDs == nil ? LocalizedStringKey("Save a note first, then come back to explore it with AI.") : LocalizedStringKey("These notes are no longer available. Close chat and choose notes again."))
-          .font(.caption).foregroundStyle(NotebookTheme.muted)
+      if context.entries.isEmpty && session.conversation.includesNotes != false {
+        Text("No note excerpts. You can still start a conversation.")
+          .font(.caption).foregroundStyle(.secondary).padding(.bottom, 8)
           .accessibilityIdentifier("chat-empty-context")
       }
-    }
-    .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+    }.padding(.horizontal, 16)
   }
+  private var composer: some View {
+    VStack(spacing: 4) {
+      HStack(alignment: .bottom, spacing: 8) {
+        TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
+          .font(.body).lineLimit(1...6).padding(.leading, 14).padding(.vertical, 12)
+          .disabled(!session.ready || session.sending).accessibilityIdentifier("chat-question")
+        Button {
+          if session.sending { session.cancel() }
+          else { session.send(notebook: notebook, context: context) }
+        } label: {
+          Image(systemName: session.sending ? "stop.fill" : "arrow.up")
+            .font(.body.weight(.semibold)).foregroundStyle(.white)
+            .frame(width: 44, height: 44).background(NotebookTheme.accent, in: Circle())
+        }
+        .disabled(!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000))
+        .accessibilityLabel(session.sending ? "Cancel request" : "Send")
+        .accessibilityIdentifier(session.sending ? "cancel-chat" : "send-chat")
+        .padding(4)
+      }
+      .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 26))
+      .overlay(RoundedRectangle(cornerRadius: 26).stroke(NotebookTheme.line, lineWidth: 0.7))
+      if session.draft.count > 4000 {
+        Text("Keep the question under 4,000 characters.").font(.caption).foregroundStyle(.secondary)
+      }
+    }.padding(.horizontal, 12).padding(.vertical, 8).background(NotebookTheme.paper)
+  }
+}
 
-  private var messagesView: some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 24) {
-          if session.conversation.messages.isEmpty {
-            Text("What would you like to revisit?").font(NotebookTheme.reading(24)).foregroundStyle(
-              .secondary
-            ).padding(.top, 16)
-            if !context.entries.isEmpty && session.draft.isEmpty {
-              VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
-                  Button { session.draft = suggestion } label: {
-                    HStack(spacing: 10) {
-                      Text(suggestion).font(.subheadline).multilineTextAlignment(.leading)
-                      Spacer(minLength: 8)
-                      Image(systemName: "arrow.up.left").font(.caption)
-                    }
-                    .padding(14).frame(minHeight: 44)
-                    .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 12))
-                  }.buttonStyle(.plain).accessibilityIdentifier("chat-suggestion-\(index)")
-                }
+private struct ChatBottomPreference: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct ChatTranscript: View {
+  @ObservedObject var session: ChatSession
+  let hasNotes: Bool
+  let retry: () -> Void
+  let reload: () async -> Void
+  @State private var followsLatest = true
+  @State private var dragging = false
+  @State private var bottom: CGFloat = 0
+  var body: some View {
+    GeometryReader { geometry in
+      ScrollViewReader { proxy in
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 14) {
+            if session.conversation.messages.isEmpty && session.ready { greeting }
+            ForEach(session.conversation.messages) { message in ChatMessageRow(message: message).id(message.id) }
+            if let error = session.error {
+              VStack(alignment: .leading, spacing: 4) {
+                Text(error).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("chat-error")
+                Button("Try again") {
+                  if session.ready { retry() } else { Task { await reload() } }
+                }.font(.subheadline).frame(minHeight: 44)
+                  .disabled(session.sending).accessibilityIdentifier("chat-retry")
               }
             }
-          }
-          ForEach(session.conversation.messages) { message in
-            VStack(alignment: .leading, spacing: 8) {
-              Text(message.role == .user ? "You" : "Your AI").font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-              Text(message.content).font(NotebookTheme.reading(text: message.content)).lineSpacing(
-                6
-              ).textSelection(.enabled)
-            }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-              message.role == .user ? NotebookTheme.card : .clear,
-              in: RoundedRectangle(cornerRadius: 14)
-            )
-            .id(message.id)
-          }
-          if session.sending { ProgressView("Thinking…").accessibilityIdentifier("chat-thinking") }
-          if let error = session.error {
-            Text(error).font(.callout).foregroundStyle(.secondary).accessibilityIdentifier(
-              "chat-error")
-            if !session.ready {
-              Button("Try again") { Task { await session.load(notebook: notebook, selectedIDs: selectedIDs) } }
-                .frame(minHeight: 44)
-            }
-          }
-          Color.clear.frame(height: 1).id("chat-bottom")
+            if !session.ready && session.error == nil { ProgressView().padding(.top, 24) }
+            Color.clear.frame(height: 1).id("chat-bottom")
+              .background(GeometryReader { anchor in
+                Color.clear.preference(key: ChatBottomPreference.self, value: anchor.frame(in: .named("transcript")).maxY)
+              })
+          }.padding(.horizontal, 16).padding(.vertical, 14)
         }
-        .padding(20)
+        .coordinateSpace(name: "transcript").scrollDismissesKeyboard(.interactively)
+        .simultaneousGesture(DragGesture().onChanged { _ in dragging = true; followsLatest = false }
+          .onEnded { _ in dragging = false; followsLatest = bottom < geometry.size.height + 60 })
+        .onPreferenceChange(ChatBottomPreference.self) { value in
+          bottom = value
+          if !dragging, value < geometry.size.height + 60 { followsLatest = true }
+        }
+        .onChange(of: session.update) { _ in
+          if followsLatest { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+        }
+        .onChange(of: session.conversation.id) { _ in followsLatest = true; proxy.scrollTo("chat-bottom", anchor: .bottom) }
+        .overlay(alignment: .bottomTrailing) {
+          if !followsLatest {
+            Button { followsLatest = true; proxy.scrollTo("chat-bottom", anchor: .bottom) } label: {
+              Image(systemName: "arrow.down").frame(width: 44, height: 44).background(.regularMaterial, in: Circle())
+            }.accessibilityLabel("Latest messages").padding(12)
+          }
+        }
       }
-      .scrollDismissesKeyboard(.interactively)
-      .onChange(of: session.conversation.messages.count) { _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
-      .onChange(of: session.sending) { _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
     }
   }
-
+  private var greeting: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      Text("A little room to think.").font(NotebookTheme.reading(25))
+      Text("Start anywhere. Your conversations stay on this device.").font(.subheadline).foregroundStyle(.secondary)
+      ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+        Button { session.draft = suggestion } label: {
+          HStack(spacing: 8) {
+            Text(suggestion).font(.subheadline).multilineTextAlignment(.leading)
+            Spacer(minLength: 4)
+            Image(systemName: "arrow.up.left").font(.caption)
+          }.padding(.horizontal, 12).frame(minHeight: 44)
+            .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 12))
+        }.buttonStyle(.plain).accessibilityIdentifier("chat-suggestion-\(index)")
+      }
+    }.padding(.vertical, 16)
+  }
   private var suggestions: [String] {
-    selectedIDs == nil
-      ? [String(localized: "What has been on my mind lately?"),
-         String(localized: "Find a thought I might want to revisit.")]
-      : [String(localized: "Help me reflect on these notes."),
-         String(localized: "What ideas could I explore next?")]
+    hasNotes ? [String(localized: "What has been on my mind lately?"), String(localized: "Find a thought I might want to revisit.")]
+      : [String(localized: "Help me untangle an idea."), String(localized: "Let's think through today.")]
   }
+}
 
-  private var composer: some View {
-    HStack(alignment: .bottom, spacing: 12) {
-      TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
-        .lineLimit(1...5).padding(12)
-        .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 14))
-        .disabled(!session.ready || session.sending)
-        .accessibilityIdentifier("chat-question")
-      if session.sending {
-        Button {
-          session.cancel()
-        } label: {
-          Image(systemName: "stop.fill").frame(width: 44, height: 44)
+private struct ChatMessageRow: View {
+  let message: ChatMessage
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  var body: some View {
+    HStack(alignment: .top, spacing: 0) {
+      if message.role == .user { Spacer(minLength: 30) }
+      VStack(alignment: .leading, spacing: 7) {
+        if message.role == .assistant {
+          HStack(spacing: 6) {
+            Image(systemName: "sparkle").foregroundStyle(NotebookTheme.accent)
+            Text(message.character?.name ?? String(localized: "Your AI"))
+            if message.delivery == .streaming { ProgressView().controlSize(.mini).accessibilityIdentifier("chat-thinking") }
+          }.font(.caption.weight(.medium)).foregroundStyle(.secondary)
+          if let reasoning = message.reasoning, !reasoning.isEmpty {
+            DisclosureGroup("Thinking") {
+              Text(reasoning).font(.footnote).foregroundStyle(.secondary).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }.font(.caption).accessibilityIdentifier("chat-reasoning")
+          }
+          if !message.content.isEmpty {
+            MarkdownView(text: message.content, config: .default.withBlockSpacing(value: 10)
+              .withShouldAnimateText(value: message.delivery == .streaming && !reduceMotion))
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .environment(\.openURL, OpenURLAction { url in
+                ["https", "http", "mailto"].contains(url.scheme?.lowercased() ?? "") ? .systemAction : .discarded
+              })
+          }
+          if message.delivery == .interrupted {
+            Label("Interrupted · saved", systemImage: "pause.circle").font(.caption).foregroundStyle(.secondary)
+          }
+        } else {
+          Text(message.content).font(.body).lineSpacing(3).textSelection(.enabled)
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 18))
         }
-        .accessibilityLabel("Cancel request")
-        .accessibilityIdentifier("cancel-chat")
-      } else {
-        Button {
-          session.send(notebook: notebook, context: context)
-        } label: {
-          Image(systemName: "arrow.up").frame(width: 44, height: 44)
-        }
-        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
-        .disabled(
-          !configured || !session.ready || context.entries.isEmpty
-            || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || session.draft.count > 4000
-        )
-        .accessibilityLabel("Send")
-        .accessibilityIdentifier("send-chat")
       }
-    }
-    .padding(16)
+      if message.role == .assistant { Spacer(minLength: 4) }
+    }.accessibilityIdentifier("chat-message-\(message.id)")
   }
 }
