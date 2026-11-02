@@ -44,6 +44,10 @@ The unentitled build is also useful as an explicit negative test: opening AI set
 
 When the managed local device is occupied, the existing Local iOS notebook workflow has an optional `native_ui` manual input. It runs the same unsigned recovery and fully signed UI matrix on an isolated macOS runner using `scripts/qa/run_local_native_ci.sh`, a runner-owned loopback fixture and synthetic QA data. It is disabled for ordinary PR/push runs. Receipts and XCTest evidence are retained for seven days; build products, real credentials and distribution steps are excluded. Run it explicitly with `gh workflow run ios-local.yml --ref <branch> -f native_ui=true` and check the exact-source receipt before accepting the result.
 
+## Code merges without a TestFlight release
+
+When a task authorizes merging code but not publishing a binary, include `[skip testflight]` in the merge commit message. The release workflow checks this marker before starting either its candidate-CI job or its upload job; ordinary CI still runs. Read back that both publication jobs were skipped for the exact merge commit. Manual TestFlight dispatch remains a separate explicitly authorized action.
+
 ## Verification recorded for GET-326
 
 - Complete DayPageCore suite: 29 tests passed, including legacy separators, unknown YAML preservation, 80 concurrent appends from two stores, invalid import isolation, nested export/import recovery, chat editor leases, Chinese retrieval, endpoint boundaries and request shape.
