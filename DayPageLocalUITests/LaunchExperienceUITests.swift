@@ -283,7 +283,7 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(status.label.contains("404"))
     XCTAssertTrue(app.buttons["ai-choice-fixture-model"].exists)
     capture("ai-discovery-failure")
-    app.buttons["Done"].tap()
+    app.navigationBars["Choose a model"].buttons["Done"].tap()
     XCTAssertEqual(app.textFields["ai-base-url"].value as? String, "http://127.0.0.1:18763/unavailable/v1")
     XCTAssertTrue(app.buttons["ai-model-picker"].label.contains("fixture-model"))
   }

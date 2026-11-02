@@ -9,6 +9,7 @@ struct NoteChatView: View {
   let selectedIDs: Set<String>?
   @StateObject private var session = ChatSession()
   @State private var sheet: ChatSheet?
+  @FocusState private var questionFocused: Bool
   private enum ChatSheet: String, Identifiable {
     case models, characters, history
     var id: String { rawValue }
@@ -95,8 +96,9 @@ struct NoteChatView: View {
         HStack(spacing: 5) {
           Image(systemName: "sparkles")
           Text(modelTitle).lineLimit(1).truncationMode(.middle)
-        }.font(.caption).padding(.horizontal, 10).frame(minHeight: 44)
+        }.font(.caption).padding(.horizontal, 10).frame(minHeight: 34)
           .background(NotebookTheme.card, in: Capsule())
+          .frame(minHeight: 44).contentShape(Rectangle())
       }.buttonStyle(.plain).frame(maxWidth: 145).accessibilityLabel("AI models")
         .accessibilityIdentifier("chat-ai-settings").disabled(session.sending)
     }.padding(.horizontal, 16).padding(.top, 4)
@@ -140,11 +142,12 @@ struct NoteChatView: View {
     VStack(spacing: 4) {
       HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
+          .focused($questionFocused)
           .font(.body).lineLimit(1...6).padding(.leading, 14).padding(.vertical, 12)
           .disabled(!session.ready || session.sending || session.switching).accessibilityIdentifier("chat-question")
         Button {
           if session.sending { session.cancel() }
-          else { session.send(notebook: notebook, context: context) }
+          else { questionFocused = false; session.send(notebook: notebook, context: context) }
         } label: {
           Image(systemName: session.sending ? "stop.fill" : "arrow.up")
             .font(.body.weight(.semibold)).foregroundStyle(.white)
@@ -201,6 +204,7 @@ private struct ChatTranscript: View {
           }.padding(.horizontal, 16).padding(.vertical, 14)
         }
         .coordinateSpace(name: "transcript").scrollDismissesKeyboard(.interactively)
+        .accessibilityIdentifier("chat-transcript")
         .simultaneousGesture(DragGesture().onChanged { _ in dragging = true; followsLatest = false }
           .onEnded { _ in dragging = false; followsLatest = bottom < geometry.size.height + 60 })
         .onPreferenceChange(ChatBottomPreference.self) { value in
@@ -257,9 +261,11 @@ private struct ChatMessageRow: View {
             if message.delivery == .streaming { ProgressView().controlSize(.mini).accessibilityIdentifier("chat-thinking") }
           }.font(.caption.weight(.medium)).foregroundStyle(.secondary)
           if let reasoning = message.reasoning, !reasoning.isEmpty {
-            DisclosureGroup("Thinking") {
+            DisclosureGroup {
               Text(reasoning).font(.footnote).foregroundStyle(.secondary).textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } label: {
+              Text("Thinking").frame(minHeight: 44, alignment: .leading)
             }.font(.caption).accessibilityIdentifier("chat-reasoning")
           }
           if !message.content.isEmpty {

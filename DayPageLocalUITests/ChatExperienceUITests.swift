@@ -56,7 +56,10 @@ final class ChatExperienceUITests: XCTestCase {
     soul.tap(); soul.typeText("Be candid, kind and concrete.")
     app.buttons["character-save"].tap()
     let rotation = app.switches["chat-rotate"]
-    XCTAssertTrue(rotation.waitForExistence(timeout: 5)); rotation.tap()
+    XCTAssertTrue(rotation.waitForExistence(timeout: 5))
+    // The native AX switch includes its label; its center is outside the thumb.
+    rotation.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+    XCTAssertEqual(rotation.value as? String, "1")
     let moss = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'chat-character-' AND label CONTAINS 'Moss'")).firstMatch
     XCTAssertTrue(moss.waitForExistence(timeout: 5)); moss.tap()
     capture("chat-character-library")
@@ -81,8 +84,16 @@ final class ChatExperienceUITests: XCTestCase {
     XCTAssertTrue(text("Fixture reply").waitForExistence(timeout: 15))
     XCTAssertTrue(text("A small reflection").waitForExistence(timeout: 10))
     XCTAssertTrue(app.buttons["send-chat"].waitForExistence(timeout: 10))
-    let reasoning = app.descendants(matching: .any).matching(identifier: "chat-reasoning").firstMatch
-    XCTAssertTrue(reasoning.exists)
+    let transcript = app.scrollViews["chat-transcript"]
+    let reasoning = app.buttons.matching(NSPredicate(format: "identifier == 'chat-reasoning' OR label == 'Thinking'")).firstMatch
+    for _ in 0..<4 {
+      if reasoning.exists && reasoning.isHittable { break }
+      transcript.swipeDown()
+    }
+    XCTAssertTrue(reasoning.waitForExistence(timeout: 5))
+    XCTAssertGreaterThanOrEqual(reasoning.frame.height, 44)
+    reasoning.tap()
+    XCTAssertTrue(text("I will use only the supplied excerpts.").waitForExistence(timeout: 5))
     capture("chat-streamed-markdown")
     app.buttons["chat-new"].tap(); app.buttons["chat-history"].tap()
     let older = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'chat-history-' AND label CONTAINS 'Reflect on my notes'")).firstMatch
