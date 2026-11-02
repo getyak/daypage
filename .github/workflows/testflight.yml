@@ -258,6 +258,12 @@ jobs:
       - name: Verify local-only app boundary
         run: python3 scripts/tests/test_local_ios_contract.py
 
+      - name: Enable the pinned chat renderer macro
+        # Retain Xcode macro validation; trust only the reviewed dependency on this ephemeral runner.
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
+
       # ── 8. Setup match SSH key ────────────────────────────────────────────
       # match 通过 SSH 访问 getyak/daypage-certs 私有 repo 拉取加密的证书和 profile。
       # MATCH_DEPLOY_KEY 是专用 Deploy Key 的私钥（公钥已挂在 daypage-certs repo）。
