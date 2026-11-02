@@ -46,9 +46,9 @@ struct NoteChatView: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("Close") { session.leave(); dismiss() } }
         ToolbarItemGroup(placement: .primaryAction) {
-          Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 36, minHeight: 44) }
+          Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
-          Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 36, minHeight: 44) }
+          Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
             .disabled(session.sending)
         }
@@ -117,7 +117,7 @@ struct NoteChatView: View {
         }.padding(.bottom, 10)
       } label: {
         Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
-          .font(.caption).foregroundStyle(.secondary).frame(minHeight: 36)
+          .font(.caption).foregroundStyle(.secondary).frame(minHeight: 44)
       }.accessibilityIdentifier("chat-context")
       if !configured {
         Button { sheet = .models } label: {
