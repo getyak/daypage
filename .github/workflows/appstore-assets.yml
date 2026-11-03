@@ -20,6 +20,10 @@ jobs:
   screenshots:
     runs-on: macos-26
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        device_kind: [iphone, ipad]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Trust the pinned renderer macro
@@ -48,30 +52,37 @@ jobs:
           (root / 'source-sha.txt').write_text(subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True))
           PY
       - name: Capture genuine native screenshots with synthetic notes
+        env:
+          DEVICE_KIND: ${{ matrix.device_kind }}
         run: |
-          for device_kind in iphone ipad; do
+            device_kind="$DEVICE_KIND"
             device_id=$(python3 -c 'import json,os,sys; print(json.load(open(os.environ["RUNNER_TEMP"]+"/appstore-assets/targets.json"))[sys.argv[1]]["udid"])' "$device_kind")
             xcrun simctl bootstatus "$device_id" -b
             xcrun simctl status_bar "$device_id" override --time '9:41' --batteryState charged --batteryLevel 100
+            test_status=0
             xcodebuild test -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPage \
               -configuration Debug -destination "platform=iOS Simulator,id=$device_id" \
               -derivedDataPath "$RUNNER_TEMP/appstore-derived" -jobs 2 \
               -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
               -only-testing:DayPageLocalUITests/LocalNotebookUITests/testAppStoreScreenshotsUseTheLocalNotebookAndExposeItsPrivacyPolicy \
               -resultBundlePath "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" \
-              > "$RUNNER_TEMP/appstore-assets/$device_kind.log" 2>&1
+              > "$RUNNER_TEMP/appstore-assets/$device_kind.log" 2>&1 || test_status=$?
+            export_status=0
             xcrun xcresulttool export attachments \
               --path "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" \
-              --output-path "$RUNNER_TEMP/appstore-assets/$device_kind"
+              --output-path "$RUNNER_TEMP/appstore-assets/$device_kind" || export_status=$?
+            summary_status=0
             xcrun xcresulttool get test-results summary \
               --path "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" --compact \
-              > "$RUNNER_TEMP/appstore-assets/$device_kind-summary.json"
-          done
+              > "$RUNNER_TEMP/appstore-assets/$device_kind-summary.json" || summary_status=$?
+            if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+            if [ "$export_status" -ne 0 ]; then exit "$export_status"; fi
+            exit "$summary_status"
       - name: Preserve screenshots and provenance
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: appstore-assets-${{ github.sha }}
+          name: appstore-assets-${{ github.sha }}-${{ matrix.device_kind }}
           path: |
             ${{ runner.temp }}/appstore-assets/*.json
             ${{ runner.temp }}/appstore-assets/*.txt
