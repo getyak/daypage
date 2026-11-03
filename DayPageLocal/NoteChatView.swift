@@ -10,6 +10,7 @@ struct NoteChatView: View {
   let selectedIDs: Set<String>?
   @StateObject private var session = ChatSession()
   @State private var sheet: ChatSheet?
+  @State private var showsContext = false
   @FocusState private var questionFocused: Bool
   private enum ChatSheet: String, Identifiable {
     case models, characters, history
@@ -112,7 +113,21 @@ struct NoteChatView: View {
   }
   private var contextHeader: some View {
     VStack(alignment: .leading, spacing: 0) {
-      DisclosureGroup {
+      Button { showsContext.toggle() } label: {
+        HStack {
+          if session.conversation.usesTools == true && session.conversation.includesNotes != false {
+            Label("\(ConversationNoteScope.entries(notebook.entries, conversation: session.conversation).count) notes available to tools", systemImage: "text.magnifyingglass")
+          } else {
+            Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
+          }
+          Spacer()
+          Image(systemName: showsContext ? "chevron.up" : "chevron.down")
+            .accessibilityHidden(true)
+        }.font(.caption).foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+      }.buttonStyle(.plain).accessibilityIdentifier("chat-context")
+        .accessibilityValue(showsContext ? Text("Expanded") : Text("Collapsed"))
+      if showsContext {
         VStack(alignment: .leading, spacing: 8) {
           Toggle("Include note excerpts", isOn: Binding(get: { session.conversation.includesNotes != false },
             set: { value in Task { await session.setIncludesNotes(value) } }))
@@ -130,15 +145,7 @@ struct NoteChatView: View {
               .frame(maxHeight: 160)
           }
         }.padding(.bottom, 10)
-      } label: {
-        Group {
-          if session.conversation.usesTools == true && session.conversation.includesNotes != false {
-            Label("\(ConversationNoteScope.entries(notebook.entries, conversation: session.conversation).count) notes available to tools", systemImage: "text.magnifyingglass")
-          } else {
-            Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
-          }
-        }.font(.caption).foregroundStyle(.secondary).frame(minHeight: 44)
-      }.accessibilityIdentifier("chat-context")
+      }
       if !configured {
         Button { sheet = .models } label: {
           HStack {
@@ -281,6 +288,7 @@ private struct ChatMessageRow: View {
   @State private var saved = false
   @State private var saveError: String?
   @State private var sourceEntry: NotebookEntry?
+  @State private var showsSources = false
   var body: some View {
     HStack(alignment: .top, spacing: 0) {
       if message.role == .user { Spacer(minLength: 30) }
@@ -311,7 +319,16 @@ private struct ChatMessageRow: View {
             Label("Interrupted · saved", systemImage: "pause.circle").font(.caption).foregroundStyle(.secondary)
           }
           if let sources = message.sources, !sources.isEmpty {
-            DisclosureGroup("Sources") {
+            Button { showsSources.toggle() } label: {
+              HStack {
+                Label("Sources", systemImage: "text.book.closed")
+                Spacer()
+                Image(systemName: showsSources ? "chevron.up" : "chevron.down")
+                  .accessibilityHidden(true)
+              }.frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain).font(.caption).accessibilityIdentifier("chat-sources")
+              .accessibilityValue(showsSources ? Text("Expanded") : Text("Collapsed"))
+            if showsSources {
               ForEach(sources) { source in
                 Button {
                   if let entry = notebook.entries.first(where: { $0.id == source.cardRef }) { sourceEntry = entry }
@@ -323,7 +340,7 @@ private struct ChatMessageRow: View {
                   }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }.buttonStyle(.plain).accessibilityIdentifier("chat-source-" + source.cardRef)
               }
-            }.font(.caption).accessibilityIdentifier("chat-sources")
+            }
           }
           if message.delivery == .complete, !message.content.isEmpty {
             HStack(alignment: .top, spacing: 16) {

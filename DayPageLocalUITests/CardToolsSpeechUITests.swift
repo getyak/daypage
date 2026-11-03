@@ -42,17 +42,46 @@ final class CardToolsSpeechUITests: XCTestCase {
   }
 
   private var form: XCUIElement {
-    if app.collectionViews.firstMatch.exists { return app.collectionViews.firstMatch }
-    if app.tables.firstMatch.exists { return app.tables.firstMatch }
-    return app.scrollViews.firstMatch
+    // The notebook's today-timeline remains in AX below the modal sheet. A
+    // global firstMatch selects that hidden list rather than the speech Form.
+    let speech = element("speech-settings-form")
+    if speech.exists { return speech }
+    return element("today-timeline")
+  }
+
+  private func captureLookupFailure(_ target: XCUIElement, scroller: XCUIElement) {
+    let targetExists = target.exists
+    let scrollExists = scroller.exists
+    let targetID = targetExists ? target.identifier : "unresolved-target"
+    let scrollID = scrollExists ? scroller.identifier : "unresolved-scroller"
+    let targetFrame = targetExists ? target.frame.debugDescription : "absent"
+    let scrollFrame = scrollExists ? scroller.frame.debugDescription : "absent"
+    capture("lookup-failed-" + targetID)
+    let hierarchy = XCTAttachment(string: app.debugDescription
+      .replacingOccurrences(of: "fixture-speech-key", with: "<synthetic credential redacted>"))
+    hierarchy.name = "lookup-failed-accessibility-tree"
+    hierarchy.lifetime = .keepAlways
+    add(hierarchy)
+    let frames = XCTAttachment(string:
+      "target=\(targetID) exists=\(targetExists) frame=\(targetFrame)\n"
+        + "scroller=\(scrollID) exists=\(scrollExists) frame=\(scrollFrame)")
+    frames.name = "lookup-failed-target-and-scroller"
+    frames.lifetime = .keepAlways
+    add(frames)
   }
 
   private func reveal(_ target: XCUIElement, in scroller: XCUIElement? = nil, down: Bool = false) {
     let scroll = scroller ?? form
+    guard scroll.exists else {
+      captureLookupFailure(target, scroller: scroll)
+      XCTFail("The owning scroll container must exist before revealing \(target.identifier)")
+      return
+    }
     for _ in 0..<8 {
       if target.exists && target.isHittable { return }
       if down { scroll.swipeDown() } else { scroll.swipeUp() }
     }
+    captureLookupFailure(target, scroller: scroll)
     XCTAssertTrue(target.exists, "Expected control: \(target.identifier)")
     XCTAssertTrue(target.isHittable, "Control must be reachable: \(target.identifier)")
   }
@@ -69,8 +98,11 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
       XCTAssertTrue(control.isHittable)
-      XCTAssertGreaterThanOrEqual(control.frame.height, 44)
-      // Native switches include their labels; target the thumb inside the current frame.
+      // UIKit exposes the native switch's 28pt intrinsic AX footprint even when
+      // SwiftUI gives its row a 44pt activation area. Keep geometry assertions
+      // distinct from the 44pt custom buttons and verify the semantic change.
+      XCTAssertGreaterThanOrEqual(control.frame.width, 44)
+      XCTAssertGreaterThanOrEqual(control.frame.height, 28)
       control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
     }
     let updated = XCTNSPredicateExpectation(
@@ -85,7 +117,7 @@ final class CardToolsSpeechUITests: XCTestCase {
   }
 
   private func openContext() {
-    if !app.switches["chat-note-tools"].exists { element("chat-context").tap() }
+    if !app.switches["chat-note-tools"].exists { tap44(app.buttons["chat-context"]) }
     XCTAssertTrue(app.switches["chat-note-tools"].waitForExistence(timeout: 5))
   }
 
@@ -123,14 +155,14 @@ final class CardToolsSpeechUITests: XCTestCase {
     openContext()
     XCTAssertEqual(app.switches["chat-note-tools"].value as? String, "0")
     setSwitch("chat-note-tools", on: true)
-    element("chat-context").tap()
+    tap44(app.buttons["chat-context"])
     send("Find my notebook thought using card tools")
     XCTAssertTrue(text("Tool reply: " + notebookOpening).waitForExistence(timeout: 15))
     XCTAssertTrue(app.buttons["send-chat"].waitForExistence(timeout: 10))
 
     let transcript = app.scrollViews["chat-transcript"]
-    reveal(element("chat-sources"), in: transcript)
-    element("chat-sources").tap()
+    reveal(app.buttons["chat-sources"], in: transcript)
+    tap44(app.buttons["chat-sources"])
     let source = button(prefix: "chat-source-")
     reveal(source, in: transcript)
     let sourceID = source.identifier
@@ -184,9 +216,9 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(text("Tool reply: " + notebookOpening).waitForExistence(timeout: 5))
     openContext()
     XCTAssertEqual(app.switches["chat-note-tools"].value as? String, "1")
-    element("chat-context").tap()
-    reveal(element("chat-sources"), in: transcript)
-    if !app.buttons[sourceID].exists { element("chat-sources").tap() }
+    tap44(app.buttons["chat-context"])
+    reveal(app.buttons["chat-sources"], in: transcript)
+    if !app.buttons[sourceID].exists { tap44(app.buttons["chat-sources"]) }
     XCTAssertTrue(app.buttons[sourceID].waitForExistence(timeout: 5), "The saved source identity survives reopening")
   }
 
@@ -198,7 +230,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     setSwitch("chat-include-notes", on: false)
     XCTAssertEqual(app.switches["chat-note-tools"].value as? String, "0")
     XCTAssertFalse(app.switches["chat-note-tools"].isEnabled)
-    element("chat-context").tap()
+    tap44(app.buttons["chat-context"])
     send("Talk without reading any note excerpts")
     XCTAssertTrue(text("Fixture reply:").waitForExistence(timeout: 15))
     XCTAssertTrue(app.buttons["send-chat"].waitForExistence(timeout: 10))

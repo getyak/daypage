@@ -8,4 +8,3 @@
 6. Link PR to GET-369 and GitHub #961, verify exact-head CI. Avoid unintended binary publication when landing: establish existing server-side release opt-out behavior before merge; otherwise keep reviewable PR ready and record the precise release boundary.
 
 Review focus: disabled note access cannot call tools; namespace duplicates; channel endpoint edits never reuse keys; saved draft survives TTS/Agent errors; cancelled or truncated calls cannot execute; invalid audio is never accepted as preview success.
-

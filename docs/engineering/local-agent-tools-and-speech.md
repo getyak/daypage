@@ -47,4 +47,3 @@ gh workflow run ios-local.yml --ref codex/get-369-card-tools-speech -f native_ui
 This selects all new card-tools/speech journeys and existing ChatExperienceUITests, plus the negative-Keychain test; native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
 
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.
-

@@ -28,4 +28,3 @@ Tests cover the protocol, scope, identities, persisted channels, credential acco
 - https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls
 - https://elevenlabs.io/docs/api-reference/text-to-speech/convert
 - https://developer.apple.com/documentation/vision/vnrecognizetextrequest
-

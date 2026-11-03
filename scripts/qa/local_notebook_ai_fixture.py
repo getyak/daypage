@@ -125,7 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         assert source["card_ref"] and source["day"]
         # Reply text and source identity come from the actual tool result, never a
         # substitute note. The native test opens that source and checks its original.
-        reply = "Tool reply: " + source["snippet"] + "\n\nSource: " + source["day"] + " (" + source["card_ref"] + ")."
+        reply = "Tool reply: " + source["snippet"] + "\n\nSource: " + source["day"] + "."
         self.json_response({"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": reply}}]})
 
     def speech(self, route):

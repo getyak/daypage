@@ -175,6 +175,7 @@ struct SpeechSettingsView: View {
         }.listRowBackground(NotebookTheme.card)
       }
     }
+    .accessibilityIdentifier("speech-settings-form")
     .navigationTitle("Read aloud").navigationBarTitleDisplayMode(.inline)
     .scrollContentBackground(.hidden).scrollDismissesKeyboard(.interactively).notebookSurface()
     .onAppear(perform: load)

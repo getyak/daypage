@@ -25,4 +25,3 @@ Core tests include scoped search/no hits, repeated UUID namespaces, malformed to
 
 ## Risks and rollback
 Gate every tool read on host scope and include-notes state. Save result uses independent stable ID and operation feedback. Bound media text and speech input; reject redirects and oversized/invalid responses. Keep cloud errors generic and keys out of config/logs. Feature switches preserve ordinary chat and system speech as usable defaults. Revert code to roll back without changing existing raw files.
-

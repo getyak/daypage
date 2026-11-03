@@ -376,3 +376,5 @@
 "The AI service returned an invalid or repeated card tool call. Try again, or turn off card tools." = "The AI service returned an invalid or repeated card tool call. Try again, or turn off card tools.";
 "This AI service did not return a supported tool response. Turn off card tools to continue ordinary chat." = "This AI service did not return a supported tool response. Turn off card tools to continue ordinary chat.";
 "%lld notes available to tools" = "%lld notes available to tools";
+"Expanded" = "Expanded";
+"Collapsed" = "Collapsed";

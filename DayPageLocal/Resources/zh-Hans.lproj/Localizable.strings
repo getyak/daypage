@@ -376,3 +376,5 @@
 "The AI service returned an invalid or repeated card tool call. Try again, or turn off card tools." = "AI 返回了无效或重复的工具调用，请重试或关闭按需查找。";
 "This AI service did not return a supported tool response. Turn off card tools to continue ordinary chat." = "此服务暂未返回支持的工具结果，关闭按需查找后可继续普通聊天。";
 "%lld notes available to tools" = "工具可查找 %lld 条笔记";
+"Expanded" = "已展开";
+"Collapsed" = "已收起";
