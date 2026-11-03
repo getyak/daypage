@@ -1,26 +1,20 @@
 import XCTest
 
-/// Acceptance journeys use the isolated QA notebook and task-owned synthetic HTTP/audio fixture.
+/// The hosted QA script owns and health-checks the synthetic HTTP/audio fixture.
+/// Every journey below requires the app's own real HTTP reply or decoded playback;
+/// the runner must not create a separate asynchronous network probe or skip a journey.
 final class CardToolsSpeechUITests: XCTestCase {
   private let app = XCUIApplication()
   private let fixture = "http://127.0.0.1:18763"
   private let notebookOpening = "A good notebook leaves room for unfinished thoughts."
+  private let geometryEpsilon: CGFloat = 0.000001
 
-  override func setUpWithError() throws {
+  override func setUp() {
     continueAfterFailure = false
     app.launchArguments = [
       "-qaNotebookSession", "-qaResetNotebook", "-qaSeedNotebook",
       "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-qaEndpoint", fixture + "/v1",
     ]
-    let url = try XCTUnwrap(URL(string: fixture + "/health"))
-    let response = expectation(description: "Task-owned fixture is healthy")
-    URLSession.shared.dataTask(with: URLRequest(url: url, timeoutInterval: 3)) { data, reply, error in
-      XCTAssertNil(error, "Start scripts/qa/local_notebook_ai_fixture.py before this suite")
-      XCTAssertEqual((reply as? HTTPURLResponse)?.statusCode, 200)
-      XCTAssertEqual(data.map { String(decoding: $0, as: UTF8.self) }, "GET-326-local-fixture")
-      response.fulfill()
-    }.resume()
-    wait(for: [response], timeout: 5)
   }
 
   override func tearDown() {
@@ -78,7 +72,8 @@ final class CardToolsSpeechUITests: XCTestCase {
       return
     }
     for _ in 0..<8 {
-      if target.exists && target.isHittable { return }
+      if target.exists && target.isHittable,
+        visibleFrame(of: scroll).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(target.frame) { return }
       scrollVisibleContent(scroll, toward: target, down: down)
     }
     captureLookupFailure(target, scroller: scroll)
@@ -87,9 +82,11 @@ final class CardToolsSpeechUITests: XCTestCase {
       return
     }
     XCTAssertTrue(target.isHittable, "Control must be reachable: \(target.identifier)")
+    XCTAssertTrue(visibleFrame(of: scroll).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(target.frame),
+      "The complete target must be clear of navigation and keyboard overlays before tapping")
   }
 
-  private func scrollVisibleContent(_ scroller: XCUIElement, toward target: XCUIElement, down: Bool) {
+  private func visibleFrame(of scroller: XCUIElement) -> CGRect {
     let frame = scroller.frame.intersection(app.frame)
     var top = frame.minY
     var bottom = frame.maxY
@@ -102,19 +99,30 @@ final class CardToolsSpeechUITests: XCTestCase {
       // its lower half. The AX Keyboard starts at the keys; reserve its rounded
       // top too. Full-container swipeUp previously began inside this keyboard.
       bottom = min(bottom, keyboard.frame.minY - 24)
+      for identifier in ["inputView", "SystemInputAssistantView"] {
+        let overlay = app.otherElements.matching(identifier: identifier).firstMatch
+        if overlay.exists, overlay.frame.height > 0 {
+          bottom = min(bottom, overlay.frame.minY)
+        }
+      }
     }
-    guard bottom - top >= 80 else {
+    return CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
+  }
+
+  private func scrollVisibleContent(_ scroller: XCUIElement, toward target: XCUIElement, down: Bool) {
+    let frame = visibleFrame(of: scroller)
+    guard frame.height >= 80 else {
       captureLookupFailure(target, scroller: scroller)
       XCTFail("The scroll container needs an unobscured gesture area")
       return
     }
     var moveDown = down
     if target.exists {
-      if target.frame.maxY <= top { moveDown = true }
-      else if target.frame.minY >= bottom { moveDown = false }
+      if target.frame.minY < frame.minY { moveDown = true }
+      else if target.frame.maxY > frame.maxY { moveDown = false }
     }
-    let low = top + (bottom - top) * 0.75
-    let high = top + (bottom - top) * 0.25
+    let low = frame.minY + frame.height * 0.75
+    let high = frame.minY + frame.height * 0.25
     let origin = scroller.coordinate(withNormalizedOffset: .zero)
     let start = origin.withOffset(CGVector(dx: frame.midX - scroller.frame.minX,
       dy: (moveDown ? high : low) - scroller.frame.minY))
@@ -126,7 +134,7 @@ final class CardToolsSpeechUITests: XCTestCase {
   private func tap44(_ target: XCUIElement) {
     XCTAssertTrue(target.waitForExistence(timeout: 5))
     XCTAssertTrue(target.isHittable)
-    XCTAssertGreaterThanOrEqual(target.frame.height, 44)
+    XCTAssertGreaterThanOrEqual(target.frame.height + geometryEpsilon, 44)
     target.tap()
   }
 
@@ -138,8 +146,8 @@ final class CardToolsSpeechUITests: XCTestCase {
       // UIKit exposes the native switch's 28pt intrinsic AX footprint even when
       // SwiftUI gives its row a 44pt activation area. Keep geometry assertions
       // distinct from the 44pt custom buttons and verify the semantic change.
-      XCTAssertGreaterThanOrEqual(control.frame.width, 44)
-      XCTAssertGreaterThanOrEqual(control.frame.height, 28)
+      XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
       control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
     }
     let updated = XCTNSPredicateExpectation(
@@ -216,7 +224,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     let replyID = String(save.identifier.dropFirst("chat-save-reply-".count))
     let speak = app.buttons["chat-speak-" + replyID]
     reveal(speak, in: transcript)
-    XCTAssertGreaterThanOrEqual(speak.frame.height, 44)
+    XCTAssertGreaterThanOrEqual(speak.frame.height + geometryEpsilon, 44)
     XCTAssertTrue(speak.isEnabled)
     tap44(speak)
     let reading = XCTNSPredicateExpectation(
@@ -303,16 +311,37 @@ final class CardToolsSpeechUITests: XCTestCase {
       field.press(forDuration: 1.1)
       let selectAllButton = app.buttons["Select All"]
       let selectAllMenu = app.menuItems["Select All"]
+      let cutButton = app.buttons["Cut"]
+      let cutMenu = app.menuItems["Cut"]
       let selectable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
         (selectAllButton.exists && selectAllButton.isHittable)
           || (selectAllMenu.exists && selectAllMenu.isHittable)
+          || (cutButton.exists && cutButton.isHittable)
+          || (cutMenu.exists && cutMenu.isHittable)
       }, object: nil)
       guard XCTWaiter.wait(for: [selectable], timeout: 3) == .completed else {
-        XCTFail("The native Select All action must be available before replacing a saved field")
+        captureLookupFailure(field, scroller: form)
+        XCTFail("A native Select All or Cut editing action must be visible before replacing a saved field")
         return
       }
-      (selectAllButton.exists && selectAllButton.isHittable ? selectAllButton : selectAllMenu).tap()
-      field.typeText(XCUIKeyboardKey.delete.rawValue)
+      if selectAllButton.exists && selectAllButton.isHittable {
+        selectAllButton.tap()
+        field.typeText(XCUIKeyboardKey.delete.rawValue)
+      } else if selectAllMenu.exists && selectAllMenu.isHittable {
+        selectAllMenu.tap()
+        field.typeText(XCUIKeyboardKey.delete.rawValue)
+      } else {
+        // If native editing already selected the entire value, its menu can
+        // expose Cut instead of Select All. Accept that observed action only
+        // when it actually empties this synthetic field; partial selection fails.
+        (cutButton.exists && cutButton.isHittable ? cutButton : cutMenu).tap()
+      }
+      let cleared = field.value as? String ?? ""
+      guard cleared.isEmpty || placeholders.contains(cleared) else {
+        captureLookupFailure(field, scroller: form)
+        XCTFail("The saved field must be completely empty before typing its replacement")
+        return
+      }
     }
     field.typeText(value)
     XCTAssertEqual(field.value as? String, value)
