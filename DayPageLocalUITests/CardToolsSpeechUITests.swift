@@ -358,8 +358,12 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertFalse(element("speech-error").exists)
     let stop = app.buttons["speech-stop"]
     reveal(stop)
+    // The fixture has a 60-second stop window. Keep a real button tap and state
+    // assertions: natural completion of a short clip cannot stand in for Stop.
     tap44(stop)
-    let stopped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: stop)
+    let stopped = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      !stop.exists && !status.exists && preview.isEnabled
+    }, object: nil)
     XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 5), .completed)
     XCTAssertTrue(preview.isEnabled)
     XCTAssertEqual(app.state, .runningForeground, "Preview must not open another application")
