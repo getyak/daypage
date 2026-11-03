@@ -138,6 +138,13 @@ final class NotebookModel: ObservableObject {
             try await store.append(Memo(created: date,
               body: "Diary history \(index). A small moment from this day. #history"))
           }
+          if ProcessInfo.processInfo.arguments.contains("-qaSeedDiaryPins") {
+            for index in 0..<4 {
+              var memo = Memo(body: "Pinned diary \(index). " + String(repeating: "A thought kept at the top of today. ", count: 12))
+              memo.pinnedAt = memo.created
+              try await store.append(memo)
+            }
+          }
         }
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedNotebook"),
           ProcessInfo.processInfo.arguments.contains("-qaSeedLargeNotebook"),

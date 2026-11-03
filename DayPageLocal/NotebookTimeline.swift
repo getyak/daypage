@@ -40,7 +40,8 @@ struct NotebookTimeline: View {
         .task(id: jump) {
           guard jump.ready, consumedJump != jump else { return }
           await Task.yield()
-          guard !Task.isCancelled else { return }
+          // Capture may have consumed this same jump while this task yielded.
+          guard !Task.isCancelled, consumedJump != jump else { return }
           consumedJump = jump
           guard captureRevealTarget == nil else { return }
           proxy.scrollTo("diary-day-" + day, anchor: .top)

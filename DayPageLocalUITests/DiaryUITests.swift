@@ -68,6 +68,7 @@ final class DiaryUITests: XCTestCase {
   }
 
   func testCaptureFromPastDayReturnsToItsNewRecordAndKeepsHistory() {
+    app.launchArguments += ["-qaSeedDiaryPins"]
     launchDiary()
     app.buttons["choose-date"].tap()
     if day(1).prefix(7) != day(0).prefix(7) { app.buttons["calendar-previous-month"].tap() }
@@ -115,7 +116,8 @@ final class DiaryUITests: XCTestCase {
 
   private func launchDiary() {
     app.launch()
-    XCTAssertTrue(note("Diary history 0.").waitForExistence(timeout: 15))
+    let first = app.launchArguments.contains("-qaSeedDiaryPins") ? "Pinned diary" : "Diary history 0."
+    XCTAssertTrue(note(first).waitForExistence(timeout: 15))
   }
 
   private func openSidebar() {
