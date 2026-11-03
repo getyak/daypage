@@ -12,6 +12,7 @@ final class ChatSession: ObservableObject {
   @Published var error: String?
   @Published private(set) var recovery: Recovery = .none
   @Published var libraryError: String?
+  @Published private(set) var toolStatus: String?
   @Published var characters: [ChatCharacter] = [.companion]
   @Published var update = 0
   private var revision: UInt64 = 0
@@ -96,8 +97,11 @@ final class ChatSession: ObservableObject {
       let scope = ready ? conversation.scope : requestedScope
       let selected = conversation.characters
       let rotation = conversation.rotatesCharacters
+      let includesNotes = conversation.includesNotes
+      let usesTools = conversation.usesTools
       adopt(try await store.createSession(scope: scope))
       conversation.characters = selected; conversation.rotatesCharacters = rotation
+      conversation.includesNotes = includesNotes; conversation.usesTools = usesTools
       try await flush()
     } catch { recovery = .save; self.error = String(localized: "Could not switch conversations. Your current question is kept.") }
   }
@@ -126,7 +130,14 @@ final class ChatSession: ObservableObject {
   func setIncludesNotes(_ value: Bool) async {
     guard !sending else { return }
     conversation.includesNotes = value
+    if !value { conversation.usesTools = false }
     do { try await flush(); error = nil; recovery = .none } catch { recovery = .save; self.error = String(localized: "Your draft could not be saved. Keep this screen open and try again.") }
+  }
+  func setUsesTools(_ value: Bool) async {
+    guard !sending, !switching, !value || conversation.includesNotes != false else { return }
+    conversation.usesTools = value
+    do { try await flush(); error = nil; recovery = .none }
+    catch { recovery = .save; self.error = String(localized: "Your draft could not be saved. Keep this screen open and try again.") }
   }
   func recover(notebook: NotebookModel, context: NoteContext) async {
     switch recovery {
@@ -150,7 +161,13 @@ final class ChatSession: ObservableObject {
       _ = try config.endpoint
       let key = config.usesAPIKey ? try KeychainSecretStore.read(origin: origin) : ""
       let character = retry ? conversation.messages.last?.character ?? conversation.nextCharacter : conversation.nextCharacter
+      let useTools = conversation.usesTools == true && conversation.includesNotes != false
+      let allowedEntries = ConversationNoteScope.entries(notebook.entries, conversation: conversation)
+      let toolContext = NoteToolContext(entries: allowedEntries, attachmentReader: { cardRef, index in
+        try await notebook.readToolAttachment(cardRef: cardRef, index: index, allowedEntries: allowedEntries)
+      })
       draftTask?.cancel(); sending = true; error = nil; recovery = .none
+      toolStatus = nil
       if !retry, conversation.messages.last?.role != .user || conversation.messages.last?.content != question {
         conversation.messages.append(.init(role: .user, content: question))
       }
@@ -160,14 +177,21 @@ final class ChatSession: ObservableObject {
       conversation.messages.append(reply)
       update += 1
       task = Task {
-        defer { sending = false; update += 1 }
+        defer { sending = false; toolStatus = nil; update += 1 }
         do {
           try await flush() // Save the question before starting any network request.
           lastCheckpoint = Date()
-          try await AIClient().stream(configuration: config, apiKey: key, messages: outbound,
-            context: context, character: character) { [weak self] event in
-              try await self?.receive(event, replyID: reply.id)
-            }
+          if useTools {
+            try await AIClient().runWithTools(configuration: config, apiKey: key, messages: outbound,
+              context: NoteContext.build(entries: allowedEntries, question: question), toolContext: toolContext, character: character) { [weak self] event in
+                try await self?.receiveAgent(event, replyID: reply.id)
+              }
+          } else {
+            try await AIClient().stream(configuration: config, apiKey: key, messages: outbound,
+              context: context, character: character) { [weak self] event in
+                try await self?.receive(event, replyID: reply.id)
+              }
+          }
           try Task.checkCancellation()
           guard let index = conversation.messages.firstIndex(where: { $0.id == reply.id }),
             !conversation.messages[index].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -182,7 +206,8 @@ final class ChatSession: ObservableObject {
           draft = question
           let savedError = Task.isCancelled
             ? String(localized: "Reply stopped. Your question and partial reply are saved.")
-            : String(localized: "Could not finish the reply. Your question and partial reply are kept. Try again.")
+            : (error as? AgentError)?.errorDescription.map { NSLocalizedString($0, comment: "") }
+              ?? String(localized: "Could not finish the reply. Your question and partial reply are kept. Try again.")
           do { try await flush(); self.recovery = .reply; self.error = savedError }
           catch { self.recovery = .save; self.error = String(localized: "Your draft could not be saved. Keep this screen open and try again.") }
         }
@@ -190,6 +215,15 @@ final class ChatSession: ObservableObject {
     } catch {
       recovery = .none
       self.error = String(localized: "Check your AI connection in Settings before sending.")
+    }
+  }
+  private func receiveAgent(_ event: AgentEvent, replyID: UUID) async throws {
+    try Task.checkCancellation()
+    guard let index = conversation.messages.firstIndex(where: { $0.id == replyID }) else { throw CancellationError() }
+    switch event {
+    case .stream(let stream): try await receive(stream, replyID: replyID)
+    case .toolStarted: toolStatus = String(localized: "Looking through your notes…"); update += 1
+    case .sources(let sources): conversation.messages[index].sources = sources; update += 1
     }
   }
   private func receive(_ event: AIStreamEvent, replyID: UUID) async throws {

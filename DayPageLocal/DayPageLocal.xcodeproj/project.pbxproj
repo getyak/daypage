@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */; };
 		20B4023F9DCDCDBF60EB4512 /* ChatExperienceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC24EB1348D01E6B37C6749F /* ChatExperienceUITests.swift */; };
 		22F32AB77218949F65D1B8DF /* NotebookArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */; };
 		45DDB40A06DD48F3FED9CC58 /* NotebookTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E832D94740F93B539B414A /* NotebookTheme.swift */; };
 		4BDACFAF9397B1D723B35DF4 /* ChatLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */; };
+		50D1A1C0719E8DDEC0ADBEFD /* CardToolsSpeechUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */; };
 		5263C6527479721671F9AE3C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FAA2886EC734DB1242104559 /* PrivacyInfo.xcprivacy */; };
 		68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A12D5409FE7A0E2425076A /* DayPageApp.swift */; };
 		6C92B059AB1751F799352DA8 /* NotebookTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C1D640E47EC73833A40545 /* NotebookTimeline.swift */; };
@@ -30,7 +32,9 @@
 		B0342EB5C34AD87E352A1347 /* LaunchExperienceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FBF437C5450DE2016B9939 /* LaunchExperienceUITests.swift */; };
 		B66743A5601FEEE13BC14BB8 /* NotebookModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */; };
 		BCAB12EED4B166E2E2DBDC25 /* SwiftStreamingMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = 1CDFF53DFCE972FD8158FDE6 /* SwiftStreamingMarkdown */; };
+		C50D46A2431A2D025EAB6B3E /* SpeechControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9843132165B4C1CD121CC6 /* SpeechControls.swift */; };
 		CBFF32AE985722CB7A9DA3F6 /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A194219200321F0DE1B2F852 /* ChatSession.swift */; };
+		D1D0DE25A6DB3CC80124639F /* SpeechSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F4EBB9AA8CD1979ADD79A2 /* SpeechSettingsView.swift */; };
 		D42EAA92F20DFAD94C3879F2 /* SourceSerif4-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9FD067F0B60B8F11A89DE87D /* SourceSerif4-Regular.ttf */; };
 		D55690A043E98FF67577A3A7 /* AIConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80743B6F3E33F0CDFD639BB2 /* AIConnectionSettings.swift */; };
 		DEE0CF6DBA6D376113D42885 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B472ABD75D5BA06FE11266C /* Assets.xcassets */; };
@@ -53,13 +57,16 @@
 /* Begin PBXFileReference section */
 		099023364FADB7679C63FBA2 /* CardShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardShareUITests.swift; sourceTree = "<group>"; };
 		17BA8822022266F739F97C75 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardToolsSpeechUITests.swift; sourceTree = "<group>"; };
 		1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLibraryViews.swift; sourceTree = "<group>"; };
 		2B472ABD75D5BA06FE11266C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3A3C7CFE021BBF74392D8690 /* NoteViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteViews.swift; sourceTree = "<group>"; };
 		3B2DE012C6256A9431E48687 /* NotebookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookView.swift; sourceTree = "<group>"; };
 		3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookModel.swift; sourceTree = "<group>"; };
+		40F4EBB9AA8CD1979ADD79A2 /* SpeechSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSettingsView.swift; sourceTree = "<group>"; };
 		4326C54BBF11D8F68313C675 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookArchive.swift; sourceTree = "<group>"; };
+		4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlayback.swift; sourceTree = "<group>"; };
 		511B7AAB4845F4D9A37648AF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5269FEFE6FF33DC70EECB67E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5C3F9A8DA8A34C000858CA06 /* LocalNotebookUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotebookUITests.swift; sourceTree = "<group>"; };
@@ -70,6 +77,7 @@
 		8A9B787E934D8C99F5B64E7B /* NoteSharePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteSharePreview.swift; sourceTree = "<group>"; };
 		9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCalendar.swift; sourceTree = "<group>"; };
 		99E06C3B524FDC2056F133AD /* CalendarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarUITests.swift; sourceTree = "<group>"; };
+		9E9843132165B4C1CD121CC6 /* SpeechControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechControls.swift; sourceTree = "<group>"; };
 		9FD067F0B60B8F11A89DE87D /* SourceSerif4-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceSerif4-Regular.ttf"; sourceTree = "<group>"; };
 		A10EE52BE944F134DDB54FB7 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A194219200321F0DE1B2F852 /* ChatSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
@@ -131,6 +139,9 @@
 				3A3C7CFE021BBF74392D8690 /* NoteViews.swift */,
 				FAA2886EC734DB1242104559 /* PrivacyInfo.xcprivacy */,
 				5269FEFE6FF33DC70EECB67E /* SettingsView.swift */,
+				9E9843132165B4C1CD121CC6 /* SpeechControls.swift */,
+				4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */,
+				40F4EBB9AA8CD1979ADD79A2 /* SpeechSettingsView.swift */,
 				44090EE4FD1BC44658A1E369 /* App */,
 				281E392320B4007E2FAAD444 /* DayPageLocalUITests */,
 				03DD2F0BF5B9776A9696C84E /* Fonts */,
@@ -155,6 +166,7 @@
 			children = (
 				99E06C3B524FDC2056F133AD /* CalendarUITests.swift */,
 				099023364FADB7679C63FBA2 /* CardShareUITests.swift */,
+				1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */,
 				DC24EB1348D01E6B37C6749F /* ChatExperienceUITests.swift */,
 				D9FBF437C5450DE2016B9939 /* LaunchExperienceUITests.swift */,
 				5C3F9A8DA8A34C000858CA06 /* LocalNotebookUITests.swift */,
@@ -314,6 +326,9 @@
 				6C92B059AB1751F799352DA8 /* NotebookTimeline.swift in Sources */,
 				DF18E53E5BBD6BEFFA8D1BC9 /* NotebookView.swift in Sources */,
 				FD05E1FA5220F76F24A9BCB7 /* SettingsView.swift in Sources */,
+				C50D46A2431A2D025EAB6B3E /* SpeechControls.swift in Sources */,
+				1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */,
+				D1D0DE25A6DB3CC80124639F /* SpeechSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,6 +338,7 @@
 			files = (
 				9911C6781D7F333EBB42353F /* CalendarUITests.swift in Sources */,
 				6DD198A44975E86DB9FA4921 /* CardShareUITests.swift in Sources */,
+				50D1A1C0719E8DDEC0ADBEFD /* CardToolsSpeechUITests.swift in Sources */,
 				20B4023F9DCDCDBF60EB4512 /* ChatExperienceUITests.swift in Sources */,
 				B0342EB5C34AD87E352A1347 /* LaunchExperienceUITests.swift in Sources */,
 				A95339F4667425EDCCD355E7 /* LocalNotebookUITests.swift in Sources */,

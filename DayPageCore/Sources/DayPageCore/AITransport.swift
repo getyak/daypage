@@ -14,7 +14,8 @@ struct AITransport: Sendable {
   }
   static func key(_ raw: String, configuration: AIConfiguration) throws -> String {
     let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !key.contains("\n"), !key.contains("\r"), key.count <= 10000 else { throw AIError.configuration }
+    guard !key.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
+      key.utf8.count <= 10000 else { throw AIError.configuration }
     if (configuration.usesAPIKey || AIProvider.matching(configuration: configuration).requiresAPIKey), key.isEmpty {
       throw AIError.unauthorized
     }

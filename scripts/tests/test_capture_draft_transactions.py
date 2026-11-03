@@ -70,6 +70,7 @@ class CaptureDraftTransactions(unittest.TestCase):
       preconditionFailure("Cannot create synthetic preferences")
     }
     preferences = isolated
+    speech = SpeechPlayback(defaults: isolated)
     store = NotebookStore(root: root)
     conversations = ConversationStore(root: root)
     captureDrafts = CaptureDraftStore(root: root)
@@ -80,6 +81,7 @@ class CaptureDraftTransactions(unittest.TestCase):
             model_file = work / "NotebookModelHost.swift"
             model_file.write_text(
                 model[:constructor_start] + isolated_constructor + model[constructor_end:]
+                + '\n@MainActor final class SpeechPlayback { init(defaults: UserDefaults) {} }\n'
             )
             media = (ROOT / "DayPageLocal/CaptureMedia.swift").read_text()
             asset_start = media.index("struct PendingNoteAsset:")

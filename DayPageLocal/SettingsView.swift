@@ -8,6 +8,7 @@ struct SettingsView: View {
   @State private var importing = false
   @State private var exporting = false
   @State private var modelsOpen = false
+  @State private var speechOpen = false
 
   var body: some View {
     Form {
@@ -19,6 +20,13 @@ struct SettingsView: View {
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
           }.frame(minHeight: 44)
         }.accessibilityIdentifier("settings-ai-models")
+        Button { speechOpen = true } label: {
+          HStack {
+            Label("Speech channels", systemImage: "speaker.wave.2")
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+          }.frame(minHeight: 44)
+        }.accessibilityIdentifier("settings-speech")
       }.listRowBackground(NotebookTheme.card)
       Section("On this device") {
         Button { importing = true } label: {
@@ -61,6 +69,13 @@ struct SettingsView: View {
       switch result {
       case .success(let url): Task { await notebook.importVault(url) }
       case .failure(let error): notebook.report(error)
+      }
+    }
+    .sheet(isPresented: $speechOpen) {
+      NavigationStack {
+        SpeechSettingsView(defaults: notebook.preferences).toolbar {
+          ToolbarItem(placement: .confirmationAction) { Button("Done") { speechOpen = false } }
+        }
       }
     }
     .fileExporter(isPresented: $exporting, document: VaultExport(root: notebook.root),

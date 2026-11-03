@@ -328,6 +328,7 @@ private final class LocalVoiceRecorder: NSObject, ObservableObject, AVAudioRecor
       return
     }
     Self.owner = self
+    SpeechPlayback.recordingWillStart(self)
     cancelled = false
     error = nil
     phase = .requesting
@@ -443,6 +444,7 @@ private final class LocalVoiceRecorder: NSObject, ObservableObject, AVAudioRecor
   private func releaseSession() {
     deactivateSession()
     if Self.owner === self { Self.owner = nil }
+    SpeechPlayback.recordingDidEnd(self)
   }
   private func deactivateSession() {
     if ownsSession {
