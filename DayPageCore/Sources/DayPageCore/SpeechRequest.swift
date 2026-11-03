@@ -14,17 +14,25 @@ public enum SpeechRequest {
     request.timeoutInterval = 60
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
-    let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-    // CRLF is a single Swift Character, so searching for standalone Character newlines misses it.
-    guard !apiKey.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-      key.utf8.count <= 10000 else { throw SpeechError.configuration }
-    guard !(channel.provider.requiresAPIKey || channel.usesAPIKey) || !key.isEmpty else { throw SpeechError.unauthorized }
+    let key: String
+    if channel.requiresAuthentication {
+      key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+      // CRLF is one Swift Character; inspect scalars to reject every header control character.
+      guard !apiKey.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
+        key.utf8.count <= 10000 else { throw SpeechError.configuration }
+      guard !key.isEmpty else { throw SpeechError.unauthorized }
+    } else {
+      // A previously saved key is inert while authentication is off, even if it is malformed.
+      key = ""
+    }
+    if channel.requiresAuthentication {
+      if channel.provider == .elevenLabs { request.setValue(key, forHTTPHeaderField: "xi-api-key") }
+      else { request.setValue("Bearer " + key, forHTTPHeaderField: "Authorization") }
+    }
     var body: [String: Any]
     if channel.provider == .elevenLabs {
-      request.setValue(key, forHTTPHeaderField: "xi-api-key")
       body = ["text": text, "model_id": channel.model, "voice_settings": ["speed": channel.speed]]
     } else {
-      if !key.isEmpty { request.setValue("Bearer " + key, forHTTPHeaderField: "Authorization") }
       body = ["model": channel.model, "input": text, "voice": channel.voice, "response_format": "mp3", "speed": channel.speed]
     }
     request.httpBody = try JSONSerialization.data(withJSONObject: body)

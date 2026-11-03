@@ -76,4 +76,56 @@ final class SpeechConfigurationTests: XCTestCase {
     a.provider = .openAI; a.baseURL = "https://other.example/v1"
     XCTAssertNotEqual(original, try a.credentialAccount)
   }
+
+  func testAnonymousChannelDoesNotReadOrWriteAnUnavailableKeychain() throws {
+    let channel = SpeechChannel(provider: .openAICompatible, baseURL: "https://voice.example/v1", model: "tts", voice: "sample")
+    var readCalls = 0
+    var writeCalls = 0
+    let value = try SpeechSecretStore.read(channel: channel, loader: { _ in
+      readCalls += 1
+      throw SpeechError.keychain
+    })
+    try SpeechSecretStore.save("inert-old-key", channel: channel, writer: { _, _ in
+      writeCalls += 1
+      throw SpeechError.keychain
+    })
+    XCTAssertEqual(value, "")
+    XCTAssertEqual(readCalls, 0)
+    XCTAssertEqual(writeCalls, 0)
+    XCTAssertFalse(channel.requiresAuthentication)
+  }
+
+  func testDisablingAuthenticationKeepsTheSavedKeyInertUntilReenabledOrExplicitlyRemoved() throws {
+    var channel = SpeechChannel(provider: .openAICompatible, baseURL: "https://voice.example/v1", model: "tts", voice: "sample", usesAPIKey: true)
+    var stored = ""
+    try SpeechSecretStore.save("saved-fixture", channel: channel, writer: { value, _ in stored = value })
+    channel.usesAPIKey = false
+    try SpeechSecretStore.save("", channel: channel, writer: { value, _ in stored = value })
+    XCTAssertEqual(try SpeechSecretStore.read(channel: channel, loader: { _ in stored }), "")
+    XCTAssertEqual(stored, "saved-fixture", "Turning authentication off must not overwrite or delete the saved key")
+    channel.usesAPIKey = true
+    XCTAssertEqual(try SpeechSecretStore.read(channel: channel, loader: { _ in stored }), "saved-fixture")
+    channel.usesAPIKey = false
+    try SpeechSecretStore.remove(channel: channel, writer: { value, _ in stored = value })
+    XCTAssertEqual(stored, "", "Explicit deletion can remove a stored key even while authentication is off")
+  }
+
+  func testRequiredAuthenticationUsesTheScopedKeychainAndReportsFailures() throws {
+    for provider in [SpeechProvider.openAI, .elevenLabs] {
+      let channel = SpeechChannel(provider: provider, voice: "voice")
+      XCTAssertTrue(channel.requiresAuthentication)
+      var scope: String?
+      XCTAssertEqual(try SpeechSecretStore.read(channel: channel, loader: { account in
+        scope = account
+        return "fixture-key"
+      }), "fixture-key")
+      XCTAssertTrue(scope?.hasPrefix("speech:") == true)
+      XCTAssertThrowsError(try SpeechSecretStore.read(channel: channel, loader: { _ in throw SpeechError.network })) {
+        XCTAssertEqual($0 as? SpeechError, .keychain)
+      }
+      XCTAssertThrowsError(try SpeechSecretStore.save("key", channel: channel, writer: { _, _ in throw SpeechError.network })) {
+        XCTAssertEqual($0 as? SpeechError, .keychain)
+      }
+    }
+  }
 }

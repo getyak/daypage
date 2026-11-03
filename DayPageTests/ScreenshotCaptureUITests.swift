@@ -171,7 +171,11 @@ struct ScreenshotCaptureUITests {
         defer { Task { await finalized.release() } }
         vm.finalizeScreenshotDeletionOverride = { id, root in
             await finalized.hold()
-            try await coordinator.finalizeDeletionIfMemoMissing(captureID: id, vaultRoot: root)
+            do {
+                try await coordinator.finalizeDeletionIfMemoMissing(captureID: id, vaultRoot: root)
+            } catch {
+                Issue.record("Expired screenshot finalization failed: \(error)")
+            }
             await finalized.mark()
         }
         // A plain second memo (no screenshot) deleted shortly after A.
@@ -193,6 +197,11 @@ struct ScreenshotCaptureUITests {
         let entered = await finalized.entered
         try #require(entered)
         vm.deleteMemo(memoB)
+        // B removes the last raw memo, which deletes the day file. Drain that
+        // write before A's finalizer reads it; this test exercises Undo
+        // ownership while A is suspended, not a concurrent read/unlink race.
+        await vm.waitForMemoPersistence()
+        #expect(vm.lastDeletedMemo?.id == memoB.id)
         await finalized.release()
         let finishDeadline = Date().addingTimeInterval(3)
         while await !finalized.done && Date() < finishDeadline {

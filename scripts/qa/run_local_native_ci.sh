@@ -116,6 +116,7 @@ daypage_negative_exit=0
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
+  -only-testing:DayPageLocalUITests/CardToolsSpeechUITests/testAnonymousSpeechWorksWithoutKeychain \
   -resultBundlePath "$daypage_evidence/negative-keychain.xcresult" || daypage_negative_exit=$?
 daypage_negative_export_exit=0
 run_logged "$daypage_evidence/negative-export.log" xcrun xcresulttool export attachments \
@@ -130,12 +131,15 @@ python3 - "$daypage_evidence" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 summary = json.loads((root / 'negative-summary.log').read_text())
-assert summary['result'] == 'Passed' and summary['failedTests'] == 0 and summary['skippedTests'] == 0 and summary['passedTests'] == 1 and summary['totalTestCount'] == 1
+assert summary['result'] == 'Passed' and summary['failedTests'] == 0 and summary['skippedTests'] == 0 and summary['passedTests'] == 2 and summary['totalTestCount'] == 2
 records = json.loads((root / 'negative-attachments/manifest.json').read_text())
 assert any('ai-key-unavailable-inline' in attachment.get('suggestedHumanReadableName', '')
            for record in records for attachment in record.get('attachments', [])), 'The denied-Keychain recovery branch did not execute'
+assert any('speech-anonymous-no-keychain' in attachment.get('suggestedHumanReadableName', '')
+           for record in records for attachment in record.get('attachments', [])), 'Anonymous speech did not execute without Keychain access'
 (root / 'negative-receipt.json').write_text(json.dumps({'verified': True, 'tests': summary,
-    'requiredAttachment': 'ai-key-unavailable-inline'}, indent=2) + '\n')
+    'requiredAttachment': 'ai-key-unavailable-inline',
+    'anonymousSpeechAttachment': 'speech-anonymous-no-keychain'}, indent=2) + '\n')
 PY
 
 # Let Xcode generate simulated Mach-O entitlements and the local ad hoc
@@ -212,7 +216,7 @@ files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
 expected = sum(len(re.findall(r'^  func test\w+\(', p.read_text(), re.M)) for p in files)
-assert expected >= 10, 'The selected native suite is unexpectedly empty'
+assert expected >= 11, 'The selected native suite is unexpectedly empty'
 assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= expected, 'The complete selected UI suite did not execute'
 records = json.loads((root / 'signed-attachments/manifest.json').read_text())
 names = [attachment.get('suggestedHumanReadableName', '') for record in records

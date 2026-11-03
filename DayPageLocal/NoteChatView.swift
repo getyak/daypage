@@ -297,6 +297,7 @@ private struct ChatMessageRow: View {
           HStack(spacing: 6) {
             Image(systemName: "sparkle").foregroundStyle(NotebookTheme.accent)
             Text(message.character?.name ?? String(localized: "Your AI"))
+              .accessibilityIdentifier("chat-message-\(message.id)")
             if message.delivery == .streaming { ProgressView().controlSize(.mini).accessibilityIdentifier("chat-thinking") }
           }.font(.caption.weight(.medium)).foregroundStyle(.secondary)
           if let reasoning = message.reasoning, !reasoning.isEmpty {
@@ -364,12 +365,13 @@ private struct ChatMessageRow: View {
           if let saveError { Text(saveError).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat-reply-error") }
         } else {
           Text(message.content).font(.body).lineSpacing(3).textSelection(.enabled)
+            .accessibilityIdentifier("chat-message-\(message.id)")
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 18))
         }
       }
       if message.role == .assistant { Spacer(minLength: 4) }
-    }.accessibilityIdentifier("chat-message-\(message.id)")
+    }
       .sheet(item: $sourceEntry) { entry in
         NavigationStack {
           NoteDetailView(entry: entry).toolbar {

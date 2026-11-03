@@ -81,7 +81,7 @@ final class SpeechPlayback: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
         throw SpeechError.configuration
       }
       channelName = displayName(channel)
-      let key = channel.provider == .system ? "" : try SpeechSecretStore.read(channel: channel)
+      let key = try SpeechSecretStore.read(channel: channel)
       start(text, id: id, channel: channel, key: key)
     } catch { report(error) }
   }
@@ -91,7 +91,8 @@ final class SpeechPlayback: NSObject, ObservableObject, AVSpeechSynthesizerDeleg
     stop()
     requestID = "speech-preview"
     channelName = displayName(channel)
-    start(text, id: "speech-preview", channel: channel, key: apiKey)
+    start(text, id: "speech-preview", channel: channel,
+      key: channel.requiresAuthentication ? apiKey : "")
   }
 
   func stop() {

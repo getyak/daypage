@@ -74,16 +74,53 @@ final class CardToolsSpeechUITests: XCTestCase {
     let scroll = scroller ?? form
     guard scroll.exists else {
       captureLookupFailure(target, scroller: scroll)
-      XCTFail("The owning scroll container must exist before revealing \(target.identifier)")
+      XCTFail("The owning scroll container must exist before revealing the target")
       return
     }
     for _ in 0..<8 {
       if target.exists && target.isHittable { return }
-      if down { scroll.swipeDown() } else { scroll.swipeUp() }
+      scrollVisibleContent(scroll, toward: target, down: down)
     }
     captureLookupFailure(target, scroller: scroll)
-    XCTAssertTrue(target.exists, "Expected control: \(target.identifier)")
+    guard target.exists else {
+      XCTFail("The expected control is absent; see the saved accessibility tree")
+      return
+    }
     XCTAssertTrue(target.isHittable, "Control must be reachable: \(target.identifier)")
+  }
+
+  private func scrollVisibleContent(_ scroller: XCUIElement, toward target: XCUIElement, down: Bool) {
+    let frame = scroller.frame.intersection(app.frame)
+    var top = frame.minY
+    var bottom = frame.maxY
+    for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+      top = max(top, bar.frame.maxY)
+    }
+    let keyboard = app.keyboards.firstMatch
+    if keyboard.exists {
+      // The native Form keeps its full-screen AX frame while the keyboard covers
+      // its lower half. The AX Keyboard starts at the keys; reserve its rounded
+      // top too. Full-container swipeUp previously began inside this keyboard.
+      bottom = min(bottom, keyboard.frame.minY - 24)
+    }
+    guard bottom - top >= 80 else {
+      captureLookupFailure(target, scroller: scroller)
+      XCTFail("The scroll container needs an unobscured gesture area")
+      return
+    }
+    var moveDown = down
+    if target.exists {
+      if target.frame.maxY <= top { moveDown = true }
+      else if target.frame.minY >= bottom { moveDown = false }
+    }
+    let low = top + (bottom - top) * 0.75
+    let high = top + (bottom - top) * 0.25
+    let origin = scroller.coordinate(withNormalizedOffset: .zero)
+    let start = origin.withOffset(CGVector(dx: frame.midX - scroller.frame.minX,
+      dy: (moveDown ? high : low) - scroller.frame.minY))
+    let end = origin.withOffset(CGVector(dx: frame.midX - scroller.frame.minX,
+      dy: (moveDown ? low : high) - scroller.frame.minY))
+    start.press(forDuration: 0.05, thenDragTo: end)
   }
 
   private func tap44(_ target: XCUIElement) {
@@ -364,6 +401,39 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertEqual(app.textFields["speech-base-url"].value as? String, fixture + "/v1")
     previewAndStop()
     capture("speech-custom-preview-stopped")
+  }
+
+  // Run this exact journey in both the signed suite and the unsigned fixture
+  // stage where Keychain access is denied. Anonymous speech must need neither
+  // a credential nor a successful Keychain read, write, or delete.
+  func testAnonymousSpeechWorksWithoutKeychain() {
+    app.launch()
+    openSpeechSettings()
+    addAnonymousSpeechChannel(named: "No Keychain voice", endpoint: fixture + "/v1")
+    XCTAssertFalse(element("speech-key-error").exists)
+    previewAndStop()
+    let channel = savedChannel(named: "No Keychain voice")
+    reveal(channel, down: true)
+    let channelID = channel.identifier
+    XCTAssertEqual(channel.value as? String, "Selected")
+    app.buttons["Done"].tap()
+    relaunch()
+
+    openSpeechSettings()
+    XCTAssertEqual(app.buttons[channelID].value as? String, "Selected")
+    reveal(app.textFields["speech-base-url"])
+    XCTAssertEqual(app.textFields["speech-base-url"].value as? String, fixture + "/v1")
+    reveal(app.textFields["speech-model"])
+    XCTAssertEqual(app.textFields["speech-model"].value as? String, "fixture-tts")
+    reveal(app.textFields["speech-voice"])
+    XCTAssertEqual(app.textFields["speech-voice"].value as? String, "fixture-voice")
+    reveal(app.switches["speech-requires-key"])
+    XCTAssertEqual(app.switches["speech-requires-key"].value as? String, "0")
+    XCTAssertFalse(element("speech-key-error").exists)
+    // The audio fixture rejects all authentication headers, so decoded playback
+    // also verifies that no retained credential was sent after loading settings.
+    previewAndStop()
+    capture("speech-anonymous-no-keychain")
   }
 
   func testSpeechFailureKeepsTheSavedChannelAndEditingItsAddressCanRetry() {

@@ -48,6 +48,7 @@ public struct SpeechChannel: Codable, Equatable, Identifiable, Sendable {
   }
 
   public static var system: SpeechChannel { SpeechChannel(id: "system", provider: .system) }
+  public var requiresAuthentication: Bool { provider.requiresAPIKey || usesAPIKey }
 
   public var origin: String {
     get throws {
@@ -136,14 +137,29 @@ public struct SpeechPreferencesStore {
 }
 
 public enum SpeechSecretStore {
-  public static func read(channel: SpeechChannel) throws -> String {
+  public typealias Loader = (String) throws -> String
+  public typealias Writer = (String, String) throws -> Void
+
+  public static func read(channel: SpeechChannel,
+    loader: Loader = { try KeychainSecretStore.read(origin: $0) }) throws -> String {
+    guard channel.requiresAuthentication else { return "" }
     let account = try channel.credentialAccount
-    do { return try KeychainSecretStore.read(origin: account) }
+    do { return try loader(account) }
     catch { throw SpeechError.keychain }
   }
-  public static func save(_ value: String, channel: SpeechChannel) throws {
+  public static func save(_ value: String, channel: SpeechChannel,
+    writer: Writer = { try KeychainSecretStore.save($0, origin: $1) }) throws {
+    guard channel.requiresAuthentication else { return }
     let account = try channel.credentialAccount
-    do { try KeychainSecretStore.save(value, origin: account) }
+    do { try writer(value, account) }
+    catch { throw SpeechError.keychain }
+  }
+  /// Explicit cleanup is separate from saving an anonymous channel, which leaves old keys inert.
+  public static func remove(channel: SpeechChannel,
+    writer: Writer = { try KeychainSecretStore.save($0, origin: $1) }) throws {
+    guard channel.provider != .system else { return }
+    let account = try channel.credentialAccount
+    do { try writer("", account) }
     catch { throw SpeechError.keychain }
   }
 }

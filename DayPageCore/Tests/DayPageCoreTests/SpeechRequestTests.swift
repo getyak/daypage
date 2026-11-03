@@ -37,6 +37,22 @@ final class SpeechRequestTests: XCTestCase {
     XCTAssertEqual(request.url?.absoluteString, "http://localhost:8880/v1/audio/speech")
   }
 
+  func testAnonymousRequestNeverSendsOrValidatesAnInertSavedKey() throws {
+    let channel = SpeechChannel(provider: .openAICompatible, baseURL: "https://voice.example/v1", model: "tts", voice: "sample")
+    for oldKey in ["stale-saved-key", "stale\r\nkey"] {
+      let request = try SpeechRequest.make(channel: channel, text: "Sample.", apiKey: oldKey)
+      XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+      XCTAssertNil(request.value(forHTTPHeaderField: "xi-api-key"))
+    }
+  }
+
+  func testCompatibleChannelAuthenticatesOnlyAfterExplicitlyEnablingAPIKey() throws {
+    let channel = SpeechChannel(provider: .openAICompatible, baseURL: "https://voice.example/v1", model: "tts", voice: "sample", usesAPIKey: true)
+    XCTAssertThrowsError(try SpeechRequest.make(channel: channel, text: "Sample.", apiKey: ""))
+    let request = try SpeechRequest.make(channel: channel, text: "Sample.", apiKey: "chosen-fixture-key")
+    XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer chosen-fixture-key")
+  }
+
   func testRejectsAbsentKeyInjectedHeaderEmptyOrOversizedInputAndSystemRequests() {
     let channel = SpeechChannel(provider: .openAI)
     XCTAssertThrowsError(try SpeechRequest.make(channel: channel, text: "Sample", apiKey: ""))

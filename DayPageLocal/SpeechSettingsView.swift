@@ -24,9 +24,9 @@ struct SpeechSettingsView: View {
   }
 
   private var canSave: Bool {
-    (try? draft.validated()) != nil && keyReadIssue == nil
-      && (draft.provider == .system || keyAccount == (try? draft.credentialAccount))
-      && (!(draft.provider.requiresAPIKey || draft.usesAPIKey) || !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    (try? draft.validated()) != nil && (!draft.requiresAuthentication
+      || (keyReadIssue == nil && keyAccount == (try? draft.credentialAccount)
+        && !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
   }
   private var active: Bool { playback.isActive(id: "speech-preview") }
   private var voices: [AVSpeechSynthesisVoice] {
@@ -99,23 +99,27 @@ struct SpeechSettingsView: View {
           TextField(draft.provider == .elevenLabs ? "Voice ID" : "Voice", text: $draft.voice)
             .textInputAutocapitalization(.never).autocorrectionDisabled()
             .accessibilityIdentifier("speech-voice")
-          SecureField("API key", text: $key)
-            .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive()
-            .accessibilityIdentifier("speech-api-key")
           if draft.provider == .openAICompatible {
-            Toggle("Requires an API key", isOn: $draft.usesAPIKey)
+            Toggle("Use API key", isOn: $draft.usesAPIKey)
               .accessibilityIdentifier("speech-requires-key")
+          }
+          if draft.requiresAuthentication {
+            SecureField("API key", text: $key)
+              .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive()
+              .accessibilityIdentifier("speech-api-key")
           }
           Toggle("Allow local HTTP", isOn: $draft.allowsLocalHTTP)
             .accessibilityIdentifier("speech-local-http")
-          if let keyReadIssue {
+          if draft.requiresAuthentication, let keyReadIssue {
             Text(keyReadIssue).font(.caption).foregroundStyle(.secondary)
               .accessibilityIdentifier("speech-key-error")
             Button("Retry saved key") { reloadKey(force: true) }
               .accessibilityIdentifier("speech-key-retry")
           }
-          Text("Keys stay in this device’s Keychain, separately for each channel, provider and service address.")
-            .font(.caption).foregroundStyle(.secondary)
+          if draft.requiresAuthentication {
+            Text("Keys stay in this device’s Keychain, separately for each channel, provider and service address.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
         }
         HStack {
           Text("Speed")
@@ -182,6 +186,7 @@ struct SpeechSettingsView: View {
     .onDisappear { playback.stop() }
     .onChange(of: draft.provider) { _ in providerChanged() }
     .onChange(of: draft.baseURL) { _ in reloadKey(); saved = false }
+    .onChange(of: draft.usesAPIKey) { _ in reloadKey(force: draft.requiresAuthentication); saved = false }
     .onChange(of: draft) { _ in saved = false }
     .onChange(of: key) { _ in saved = false }
   }
@@ -218,7 +223,7 @@ struct SpeechSettingsView: View {
     if let keyAccount { keyDrafts[keyAccount] = KeyDraft(value: key, readFailed: keyReadIssue != nil) }
   }
   private func reloadKey(force: Bool = false) {
-    guard draft.provider != .system, let account = try? draft.credentialAccount else {
+    guard draft.requiresAuthentication, let account = try? draft.credentialAccount else {
       cacheKey(); keyAccount = nil; key = ""; keyReadIssue = nil
       return
     }
@@ -244,7 +249,7 @@ struct SpeechSettingsView: View {
     do {
       guard canSave else { throw SpeechError.configuration }
       _ = try draft.validated()
-      if draft.provider != .system { try SpeechSecretStore.save(key, channel: draft) }
+      if draft.requiresAuthentication { try SpeechSecretStore.save(key, channel: draft) }
       var updated = preferences
       if let index = updated.channels.firstIndex(where: { $0.id == draft.id }) { updated.channels[index] = draft }
       else { updated.channels.append(draft) }
@@ -260,7 +265,7 @@ struct SpeechSettingsView: View {
     message = nil
     do {
       let stored = preferences.channels.first { $0.id == draft.id }
-      if let stored, stored.provider != .system { try SpeechSecretStore.save("", channel: stored) }
+      if let stored { try SpeechSecretStore.remove(channel: stored) }
       var updated = preferences
       updated.channels.removeAll { $0.id == draft.id }
       if updated.selectedChannelID == draft.id {

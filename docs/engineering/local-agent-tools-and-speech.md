@@ -21,7 +21,7 @@ Settings → Speech channels. The default is a system voice installed on the dev
 - System: installed device voices, no service/key.
 - OpenAI: direct audio/speech, editable model/voice, MP3.
 - ElevenLabs: direct text-to-speech/voice_id, editable model and bounded speed, MP3.
-- OpenAI-compatible: explicitly configured remote or permitted local server; anonymous mode is available.
+- OpenAI-compatible: explicitly configured remote or permitted local server; Use API key off means no Keychain access and no authentication header. A stored key stays inert until explicitly reenabled; deleting the channel also removes its stored key.
 
 Save works offline. Preview synthesizes the fixed sample only, using the current edited channel; it never sends a note. Card and completed-answer Read aloud uses the saved selected channel. Explicit Play can consume that provider's quota. Each request supports up to 4,096 characters; oversized text shows an error rather than truncating.
 
@@ -44,6 +44,6 @@ While the shared Mac has a resource pause, use the existing hosted workflow:
 gh workflow run ios-local.yml --ref codex/get-369-card-tools-speech -f native_ui=true -f native_ui_suite=card_tools_speech
 ```
 
-This selects all new card-tools/speech journeys and existing ChatExperienceUITests, plus the negative-Keychain test; native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
+This selects eleven signed journeys (all new card-tools/speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
 
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.
