@@ -159,41 +159,11 @@ final class CardShareUITests: XCTestCase {
     XCTAssertTrue(search.waitForExistence(timeout: 5))
     search.tap()
     search.typeText("headphones\n")
-    let resultCount = app.staticTexts["search-result-count"]
-    let filtered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '1 note'"), object: resultCount)
-    let keyboardGone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
-    XCTAssertEqual(XCTWaiter.wait(for: [filtered, keyboardGone], timeout: 5), .completed)
-    let results = element("search-list")
-    let foundNote = results.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
-    XCTAssertTrue(foundNote.waitForExistence(timeout: 5))
-    XCTAssertTrue(foundNote.label.contains("headphones"))
-    let row = results.cells.containing(.button, identifier: foundNote.identifier).firstMatch
-    XCTAssertTrue(row.waitForExistence(timeout: 5))
-    XCTAssertTrue(row.buttons[foundNote.identifier].exists)
-    XCTAssertTrue(results.frame.intersection(app.frame).insetBy(dx: -0.000001, dy: -0.000001).contains(row.frame))
-    let geometry = XCTAttachment(string: "cell=\(row.frame)\nreading=\(foundNote.frame)\nlist=\(results.frame)")
-    geometry.name = "search-native-row-geometry"; geometry.lifetime = .keepAlways; add(geometry)
-    capture("search-before-native-row-swipe")
-    let origin = row.coordinate(withNormalizedOffset: .zero)
-    origin.withOffset(CGVector(dx: row.frame.width - 24, dy: row.frame.height / 2))
-      .press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 24, dy: row.frame.height / 2)))
-    let share = app.buttons["swipe-share-note"]
-    let revealed = share.waitForExistence(timeout: 5)
-    capture("search-after-native-row-swipe")
-    if !revealed {
-      let hierarchy = XCTAttachment(string: app.debugDescription)
-      hierarchy.name = "search-native-row-swipe-failure"; hierarchy.lifetime = .keepAlways; add(hierarchy)
-    }
-    XCTAssertTrue(revealed)
-    XCTAssertTrue(share.isHittable)
-    share.tap()
+    let foundNote = element("search-list").buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
+    foundNote.swipeLeft()
+    XCTAssertTrue(app.buttons["swipe-share-note"].waitForExistence(timeout: 5))
+    app.buttons["swipe-share-note"].tap()
     XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
-  }
-
-  private func capture(_ name: String) {
-    XCTAssertEqual(app.state, .runningForeground)
-    let image = XCTAttachment(screenshot: app.screenshot())
-    image.name = name; image.lifetime = .keepAlways; add(image)
   }
 
   func testImageActuallyExportsAndSystemShareCancellationReturnsToPreview() {

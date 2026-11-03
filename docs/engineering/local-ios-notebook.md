@@ -44,7 +44,7 @@ The unentitled build is also useful as an explicit negative test: opening AI set
 
 When the managed local device is occupied, the existing Local iOS notebook workflow has an optional `native_ui` manual input. It runs the same unsigned recovery and fully signed UI matrix on an isolated macOS runner using `scripts/qa/run_local_native_ci.sh`, a runner-owned loopback fixture and synthetic QA data. It is disabled for ordinary PR/push runs. Receipts and XCTest evidence are retained for seven days; build products, real credentials and distribution steps are excluded. Run it explicitly with `gh workflow run ios-local.yml --ref <branch> -f native_ui=true` and check the exact-source receipt before accepting the result.
 
-For diagnosis, `native_ui_suite=credential_recovery` runs the two real-UI service-switching and anonymous-key recovery journeys, retaining the same unsigned recovery checks. Its receipt names the focused suite and requires exactly two signed tests with zero failures or skips; it does not stand for the full matrix. The default remains `full`.
+For sidebar/history changes, `native_ui_suite=diary_navigation` runs all Diary, Calendar and LocalNotebook tests plus seven explicit navigation/card integration journeys (currently 28 tests). It requires zero failures or skips and the native diary screenshots, using the same isolated QA signature and entitlement checks. Unsigned Keychain/Speech recovery and the dedicated Chat matrix are outside this suite and explicitly recorded as unrun; its receipt does not establish full iOS acceptance. The default `full` matrix and its recovery preconditions remain unchanged.
 
 ## Code merges without a TestFlight release
 
