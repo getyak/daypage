@@ -56,14 +56,15 @@ final class LocalNotebookUITests: XCTestCase {
     screenshot("local-note-detail")
   }
 
-  func testSidebarHasExactlyThreeDestinationsAndSettingsNeedsNoAccount() {
+  func testSidebarKeepsItsDestinationsAndSettingsNeedsNoAccount() {
     app.launchArguments += ["-qaSeedNotebook"]
     app.launch()
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
     app.buttons["open-sidebar"].tap()
     XCTAssertTrue(app.buttons["sidebar-archive"].waitForExistence(timeout: 5))
-    XCTAssertEqual(
-      app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar-'")).count, 3)
+    XCTAssertTrue(app.buttons["notebook-home"].exists)
+    XCTAssertTrue(app.buttons["sidebar-feedback"].exists)
+    XCTAssertTrue(app.buttons["sidebar-settings"].exists)
     screenshot("local-sidebar")
     app.buttons["sidebar-settings"].tap()
     XCTAssertTrue(app.buttons["settings-ai-models"].waitForExistence(timeout: 5))
@@ -276,8 +277,14 @@ final class LocalNotebookUITests: XCTestCase {
     app.launch()
     XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
     XCTAssertEqual(app.buttons["choose-date"].value as? String, yesterday)
-    XCTAssertTrue(visibleText("Walked home without headphones.").exists)
+    let emptyDate = element("diary-empty-" + yesterday)
+    XCTAssertTrue(emptyDate.waitForExistence(timeout: 5))
+    XCTAssertTrue(emptyDate.frame.intersects(element("today-timeline").frame))
     screenshot("restored-history-on-empty-date")
+    app.buttons["diary-back-today"].tap()
+    XCTAssertEqual(app.buttons["choose-date"].value as? String, today)
+    XCTAssertTrue(visibleText("Walked home without headphones.").waitForExistence(timeout: 5))
+    XCTAssertTrue(visibleText("Walked home without headphones.").isHittable)
   }
 
   func testLongMemoExpandsInPlaceAndCollapsesWithoutLosingCaptureDock() {

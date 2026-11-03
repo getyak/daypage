@@ -71,6 +71,16 @@ struct NotebookCircleButton: View {
   }
 }
 
+struct NotebookPressStyle: ButtonStyle {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .opacity(configuration.isPressed ? 0.72 : 1)
+      .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+      .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: configuration.isPressed)
+  }
+}
+
 extension View {
   func notebookSurface() -> some View {
     background(NotebookTheme.paper.ignoresSafeArea())
@@ -88,5 +98,14 @@ enum NotebookDate {
   }
   static func date(_ day: String) -> Date? {
     NotebookCalendarMonth.date(for: day)
+  }
+  static func fullTitle(_ day: String) -> String {
+    guard let date = date(day) else { return day }
+    return date.formatted(Date.FormatStyle(date: .long, time: .omitted,
+      calendar: Calendar(identifier: .gregorian)))
+  }
+  static func monthTitle(_ day: String) -> String {
+    guard let date = date(day) else { return String(day.prefix(7)) }
+    return date.formatted(Date.FormatStyle(calendar: Calendar(identifier: .gregorian)).year().month(.wide))
   }
 }

@@ -129,6 +129,23 @@ final class NotebookModel: ObservableObject {
         }
       #endif
       #if DEBUG
+        if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedDiaryHistory"),
+          try await store.entries().isEmpty
+        {
+          let calendar = Calendar(identifier: .gregorian)
+          for (index, offset) in [0, 1, 2, 7, 35, 70, 100, 140].enumerated() {
+            let date = calendar.date(byAdding: .day, value: -offset, to: Date()) ?? Date()
+            try await store.append(Memo(created: date,
+              body: "Diary history \(index). A small moment from this day. #history"))
+          }
+          if ProcessInfo.processInfo.arguments.contains("-qaSeedDiaryPins") {
+            for index in 0..<4 {
+              var memo = Memo(body: "Pinned diary \(index). " + String(repeating: "A thought kept at the top of today. ", count: 12))
+              memo.pinnedAt = memo.created
+              try await store.append(memo)
+            }
+          }
+        }
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedNotebook"),
           ProcessInfo.processInfo.arguments.contains("-qaSeedLargeNotebook"),
           try await store.entries().isEmpty

@@ -257,8 +257,9 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertLessThan(timestamp.frame.minY, note.frame.minY)
     XCTAssertLessThan(menu.frame.minY, note.frame.minY)
     XCTAssertGreaterThan(menu.frame.minX, timestamp.frame.minX)
-    XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
-    XCTAssertGreaterThanOrEqual(note.frame.height, 44)
+    // AX can represent an exact 44-point frame a few floating-point ulps below 44.
+    XCTAssertGreaterThanOrEqual(menu.frame.height + 0.000001, 44)
+    XCTAssertGreaterThanOrEqual(note.frame.height + 0.000001, 44)
     XCTAssertFalse(app.staticTexts["Recent notes"].exists)
     capture("quiet-cards-today")
     note.tap()

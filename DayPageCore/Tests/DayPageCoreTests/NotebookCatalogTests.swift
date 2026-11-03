@@ -49,4 +49,35 @@ final class NotebookCatalogTests: XCTestCase {
     let result = NotebookCatalog(entries: [original, imported]).search()
     XCTAssertEqual(Set(result.sections.flatMap(\.entries).map(\.id)).count, 2)
   }
+
+  func testDiaryKeepsHistoryAroundEmptySelectedDaysAndPinsWithinTheirOwnDay() {
+    let older = entry("Older", day: "2026-09-30", pinned: true)
+    let recent = entry("Recent", day: "2026-11-02")
+    let pinned = entry("Pinned", day: "2026-11-02", pinned: true)
+    let imported = NotebookEntry(memo: recent.memo, day: recent.day, namespace: "imported")
+    let catalog = NotebookCatalog(entries: [recent, older, imported, pinned])
+    let sections = catalog.diary(including: ["2026-11-03", "2026-10-01", "2026-11-03"])
+    XCTAssertEqual(sections.map(\.day), ["2026-11-03", "2026-11-02", "2026-10-01", "2026-09-30"])
+    XCTAssertTrue(sections[0].entries.isEmpty)
+    XCTAssertEqual(sections[1].entries.first?.id, pinned.id)
+    XCTAssertEqual(Set(sections.flatMap(\.entries).map(\.id)).count, 4)
+    XCTAssertEqual(catalog.diary(including: []).flatMap(\.entries).count, 4)
+    XCTAssertEqual(catalog.months.map(\.id), ["2026-11", "2026-09"])
+    XCTAssertEqual(catalog.months.first?.latestDay, "2026-11-02")
+    XCTAssertEqual(catalog.months.first?.noteCount, 3)
+    XCTAssertEqual(catalog.months.first?.dayCount, 1)
+  }
+
+  func testDiaryEmptyNotebookAndMonthBoundaries() {
+    XCTAssertEqual(NotebookCatalog(entries: []).diary(including: ["2026-01-01"]).map(\.day), ["2026-01-01"])
+    XCTAssertTrue(NotebookCatalog(entries: []).months.isEmpty)
+    let catalog = NotebookCatalog(entries: [
+      entry("New year", day: "2026-01-01"), entry("Last year", day: "2025-12-31"),
+      entry("Earlier December", day: "2025-12-01")
+    ])
+    XCTAssertEqual(catalog.months.map(\.id), ["2026-01", "2025-12"])
+    XCTAssertEqual(catalog.months.last?.dayCount, 2)
+    XCTAssertEqual(catalog.months.last?.latestDay, "2025-12-31")
+    XCTAssertEqual(catalog.diary(including: []).map(\.day), ["2026-01-01", "2025-12-31", "2025-12-01"])
+  }
 }

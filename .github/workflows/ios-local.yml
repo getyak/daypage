@@ -10,7 +10,7 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech]
+        options: [full, card_tools_speech, diary_navigation]
         default: full
   pull_request:
     paths:
@@ -79,7 +79,9 @@ jobs:
     name: Native iOS UI (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.native_ui
     runs-on: macos-26
-    timeout-minutes: 60
+    # The complete matrix includes two signing builds and 58 serial journeys.
+    # A measured cold run hit 60 minutes during its final notebook cases.
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
