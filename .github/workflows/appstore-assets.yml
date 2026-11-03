@@ -1,0 +1,95 @@
+name: App Store screenshots
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/appstore-assets.yml'
+      - 'DayPageLocal/SettingsView.swift'
+      - 'DayPageLocalUITests/LocalNotebookUITests.swift'
+      - 'docs/legal/ios-privacy.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appstore-assets-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        device_kind: [iphone, ipad]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Trust the pinned renderer macro
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
+      - name: Select existing hosted screenshot devices
+        run: |
+          mkdir -p "$RUNNER_TEMP/appstore-assets"
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/appstore-assets/devices.json"
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'appstore-assets'
+          inventory = json.loads((root / 'devices.json').read_text())['devices']
+          devices = [(runtime, d) for runtime, rows in inventory.items() if 'iOS' in runtime
+                     for d in rows if d.get('isAvailable')]
+          choices = {}
+          for kind, phrase in [('iphone', 'Pro Max'), ('ipad', '13-inch')]:
+              matches = [(runtime, d) for runtime, d in devices
+                         if phrase in d['name'] and ('iPhone' if kind == 'iphone' else 'iPad') in d['name']]
+              if not matches:
+                  raise SystemExit(f'No existing {kind} device for required App Store dimensions')
+              runtime, device = sorted(matches, key=lambda pair: (pair[0], pair[1]['name']), reverse=True)[0]
+              choices[kind] = {'name': device['name'], 'udid': device['udid'], 'runtime': runtime}
+          (root / 'targets.json').write_text(json.dumps(choices, indent=2))
+          (root / 'source-sha.txt').write_text(subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True))
+          PY
+      - name: Capture genuine native screenshots with synthetic notes
+        env:
+          DEVICE_KIND: ${{ matrix.device_kind }}
+        run: |
+            device_kind="$DEVICE_KIND"
+            device_id=$(python3 -c 'import json,os,sys; print(json.load(open(os.environ["RUNNER_TEMP"]+"/appstore-assets/targets.json"))[sys.argv[1]]["udid"])' "$device_kind")
+            xcrun simctl bootstatus "$device_id" -b
+            xcrun simctl status_bar "$device_id" override --time '9:41' --batteryState charged --batteryLevel 100
+            test_status=0
+            xcodebuild test -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPage \
+              -configuration Debug -destination "platform=iOS Simulator,id=$device_id" \
+              -derivedDataPath "$RUNNER_TEMP/appstore-derived" -jobs 2 \
+              -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+              -only-testing:DayPageLocalUITests/LocalNotebookUITests/testAppStoreScreenshotsUseTheLocalNotebookAndExposeItsPrivacyPolicy \
+              -resultBundlePath "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" \
+              > "$RUNNER_TEMP/appstore-assets/$device_kind.log" 2>&1 || test_status=$?
+            export_status=0
+            xcrun xcresulttool export attachments \
+              --path "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" \
+              --output-path "$RUNNER_TEMP/appstore-assets/$device_kind" || export_status=$?
+            summary_status=0
+            xcrun xcresulttool get test-results summary \
+              --path "$RUNNER_TEMP/appstore-assets/$device_kind.xcresult" --compact \
+              > "$RUNNER_TEMP/appstore-assets/$device_kind-summary.json" || summary_status=$?
+            if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+            if [ "$export_status" -ne 0 ]; then exit "$export_status"; fi
+            exit "$summary_status"
+      - name: Preserve screenshots and provenance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-assets-${{ github.sha }}-${{ matrix.device_kind }}
+          path: |
+            ${{ runner.temp }}/appstore-assets/*.json
+            ${{ runner.temp }}/appstore-assets/*.txt
+            ${{ runner.temp }}/appstore-assets/*.log
+            ${{ runner.temp }}/appstore-assets/iphone/*.png
+            ${{ runner.temp }}/appstore-assets/iphone/manifest.json
+            ${{ runner.temp }}/appstore-assets/ipad/*.png
+            ${{ runner.temp }}/appstore-assets/ipad/manifest.json
+          retention-days: 14
+          if-no-files-found: error

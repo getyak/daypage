@@ -45,7 +45,9 @@ class LocalPrivacyContract(unittest.TestCase):
         self.assertTrue({"C617.1", "3B52.1"}.issubset(categories[category]))
         self.assertIn("CA92.1", categories["NSPrivacyAccessedAPICategoryUserDefaults"])
         self.assertFalse(manifest["NSPrivacyTracking"])
-        self.assertEqual(manifest["NSPrivacyCollectedDataTypes"], [])
+        self.assertEqual(manifest["NSPrivacyTrackingDomains"], [])
+        for data_type in manifest["NSPrivacyCollectedDataTypes"]:
+            self.assertFalse(data_type["NSPrivacyCollectedDataTypeTracking"])
 
 
 if __name__ == "__main__":

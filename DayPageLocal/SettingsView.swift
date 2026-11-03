@@ -52,6 +52,16 @@ struct SettingsView: View {
       }
       .listRowBackground(NotebookTheme.card)
       Section {
+        if let policyURL = URL(string: "https://github.com/getyak/daypage/blob/main/docs/legal/ios-privacy.md") {
+          Link(destination: policyURL) {
+            Label("Privacy policy", systemImage: "hand.raised")
+              .frame(minHeight: 44)
+          }
+          .accessibilityIdentifier("settings-privacy-policy")
+        }
+      }
+      .listRowBackground(NotebookTheme.card)
+      Section {
         Text("DayPage · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
           .font(.caption).foregroundStyle(.secondary)
       }
