@@ -148,12 +148,25 @@ final class CardToolsSpeechUITests: XCTestCase {
       // distinct from the 44pt custom buttons and verify the semantic change.
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      // In a Form the Switch AX frame can cover the entire row. A percentage
-      // near its right edge can miss the inset native control; use its trailing
-      // center, or the intrinsic frame's center when AX exposes only the knob.
-      let inset = min(44, control.frame.width / 2)
-      control.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-        .withOffset(CGVector(dx: -inset, dy: 0)).tap()
+      // A Form can expose both the identified row and its intrinsic native
+      // Switch. Tap that real control rather than deriving a screen offset.
+      let native = control.descendants(matching: .switch).firstMatch
+      let target: XCUIElement
+      if native.exists, native.isHittable, control.frame.contains(native.frame) {
+        target = native
+      } else if control.frame.width <= 100, control.frame.height <= 44 {
+        target = control
+      } else {
+        captureLookupFailure(control, scroller: form)
+        XCTFail("The native switch must be identifiable before changing its value")
+        return
+      }
+      XCTAssertTrue(target.isHittable)
+      let action = XCTAttachment(string: target.debugDescription)
+      action.name = "speech-switch-native-action-" + id
+      action.lifetime = .keepAlways
+      add(action)
+      target.tap()
     }
     let updated = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
@@ -369,6 +382,7 @@ final class CardToolsSpeechUITests: XCTestCase {
   private func previewAndStop() {
     let preview = app.buttons["speech-preview"]
     reveal(preview)
+    let previewStartedAt = ProcessInfo.processInfo.systemUptime
     tap44(preview)
     let status = element("speech-status")
     let playing = XCTNSPredicateExpectation(
@@ -381,12 +395,23 @@ final class CardToolsSpeechUITests: XCTestCase {
     // The fixture has a 60-second stop window. Keep a real button tap and state
     // assertions: natural completion of a short clip cannot stand in for Stop.
     tap44(stop)
-    let stopped = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-      !stop.exists && !status.exists && preview.isEnabled
-    }, object: nil)
-    XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 5), .completed)
+    // Each absent-element AX query can take several seconds. Give each state
+    // its own bounded check rather than spending one budget on three queries.
+    for target in [stop, status] {
+      let absent = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: target)
+      guard XCTWaiter.wait(for: [absent], timeout: 5) == .completed else {
+        captureLookupFailure(target, scroller: form)
+        XCTFail("Stop must remove both the playback control and its status")
+        return
+      }
+    }
+    XCTAssertTrue(preview.waitForExistence(timeout: 5))
     XCTAssertTrue(preview.isEnabled)
     XCTAssertEqual(app.state, .runningForeground, "Preview must not open another application")
+    // Include all lookup/tap time: the 60-second fixture cannot naturally
+    // finish within this window and masquerade as a successful Stop action.
+    XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - previewStartedAt, 50,
+      "Explicit Stop must finish before the fixture's natural playback completion")
   }
 
   func testSystemAndSavedCustomSpeechChannelsSwitchReopenAndPreviewExplicitly() {
