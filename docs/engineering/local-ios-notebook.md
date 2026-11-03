@@ -44,6 +44,8 @@ The unentitled build is also useful as an explicit negative test: opening AI set
 
 When the managed local device is occupied, the existing Local iOS notebook workflow has an optional `native_ui` manual input. It runs the same unsigned recovery and fully signed UI matrix on an isolated macOS runner using `scripts/qa/run_local_native_ci.sh`, a runner-owned loopback fixture and synthetic QA data. It is disabled for ordinary PR/push runs. Receipts and XCTest evidence are retained for seven days; build products, real credentials and distribution steps are excluded. Run it explicitly with `gh workflow run ios-local.yml --ref <branch> -f native_ui=true` and check the exact-source receipt before accepting the result.
 
+For diagnosis, `native_ui_suite=credential_recovery` runs the two real-UI service-switching and anonymous-key recovery journeys, retaining the same unsigned recovery checks. Its receipt names the focused suite and requires exactly two signed tests with zero failures or skips; it does not stand for the full matrix. The default remains `full`.
+
 ## Code merges without a TestFlight release
 
 When a task authorizes merging code but not publishing a binary, the automatic release workflow requires `[skip testflight]` in the actual main commit message. It checks that message before starting either its candidate-CI job or its upload job; ordinary CI still runs. A marker in a PR description or label does not satisfy this check. Manual TestFlight dispatch remains a separate explicitly authorized action.

@@ -553,21 +553,42 @@ final class LaunchExperienceUITests: XCTestCase {
       app.swipeDown()
     }
     field.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
     let previous = field.value as? String
     // A URL is not a reliable paragraph-selection target. Observe and invoke
     // the native editing action; never infer whole-field selection from taps.
+    // A retained failure showed Select All while the typed AX queries missed it.
+    // Match the actual hittable action without assuming its AX element type.
     field.press(forDuration: 1.1)
-    let selectAllButton = app.buttons["Select All"]
-    let selectAllMenuItem = app.menuItems["Select All"]
+    let selectionActions = app.descendants(matching: .any)
+      .matching(NSPredicate(format: "identifier == %@ OR label == %@", "Select All", "Select All"))
+    var selectionAction: XCUIElement?
     let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-      (selectAllButton.exists && selectAllButton.isHittable) ||
-        (selectAllMenuItem.exists && selectAllMenuItem.isHittable)
+      selectionAction = selectionActions.allElementsBoundByIndex.first { $0.isHittable }
+      return selectionAction != nil
     }, object: nil)
-    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 3) == .completed else {
+    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 10) == .completed,
+      let selectAll = selectionAction else {
+      attachAIInspectionFailure()
+      for (name, application) in [
+        ("fresh-app", XCUIApplication(bundleIdentifier: "com.daypage.app.localqa")),
+        ("springboard", XCUIApplication(bundleIdentifier: "com.apple.springboard"))
+      ] {
+        let redacted = application.debugDescription.split(separator: "\n", omittingEmptySubsequences: false)
+          .map { $0.contains("SecureTextField") ? "<SecureTextField redacted>" : String($0) }
+          .joined(separator: "\n")
+        let hierarchy = XCTAttachment(string: "State: \(application.state)\n" + redacted)
+        hierarchy.name = "ai-address-menu-" + name
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+      }
       XCTFail("The native Select All editing action must be visible before replacing the custom address")
       return
     }
-    let selectAll = selectAllButton.exists && selectAllButton.isHittable ? selectAllButton : selectAllMenuItem
+    let action = XCTAttachment(string: selectAll.debugDescription)
+    action.name = "ai-address-select-all-action"
+    action.lifetime = .keepAlways
+    add(action)
     selectAll.tap()
     field.typeText(XCUIKeyboardKey.delete.rawValue)
     let cleared = field.value as? String

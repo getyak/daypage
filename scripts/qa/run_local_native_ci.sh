@@ -191,6 +191,10 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
     daypage_test_selection=(-only-testing:DayPageLocalUITests/CardToolsSpeechUITests
       -only-testing:DayPageLocalUITests/ChatExperienceUITests)
     ;;
+  credential_recovery)
+    daypage_test_selection=(-only-testing:DayPageLocalUITests/LaunchExperienceUITests/testClearedCustomKeyDoesNotReturnAfterSwitchingServices
+      -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testSavedAnonymousIntentDoesNotReloadAHistoricalKey)
+    ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
@@ -215,14 +219,28 @@ suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
 files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
-expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
-assert expected >= 11, 'The selected native suite is unexpectedly empty'
+if suite == 'credential_recovery':
+    selected = {'testClearedCustomKeyDoesNotReturnAfterSwitchingServices',
+                'testSavedAnonymousIntentDoesNotReloadAHistoricalKey'}
+    declared = set(re.findall(r'^[ \t]+func (test\w+)\(',
+        pathlib.Path('DayPageLocalUITests/LaunchExperienceUITests.swift').read_text(), re.M))
+    assert selected <= declared, 'A required credential recovery test is missing'
+    expected = len(selected)
+    assert summary['totalTestCount'] == expected, 'The exact credential recovery pair must execute'
+else:
+    expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
+    assert expected >= 11, 'The selected native suite is unexpectedly empty'
 assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= expected, 'The complete selected UI suite did not execute'
 records = json.loads((root / 'signed-attachments/manifest.json').read_text())
+if suite == 'credential_recovery':
+    assert all(any(record.get('testIdentifier') == f'LaunchExperienceUITests/{test}()'
+                   and any('ai-address-select-all-action' in item.get('suggestedHumanReadableName', '')
+                           for item in record.get('attachments', []))
+                   for record in records) for test in selected), 'Both exact recovery journeys must retain their native editing action'
 names = [attachment.get('suggestedHumanReadableName', '') for record in records
          for attachment in record.get('attachments', [])]
 required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
-                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size']
+                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size'] if suite != 'credential_recovery' else []
 assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
 required_diary = ['diary-home-today', 'diary-earlier-days', 'diary-sidebar-en',
                   'diary-sidebar-zh-normal', 'diary-sidebar-zh-dark-large-text',

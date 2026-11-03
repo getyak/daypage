@@ -10,7 +10,7 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech]
+        options: [full, card_tools_speech, credential_recovery]
         default: full
   pull_request:
     paths:
