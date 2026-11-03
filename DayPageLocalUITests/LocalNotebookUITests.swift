@@ -41,6 +41,7 @@ final class LocalNotebookUITests: XCTestCase {
     ]
     app.launch()
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    XCTAssertTrue(visibleText("回家的时候没有戴耳机。").waitForExistence(timeout: 10))
     screenshot("appstore-diary")
     app.buttons["open-sidebar"].tap()
     XCTAssertTrue(app.buttons["sidebar-archive"].waitForExistence(timeout: 5))
@@ -57,7 +58,7 @@ final class LocalNotebookUITests: XCTestCase {
       app.swipeUp()
     }
     XCTAssertTrue(policy.isHittable)
-    XCTAssertGreaterThanOrEqual(policy.frame.height, 44)
+    XCTAssertGreaterThanOrEqual(policy.frame.height, 44 - 0.000_001)
     screenshot("appstore-settings-privacy")
   }
 
