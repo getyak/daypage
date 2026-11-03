@@ -379,3 +379,13 @@
 "Expanded" = "已展开";
 "Collapsed" = "已收起";
 "Use API key" = "使用 API 密钥";
+"Diary" = "日记";
+"By month" = "按月翻阅";
+"All months" = "全部月份";
+"Fewer months" = "收起月份";
+"A note to rediscover" = "偶遇旧记录";
+"Let an earlier thought find you." = "翻开一条过去的记录。";
+"Back to today" = "回到今天";
+"Today is still a blank page." = "今天，留一页空白。";
+"Keep a thought. The earlier days are just below." = "随手记一点，往下也能翻到从前。";
+"Keep scrolling to explore the days around it." = "继续翻阅，看看前后的日子。";

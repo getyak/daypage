@@ -3,18 +3,24 @@ import SwiftUI
 
 struct NotebookTimeline: View {
   @EnvironmentObject private var notebook: NotebookModel
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let day: String
-  let showAll: () -> Void
+  let jumpRevision: Int
+  let onToday: () -> Void
   let onOpenNote: (String) -> Void
-  private var entries: [NotebookEntry] {
-    notebook.catalog.entriesByDay[day, default: []].sorted {
-      if ($0.memo.pinnedAt != nil) != ($1.memo.pinnedAt != nil) { return $0.memo.pinnedAt != nil }
-      return $0.memo.created > $1.memo.created
-    }
+  @State private var todayPosition: CGFloat? = 0
+  private var today: String { NotebookDate.day(Date()) }
+  private var sections: [NotebookDaySection] {
+    notebook.catalog.diary(including: [today, day])
+  }
+  private struct Jump: Equatable {
+    let day: String
+    let revision: Int
+    let ready: Bool
   }
   private var captureRevealTarget: String? {
     guard let id = notebook.pendingCaptureRevealID,
-      day == NotebookDate.day(Date()), !notebook.isLoading, notebook.loadIssue == nil
+      day == today, !notebook.isLoading, notebook.loadIssue == nil
     else { return nil }
     // Imports can reuse a memo UUID. Scroll using the local record's full ID.
     return notebook.catalog.entriesByDay[day, default: []].first {
@@ -25,6 +31,15 @@ struct NotebookTimeline: View {
   var body: some View {
     ScrollViewReader { proxy in
       timeline
+        .coordinateSpace(name: "diary-scroll")
+        .onPreferenceChange(TodayPositionKey.self) { todayPosition = $0 }
+        .task(id: Jump(day: day, revision: jumpRevision,
+                       ready: !notebook.isLoading && notebook.loadIssue == nil)) {
+          guard !notebook.isLoading, notebook.loadIssue == nil else { return }
+          await Task.yield()
+          guard !Task.isCancelled, captureRevealTarget == nil else { return }
+          proxy.scrollTo("diary-day-" + day, anchor: .top)
+        }
         .task(id: captureRevealTarget) {
           guard let target = captureRevealTarget, let id = notebook.pendingCaptureRevealID else { return }
           // Let the parent's capture event switch to Today and the List lay out
@@ -36,37 +51,59 @@ struct NotebookTimeline: View {
           proxy.scrollTo(target, anchor: .top)
           notebook.acknowledgeCaptureReveal(id)
         }
+        .overlay(alignment: .bottomTrailing) {
+          if !notebook.isLoading, notebook.loadIssue == nil, !notebook.entries.isEmpty,
+             day != today || todayPosition == nil || (todayPosition ?? 0) < -48 {
+            Button(action: onToday) {
+              Label("Back to today", systemImage: "arrow.up")
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 16).frame(minHeight: 44)
+                .foregroundStyle(NotebookTheme.readingAccent)
+                .background(NotebookTheme.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(NotebookTheme.line))
+                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            }
+            .buttonStyle(NotebookPressStyle())
+            .accessibilityIdentifier("diary-back-today")
+            .padding(.trailing, 20).padding(.bottom, 8)
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+          }
+        }
     }
   }
 
   private var timeline: some View {
     List {
       Group {
-        if day != NotebookDate.day(Date()) {
-          Text("New notes are saved to Today.")
-            .font(.caption).foregroundStyle(NotebookTheme.muted)
-            .padding(.vertical, 6)
-        }
         if notebook.isLoading {
           ProgressView().frame(maxWidth: .infinity).padding(.top, 80)
         } else if let issue = notebook.loadIssue {
           NotebookEmptyState(icon: "exclamationmark.circle", title: "Couldn't read this notebook",
                              detail: issue)
           Button("Try again") { Task { await notebook.refresh() } }.padding(.horizontal, 20)
-        } else if entries.isEmpty {
+        } else if notebook.entries.isEmpty {
           emptyDay
-          if !notebook.entries.isEmpty {
-            ForEach(notebook.entries.prefix(3)) { entry in
+        } else {
+          ForEach(sections) { section in
+            dayHeading(section)
+              .id("diary-day-" + section.day)
+            if section.entries.isEmpty {
+              VStack(alignment: .leading, spacing: 6) {
+                Text(section.day == today ? "Today is still a blank page." : "No notes on this date.")
+                  .font(NotebookTheme.reading(18))
+                Text(section.day == today ? "Keep a thought. The earlier days are just below." : "Keep scrolling to explore the days around it.")
+                  .font(.caption).foregroundStyle(NotebookTheme.muted)
+              }
+              .padding(.horizontal, 6).padding(.vertical, 16)
+              .accessibilityIdentifier("diary-empty-" + section.day)
+            }
+            ForEach(section.entries) { entry in
               LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
+                .id(entry.id)
             }
           }
-        } else {
-          ForEach(entries) { entry in
-            LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
-              .id(entry.id)
-          }
           HStack(spacing: 7) {
-            Text(NotebookTheme.noteCount(entries.count))
+            Text(NotebookTheme.noteCount(notebook.entries.count))
             Text("·")
             Text("All saved on this device")
           }
@@ -83,18 +120,35 @@ struct NotebookTimeline: View {
     .notebookSurface()
   }
 
-  @ViewBuilder private var emptyDay: some View {
-    if !notebook.entries.isEmpty {
-      HStack(spacing: 12) {
-        Text("No notes on this date.").font(.subheadline).foregroundStyle(NotebookTheme.muted)
-        Spacer(minLength: 8)
-        Button(action: showAll) {
-          Image(systemName: "books.vertical").frame(width: 44, height: 44)
+  private func dayHeading(_ section: NotebookDaySection) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      VStack(alignment: .leading, spacing: 4) {
+        if section.day == today {
+          Text("Today").font(NotebookTheme.reading(23))
+          Text(NotebookDate.fullTitle(section.day)).font(.caption).foregroundStyle(NotebookTheme.muted)
+        } else {
+          Text(NotebookDate.fullTitle(section.day)).font(NotebookTheme.reading(20))
         }
-        .accessibilityLabel("Browse previous notes").accessibilityIdentifier("browse-previous")
       }
-      .padding(.horizontal, 4)
-    } else {
+      Spacer(minLength: 8)
+      Text(NotebookTheme.noteCount(section.entries.count))
+        .font(.caption).foregroundStyle(NotebookTheme.muted)
+    }
+    .padding(.horizontal, 4).padding(.top, 20).padding(.bottom, 4)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(.isHeader)
+    .accessibilityIdentifier("diary-heading-" + section.day)
+    .background {
+      if section.day == today {
+        GeometryReader { geometry in
+          Color.clear.preference(key: TodayPositionKey.self,
+            value: geometry.frame(in: .named("diary-scroll")).minY)
+        }
+      }
+    }
+  }
+
+  @ViewBuilder private var emptyDay: some View {
       VStack(alignment: .leading, spacing: 28) {
       VStack(alignment: .leading, spacing: 12) {
         Text("A little space\nfor whatever comes to mind.")
@@ -112,7 +166,13 @@ struct NotebookTimeline: View {
     }
     .padding(.horizontal, 12)
     .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
-    }
+  }
+}
+
+private struct TodayPositionKey: PreferenceKey {
+  static var defaultValue: CGFloat? { nil }
+  static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+    if let next = nextValue() { value = next }
   }
 }
 

@@ -16,6 +16,13 @@ public struct NotebookSearchResult: Sendable {
   public let count: Int
 }
 
+public struct NotebookMonthSummary: Identifiable, Sendable {
+  public let id: String
+  public let latestDay: String
+  public let noteCount: Int
+  public let dayCount: Int
+}
+
 /// A transient index rebuilt after a file refresh. No second persistence store.
 /// Each query visits every record once, independent of the number of day sections.
 public struct NotebookCatalog: Sendable {
@@ -26,10 +33,12 @@ public struct NotebookCatalog: Sendable {
   }
   private let records: [Record]
   private let unfiltered: NotebookSearchResult
+  private let diarySections: [NotebookDaySection]
   private static let tagExpression = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_-]+)"#)
   public let dayCounts: [String: Int]
   public let entriesByDay: [String: [NotebookEntry]]
   public let tags: [String]
+  public let months: [NotebookMonthSummary]
 
   public init(entries: [NotebookEntry]) {
     records = entries.map { entry in
@@ -45,6 +54,29 @@ public struct NotebookCatalog: Sendable {
     unfiltered = NotebookSearchResult(sections: grouped.keys.sorted(by: >).map {
       NotebookDaySection(day: $0, entries: grouped[$0, default: []])
     }, count: entries.count)
+    diarySections = grouped.keys.sorted(by: >).map { day in
+      NotebookDaySection(day: day, entries: grouped[day, default: []].sorted {
+        if ($0.memo.pinnedAt != nil) != ($1.memo.pinnedAt != nil) { return $0.memo.pinnedAt != nil }
+        if $0.memo.created != $1.memo.created { return $0.memo.created > $1.memo.created }
+        return $0.id < $1.id
+      })
+    }
+    let monthDays = Dictionary(grouping: grouped.keys, by: { String($0.prefix(7)) })
+    months = monthDays.keys.sorted(by: >).compactMap { month in
+      let days = monthDays[month, default: []]
+      guard let latest = days.max() else { return nil }
+      return NotebookMonthSummary(id: month, latestDay: latest,
+        noteCount: days.reduce(0) { $0 + grouped[$1, default: []].count }, dayCount: days.count)
+    }
+  }
+
+  /// Date choices are positions in the diary, never filters. Empty destinations
+  /// get an anchor without hiding any of the notebook's real records.
+  public func diary(including days: [String]) -> [NotebookDaySection] {
+    let missing = Set(days).subtracting(entriesByDay.keys)
+    guard !missing.isEmpty else { return diarySections }
+    return (diarySections + missing.map { NotebookDaySection(day: $0, entries: []) })
+      .sorted { $0.day > $1.day }
   }
 
   public func search(text: String = "", kind: NotebookEntryKind = .all, tag: String? = nil,

@@ -56,14 +56,15 @@ final class LocalNotebookUITests: XCTestCase {
     screenshot("local-note-detail")
   }
 
-  func testSidebarHasExactlyThreeDestinationsAndSettingsNeedsNoAccount() {
+  func testSidebarKeepsItsDestinationsAndSettingsNeedsNoAccount() {
     app.launchArguments += ["-qaSeedNotebook"]
     app.launch()
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
     app.buttons["open-sidebar"].tap()
     XCTAssertTrue(app.buttons["sidebar-archive"].waitForExistence(timeout: 5))
-    XCTAssertEqual(
-      app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar-'")).count, 3)
+    XCTAssertTrue(app.buttons["notebook-home"].exists)
+    XCTAssertTrue(app.buttons["sidebar-feedback"].exists)
+    XCTAssertTrue(app.buttons["sidebar-settings"].exists)
     screenshot("local-sidebar")
     app.buttons["sidebar-settings"].tap()
     XCTAssertTrue(app.buttons["settings-ai-models"].waitForExistence(timeout: 5))

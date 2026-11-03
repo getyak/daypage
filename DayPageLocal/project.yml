@@ -25,6 +25,7 @@ targets:
       - path: NotebookModel.swift
       - path: NotebookTheme.swift
       - path: NotebookView.swift
+      - path: NotebookSidebar.swift
       - path: NotebookTimeline.swift
       - path: NotebookArchive.swift
       - path: NotebookCalendar.swift

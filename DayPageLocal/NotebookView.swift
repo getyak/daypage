@@ -2,11 +2,11 @@ import DayPageCore
 import Combine
 import SwiftUI
 
-private enum NotebookDestination: String {
+enum NotebookDestination: String {
   case today, archive, feedback, settings
   var title: LocalizedStringKey {
     switch self {
-    case .today: return "Today"
+    case .today: return "Diary"
     case .archive: return "Archive"
     case .feedback: return "Feedback"
     case .settings: return "Settings"
@@ -29,6 +29,9 @@ struct NotebookView: View {
   @State private var search = ""
   @State private var showingSearch = false
   @State private var searchPath: [String] = []
+  @State private var jumpRevision = 0
+  @State private var lastRediscoveredID: String?
+  @AccessibilityFocusState private var sidebarButtonFocused: Bool
 
   var body: some View {
     GeometryReader { geometry in
@@ -40,7 +43,8 @@ struct NotebookView: View {
             Group {
               switch destination {
               case .today:
-                NotebookTimeline(day: selectedDay, showAll: { destination = .archive },
+                NotebookTimeline(day: selectedDay, jumpRevision: jumpRevision,
+                                 onToday: { jump(to: NotebookDate.day(Date())) },
                                  onOpenNote: { path.append($0) })
               case .archive:
                 ArchiveView(search: .constant(""), onOpenNote: { path.append($0) })
@@ -70,6 +74,7 @@ struct NotebookView: View {
           }
         }
         .accessibilityHidden(sidebarOpen || showingSearch)
+        .allowsHitTesting(!sidebarOpen)
         .overlay(alignment: .leading) {
           if path.isEmpty && !sidebarOpen {
             Color.clear.frame(width: 14).contentShape(Rectangle())
@@ -86,9 +91,18 @@ struct NotebookView: View {
           Color.black.opacity(0.22).ignoresSafeArea()
             .onTapGesture { showSidebar(false) }
             .accessibilityHidden(true)
-          sidebar
+            .transition(.opacity)
+          NotebookSidebar(destination: destination, selectedDay: selectedDay,
+            onHome: { jump(to: NotebookDate.day(Date())); showSidebar(false) },
+            onNavigate: { destination = $0; path = []; showSidebar(false) },
+            onMonth: { jump(to: $0); showSidebar(false); selectionFeedback() },
+            onRediscover: rediscover,
+            onClose: { showSidebar(false) })
             .frame(width: min(geometry.size.width * (typeSize.isAccessibilitySize ? 0.94 : 0.84), 350))
-            .transition(.move(edge: .leading))
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: .black.opacity(0.12), radius: 24, x: 8)
+            .padding(.vertical, 4)
+            .transition(reduceMotion ? .opacity : .move(edge: .leading).combined(with: .opacity))
             .accessibilityAddTraits(.isModal)
             .gesture(DragGesture(minimumDistance: 24).onEnded { value in
               if value.translation.width < -65 && abs(value.translation.width) > abs(value.translation.height) * 1.5 {
@@ -110,6 +124,7 @@ struct NotebookView: View {
         // after midnight before the periodic Today refresh has fired.
         observedToday = NotebookDate.day(Date())
         destination = .today
+        jumpRevision += 1
       }
         .presentationDetents([.large])
     }
@@ -144,10 +159,7 @@ struct NotebookView: View {
     .onChange(of: notebook.entries.first?.id) { _ in refreshTodaySelection() }
     .onChange(of: notebook.lastCapturedNoteID) { id in
       guard id != nil else { return }
-      selectedDay = NotebookDate.day(Date())
-      observedToday = selectedDay
-      destination = .today
-      path = []
+      jump(to: NotebookDate.day(Date()))
     }
     .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
       refreshTodaySelection()
@@ -194,12 +206,10 @@ struct NotebookView: View {
       HStack(spacing: 12) {
         NotebookCircleButton(icon: "line.3.horizontal", label: "Open sidebar") { showSidebar(true) }
           .accessibilityIdentifier("open-sidebar")
+          .accessibilityFocused($sidebarButtonFocused)
         if destination != .today {
           NotebookCircleButton(icon: "chevron.left", label: "Today") {
-            destination = .today
-            selectedDay = NotebookDate.day(Date())
-            observedToday = selectedDay
-            path = []
+            jump(to: NotebookDate.day(Date()))
           }
           .accessibilityIdentifier("return-today")
         }
@@ -223,94 +233,33 @@ struct NotebookView: View {
     .background(NotebookTheme.paper)
   }
 
-  private var sidebar: some View {
-    GeometryReader { geometry in
-      ScrollView {
-        VStack(alignment: .leading, spacing: 0) {
-          NotebookCircleButton(icon: "xmark", label: "Close sidebar") { showSidebar(false) }
-            .accessibilityIdentifier("close-sidebar")
-            .padding(.bottom, 28)
-          Button {
-            destination = .today
-            selectedDay = NotebookDate.day(Date())
-            observedToday = selectedDay
-            path = []
-            showSidebar(false)
-          } label: {
-            HStack(spacing: 14) {
-              Image(systemName: "book.closed").font(.system(size: 21))
-                .frame(width: 44, height: 44)
-                .background(NotebookTheme.card.opacity(0.7), in: Circle())
-              VStack(alignment: .leading, spacing: 4) {
-                Text("DayPage").font(NotebookTheme.reading(24))
-                Text("On this device").font(.caption).foregroundStyle(NotebookTheme.muted)
-              }
-              Spacer()
-              Image(systemName: "chevron.right").font(.caption)
-            }
-            .foregroundStyle(NotebookTheme.ink)
-            .padding(.vertical, 8)
-          }
-          .buttonStyle(.plain)
-          .accessibilityIdentifier("notebook-home")
-          .padding(.bottom, 34)
-
-          sidebarRow(.archive, icon: "books.vertical")
-          HStack(spacing: 8) {
-            Text(NotebookTheme.noteCount(notebook.entries.count))
-            Text("·")
-            Text(NotebookTheme.dayCount(Set(notebook.entries.map(\.day)).count))
-          }
-          .font(.caption)
-          .foregroundStyle(NotebookTheme.muted)
-          .padding(.leading, 56)
-          .padding(.top, 12)
-
-          Spacer(minLength: 48)
-          Divider().overlay(NotebookTheme.line).padding(.bottom, 16)
-          sidebarRow(.feedback, icon: "paperplane")
-          sidebarRow(.settings, icon: "gearshape")
-          Text("Your notes stay here.\nAI joins only when you ask.")
-            .font(.caption).foregroundStyle(NotebookTheme.muted)
-            .lineSpacing(4).padding(.horizontal, 16).padding(.top, 24)
-        }
-        .frame(minHeight: max(0, geometry.size.height - 60), alignment: .topLeading)
-        .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 32)
-      }
-      .scrollIndicators(.hidden)
-      .background(NotebookTheme.spine.ignoresSafeArea())
-      .overlay(alignment: .trailing) {
-        Rectangle().fill(NotebookTheme.line).frame(width: 0.5).ignoresSafeArea()
-      }
-      .accessibilityIdentifier("notebook-sidebar")
-      .accessibilityAction(.escape) { showSidebar(false) }
-    }
-  }
-
-  private func sidebarRow(_ item: NotebookDestination, icon: String) -> some View {
-    Button {
-      destination = item
-      path = []
-      showSidebar(false)
-    } label: {
-      HStack(spacing: 16) {
-        Image(systemName: icon).font(.system(size: 21)).frame(width: 24)
-        Text(item.title).font(.body.weight(destination == item ? .medium : .regular))
-        Spacer()
-      }
-      .foregroundStyle(destination == item ? NotebookTheme.readingAccent : NotebookTheme.secondary)
-      .padding(.horizontal, 16).frame(minHeight: 58)
-      .background(destination == item ? NotebookTheme.spineSelection : .clear,
-                  in: RoundedRectangle(cornerRadius: 14))
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityIdentifier("sidebar-" + item.rawValue)
-    .accessibilityAddTraits(destination == item ? .isSelected : [])
-  }
-
   private func showSidebar(_ open: Bool) {
-    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { sidebarOpen = open }
+    withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.36, dampingFraction: 0.88)) {
+      sidebarOpen = open
+    }
+    if !open { sidebarButtonFocused = true }
+  }
+
+  private func jump(to day: String) {
+    selectedDay = day
+    observedToday = NotebookDate.day(Date())
+    destination = .today
+    path = []
+    jumpRevision += 1
+  }
+
+  private func rediscover() {
+    let candidates = notebook.entries.filter { $0.day < NotebookDate.day(Date()) }
+    let fresh = candidates.filter { $0.id != lastRediscoveredID }
+    guard let entry = (fresh.isEmpty ? candidates : fresh).randomElement() else { return }
+    lastRediscoveredID = entry.id
+    path = [entry.id]
+    showSidebar(false)
+    selectionFeedback()
+  }
+
+  private func selectionFeedback() {
+    UISelectionFeedbackGenerator().selectionChanged()
   }
 
   private func refreshTodaySelection() {
