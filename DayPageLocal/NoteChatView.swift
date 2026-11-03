@@ -61,7 +61,7 @@ struct NoteChatView: View {
     .task { await session.load(notebook: notebook, selectedIDs: selectedIDs) }
     .onChange(of: session.draft) { _ in session.persistDraft() }
     .onChange(of: scenePhase) { phase in if phase != .active { session.leave() } }
-    .onDisappear { session.leave() }
+    .onDisappear { session.leave(); notebook.speech.stop() }
     .sheet(item: $sheet) { destination in
       NavigationStack {
         Group {
@@ -116,8 +116,14 @@ struct NoteChatView: View {
         VStack(alignment: .leading, spacing: 8) {
           Toggle("Include note excerpts", isOn: Binding(get: { session.conversation.includesNotes != false },
             set: { value in Task { await session.setIncludesNotes(value) } }))
-            .disabled(session.sending).font(.subheadline)
-          Text("Only these excerpts and this conversation are sent when you tap Send.")
+            .disabled(session.sending).font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-include-notes")
+          Toggle("Search notes as needed", isOn: Binding(get: { session.conversation.usesTools == true },
+            set: { value in Task { await session.setUsesTools(value) } }))
+            .disabled(session.sending || session.conversation.includesNotes == false)
+            .font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-note-tools")
+          Text(LocalizedStringKey(session.conversation.usesTools == true && session.conversation.includesNotes != false
+            ? "When you tap Send, your AI can search and read notes and supported attachments within this conversation’s note selection. It cannot change your notes."
+            : "Only these excerpts and this conversation are sent when you tap Send."))
             .font(.caption).foregroundStyle(.secondary)
           if !context.text.isEmpty {
             ScrollView { Text(context.text).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
@@ -125,8 +131,13 @@ struct NoteChatView: View {
           }
         }.padding(.bottom, 10)
       } label: {
-        Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
-          .font(.caption).foregroundStyle(.secondary).frame(minHeight: 44)
+        Group {
+          if session.conversation.usesTools == true && session.conversation.includesNotes != false {
+            Label("\(ConversationNoteScope.entries(notebook.entries, conversation: session.conversation).count) notes available to tools", systemImage: "text.magnifyingglass")
+          } else {
+            Label("\(context.entries.count) notes included", systemImage: "text.book.closed")
+          }
+        }.font(.caption).foregroundStyle(.secondary).frame(minHeight: 44)
       }.accessibilityIdentifier("chat-context")
       if !configured {
         Button { sheet = .models } label: {
@@ -192,6 +203,10 @@ private struct ChatTranscript: View {
           LazyVStack(alignment: .leading, spacing: 14) {
             if session.conversation.messages.isEmpty && session.ready { greeting.id("chat-start") }
             ForEach(session.conversation.messages) { message in ChatMessageRow(message: message).id(message.id) }
+            if let status = session.toolStatus {
+              Label(status, systemImage: "text.magnifyingglass").font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("chat-tool-status")
+            }
             if let error = session.error {
               VStack(alignment: .leading, spacing: 4) {
                 Text(error).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("chat-error")
@@ -260,7 +275,12 @@ private struct ChatTranscript: View {
 
 private struct ChatMessageRow: View {
   let message: ChatMessage
+  @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var saving = false
+  @State private var saved = false
+  @State private var saveError: String?
+  @State private var sourceEntry: NotebookEntry?
   var body: some View {
     HStack(alignment: .top, spacing: 0) {
       if message.role == .user { Spacer(minLength: 30) }
@@ -290,6 +310,41 @@ private struct ChatMessageRow: View {
           if message.delivery == .interrupted {
             Label("Interrupted · saved", systemImage: "pause.circle").font(.caption).foregroundStyle(.secondary)
           }
+          if let sources = message.sources, !sources.isEmpty {
+            DisclosureGroup("Sources") {
+              ForEach(sources) { source in
+                Button {
+                  if let entry = notebook.entries.first(where: { $0.id == source.cardRef }) { sourceEntry = entry }
+                  else { saveError = String(localized: "This source is no longer in the notebook. The saved reply is still available.") }
+                } label: {
+                  VStack(alignment: .leading, spacing: 3) {
+                    Text(source.day).font(.caption.weight(.medium))
+                    Text(source.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                  }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }.buttonStyle(.plain).accessibilityIdentifier("chat-source-" + source.cardRef)
+              }
+            }.font(.caption).accessibilityIdentifier("chat-sources")
+          }
+          if message.delivery == .complete, !message.content.isEmpty {
+            HStack(alignment: .top, spacing: 16) {
+              Button {
+                guard !saving else { return }
+                saving = true; saveError = nil
+                Task {
+                  defer { saving = false }
+                  do { _ = try await notebook.saveReply(message); saved = true }
+                  catch { saveError = String(localized: "The reply could not be saved. Your conversation and capture draft are kept. Try again.") }
+                }
+              } label: {
+                Label(saved ? "Saved as a note" : "Save as a note", systemImage: saved ? "checkmark" : "square.and.arrow.down")
+                  .frame(minHeight: 44)
+              }.disabled(saving || saved).accessibilityIdentifier("chat-save-reply-" + message.id.uuidString)
+              SpeechControls(playback: notebook.speech, text: message.content, id: message.id.uuidString,
+                accessibilityID: "chat-speak-" + message.id.uuidString)
+            }.font(.caption)
+            if saved { Text("Saved as a note").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat-reply-saved") }
+          }
+          if let saveError { Text(saveError).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("chat-reply-error") }
         } else {
           Text(message.content).font(.body).lineSpacing(3).textSelection(.enabled)
             .padding(.horizontal, 14).padding(.vertical, 10)
@@ -298,5 +353,12 @@ private struct ChatMessageRow: View {
       }
       if message.role == .assistant { Spacer(minLength: 4) }
     }.accessibilityIdentifier("chat-message-\(message.id)")
+      .sheet(item: $sourceEntry) { entry in
+        NavigationStack {
+          NoteDetailView(entry: entry).toolbar {
+            ToolbarItem(placement: .confirmationAction) { Button("Done") { sourceEntry = nil } }
+          }
+        }
+      }
   }
 }

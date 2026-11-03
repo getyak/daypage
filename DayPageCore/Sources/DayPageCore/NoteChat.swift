@@ -9,6 +9,7 @@ public struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
   public var reasoning: String?
   public var character: ChatCharacter?
   public var delivery: Delivery?
+  public var sources: [NoteToolSource]?
   public enum Delivery: String, Codable, Sendable { case streaming, complete, interrupted }
   public init(id: UUID = UUID(), role: Role, content: String, reasoning: String? = nil,
     character: ChatCharacter? = nil, delivery: Delivery? = nil) {
@@ -28,6 +29,7 @@ public struct Conversation: Codable, Identifiable, Sendable {
   public var characters: [ChatCharacter]?
   public var rotatesCharacters: Bool?
   public var includesNotes: Bool?
+  public var usesTools: Bool?
   public var updatedAt: Date?
   public var nextCharacter: ChatCharacter {
     let choices = characters.flatMap { $0.isEmpty ? nil : $0 } ?? [.companion]
@@ -90,7 +92,7 @@ public struct NoteContext: Sendable {
     let limit = min(18000, max(0, maxCharacters))
     for pair in ranked.prefix(min(12, max(0, maxNotes))) {
       let entry = pair.element
-      let header = "\n<note id=\"\(entry.memo.id.uuidString)\" day=\"\(entry.day)\">\n"
+      let header = "\n<note id=\"\(entry.id)\" day=\"\(entry.day)\">\n"
       let footer = "\n</note>\n"
       let remaining = limit - text.count - header.count - footer.count
       guard remaining > 0 else { break }
@@ -218,7 +220,7 @@ public actor ConversationStore {
   }
 }
 public struct AIClient {
-  private let transport: AITransport
+  let transport: AITransport
   public init() { transport = AITransport() }
   init(transport: AITransport) { self.transport = transport }
   public func makeRequest(

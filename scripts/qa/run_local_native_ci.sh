@@ -180,8 +180,18 @@ if ! grep -q 'sectname __entitlements' "$daypage_evidence/macho.log"; then
   exit 1
 fi
 daypage_signed_exit=0
+daypage_test_selection=()
+case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
+  full) ;;
+  card_tools_speech)
+    daypage_test_selection=(-only-testing:DayPageLocalUITests/CardToolsSpeechUITests
+      -only-testing:DayPageLocalUITests/ChatExperienceUITests)
+    ;;
+  *) echo "Unknown native UI suite." >&2; exit 2 ;;
+esac
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}" \
+  ${daypage_test_selection[@]+"${daypage_test_selection[@]}"} \
   -resultBundlePath "$daypage_evidence/signed-full-ui.xcresult" || daypage_signed_exit=$?
 daypage_signed_summary_exit=0
 run_logged "$daypage_evidence/signed-summary.log" xcrun xcresulttool get test-results summary \
@@ -193,20 +203,26 @@ if ((daypage_signed_exit != 0)); then exit "$daypage_signed_exit"; fi
 if ((daypage_signed_summary_exit != 0)); then exit "$daypage_signed_summary_exit"; fi
 if ((daypage_signed_export_exit != 0)); then exit "$daypage_signed_export_exit"; fi
 python3 - "$daypage_evidence" <<'PY'
-import json, pathlib, sys
+import json, os, pathlib, re, sys
 root = pathlib.Path(sys.argv[1])
 summary = json.loads((root / 'signed-summary.log').read_text())
 assert summary['result'] == 'Passed' and summary['failedTests'] == 0 and summary['skippedTests'] == 0, 'Every native UI test must execute and pass'
-assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= 46, 'The complete current UI suite did not execute'
+suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
+files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
+if suite == 'card_tools_speech':
+    files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
+expected = sum(len(re.findall(r'^  func test\w+\(', p.read_text(), re.M)) for p in files)
+assert expected >= 10, 'The selected native suite is unexpectedly empty'
+assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= expected, 'The complete selected UI suite did not execute'
 records = json.loads((root / 'signed-attachments/manifest.json').read_text())
 names = [attachment.get('suggestedHumanReadableName', '') for record in records
          for attachment in record.get('attachments', [])]
 required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
                  'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size']
 assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
-receipt = {'passed': True, 'source': json.loads((root / 'provenance.json').read_text()),
+receipt = {'passed': True, 'suite': suite, 'expectedMinimumTests': expected, 'source': json.loads((root / 'provenance.json').read_text()),
            'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary,
            'requiredChatAttachments': required_chat}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
-echo "Verified the denied-Keychain recovery branch and the complete signed native UI suite."
+echo "Verified the denied-Keychain recovery branch and the complete selected signed native UI suite."

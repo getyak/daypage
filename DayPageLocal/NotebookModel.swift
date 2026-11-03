@@ -31,6 +31,7 @@ final class NotebookModel: ObservableObject {
   let conversations: ConversationStore
   private let captureDrafts: CaptureDraftStore
   let preferences: UserDefaults
+  let speech: SpeechPlayback
   private var loaded = false
   private var captureRevision: UInt64 = 0
   private var captureMemoID = UUID()
@@ -50,6 +51,7 @@ final class NotebookModel: ObservableObject {
       preferences = .standard
     }
     self.preferences = preferences
+    speech = SpeechPlayback(defaults: preferences)
     let container =
       Self.isQA
       ? URL.documentsDirectory.appendingPathComponent("qa-GET-326", isDirectory: true)
@@ -62,6 +64,7 @@ final class NotebookModel: ObservableObject {
         // The QA app owns a separate sandbox and contains only synthetic data.
         try? FileManager.default.removeItem(at: root)
         preferences.removeObject(forKey: Self.connectionKey)
+        preferences.removeObject(forKey: SpeechPreferencesStore.key)
       }
     #endif
     store = NotebookStore(root: root)
@@ -179,6 +182,21 @@ final class NotebookModel: ObservableObject {
       )
       report(error)
     }
+  }
+
+  func readToolAttachment(cardRef: String, index: Int, allowedEntries: [NotebookEntry]) async throws -> String {
+    guard let entry = allowedEntries.first(where: { $0.id == cardRef }),
+      entry.memo.attachments.indices.contains(index) else { throw NotebookError.conflict }
+    let attachment = entry.memo.attachments[index]
+    let url = try await store.assetURL(attachment.file, for: entry)
+    return try await AttachmentTextReader.read(url: url, kind: attachment.kind, transcript: attachment.transcript)
+  }
+
+  func saveReply(_ message: ChatMessage) async throws -> NotebookEntry {
+    guard message.role == .assistant, message.delivery == .complete else { throw NotebookError.conflict }
+    let entry = try await ReplyCardSaver.save(id: message.id, text: message.content, store: store)
+    await refresh()
+    return entry
   }
 
   func saveDraft() {

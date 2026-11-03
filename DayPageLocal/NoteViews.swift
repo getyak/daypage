@@ -401,6 +401,10 @@ struct NoteDetailView: View {
           NoteMarkdownBody(text: current.memo.body).accessibilityIdentifier("note-original")
         }
         if !current.memo.attachments.isEmpty { NoteAttachmentStrip(entry: current) }
+        if !current.memo.body.isEmpty {
+          SpeechControls(playback: notebook.speech, text: current.memo.body, id: current.id,
+            accessibilityID: "note-read-aloud")
+        }
         Button {
           destination = .chat
         } label: {
@@ -420,6 +424,7 @@ struct NoteDetailView: View {
       .frame(maxWidth: 680).frame(maxWidth: .infinity)
     }
     .notebookSurface().tint(NotebookTheme.accent)
+    .onDisappear { notebook.speech.stop() }
     .navigationTitle("Note").navigationBarTitleDisplayMode(.inline)
     .toolbar(.visible, for: .navigationBar)
     .toolbar {

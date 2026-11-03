@@ -7,6 +7,11 @@ on:
         type: boolean
         required: false
         default: false
+      native_ui_suite:
+        description: Native journeys to run (full retains all existing journeys)
+        type: choice
+        options: [full, card_tools_speech]
+        default: full
   pull_request:
     paths:
       - 'DayPageLocal/**'
@@ -90,6 +95,7 @@ jobs:
         # The runner is ephemeral and has no shared workstation trust settings.
         env:
           DAYPAGE_NATIVE_CI_OUTPUT_DIR: ${{ runner.temp }}/daypage-native-ui/evidence
+          DAYPAGE_NATIVE_UI_SUITE: ${{ inputs.native_ui_suite || 'full' }}
         run: bash scripts/qa/run_local_native_ci.sh
       - name: Preserve isolated native UI evidence
         if: always()

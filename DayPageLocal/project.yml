@@ -35,6 +35,9 @@ targets:
       - path: NoteChatView.swift
       - path: ChatSession.swift
       - path: ChatLibraryViews.swift
+      - path: SpeechControls.swift
+      - path: SpeechPlayback.swift
+      - path: SpeechSettingsView.swift
       - path: SettingsView.swift
       - path: AIConnectionSettings.swift
       - path: FeedbackView.swift

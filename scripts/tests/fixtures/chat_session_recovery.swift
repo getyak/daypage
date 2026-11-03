@@ -3,8 +3,16 @@ import Foundation
 
 @MainActor final class NotebookModel {
   let conversations: ConversationStore
+  let store: NotebookStore
+  var entries: [NotebookEntry] = []
   var configuration = AIConfiguration(baseURL: "http://127.0.0.1:1/v1", model: "fixture-model", allowsLocalHTTP: true)
-  init(root: URL) { conversations = ConversationStore(root: root) }
+  init(root: URL) { conversations = ConversationStore(root: root); store = NotebookStore(root: root) }
+  func readToolAttachment(cardRef: String, index: Int, allowedEntries: [NotebookEntry]) async throws -> String {
+    guard let entry = allowedEntries.first(where: { $0.id == cardRef }), entry.memo.attachments.indices.contains(index) else { throw NotebookError.conflict }
+    let attachment = entry.memo.attachments[index]
+    let url = try await store.assetURL(attachment.file, for: entry)
+    return try await AttachmentTextReader.read(url: url, kind: attachment.kind, transcript: attachment.transcript)
+  }
 }
 
 @main enum ChatSessionRecoveryChecks {
