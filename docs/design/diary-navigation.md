@@ -20,6 +20,6 @@ Discovery lives in one explicit action: open a randomly chosen existing note fro
 
 ## Boundaries and verification
 
-Owned paths: local iOS views/resources/project, the read-only core catalog, focused tests and this documentation. Forbidden: vault/storage formats, live user content, chat/provider behavior, legacy clients and release configuration. No new dependency, migration or TestFlight publication.
+Owned paths: local iOS views/resources/project, the read-only core catalog, focused tests and this documentation. Forbidden: vault/storage formats, live user content, chat/provider behavior and legacy clients. No new dependency, migration or TestFlight publication. The sole release-workflow change broadens its existing opt-out to the whole push, so a multi-PR Merge Queue batch cannot publish a feature-only change; missing or potentially truncated commit lists also skip automatic publication. Manual release behavior and ordinary CI are unchanged.
 
 Verify chronological grouping, empty anchors, imported identities and year/month boundaries in core tests. Verify real Simulator scrolling, month jumps, Today, rediscovery, capture from a past day, empty data, Chinese/dark/large text and existing calendar/search/card journeys. Native test data must remain within the isolated Debug QA bundle. Independent review and exact-source CI precede integration. Physical-device haptics and VoiceOver remain separately distinguishable evidence.

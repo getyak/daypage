@@ -188,7 +188,7 @@ struct NotebookView: View {
         if destination == .today {
           Button { showingCalendar = true } label: {
             HStack(spacing: 6) {
-              Text(NotebookDate.title(selectedDay)).font(NotebookTheme.reading(17))
+              Text("Diary").font(NotebookTheme.reading(19))
               Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium))
             }
             .foregroundStyle(NotebookTheme.muted).frame(minHeight: 44)

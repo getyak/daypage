@@ -200,6 +200,19 @@ class ReleaseCIGateTests(unittest.TestCase):
         self.assertIn("needs: candidate-ci", deploy)
         self.assertIn("python3 scripts/ci/wait_for_release_ci.py", source)
 
+    def test_every_publication_job_checks_the_whole_push_before_allocating_a_runner(self):
+        source = (ROOT / ".github/workflows/testflight.yml").read_text()
+        conditions = []
+        for name in ("candidate-ci", "deploy"):
+            job = source.split(f"  {name}:\n", 1)[1]
+            condition = next(line.strip() for line in job.splitlines() if line.startswith("    if:"))
+            conditions.append(condition)
+            self.assertIn("github.event_name != 'push'", condition)
+            self.assertIn("github.event.commits[0] != null", condition)
+            self.assertIn("github.event.commits[2047] == null", condition)
+            self.assertIn("!contains(join(github.event.commits.*.message), '[skip testflight]')", condition)
+        self.assertEqual(conditions[0], conditions[1])
+
 
 if __name__ == "__main__":
     unittest.main()

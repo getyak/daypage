@@ -16,6 +16,10 @@ final class DiaryUITests: XCTestCase {
     XCTAssertTrue(yesterday.isHittable, "Previous days must be reachable directly on Home")
     XCTAssertTrue(app.buttons["diary-back-today"].isHittable)
     capture("diary-earlier-days")
+    yesterday.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(yesterday.isHittable, "Back must retain the historical reading position")
     app.buttons["diary-back-today"].tap()
     XCTAssertTrue(note("Diary history 0.").isHittable)
     XCTAssertTrue(app.buttons["new-note"].isHittable)
@@ -66,6 +70,7 @@ final class DiaryUITests: XCTestCase {
   func testCaptureFromPastDayReturnsToItsNewRecordAndKeepsHistory() {
     launchDiary()
     app.buttons["choose-date"].tap()
+    if day(1).prefix(7) != day(0).prefix(7) { app.buttons["calendar-previous-month"].tap() }
     app.buttons["calendar-day-" + day(1)].tap()
     app.buttons["calendar-done"].tap()
     XCTAssertTrue(note("Diary history 1.").isHittable)

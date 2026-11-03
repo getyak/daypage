@@ -9,6 +9,7 @@ struct NotebookTimeline: View {
   let onToday: () -> Void
   let onOpenNote: (String) -> Void
   @State private var todayPosition: CGFloat? = 0
+  @State private var consumedJump: Jump?
   private var today: String { NotebookDate.day(Date()) }
   private var sections: [NotebookDaySection] {
     notebook.catalog.diary(including: [today, day])
@@ -17,6 +18,9 @@ struct NotebookTimeline: View {
     let day: String
     let revision: Int
     let ready: Bool
+  }
+  private var jump: Jump {
+    Jump(day: day, revision: jumpRevision, ready: !notebook.isLoading && notebook.loadIssue == nil)
   }
   private var captureRevealTarget: String? {
     guard let id = notebook.pendingCaptureRevealID,
@@ -33,11 +37,12 @@ struct NotebookTimeline: View {
       timeline
         .coordinateSpace(name: "diary-scroll")
         .onPreferenceChange(TodayPositionKey.self) { todayPosition = $0 }
-        .task(id: Jump(day: day, revision: jumpRevision,
-                       ready: !notebook.isLoading && notebook.loadIssue == nil)) {
-          guard !notebook.isLoading, notebook.loadIssue == nil else { return }
+        .task(id: jump) {
+          guard jump.ready, consumedJump != jump else { return }
           await Task.yield()
-          guard !Task.isCancelled, captureRevealTarget == nil else { return }
+          guard !Task.isCancelled else { return }
+          consumedJump = jump
+          guard captureRevealTarget == nil else { return }
           proxy.scrollTo("diary-day-" + day, anchor: .top)
         }
         .task(id: captureRevealTarget) {
@@ -48,6 +53,7 @@ struct NotebookTimeline: View {
           await Task.yield()
           guard !Task.isCancelled, captureRevealTarget == target,
             notebook.pendingCaptureRevealID == id else { return }
+          consumedJump = jump
           proxy.scrollTo(target, anchor: .top)
           notebook.acknowledgeCaptureReveal(id)
         }
@@ -149,7 +155,7 @@ struct NotebookTimeline: View {
   }
 
   @ViewBuilder private var emptyDay: some View {
-      VStack(alignment: .leading, spacing: 28) {
+    VStack(alignment: .leading, spacing: 28) {
       VStack(alignment: .leading, spacing: 12) {
         Text("A little space\nfor whatever comes to mind.")
           .font(NotebookTheme.reading(25)).lineSpacing(6)
