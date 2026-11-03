@@ -34,6 +34,33 @@ final class LocalNotebookUITests: XCTestCase {
     add(attachment)
   }
 
+  func testAppStoreScreenshotsUseTheLocalNotebookAndExposeItsPrivacyPolicy() {
+    app.launchArguments = [
+      "-qaNotebookSession", "-qaResetNotebook", "-qaSeedNotebook",
+      "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN",
+    ]
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    screenshot("appstore-diary")
+    app.buttons["open-sidebar"].tap()
+    XCTAssertTrue(app.buttons["sidebar-archive"].waitForExistence(timeout: 5))
+    screenshot("appstore-sidebar")
+    app.buttons["sidebar-archive"].tap()
+    XCTAssertTrue(element("archive-summary").waitForExistence(timeout: 5))
+    screenshot("appstore-archive")
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-settings"].tap()
+    XCTAssertTrue(app.buttons["settings-ai-models"].waitForExistence(timeout: 5))
+    let policy = element("settings-privacy-policy")
+    for _ in 0..<4 {
+      if policy.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertTrue(policy.isHittable)
+    XCTAssertGreaterThanOrEqual(policy.frame.height, 44)
+    screenshot("appstore-settings-privacy")
+  }
+
   func testOfflineWritingSurvivesRelaunchAndCanBeEdited() {
     app.launch()
     write("A small thought saved entirely on this device.")

@@ -24,7 +24,7 @@ AI 需要你选择服务商、地址和模型；部分服务需要你自己的 A
 
 你选择的 AI 和语音服务商会按照自己的政策处理请求，包括网络连接信息、保存期限及模型训练用途。DayPage 无法替这些服务承诺不保存或不训练；请在使用前查看服务商政策。不同服务和地区的数据处理规则可能不同。
 
-密钥保存在 iOS Keychain，按服务地址隔离。应用不会把它们写进笔记或反馈。删除密钥可在对应的服务设置中完成。应用不包含开发者提供的共享服务密钥。
+密钥保存在 iOS Keychain，按服务地址隔离。应用不会把它们写进笔记或反馈。可通过服务商提供的控制台或其他方式撤销密钥；切换服务、删除语音渠道或卸载应用不保证清除所有历史 Keychain 项目。应用不包含开发者提供的共享服务密钥。
 
 ## 保留、删除和反馈
 
@@ -34,7 +34,7 @@ AI 需要你选择服务商、地址和模型；部分服务需要你自己的 A
 
 ## 联系与更新
 
-隐私问题可通过 [DayPage 支持页面](ios-support.md) 联系开发者。请只提供解决问题所必需的信息。政策更新会发布在本页；如数据处理方式发生变化，政策会相应更新。
+隐私问题可通过 [DayPage 支持页面](ios-support.md) 联系开发者。请只提供解决问题所必需的信息。主动打开隐私、支持或反馈网页时，浏览器会连接 GitHub，该网站的数据处理适用 [GitHub 隐私声明](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)。政策更新会发布在本页；如数据处理方式发生变化，政策会相应更新。
 
 ---
 
@@ -60,7 +60,7 @@ System speech uses Apple's speech synthesis. If you choose an external speech ch
 
 Your AI and speech providers process requests under their own policies, including connection information, retention and model-training practices. DayPage cannot promise that those services do not retain data or train models. Review their policies before use; processing rules may differ by service and region.
 
-Keys are stored in iOS Keychain and scoped to service addresses. They are not written into notes or feedback. Remove a key in its service settings. The app does not include a shared developer-provided service key.
+Keys are stored in iOS Keychain and scoped to service addresses. They are not written into notes or feedback. Revoke keys through your provider's console or other supported process. Switching services, deleting a speech channel or uninstalling the app does not guarantee removal of all historical Keychain entries. The app does not include a shared developer-provided service key.
 
 ## Retention, deletion and feedback
 
@@ -70,4 +70,4 @@ Feedback is drafted locally. Sharing sends it to the recipient you choose. Openi
 
 ## Contact and updates
 
-Contact the developer through [DayPage support](ios-support.md) with privacy questions. Share only the information needed to resolve the issue. Policy updates will be published here and will reflect changes in data handling.
+Contact the developer through [DayPage support](ios-support.md) with privacy questions. Share only the information needed to resolve the issue. Opening privacy, support or feedback web pages connects your browser to GitHub, whose processing is governed by the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). Policy updates will be published here and will reflect changes in data handling.
