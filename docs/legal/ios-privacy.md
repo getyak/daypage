@@ -28,9 +28,9 @@ AI 需要你选择服务商、地址和模型；部分服务需要你自己的 A
 
 ## 保留、删除和反馈
 
-本地文件会保留到你自行编辑或删除。你可导出笔记，也可删除不再需要的记录。卸载应用通常会删除其本地容器，但不会删除已导出的文件、系统备份或第三方服务已收到的数据；这些副本需要在各自位置管理。未导出的本地数据可能随卸载或设备丢失而丢失，请自行备份。
+你可导出笔记，也可将不再需要的记录移到废纸篓。废纸篓会保留记录和附件以便恢复，恢复后原始备份也会保留；应用目前不提供永久清空功能。卸载应用通常会删除其本地容器，但不会删除已导出的文件、系统备份或第三方服务已收到的数据；这些副本需要在各自位置管理。未导出的本地数据可能随卸载或设备丢失而丢失，请自行备份。
 
-反馈草稿在本地编辑，只有你主动分享或在 GitHub 提交时才会交给所选接收方。GitHub issue 通常公开可见，请不要附上密钥、私密笔记或个人资料。
+反馈草稿在本地编辑。主动分享时，内容会交给你选择的接收方；点击打开 GitHub 反馈页面时，草稿会通过页面地址传给 GitHub，即使尚未正式提交。正式提交的 GitHub issue 通常公开可见，请不要附上密钥、私密笔记或个人资料。
 
 ## 联系与更新
 
@@ -64,9 +64,9 @@ Keys are stored in iOS Keychain and scoped to service addresses. They are not wr
 
 ## Retention, deletion and feedback
 
-Local files remain until you edit or delete them. You can export your notebook and delete records you no longer need. Uninstalling usually removes the local app container, but does not remove exports, system backups or information already received by a provider; manage those copies separately. Unexported local data may be lost if you uninstall or lose the device. Keep your own backups.
+You can export your notebook and move records you no longer need to Trash. Trash retains records and attachments for recovery, and original backups remain after restoration. The app currently has no permanent-emptying feature. Uninstalling usually removes the local app container, but does not remove exports, system backups or information already received by a provider; manage those copies separately. Unexported local data may be lost if you uninstall or lose the device. Keep your own backups.
 
-Feedback is drafted locally. It is sent only when you explicitly share it or submit it on GitHub. GitHub issues are generally public. Do not include keys, private notes or personal information.
+Feedback is drafted locally. Sharing sends it to the recipient you choose. Opening the GitHub feedback page sends the draft to GitHub in the page address, even before you submit an issue. Submitted GitHub issues are generally public. Do not include keys, private notes or personal information.
 
 ## Contact and updates
 
