@@ -8,7 +8,7 @@ struct NotebookTimeline: View {
   let jumpRevision: Int
   let onToday: () -> Void
   let onOpenNote: (String) -> Void
-  @State private var todayPosition: CGFloat? = 0
+  @State private var awayFromToday = false
   @State private var consumedJump: Jump?
   private var today: String { NotebookDate.day(Date()) }
   private var sections: [NotebookDaySection] {
@@ -36,7 +36,10 @@ struct NotebookTimeline: View {
     ScrollViewReader { proxy in
       timeline
         .coordinateSpace(name: "diary-scroll")
-        .onPreferenceChange(TodayPositionKey.self) { todayPosition = $0 }
+        .onPreferenceChange(TodayPositionKey.self) { position in
+          let away = position.map { $0 < -48 } ?? true
+          if awayFromToday != away { awayFromToday = away }
+        }
         .task(id: jump) {
           guard jump.ready, consumedJump != jump else { return }
           await Task.yield()
@@ -60,7 +63,7 @@ struct NotebookTimeline: View {
         }
         .overlay(alignment: .bottomTrailing) {
           if !notebook.isLoading, notebook.loadIssue == nil, !notebook.entries.isEmpty,
-             day != today || todayPosition == nil || (todayPosition ?? 0) < -48 {
+             day != today || awayFromToday {
             Button(action: onToday) {
               Label("Back to today", systemImage: "arrow.up")
                 .font(.subheadline.weight(.medium))
