@@ -11,15 +11,19 @@ final class DiaryUITests: XCTestCase {
 
   func testHomeScrollsAcrossDaysAndReturnsToToday() {
     launchDiary()
-    let yesterday = note("Diary history 1.")
-    reveal(yesterday, in: element("today-timeline"))
-    XCTAssertTrue(yesterday.isHittable, "Previous days must be reachable directly on Home")
+    let earlier = note("Diary history 4.")
+    let feed = element("today-timeline")
+    reveal(earlier, in: feed)
+    XCTAssertTrue(earlier.isHittable, "Previous days must be reachable directly on Home")
+    let todayHeading = element("diary-heading-" + day(0))
+    XCTAssertFalse(todayHeading.exists && todayHeading.frame.intersects(feed.frame))
+    XCTAssertTrue(app.buttons["diary-back-today"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["diary-back-today"].isHittable)
     capture("diary-earlier-days")
-    yesterday.tap()
+    earlier.tap()
     XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
     app.navigationBars.buttons.firstMatch.tap()
-    XCTAssertTrue(yesterday.isHittable, "Back must retain the historical reading position")
+    XCTAssertTrue(earlier.isHittable, "Back must retain the historical reading position")
     app.buttons["diary-back-today"].tap()
     XCTAssertTrue(note("Diary history 0.").isHittable)
     XCTAssertTrue(app.buttons["new-note"].isHittable)
@@ -39,8 +43,13 @@ final class DiaryUITests: XCTestCase {
     XCTAssertEqual(app.buttons["choose-date"].value as? String, oldDay)
     XCTAssertTrue(note("Diary history 7.").isHittable)
     capture("diary-month-position")
-    element("today-timeline").swipeDown()
-    XCTAssertTrue(note("Diary history 6.").exists, "Month selection must position the continuous diary")
+    let neighbor = note("Diary history 6.")
+    reveal(neighbor, in: element("today-timeline"), newer: true)
+    XCTAssertTrue(neighbor.isHittable, "Month selection must position the continuous diary")
+    neighbor.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["note-original"].label.contains("Diary history 6."))
+    app.navigationBars.buttons.firstMatch.tap()
     openSidebar()
     app.buttons["notebook-home"].tap()
     XCTAssertTrue(note("Diary history 0.").isHittable)
@@ -89,10 +98,16 @@ final class DiaryUITests: XCTestCase {
   }
 
   func testChineseDarkSidebarAndLargeTextStayReachable() {
-    app.launchArguments += ["-AppleInterfaceStyle", "Dark",
+    let chinese = ["-qaNotebookSession", "-qaResetNotebook", "-qaSeedDiaryHistory",
+      "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launchArguments = chinese + ["-local.appearance", "light"]
+    launchDiary()
+    openSidebar()
+    XCTAssertEqual(app.buttons["notebook-home"].label, "日记")
+    capture("diary-sidebar-zh-normal")
+    app.terminate()
+    app.launchArguments = chinese + ["-local.appearance", "dark",
       "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-    app.launchArguments[app.launchArguments.firstIndex(of: "(en)") ?? 0] = "(zh-Hans)"
-    app.launchArguments[app.launchArguments.firstIndex(of: "en_US") ?? 0] = "zh_CN"
     launchDiary()
     openSidebar()
     XCTAssertEqual(app.buttons["notebook-home"].label, "日记")
@@ -133,12 +148,21 @@ final class DiaryUITests: XCTestCase {
     app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-' AND label CONTAINS %@", text)).firstMatch
   }
 
-  private func reveal(_ control: XCUIElement, in container: XCUIElement) {
-    for _ in 0..<12 {
-      if control.isHittable && app.frame.contains(control.frame) { return }
-      container.swipeUp()
+  private func reveal(_ control: XCUIElement, in container: XCUIElement, newer: Bool = false) {
+    for _ in 0..<16 {
+      let visible = container.frame.intersection(app.frame)
+      if control.exists && control.isHittable && visible.contains(control.frame) { return }
+      // A full-screen flick can skip a nearby dated section. Move a bounded
+      // portion of the actual container, then inspect the target again.
+      let origin = container.coordinate(withNormalizedOffset: .zero)
+      let x = visible.midX - container.frame.minX
+      let high = visible.minY + visible.height * 0.35 - container.frame.minY
+      let low = visible.minY + visible.height * 0.65 - container.frame.minY
+      origin.withOffset(CGVector(dx: x, dy: newer ? high : low))
+        .press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: x, dy: newer ? low : high)))
     }
     XCTAssertTrue(control.isHittable)
+    XCTAssertTrue(container.frame.intersection(app.frame).contains(control.frame))
   }
 
   private func day(_ offset: Int) -> String {

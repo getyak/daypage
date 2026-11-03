@@ -148,11 +148,18 @@ final class CardToolsSpeechUITests: XCTestCase {
       // distinct from the 44pt custom buttons and verify the semantic change.
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+      // In a Form the Switch AX frame can cover the entire row. A percentage
+      // near its right edge can miss the inset native control; use its trailing
+      // center, or the intrinsic frame's center when AX exposes only the knob.
+      let inset = min(44, control.frame.width / 2)
+      control.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+        .withOffset(CGVector(dx: -inset, dy: 0)).tap()
     }
     let updated = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
-    XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+    let result = XCTWaiter.wait(for: [updated], timeout: 5)
+    if result != .completed { captureLookupFailure(control, scroller: form) }
+    XCTAssertEqual(result, .completed)
   }
 
   private func openChat() {

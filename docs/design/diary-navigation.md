@@ -8,6 +8,8 @@ The user asked for a deeper sidebar refinement, a home that can scroll into past
 
 Keep the established warm paper, serif reading type and quiet capture dock. Make the drawer feel like a notebook's contents page: a small bookmark motif, honest note/day totals, a clear Diary/Archive pair, month positions and lower-priority Feedback/Settings. Month navigation expands beyond the latest four months. The drawer scrolls at large text sizes, hides the background from accessibility and restores focus on dismissal.
 
+At accessibility sizes, supplementary counts use semantic headline/caption sizes and only the decorative wordmark has a size ceiling. Navigation and reading content retain full Dynamic Type. Dark verification uses the app's existing appearance preference, rather than assuming a system launch-style argument changes the product setting.
+
 Home opens at Today, then continues through all recorded days, newest first. A calendar or month choice changes the reading position, preserving the surrounding diary. Empty dates have a short placeholder at their correct position. Pins stay within their day; imported records keep their full identity. Returning to Today works even when the selected date has not changed. Saving a new note still reveals its exact local record once.
 
 Discovery lives in one explicit action: open a randomly chosen existing note from before today. It does not fabricate a memory, edit content or contact AI. A short spring for the drawer, pressed-state feedback and a selection haptic support deliberate actions; Reduce Motion removes spatial movement.

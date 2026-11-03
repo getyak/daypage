@@ -71,6 +71,9 @@ struct NotebookSidebar: View {
         }
         .accessibilityHidden(true)
       Text("DayPage").font(NotebookTheme.reading(26))
+        // Keep the wordmark readable; navigation and reading content retain the
+        // user's full accessibility size below.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .lineLimit(1).minimumScaleFactor(0.8)
       Spacer(minLength: 0)
       NotebookCircleButton(icon: "xmark", label: "Close sidebar", action: onClose)
@@ -82,9 +85,10 @@ struct NotebookSidebar: View {
   private var summary: some View {
     VStack(alignment: .leading, spacing: 5) {
       Text(NotebookTheme.noteCount(notebook.entries.count))
-        .font(NotebookTheme.reading(30))
+        .font(typeSize.isAccessibilitySize ? .headline : NotebookTheme.reading(30))
       Text(NotebookTheme.dayCount(notebook.catalog.dayCounts.count))
-        .font(.subheadline).foregroundStyle(NotebookTheme.muted)
+        .font(typeSize.isAccessibilitySize ? .caption : .subheadline)
+        .foregroundStyle(NotebookTheme.muted)
     }
     .padding(.horizontal, 14).padding(.vertical, 4)
     .accessibilityElement(children: .combine)

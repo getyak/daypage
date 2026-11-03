@@ -215,7 +215,7 @@ suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
 files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
-expected = sum(len(re.findall(r'^  func test\w+\(', p.read_text(), re.M)) for p in files)
+expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
 assert expected >= 11, 'The selected native suite is unexpectedly empty'
 assert summary['passedTests'] == summary['totalTestCount'] and summary['passedTests'] >= expected, 'The complete selected UI suite did not execute'
 records = json.loads((root / 'signed-attachments/manifest.json').read_text())
@@ -224,9 +224,13 @@ names = [attachment.get('suggestedHumanReadableName', '') for record in records
 required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
                  'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size']
 assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
+required_diary = ['diary-home-today', 'diary-earlier-days', 'diary-sidebar-en',
+                  'diary-sidebar-zh-normal', 'diary-sidebar-zh-dark-large-text',
+                  'diary-month-position', 'diary-rediscovered-note'] if suite == 'full' else []
+assert all(any(required in name for name in names) for required in required_diary), 'A required diary journey did not produce its native evidence'
 receipt = {'passed': True, 'suite': suite, 'expectedMinimumTests': expected, 'source': json.loads((root / 'provenance.json').read_text()),
            'negative': json.loads((root / 'negative-receipt.json').read_text()), 'positive': summary,
-           'requiredChatAttachments': required_chat}
+           'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the denied-Keychain recovery branch and the complete selected signed native UI suite."
