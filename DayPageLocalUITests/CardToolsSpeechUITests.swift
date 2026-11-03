@@ -309,33 +309,17 @@ final class CardToolsSpeechUITests: XCTestCase {
       // A tap can place the caret in the middle of an address. Observe native
       // whole-field selection before deleting, as in the existing AI settings tests.
       field.press(forDuration: 1.1)
-      let selectAllButton = app.buttons["Select All"]
       let selectAllMenu = app.menuItems["Select All"]
-      let cutButton = app.buttons["Cut"]
-      let cutMenu = app.menuItems["Cut"]
-      let selectable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-        (selectAllButton.exists && selectAllButton.isHittable)
-          || (selectAllMenu.exists && selectAllMenu.isHittable)
-          || (cutButton.exists && cutButton.isHittable)
-          || (cutMenu.exists && cutMenu.isHittable)
-      }, object: nil)
-      guard XCTWaiter.wait(for: [selectable], timeout: 3) == .completed else {
+      // Native evidence exposes this edit action as a MenuItem. Query it directly
+      // so an unrelated Button lookup cannot consume its wait budget.
+      guard selectAllMenu.waitForExistence(timeout: 3) else {
         captureLookupFailure(field, scroller: form)
-        XCTFail("A native Select All or Cut editing action must be visible before replacing a saved field")
+        XCTFail("The native Select All menu item must be visible before replacing a saved field")
         return
       }
-      if selectAllButton.exists && selectAllButton.isHittable {
-        selectAllButton.tap()
-        field.typeText(XCUIKeyboardKey.delete.rawValue)
-      } else if selectAllMenu.exists && selectAllMenu.isHittable {
-        selectAllMenu.tap()
-        field.typeText(XCUIKeyboardKey.delete.rawValue)
-      } else {
-        // If native editing already selected the entire value, its menu can
-        // expose Cut instead of Select All. Accept that observed action only
-        // when it actually empties this synthetic field; partial selection fails.
-        (cutButton.exists && cutButton.isHittable ? cutButton : cutMenu).tap()
-      }
+      XCTAssertTrue(selectAllMenu.isHittable)
+      selectAllMenu.tap()
+      field.typeText(XCUIKeyboardKey.delete.rawValue)
       let cleared = field.value as? String ?? ""
       guard cleared.isEmpty || placeholders.contains(cleared) else {
         captureLookupFailure(field, scroller: form)
