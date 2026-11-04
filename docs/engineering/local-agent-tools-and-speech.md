@@ -79,4 +79,8 @@ gh workflow run ios-local.yml --repo getyak/daypage --ref main -f native_ui=true
 
 This selects sixteen signed journeys (note authoring, relations, card tools, speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
 
+Unsigned test or evidence-validation failures are retained while the signed journeys run, so one failed prerequisite does not hide independent diagnostics. The unsigned result bundle, summary, attachments and executable hash are captured before re-signing. Any unsigned or signed failure still makes the job fail; native-acceptance.json is written only after both stages pass. Build, signing, entitlement and unsigned-binary preservation failures remain immediate stops.
+
+The host-side regression `python3 scripts/tests/test_local_native_ci.py` executes this shell orchestration with isolated command doubles. It checks failure propagation, evidence collection and preservation of the unsigned hash before overwrite. It opens no network listener, runs no Simulator or Xcode and supplies no native-acceptance evidence.
+
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.

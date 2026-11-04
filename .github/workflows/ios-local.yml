@@ -25,6 +25,8 @@ on:
       - '.github/workflows/testflight.yml'
       - 'scripts/ci/wait_for_release_ci.py'
       - 'scripts/tests/test_local_ios_contract.py'
+      - 'scripts/tests/test_local_native_ci.py'
+      - 'scripts/qa/run_local_native_ci.sh'
       - 'scripts/tests/test_chat_session_recovery.py'
       - 'scripts/tests/fixtures/chat_session_recovery.swift'
       - 'scripts/tests/fixtures/chat_stream_server.py'
@@ -44,6 +46,8 @@ on:
       - 'Gemfile.lock'
       - '.github/workflows/testflight.yml'
       - 'scripts/ci/wait_for_release_ci.py'
+      - 'scripts/tests/test_local_native_ci.py'
+      - 'scripts/qa/run_local_native_ci.sh'
       - 'scripts/tests/test_chat_session_recovery.py'
       - 'scripts/tests/fixtures/chat_session_recovery.swift'
       - 'scripts/tests/fixtures/chat_stream_server.py'
@@ -62,6 +66,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify native QA failure collection without Xcode or Simulator
+        run: python3 scripts/tests/test_local_native_ci.py
       - run: swift test --package-path DayPageCore --jobs 2
       - run: python3 scripts/tests/test_local_ios_contract.py
       - name: Verify chat draft recovery and selected-note boundaries

@@ -181,11 +181,11 @@ final class CardToolsSpeechUITests: XCTestCase {
       add(geometry)
       point.tap()
     }
-    let updated = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
-    let result = XCTWaiter.wait(for: [updated], timeout: 5)
-    if result != .completed { captureLookupFailure(control, scroller: form) }
-    XCTAssertEqual(result, .completed)
+    let updated = app.switches.matching(NSPredicate(
+      format: "identifier == %@ AND value == %@", id, on ? "1" : "0")).firstMatch
+    let changed = updated.waitForExistence(timeout: 5)
+    if !changed { captureLookupFailure(control, scroller: form) }
+    XCTAssertTrue(changed, "The identified switch must reach the requested value")
   }
 
   private func openChat() {

@@ -106,6 +106,10 @@ case "$daypage_ui_suite" in
   full|card_tools_speech|diary_navigation) ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
+daypage_negative_exit=0
+daypage_negative_export_exit=0
+daypage_negative_summary_exit=0
+daypage_negative_receipt_exit=0
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
@@ -120,22 +124,19 @@ import subprocess, sys
 subprocess.run(['xcrun', 'simctl', 'bootstatus', sys.argv[1], '-b'], check=True, timeout=180)
 PY
 if [[ "$daypage_ui_suite" != diary_navigation ]]; then
-daypage_negative_exit=0
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
   -only-testing:DayPageLocalUITests/CardToolsSpeechUITests/testAnonymousSpeechWorksWithoutKeychain \
   -resultBundlePath "$daypage_evidence/negative-keychain.xcresult" || daypage_negative_exit=$?
-daypage_negative_export_exit=0
 run_logged "$daypage_evidence/negative-export.log" xcrun xcresulttool export attachments \
   --path "$daypage_evidence/negative-keychain.xcresult" --output-path "$daypage_evidence/negative-attachments" || daypage_negative_export_exit=$?
-daypage_negative_summary_exit=0
 run_logged "$daypage_evidence/negative-summary.log" xcrun xcresulttool get test-results summary \
   --path "$daypage_evidence/negative-keychain.xcresult" --compact || daypage_negative_summary_exit=$?
-if ((daypage_negative_exit != 0)); then exit "$daypage_negative_exit"; fi
-if ((daypage_negative_export_exit != 0)); then exit "$daypage_negative_export_exit"; fi
-if ((daypage_negative_summary_exit != 0)); then exit "$daypage_negative_summary_exit"; fi
-python3 - "$daypage_evidence" <<'PY'
+# Preserve unsigned evidence before re-signing, but collect the independent
+# signed journeys too. Any unsigned failure still denies final acceptance.
+if ((daypage_negative_exit == 0 && daypage_negative_export_exit == 0 && daypage_negative_summary_exit == 0)); then
+run_logged "$daypage_evidence/negative-receipt.log" python3 - "$daypage_evidence" <<'PY' || daypage_negative_receipt_exit=$?
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 summary = json.loads((root / 'negative-summary.log').read_text())
@@ -149,6 +150,7 @@ assert any('speech-anonymous-no-keychain' in attachment.get('suggestedHumanReada
     'requiredAttachment': 'ai-key-unavailable-inline',
     'anonymousSpeechAttachment': 'speech-anonymous-no-keychain'}, indent=2) + '\n')
 PY
+fi
 shasum -a 256 "$daypage_negative/Build/Products/Debug-iphonesimulator/DayPage.app/DayPage" \
   > "$daypage_evidence/negative-executable.sha256"
 fi
@@ -224,6 +226,10 @@ run_logged "$daypage_evidence/signed-summary.log" xcrun xcresulttool get test-re
 daypage_signed_export_exit=0
 run_logged "$daypage_evidence/signed-export.log" xcrun xcresulttool export attachments \
   --path "$daypage_evidence/signed-full-ui.xcresult" --output-path "$daypage_evidence/signed-attachments" || daypage_signed_export_exit=$?
+if ((daypage_negative_exit != 0)); then exit "$daypage_negative_exit"; fi
+if ((daypage_negative_export_exit != 0)); then exit "$daypage_negative_export_exit"; fi
+if ((daypage_negative_summary_exit != 0)); then exit "$daypage_negative_summary_exit"; fi
+if ((daypage_negative_receipt_exit != 0)); then exit "$daypage_negative_receipt_exit"; fi
 if ((daypage_signed_exit != 0)); then exit "$daypage_signed_exit"; fi
 if ((daypage_signed_summary_exit != 0)); then exit "$daypage_signed_summary_exit"; fi
 if ((daypage_signed_export_exit != 0)); then exit "$daypage_signed_export_exit"; fi
