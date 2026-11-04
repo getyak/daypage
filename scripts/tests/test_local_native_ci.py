@@ -114,7 +114,29 @@ elif tool == "lsof":
     path = state / "fixture.pid"
     if not path.exists():
         raise SystemExit(1)
-    print("99999999" if mode in {"foreign_listener", "foreign_response"} else path.read_text())
+    owner = path.read_text().strip()
+    observed = "99999999" if mode in {"foreign_listener", "foreign_response"} else owner
+    if "-t" in args:
+        if mode == "terse_missing":
+            raise SystemExit(1)
+        print(observed)
+    elif "-Fp" in args:
+        if mode == "empty_fields":
+            raise SystemExit(0)
+        print("p" + observed + "\nf3")
+        if mode == "multiple_fields":
+            print("p99999999\nf4")
+        elif mode == "invalid_fields":
+            print("pnot-a-pid")
+        elif mode == "invalid_fd_fields":
+            print("fnot-a-descriptor")
+        elif mode == "empty_fd_fields":
+            print("f")
+        elif mode == "error_fields":
+            raise SystemExit(74)
+    else:
+        print("COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME")
+        print("Python " + observed + " runner 3u IPv4 0x0 0t0 TCP 127.0.0.1:18763 (LISTEN)")
 elif tool == "curl":
     if "--output" in args:
         foreign = mode == "foreign_response"
@@ -130,7 +152,9 @@ elif tool == "curl":
         print("GET-326-local-fixture")
 elif tool == "sleep":
     import time
-    time.sleep(0.005 if mode in {"foreign_listener", "foreign_response"} else float(args[0]))
+    fast = {"foreign_listener", "foreign_response", "terse_missing", "empty_fields",
+            "multiple_fields", "invalid_fields", "invalid_fd_fields", "empty_fd_fields", "error_fields"}
+    time.sleep(0.005 if mode in fast else float(args[0]))
 elif tool == "codesign":
     event("mock-signature-check")
 elif tool == "otool":
@@ -229,6 +253,21 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertEqual(health["httpCode"], "200")
         self.assertFalse(health["expectedMarkerMatches"])
         self.assertLessEqual(health["bodyBytesRead"], 1025)
+
+    def test_machine_fields_verify_the_owned_listener_when_terse_output_is_empty(self):
+        code, output, evidence, events = self.run_fixture("terse_missing")
+        self.assertEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertTrue(json.loads((evidence / "native-acceptance.json").read_text())["passed"])
+        self.assertIn("terse_exit=1", (evidence / "fixture-listener-probes.log").read_text())
+
+    def test_missing_ambiguous_malformed_and_failed_owner_records_cannot_authorize_tests(self):
+        for mode in ("empty_fields", "multiple_fields", "invalid_fields", "invalid_fd_fields", "empty_fd_fields", "error_fields"):
+            with self.subTest(mode=mode):
+                code, output, evidence, events = self.run_fixture(mode)
+                self.assertEqual(code, 1, output)
+                self.assertEqual(events, [])
+                self.assertFalse((evidence / "native-acceptance.json").exists())
 
     def assert_signed_evidence(self, evidence, events):
         self.assertIn("signed-tests", events)

@@ -75,14 +75,39 @@ printf '%s\n' "$daypage_destination" > "$daypage_evidence/destination.log"
 python3 -u scripts/qa/local_notebook_ai_fixture.py > "$daypage_evidence/fixture.log" 2>&1 &
 daypage_fixture_pid=$!
 daypage_fixture_ready=false
-for _ in {1..30}; do
+for daypage_probe in {1..30}; do
   if ! kill -0 "$daypage_fixture_pid" 2>/dev/null; then
     echo "The task-owned loopback fixture could not start." >&2
     exit 1
   fi
-  daypage_listener="$(lsof -nP -iTCP:18763 -sTCP:LISTEN -t 2>/dev/null || true)"
+  daypage_listener=""
+  if lsof -nP -iTCP:18763 -sTCP:LISTEN -Fp \
+    > "$daypage_evidence/fixture-listener-fields.log" 2> "$daypage_evidence/fixture-listener-errors.log"; then
+    daypage_listener_exit=0
+    # Field output includes implicit file-descriptor records as well as PIDs.
+    # Reject malformed records and keep every distinct process owner.
+    daypage_listener="$(awk '
+      /^p[1-9][0-9]*$/ { owners[substr($0, 2)] = 1; next }
+      /^f[0-9]+$/ { next }
+      { invalid = 1 }
+      END { if (invalid) exit 1; for (owner in owners) print owner }
+    ' "$daypage_evidence/fixture-listener-fields.log" || true)"
+  else
+    daypage_listener_exit=$?
+  fi
+  printf 'attempt=%s fields_exit=%s listener=%q\n' "$daypage_probe" "$daypage_listener_exit" "$daypage_listener" \
+    >> "$daypage_evidence/fixture-listener-probes.log"
   if [[ "$daypage_listener" == "$daypage_fixture_pid" ]] && \
     [[ "$(curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:18763/health 2>/dev/null || true)" == GET-326-local-fixture ]]; then
+    # Compare the old terse lookup in this same successful probe. It is only
+    # diagnostic; it cannot replace the exact machine-field ownership check.
+    if lsof -nP -iTCP:18763 -sTCP:LISTEN -t \
+      > "$daypage_evidence/fixture-listener-terse.log" 2> "$daypage_evidence/fixture-listener-terse-errors.log"; then
+      daypage_terse_exit=0
+    else
+      daypage_terse_exit=$?
+    fi
+    printf 'terse_exit=%s\n' "$daypage_terse_exit" >> "$daypage_evidence/fixture-listener-probes.log"
     daypage_fixture_ready=true
     break
   fi
