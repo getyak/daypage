@@ -85,14 +85,18 @@ struct NoteActionCard: View {
         if receipt.status == .applied {
           HStack {
             if let source = receipt.savedSource {
-              Button("Open note") {
+              Button {
                 if let entry = notebook.entries.first(where: { $0.id == source.cardRef }) { savedEntry = entry }
                 else { openError = String(localized: "This note is no longer available. The change receipt has been kept.") }
-              }.frame(minHeight: 44).accessibilityIdentifier("note-action-open-" + proposal.id.uuidString)
+              } label: {
+                Text("Open note").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+              }.accessibilityIdentifier("note-action-open-" + proposal.id.uuidString)
             }
-            Button("Undo change") {
+            Button {
               Task { await session.confirm(proposal, messageID: messageID, notebook: notebook, undo: true) }
-            }.frame(minHeight: 44).disabled(!session.canReviewActions)
+            } label: {
+              Text("Undo change").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+            }.disabled(!session.canReviewActions)
               .accessibilityIdentifier("note-action-undo-" + proposal.id.uuidString)
           }.font(.caption)
         }
@@ -100,8 +104,9 @@ struct NoteActionCard: View {
         Text("Proposal cancelled").font(.caption).foregroundStyle(.secondary)
           .accessibilityIdentifier("note-action-cancelled-" + proposal.id.uuidString)
       } else {
-        Button("Review change") { showsReview = true }
-          .font(.subheadline).frame(minHeight: 44).disabled(!session.canReviewActions)
+        Button { showsReview = true } label: {
+          Text("Review change").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }.font(.subheadline).disabled(!session.canReviewActions)
           .accessibilityIdentifier("note-action-review-" + proposal.kind.toolName + "-" + proposal.id.uuidString)
         Text("Nothing changes until you confirm.").font(.caption).foregroundStyle(.secondary)
       }
@@ -131,7 +136,9 @@ struct NoteActionCard: View {
       if let entry {
         Text(source.snippet).font(.caption).textSelection(.enabled)
         if entry.revision != revision { Text("Original note changed since this connection was saved.").font(.caption).foregroundStyle(.secondary) }
-        Button("Open original") { savedEntry = entry }.font(.caption).frame(minHeight: 44)
+        Button { savedEntry = entry } label: {
+          Text("Open original").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }.font(.caption)
       } else {
         Text("Original note unavailable").font(.caption).foregroundStyle(.secondary)
       }
@@ -166,12 +173,14 @@ private struct NoteActionReview: View {
             HStack {
               if session.applyingProposal == proposal.id { ProgressView() }
               Text("Confirm change")
-            }.frame(maxWidth: .infinity, minHeight: 44)
+            }.frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
           }.buttonStyle(.borderedProminent).disabled(!session.canReviewActions)
             .accessibilityIdentifier("note-action-confirm")
-          Button("Cancel proposal") {
+          Button {
             Task { await session.dismissProposal(proposal, messageID: messageID); dismiss() }
-          }.frame(maxWidth: .infinity, minHeight: 44).disabled(!session.canReviewActions)
+          } label: {
+            Text("Cancel proposal").frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+          }.disabled(!session.canReviewActions)
             .accessibilityIdentifier("note-action-cancel")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
       }.accessibilityIdentifier("note-action-review-scroll")
@@ -231,9 +240,11 @@ private struct NoteActionReview: View {
     VStack(alignment: .leading, spacing: 6) {
       Text(source.day).font(.caption).foregroundStyle(.secondary)
       Text(source.snippet).font(.body).textSelection(.enabled)
-      Button("Open original") {
+      Button {
         if let entry = notebook.entries.first(where: { $0.id == source.cardRef }) { endpoint = entry }
-      }.font(.caption).frame(minHeight: 44)
+      } label: {
+        Text("Open original").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+      }.font(.caption)
         .disabled(!notebook.entries.contains(where: { $0.id == source.cardRef }))
     }.frame(maxWidth: .infinity, alignment: .leading)
   }

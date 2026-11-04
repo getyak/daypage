@@ -545,11 +545,16 @@ final class CardToolsSpeechUITests: XCTestCase {
     reveal(preview)
     tap44(preview)
     let status = app.staticTexts["speech-status"]
+    // Form creates lower rows lazily. The extra authenticated-channel fields
+    // can leave the playback status below the revealed Preview button.
+    if !status.exists { scrollVisibleContent(form, toward: status, down: false) }
     // Match the decoded-playback state in one typed AX query. Resolving an Any
     // element's existence and label separately can consume the observation window.
     let playing = app.staticTexts.matching(NSPredicate(
       format: "identifier == %@ AND label == %@", "speech-status", "Reading aloud")).firstMatch
-    XCTAssertTrue(playing.waitForExistence(timeout: 10),
+    let didPlay = playing.waitForExistence(timeout: 10)
+    if !didPlay { captureLookupFailure(status, scroller: form) }
+    XCTAssertTrue(didPlay,
       "Only decoded audio reaching playback counts as a successful preview")
     XCTAssertFalse(element("speech-error").exists)
     let stop = app.buttons["speech-stop"]
