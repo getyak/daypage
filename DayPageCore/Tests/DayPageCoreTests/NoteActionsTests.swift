@@ -124,4 +124,148 @@ final class NoteActionsTests: XCTestCase {
     let linkedStore = NotebookStore(root: linkedRoot)
     do { _ = try await linkedStore.actionReceipts(); XCTFail("Linked metadata must fail") } catch { }
   }
+
+  func testPatchTagsAndPinPreserveRawHeaderAndCanUndo() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "Original paragraph #old\n\nKeep spacing  "))
+    var entries = try await store.entries()
+    let target = try XCTUnwrap(entries.first)
+    let file = root.appendingPathComponent("raw/\(target.day).md")
+    let raw = try String(contentsOf: file, encoding: .utf8)
+      .replacingOccurrences(of: "type: text", with: "custom: untouched\ntype: text")
+    try raw.write(to: file, atomically: true, encoding: .utf8)
+    entries = try await store.entries()
+    let patch = try await propose("notes_propose_patch", ["card_ref": target.id, "before": "Original", "after": "Revised"], entries: entries)
+    let patchReceipt = try await store.apply(patch, allowedCardRefs: [target.id])
+    let patched = try String(contentsOf: file, encoding: .utf8)
+    XCTAssertEqual(patched, raw.replacingOccurrences(of: "Original", with: "Revised"))
+    _ = try await store.undo(patchReceipt, allowedCardRefs: [target.id])
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), raw)
+    entries = try await store.entries()
+    let tags = try await propose("notes_set_tags", ["card_ref": target.id, "tags": ["新标签", "work"]], entries: entries)
+    let tagReceipt = try await store.apply(tags, allowedCardRefs: [target.id])
+    entries = try await store.entries()
+    XCTAssertEqual(NotebookCatalog.tags(in: entries[0].memo.body), ["work", "新标签"])
+    XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("custom: untouched"))
+    _ = try await store.undo(tagReceipt, allowedCardRefs: [target.id])
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), raw)
+    entries = try await store.entries()
+    let pin = try await propose("notes_set_pin", ["card_ref": target.id, "pinned": true], entries: entries)
+    let pinReceipt = try await store.apply(pin, allowedCardRefs: [target.id])
+    entries = try await store.entries()
+    XCTAssertNotNil(entries[0].memo.pinnedAt)
+    XCTAssertEqual(entries[0].memo.body, target.memo.body)
+    _ = try await store.undo(pinReceipt, allowedCardRefs: [target.id])
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), raw)
+  }
+
+  func testExactRawRevisionConflictsEvenWhenOnlyUnknownYAMLChanges() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "Original protected body"))
+    let entries = try await store.entries(), target = try XCTUnwrap(entries.first)
+    let proposal = try await propose("notes_append", ["card_ref": target.id, "body": "Should not appear"], entries: entries)
+    let file = root.appendingPathComponent("raw/\(target.day).md")
+    let changed = try String(contentsOf: file, encoding: .utf8).replacingOccurrences(of: "type: text", with: "new_unknown: changed\ntype: text")
+    try changed.write(to: file, atomically: true, encoding: .utf8)
+    do { _ = try await store.apply(proposal, allowedCardRefs: [target.id]); XCTFail("Exact revision conflict") } catch { }
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), changed)
+  }
+
+  func testConcurrentStoreRequestsPublishOneNote() async throws {
+    let root = try temporaryRoot(), a = NotebookStore(root: root), b = NotebookStore(root: root)
+    let proposal = try await propose("notes_create", ["body": "Once despite two confirmed taps"], entries: [])
+    async let first = a.apply(proposal, allowedCardRefs: [])
+    async let second = b.apply(proposal, allowedCardRefs: [])
+    let receipts = try await [first, second]
+    XCTAssertEqual(receipts[0], receipts[1])
+    let entries = try await a.entries()
+    XCTAssertEqual(entries.count, 1)
+  }
+
+  func testStaleRelationReadsAndUnlinkUndoKeepExactSelectedEdge() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "First source pricing notebook"))
+    try await store.append(Memo(body: "Second source pricing notebook"))
+    var entries = try await store.entries()
+    let a = entries[0], b = entries[1], scope = Set(entries.map(\.id))
+    let link = try await propose("relations_link", ["from_card_ref": a.id, "to_card_ref": b.id, "type": "related", "reason": "Shared pricing topic"], entries: entries)
+    _ = try await store.apply(link, allowedCardRefs: scope)
+    let secondLink = try await propose("relations_link", ["from_card_ref": a.id, "to_card_ref": b.id, "type": "supplements", "reason": "Second distinct directed edge"], entries: entries)
+    _ = try await store.apply(secondLink, allowedCardRefs: scope)
+    try await store.update(a, body: "Human edited this source")
+    entries = try await store.entries()
+    let stale = try await store.relations(allowedCardRefs: scope)
+    XCTAssertEqual(stale.count, 2)
+    XCTAssertTrue(stale.allSatisfy(\.isStale))
+    let selected = try XCTUnwrap(stale.first { $0.type == .related })
+    let unlink = try await propose("relations_unlink", ["relation_id": selected.id.uuidString], entries: entries, relations: stale)
+    let receipt = try await store.apply(unlink, allowedCardRefs: scope)
+    let remaining = try await store.relations(allowedCardRefs: scope)
+    XCTAssertEqual(remaining.map(\.type), [.supplements])
+    _ = try await store.undo(receipt, allowedCardRefs: scope)
+    let restored = try await store.relations(allowedCardRefs: scope)
+    XCTAssertEqual(Set(restored.map(\.id)), Set(stale.map(\.id)))
+    XCTAssertTrue(restored.allSatisfy(\.isStale))
+  }
+
+  func testUndoDeduplicatedLinkDoesNotRemoveExistingEdge() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "First pricing source"))
+    try await store.append(Memo(body: "Second pricing source"))
+    let entries = try await store.entries(), scope = Set(entries.map(\.id))
+    let arguments: [String: Any] = ["from_card_ref": entries[0].id, "to_card_ref": entries[1].id, "type": "related", "reason": "Same pair"]
+    let first = try await propose("relations_link", arguments, entries: entries)
+    _ = try await store.apply(first, allowedCardRefs: scope)
+    let repeated = try await propose("relations_link", arguments, entries: entries)
+    let receipt = try await store.apply(repeated, allowedCardRefs: scope)
+    _ = try await store.undo(receipt, allowedCardRefs: scope)
+    let edges = try await store.relations(allowedCardRefs: scope)
+    XCTAssertEqual(edges.count, 1)
+    XCTAssertEqual(edges[0].id, first.relation?.id)
+  }
+
+  func testPreparedApplyAndUndoRecoveryOnlyReconcileAlreadyPublishedBytes() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "Original before crash"))
+    let entries = try await store.entries(), target = try XCTUnwrap(entries.first)
+    let file = root.appendingPathComponent("raw/\(target.day).md")
+    let before = try String(contentsOf: file, encoding: .utf8)
+    let proposal = try await propose("notes_append", ["card_ref": target.id, "body": "After publication"], entries: entries)
+    let receipt = try await store.apply(proposal, allowedCardRefs: [target.id])
+    let after = try String(contentsOf: file, encoding: .utf8)
+    let metadata = root.appendingPathComponent(".daypage/note-actions.json")
+    let savedMetadata = try Data(contentsOf: metadata)
+    func prepare(committed: Bool, undo: Bool) throws {
+      var object = try XCTUnwrap(JSONSerialization.jsonObject(with: savedMetadata) as? [String: Any])
+      var records = try XCTUnwrap(object["records"] as? [[String: Any]])
+      records[0]["committed"] = committed; records[0]["undoPrepared"] = undo
+      object["records"] = records
+      try JSONSerialization.data(withJSONObject: object).write(to: metadata)
+    }
+    // Crash before publication: reopening must not execute a prepared mutation.
+    try prepare(committed: false, undo: false)
+    try before.write(to: file, atomically: true, encoding: .utf8)
+    let beforeRestart = NotebookStore(root: root)
+    let absent = try await beforeRestart.actionReceipts()
+    XCTAssertTrue(absent.isEmpty)
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), before)
+    let pending = try await beforeRestart.pendingProposals()
+    XCTAssertEqual(pending.map(\.id), [proposal.id])
+    // Crash after publication: recognize the exact saved block without replay.
+    try after.write(to: file, atomically: true, encoding: .utf8)
+    let afterRestart = NotebookStore(root: root)
+    let recovered = try await afterRestart.actionReceipts()
+    XCTAssertEqual(recovered, [receipt])
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), after)
+    // Prepared undo before publication stays applied and cannot auto-undo.
+    try prepare(committed: true, undo: true)
+    let uncommittedUndo = try await NotebookStore(root: root).actionReceipts()
+    XCTAssertEqual(uncommittedUndo.first?.status, .applied)
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), after)
+    // Published undo is finalized from the exact prior block.
+    try before.write(to: file, atomically: true, encoding: .utf8)
+    let committedUndo = try await NotebookStore(root: root).actionReceipts()
+    XCTAssertEqual(committedUndo.first?.status, .undone)
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), before)
+  }
 }

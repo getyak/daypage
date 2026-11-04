@@ -63,6 +63,12 @@ public enum NoteActionError: LocalizedError {
 }
 
 enum NoteActionIdentity {
+  static func uniqueRange(of needle: String, in text: String) -> Range<String.Index>? {
+    guard !needle.isEmpty, let first = text.range(of: needle) else { return nil }
+    let next = text.index(after: first.lowerBound)
+    guard text.range(of: needle, range: next..<text.endIndex) == nil else { return nil }
+    return first
+  }
   static func digest(_ text: String) -> String {
     SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
   }

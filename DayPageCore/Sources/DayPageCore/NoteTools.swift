@@ -284,7 +284,7 @@ extension NoteToolExecutor {
       case "notes_append": return try await pending(proposed(.append, target: entry("card_ref"), body: text("body")))
       case "notes_propose_patch":
         let target = try entry("card_ref"), before = try text("before"), after = try text("after", allowEmpty: true)
-        guard target.memo.body.components(separatedBy: before).count == 2 else { return try failure("patch_not_unambiguous") }
+        guard NoteActionIdentity.uniqueRange(of: before, in: target.memo.body) != nil else { return try failure("patch_not_unambiguous") }
         return try await pending(proposed(.patch, target: target, before: before, after: after))
       case "notes_set_tags":
         let target = try entry("card_ref")
@@ -335,6 +335,7 @@ extension NoteToolExecutor {
         return try result([name == "relations_suggest" ? "suggestions" : "cards": cards,
           "method": "local_lexical_words_cjk_bigrams_tags", "total": matches.count,
           "truncated": matches.count > selected.count || context.entries.count > NoteDiscovery.maximumCandidates,
+          "text_truncated": query.count > NoteDiscovery.maximumCharacters || context.entries.contains { $0.memo.body.count > NoteDiscovery.maximumCharacters },
           "candidate_limit": NoteDiscovery.maximumCandidates, "text_character_limit": NoteDiscovery.maximumCharacters],
           sources: selected.map { source($0.entry) })
       case "notes_neighbors":
@@ -375,6 +376,7 @@ extension NoteToolExecutor {
         return try result(["pairs": pairs, "method": "local_lexical_normalization", "never_merges": true,
           "pairs_inspected": inspected, "pair_limit": NoteDiscovery.maximumPairs,
           "candidate_limit": NoteDiscovery.maximumCandidates, "text_character_limit": NoteDiscovery.maximumCharacters,
+          "text_truncated": context.entries.contains { $0.memo.body.count > NoteDiscovery.maximumCharacters },
           "truncated": inspected >= NoteDiscovery.maximumPairs || candidates.count < context.entries.count || pairs.count == limit],
           sources: sources.filter { seen.insert($0.cardRef).inserted })
       case "relations_list":
@@ -384,7 +386,13 @@ extension NoteToolExecutor {
         let visible = context.relations.filter {
           scope.contains($0.from.cardRef) && scope.contains($0.to.cardRef)
         }.filter { edge in anchor.map { edge.from.cardRef == $0.id || edge.to.cardRef == $0.id } ?? true }
-        let selected = Array(visible.prefix(limit))
+        let selected = visible.prefix(limit).map { edge -> NoteRelation in
+          var result = edge
+          result.isStale = edge.isStale
+            || context.entries.first(where: { $0.id == edge.from.cardRef })?.revision != edge.fromRevision
+            || context.entries.first(where: { $0.id == edge.to.cardRef })?.revision != edge.toRevision
+          return result
+        }
         let data = try JSONEncoder().encode(selected)
         return try result(["relations": try JSONSerialization.jsonObject(with: data), "total": visible.count,
           "truncated": visible.count > selected.count], sources: selected.flatMap { [$0.from, $0.to] })

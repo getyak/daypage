@@ -389,8 +389,7 @@ extension NotebookStore {
       body += (body.isEmpty ? "" : "\n\n") + text
     case .patch:
       guard let before = proposal.before, let after = proposal.after,
-        body.components(separatedBy: before).count == 2,
-        let range = body.range(of: before) else { throw NoteActionError.invalidProposal }
+        let range = NoteActionIdentity.uniqueRange(of: before, in: body) else { throw NoteActionError.invalidProposal }
       body.replaceSubrange(range, with: after)
     case .setTags:
       let regex = try NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_-]+)"#)
