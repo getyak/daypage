@@ -115,6 +115,7 @@ import Foundation
     precondition(afterSwitch == beforeSwitch + 1, "Concurrent navigation must not race two session transitions")
     print("PASS: rapid conversation navigation is serialized and flushes the old draft")
     try await checkReviewedActions(root: root.appendingPathComponent("reviewed-actions"))
+    try await checkFreshToolScope(root: root.appendingPathComponent("fresh-scope"), port: port)
   }
   @MainActor private static func checkReviewedActions(root: URL) async throws {
     let notebook = NotebookModel(root: root)
@@ -155,6 +156,35 @@ import Foundation
     let blocked = await damaged.confirm(proposal, messageID: reply.id, notebook: notebook)
     precondition(!blocked && notebook.entries.isEmpty)
     print("PASS: missing action history preserves known receipt state and blocks replay")
+  }
+  @MainActor private static func checkFreshToolScope(root: URL, port: String) async throws {
+    let notebook = NotebookModel(root: root)
+    try await notebook.store.append(Memo(body: "Visible notebook idea."))
+    try await notebook.store.append(Memo(body: "REMOVED_PRIVATE_NOTE_388"))
+    let cached = try await notebook.store.entries()
+    guard let visible = cached.first(where: { $0.memo.body == "Visible notebook idea." }),
+      let removed = cached.first(where: { $0.memo.body == "REMOVED_PRIVATE_NOTE_388" }) else {
+      preconditionFailure("Missing isolated fixtures")
+    }
+    let args = try JSONSerialization.data(withJSONObject: ["from_card_ref": visible.id,
+      "to_card_ref": removed.id, "type": "related", "reason": "REMOVED_PRIVATE_RELATION_388"])
+    let result = try await NoteToolExecutor.execute(name: "relations_link", arguments: String(decoding: args, as: UTF8.self),
+      context: .init(entries: cached, proposalWriter: { try await notebook.store.saveProposal($0) }))
+    guard let proposal = result.proposals.first else { preconditionFailure("Missing link proposal") }
+    _ = try await notebook.store.apply(proposal, allowedCardRefs: Set(cached.map(\.id)))
+    _ = try await NotebookStore(root: root).trash(removed)
+    notebook.entries = cached // The native cache predates an external deletion.
+    var conversation = Conversation(); conversation.usesTools = true
+    try await notebook.conversations.save(conversation)
+    let session = ChatSession()
+    await session.load(notebook: notebook, selectedIDs: nil)
+    notebook.configuration.baseURL = "http://127.0.0.1:\(port)/fresh-tools/v1"
+    session.draft = "Verify fresh note scope"
+    session.send(notebook: notebook, context: .build(entries: cached, question: session.draft))
+    try await waitForReply(session)
+    precondition(session.conversation.messages.last?.content == "Fresh scope verified.")
+    precondition(session.conversation.messages.last?.delivery == .complete)
+    print("PASS: stale native cache cannot send deleted note or relation evidence to the provider")
   }
   @MainActor private static func waitForReply(_ session: ChatSession) async throws {
     for _ in 0..<80 {
