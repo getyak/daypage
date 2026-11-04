@@ -186,6 +186,146 @@ final class CardToolsSpeechUITests: XCTestCase {
     add(image)
   }
 
+  private func startAuthoringChat() {
+    app.launchArguments += ["-qaSeedNoteRelations"]
+    app.launch()
+    openChat()
+    openContext()
+    setSwitch("chat-note-tools", on: true)
+    tap44(app.buttons["chat-context"])
+  }
+
+  private func reviewAction(_ tool: String) -> String {
+    let review = button(prefix: "note-action-review-" + tool + "-")
+    XCTAssertTrue(review.waitForExistence(timeout: 15))
+    let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: review)
+    XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
+    reveal(review, in: app.scrollViews["chat-transcript"])
+    let id = String(review.identifier.dropFirst(("note-action-review-" + tool + "-").count))
+    tap44(review)
+    XCTAssertTrue(element("note-action-review-scroll").waitForExistence(timeout: 5))
+    return id
+  }
+
+  @discardableResult
+  private func confirmAction(_ tool: String) -> String {
+    let id = reviewAction(tool)
+    let confirm = app.buttons["note-action-confirm"]
+    reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
+    tap44(confirm)
+    let status = element("note-action-status-" + id)
+    XCTAssertTrue(status.waitForExistence(timeout: 10))
+    XCTAssertTrue(status.label.contains("Change saved"))
+    return id
+  }
+
+  func testCreatedNoteAndReceiptReopenAndUndoWithoutConsumingCaptureDraft() {
+    app.launchArguments += ["-qaSeedCaptureDraft"]
+    startAuthoringChat()
+    send("GET388 create")
+    let id = confirmAction("notes_create")
+    capture("note-action-created")
+    app.buttons["Close"].firstMatch.tap()
+    relaunch()
+    openChat()
+    let status = element("note-action-status-" + id)
+    XCTAssertTrue(status.waitForExistence(timeout: 10))
+    XCTAssertTrue(status.label.contains("Change saved"))
+    let open = app.buttons["note-action-open-" + id]
+    reveal(open, in: app.scrollViews["chat-transcript"])
+    tap44(open)
+    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Created through a reviewed note tool.").exists)
+    capture("note-action-created-original")
+    app.buttons["Done"].tap()
+    let undo = app.buttons["note-action-undo-" + id]
+    reveal(undo, in: app.scrollViews["chat-transcript"])
+    tap44(undo)
+    let undone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Change undone'"), object: status)
+    XCTAssertEqual(XCTWaiter.wait(for: [undone], timeout: 10), .completed)
+    app.buttons["Close"].firstMatch.tap()
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Trip checklist.txt").exists)
+  }
+
+  func testCancelledNoteProposalReopensWithoutPublishingANote() {
+    startAuthoringChat()
+    send("GET388 cancel creation")
+    let id = reviewAction("notes_create")
+    let cancel = app.buttons["note-action-cancel"]
+    reveal(cancel, in: app.scrollViews["note-action-review-scroll"])
+    tap44(cancel)
+    XCTAssertTrue(element("note-action-cancelled-" + id).waitForExistence(timeout: 5))
+    XCTAssertFalse(element("note-action-status-" + id).exists)
+    app.buttons["Close"].firstMatch.tap()
+    relaunch()
+    openChat()
+    XCTAssertTrue(element("note-action-cancelled-" + id).waitForExistence(timeout: 10))
+    XCTAssertFalse(element("note-action-status-" + id).exists)
+    capture("note-action-cancelled-reopened")
+  }
+
+  func testAppendPatchTagsAndPinAreReviewedAndOpenTheUpdatedOriginal() {
+    startAuthoringChat()
+    send("GET388 append")
+    _ = confirmAction("notes_append")
+    send("GET388 patch")
+    _ = confirmAction("notes_propose_patch")
+    send("GET388 tags")
+    _ = confirmAction("notes_set_tags")
+    send("GET388 pin")
+    let id = confirmAction("notes_set_pin")
+    let open = app.buttons["note-action-open-" + id]
+    reveal(open, in: app.scrollViews["chat-transcript"])
+    tap44(open)
+    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
+    XCTAssertTrue(text("A revised notebook idea for next week.").exists)
+    XCTAssertTrue(text("#reviewed").exists)
+    XCTAssertFalse(text("An appended notebook idea for tomorrow.").exists)
+    capture("note-action-edited-original")
+  }
+
+  func testConnectionsRequireConfirmationAndCanBeReadRemovedAndRestored() {
+    startAuthoringChat()
+    send("GET388 connect")
+    let id = reviewAction("relations_link")
+    XCTAssertTrue(text("Both original notes discuss notebook ideas.").exists)
+    capture("note-relation-review")
+    let confirm = app.buttons["note-action-confirm"]
+    reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
+    tap44(confirm)
+    XCTAssertTrue(element("note-action-status-" + id).waitForExistence(timeout: 10))
+    send("GET388 connections")
+    XCTAssertTrue(text("GET388 saved connections: 1").waitForExistence(timeout: 15))
+    send("GET388 unlink")
+    let removalID = confirmAction("relations_unlink")
+    send("GET388 connections")
+    XCTAssertTrue(text("GET388 saved connections: 0").waitForExistence(timeout: 15))
+    let undo = app.buttons["note-action-undo-" + removalID]
+    reveal(undo, in: app.scrollViews["chat-transcript"], down: true)
+    tap44(undo)
+    send("GET388 connections restored")
+    XCTAssertTrue(text("GET388 restored connections: 1").waitForExistence(timeout: 15))
+    capture("note-relation-restored")
+  }
+
+  func testSimilarNotesReturnSourcesThatOpenTheActualOriginal() {
+    startAuthoringChat()
+    send("GET388 similar")
+    XCTAssertTrue(text("GET388 related note:").waitForExistence(timeout: 15))
+    let sources = app.buttons["chat-sources"]
+    reveal(sources, in: app.scrollViews["chat-transcript"])
+    tap44(sources)
+    let source = app.buttons.matching(NSPredicate(
+      format: "identifier BEGINSWITH 'chat-source-' AND label CONTAINS[c] 'Notebook pricing'" )).firstMatch
+    reveal(source, in: app.scrollViews["chat-transcript"])
+    tap44(source)
+    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Notebook pricing should leave room for a free plan.").exists)
+    capture("note-similar-original-source")
+  }
+
   func testCardToolsOpenTheOriginalAndSavedReplySurvivesRelaunchWithoutConsumingCaptureDraft() {
     app.launchArguments += ["-qaSeedCaptureDraft"]
     app.launch()

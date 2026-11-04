@@ -1,12 +1,45 @@
 # Local card tools and read aloud
 
-Scope: GET-369, ADR-0030. Active app: DayPageLocal, iOS 16.1+.
+Scope: GET-369/GET-388, ADR-0030/ADR-0031. Active app: DayPageLocal, iOS 16.1+.
 
 ## Card tools
 
 In Conversation, expand the notes row and enable Search notes as needed. On explicit Send, the AI may search/read all cards in the conversation's current selection, including supported attachment text. The row shows that complete available count. Include note excerpts off also disables tools. Opening history uses that conversation's stored scope. Roles affect style, never scope.
 
-Six tools: notes_search, notes_read, notes_list, notes_stats, notes_tags, assets_read. Dates use inclusive YYYY-MM-DD bounds. Counts cover matching scoped cards, not only returned previews. Sources below the answer open the exact original card and persist after reopening. A missing source shows a recoverable message.
+Eighteen tools are available within the current conversation's selection:
+
+| Tool | Behavior |
+|---|---|
+| notes_search | Keyword/date/tag search, exact count before preview limits |
+| notes_read | Bounded original body and attachment metadata |
+| notes_list | List cards with date/tag filters |
+| notes_stats | Exact scoped card/day/attachment/body-character counts |
+| notes_tags | Tags and distinct-card counts |
+| assets_read | Supported attachment text |
+| notes_create | Propose a new note independently of the capture draft |
+| notes_append | Propose text appended to one note |
+| notes_propose_patch | Propose one unambiguous before/after replacement |
+| notes_set_tags | Propose replacing body hashtags, preserving other text |
+| notes_set_pin | Propose pin/unpin using existing metadata |
+| notes_similar | Local lexical candidates from an anchor or query |
+| notes_neighbors | Chronological neighbors of an exact card |
+| notes_find_duplicates | Exact-normalized or near-lexical candidates, never merging |
+| relations_suggest | Candidate relationships with original excerpts |
+| relations_list | Confirmed incoming/outgoing connections within scope |
+| relations_link | Propose a directed connection and explanation |
+| relations_unlink | Propose removing one confirmed connection |
+
+Dates use inclusive YYYY-MM-DD bounds. Search/list/statistics counts cover matching scoped cards, not only previews. Sources open the exact original card and persist after reopening. Missing sources show a recoverable message.
+
+### Review and save changes
+
+The model only prepares a change. Review change opens the target and proposed text or relationship endpoints. Confirm change writes the local files and returns a durable receipt; Cancel proposal never changes a note. Saved cards can be opened. Undo change refuses to overwrite subsequent edits. Reopening reads the file receipt rather than trusting assistant text. Retries in the same user turn reuse stable proposal identity and timestamp. Disabling note inclusion/tools disables confirmation as well as reading.
+
+Relationships follow the user's selected policy: suggest first, save after confirmation. Types are related, supplements, contradicts, evolves, duplicate and derived_from. Both endpoints must be in scope. Directions are explicit, incoming edges are discoverable and changed evidence is marked stale. Missing/out-of-scope endpoints are hidden. Explanations remain interpretations. Original note files are preserved.
+
+Version-1 local metadata lives at `.daypage/note-actions.json`: pending proposals, confirmed edges and recoverable receipts, including bounded original/updated blocks for undo. Raw Markdown format is unchanged. Damaged, unsupported-version or linked metadata fails without replacing its contents. Interrupted preparation never automatically publishes an unconfirmed change; reopening reconciles only already-published bytes. No database, embedding provider or background cloud request is introduced.
+
+Similarity uses local words, Chinese bigrams and shared hashtags, not semantic embeddings. The configured chat model can interpret candidates or try alternate queries. Retrieval inspects up to 500 candidate cards and 6,000 body characters per card; duplicate discovery inspects at most 5,000 pairs. Results expose method/coverage/truncation. No-match remains empty, and equal long prefixes are never called exact duplicates. Write text is bounded to 6,000 characters; invalid arguments never reach the write path.
 
 The runtime allows at most six model requests/twelve tool calls, twenty result cards and twenty-four source refs, with bounded text and input sizes. Tool mode completes bounded nonstream rounds; ordinary mode remains streamed. Unsupported responses preserve the question and let the person switch off tools.
 

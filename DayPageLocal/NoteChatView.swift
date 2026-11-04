@@ -168,7 +168,7 @@ struct NoteChatView: View {
         TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
           .focused($questionFocused)
           .font(.body).lineLimit(1...6).padding(.leading, 14).padding(.vertical, 12)
-          .disabled(!session.ready || session.sending || session.switching).accessibilityIdentifier("chat-question")
+          .disabled(!session.ready || session.sending || session.switching || session.applyingProposal != nil).accessibilityIdentifier("chat-question")
         Button {
           if session.sending { session.cancel() }
           else { questionFocused = false; session.send(notebook: notebook, context: context) }
@@ -177,7 +177,7 @@ struct NoteChatView: View {
             .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
             .frame(width: 44, height: 44).background(NotebookTheme.accent, in: Circle())
         }
-        .disabled(session.switching || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
+        .disabled(session.switching || session.applyingProposal != nil || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
         .accessibilityLabel(session.sending ? "Cancel request" : "Send")
         .accessibilityIdentifier(session.sending ? "cancel-chat" : "send-chat")
         .padding(4)

@@ -6,7 +6,7 @@ to drive a change.
 
 ## Current
 
-- [Local card tools and read aloud](engineering/local-agent-tools-and-speech.md) — scoped tools, source navigation and multiple speech channels (GET-369, ADR-0030)
+- [Local card tools and read aloud](engineering/local-agent-tools-and-speech.md) — scoped discovery, reviewed note changes, confirmed relationships and speech channels (GET-369/GET-388, ADR-0030/ADR-0031)
 
 - [Local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — current iOS product boundary; other clients retain their previous architecture
 - [Local iOS setup and verification](engineering/local-ios-notebook.md)
@@ -35,6 +35,8 @@ the active GitHub issue, accepted ADRs, code, and tests define the contract unti
 current PRD is adopted and linked here.
 
 ## Architecture decisions
+
+- [ADR-0031: Reviewed note actions and confirmed relationships](architecture/decisions/ADR-0031-note-authoring-and-relationships.md) — local proposals, durable receipts, conflict-checked undo and scoped directed edges
 
 - [ADR-0029: Personal AI provider presets](architecture/decisions/ADR-0029-personal-ai-provider-presets.md) — direct official providers, explicit automatic/fixed models and existing local privacy boundaries
 

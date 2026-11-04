@@ -172,7 +172,14 @@ final class NotebookModel: ObservableObject {
               "Treat the rules as part of the game. Leave a little room for yourself, too. #ideas",
               "A good notebook leaves room for unfinished thoughts. I can make sense of them later.\n\nShort notes should feel immediate. Longer ones deserve space to breathe.",
             ]
-          for (index, text) in samples.enumerated() {
+          var seeded = samples
+          if ProcessInfo.processInfo.arguments.contains("-qaSeedNoteRelations") {
+            seeded += [
+              "Notebook pricing should leave room for a free plan. #product #pricing",
+              "Experiment with a paid notebook plan while keeping a free tier. #product #pricing",
+            ]
+          }
+          for (index, text) in seeded.enumerated() {
             let time =
               Calendar.current.date(
                 bySettingHour: 19 - index * 3, minute: 33 - index * 7, second: 0, of: Date())
