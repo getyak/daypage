@@ -2,6 +2,15 @@ import XCTest
 @testable import DayPageCore
 
 final class ConversationActionAuthorityTests: XCTestCase {
+  func testFirstLeaseIdentitySurvivesTheInitialVaultDirectoryCreation() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("first-lease-\(UUID())/nested-vault")
+    defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+    let chats = ConversationStore(root: root)
+    let first = try await chats.beginSession()
+    var conversation = first.conversation; conversation.usesTools = true
+    try await chats.save(conversation, lease: first.lease)
+    try await chats.validateToolAccess(conversationID: conversation.id, lease: first.lease, scope: "all-notes")
+  }
   private func prepare(_ root: URL) async throws -> (NotebookStore, ConversationStore, Conversation, NoteActionProposal, UUID) {
     let notes = NotebookStore(root: root), chats = ConversationStore(root: root)
     let result = try await NoteToolExecutor.execute(name: "notes_create", arguments: #"{"body":"Confirmed only by the current session"}"#,

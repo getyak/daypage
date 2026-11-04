@@ -20,7 +20,7 @@ enum ConversationActionGate {
   }
   private static let state = State()
   private static func key(root: URL, id: UUID) -> String {
-    root.standardizedFileURL.resolvingSymlinksInPath().path + "\n" + id.uuidString
+    NotebookPath.canonicalPath(root) + "\n" + id.uuidString
   }
   static func synchronized<T>(_ operation: () throws -> T) rethrows -> T {
     state.lock.lock(); defer { state.lock.unlock() }
@@ -69,7 +69,7 @@ enum ConversationActionGate {
   }
   private static func validate(_ permit: NoteActionAuthorization, root: URL,
     proposal: NoteActionProposal, conversation: Conversation) throws {
-    guard permit.root.resolvingSymlinksInPath() == root.standardizedFileURL.resolvingSymlinksInPath(),
+    guard NotebookPath.canonicalPath(permit.root) == NotebookPath.canonicalPath(root),
       state.leases[key(root: root, id: conversation.id)] == permit.lease,
       conversation.id == permit.conversationID, conversation.scope == permit.scope,
       conversation.includesNotes != false, conversation.usesTools == true,
