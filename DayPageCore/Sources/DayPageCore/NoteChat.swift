@@ -10,6 +10,10 @@ public struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
   public var character: ChatCharacter?
   public var delivery: Delivery?
   public var sources: [NoteToolSource]?
+  public var proposals: [NoteActionProposal]?
+  public var receipts: [NoteActionReceipt]?
+  public var dismissedProposalIDs: [UUID]?
+  public var createdAt: Date?
   public enum Delivery: String, Codable, Sendable { case streaming, complete, interrupted }
   public init(id: UUID = UUID(), role: Role, content: String, reasoning: String? = nil,
     character: ChatCharacter? = nil, delivery: Delivery? = nil) {
@@ -19,6 +23,7 @@ public struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
     self.reasoning = reasoning
     self.character = character
     self.delivery = delivery
+    self.createdAt = Date()
   }
 }
 public struct Conversation: Codable, Identifiable, Sendable {

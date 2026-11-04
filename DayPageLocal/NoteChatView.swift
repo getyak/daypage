@@ -51,10 +51,10 @@ struct NoteChatView: View {
         ToolbarItemGroup(placement: .primaryAction) {
           Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
-            .disabled(session.switching)
+            .disabled(session.switching || session.applyingProposal != nil)
           Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
-            .disabled(session.sending || session.switching)
+            .disabled(session.sending || session.switching || session.applyingProposal != nil)
         }
       }
       .disabled(!session.ready && session.error == nil)
@@ -137,7 +137,7 @@ struct NoteChatView: View {
             .disabled(session.sending || session.conversation.includesNotes == false)
             .font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-note-tools")
           Text(LocalizedStringKey(session.conversation.usesTools == true && session.conversation.includesNotes != false
-            ? "When you tap Send, your AI can search and read notes and supported attachments within this conversation’s note selection. It cannot change your notes."
+            ? "When you tap Send, your AI can search selected notes and suggest new notes, edits and connections. Review and confirm each change before it is saved."
             : "Only these excerpts and this conversation are sent when you tap Send."))
             .font(.caption).foregroundStyle(.secondary)
           if !context.text.isEmpty {
@@ -209,7 +209,14 @@ private struct ChatTranscript: View {
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 14) {
             if session.conversation.messages.isEmpty && session.ready { greeting.id("chat-start") }
-            ForEach(session.conversation.messages) { message in ChatMessageRow(message: message).id(message.id) }
+            ForEach(session.conversation.messages) { message in ChatMessageRow(message: message, session: session).id(message.id) }
+            if let error = session.actionError {
+              Text(error).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("chat-action-error")
+              if !session.actionsReady {
+                Button("Retry checking changes") { Task { await session.reloadReceipts() } }
+                  .frame(minHeight: 44).accessibilityIdentifier("chat-action-retry")
+              }
+            }
             if let status = session.toolStatus {
               Label(status, systemImage: "text.magnifyingglass").font(.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("chat-tool-status")
@@ -282,6 +289,7 @@ private struct ChatTranscript: View {
 
 private struct ChatMessageRow: View {
   let message: ChatMessage
+  @ObservedObject var session: ChatSession
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var saving = false
@@ -341,6 +349,12 @@ private struct ChatMessageRow: View {
                   }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }.buttonStyle(.plain).accessibilityIdentifier("chat-source-" + source.cardRef)
               }
+            }
+          }
+          if let proposals = message.proposals {
+            ForEach(proposals) { proposal in
+              NoteActionCard(session: session, messageID: message.id, proposal: proposal,
+                dismissed: message.dismissedProposalIDs?.contains(proposal.id) == true)
             }
           }
           if message.delivery == .complete, !message.content.isEmpty {

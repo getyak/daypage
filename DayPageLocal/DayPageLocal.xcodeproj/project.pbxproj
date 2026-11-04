@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		388F1E0A1C9D4D30AF223001 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */; };
 		1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */; };
 		20B4023F9DCDCDBF60EB4512 /* ChatExperienceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC24EB1348D01E6B37C6749F /* ChatExperienceUITests.swift */; };
 		22F32AB77218949F65D1B8DF /* NotebookArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */; };
@@ -57,6 +58,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteActionCards.swift; sourceTree = "<group>"; };
 		099023364FADB7679C63FBA2 /* CardShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardShareUITests.swift; sourceTree = "<group>"; };
 		17BA8822022266F739F97C75 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardToolsSpeechUITests.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */,
 				1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */,
 				A194219200321F0DE1B2F852 /* ChatSession.swift */,
+				388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */,
 				E1A12D5409FE7A0E2425076A /* DayPageApp.swift */,
 				4326C54BBF11D8F68313C675 /* FeedbackView.swift */,
 				482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */,
@@ -320,6 +323,7 @@
 				E7DE6BD62F34193F86DEA4C1 /* CaptureMedia.swift in Sources */,
 				4BDACFAF9397B1D723B35DF4 /* ChatLibraryViews.swift in Sources */,
 				CBFF32AE985722CB7A9DA3F6 /* ChatSession.swift in Sources */,
+				388F1E0A1C9D4D30AF223001 /* NoteActionCards.swift in Sources */,
 				68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */,
 				93464F5B38BE2206E90F8620 /* FeedbackView.swift in Sources */,
 				7F5D2C080E4696A3B7006E4B /* NoteChatView.swift in Sources */,

@@ -7,6 +7,7 @@ import Foundation
   var entries: [NotebookEntry] = []
   var configuration = AIConfiguration(baseURL: "http://127.0.0.1:1/v1", model: "fixture-model", allowsLocalHTTP: true)
   init(root: URL) { conversations = ConversationStore(root: root); store = NotebookStore(root: root) }
+  func refresh() async { if let values = try? await store.entries() { entries = values } }
   func readToolAttachment(cardRef: String, index: Int, allowedEntries: [NotebookEntry]) async throws -> String {
     guard let entry = allowedEntries.first(where: { $0.id == cardRef }), entry.memo.attachments.indices.contains(index) else { throw NotebookError.conflict }
     let attachment = entry.memo.attachments[index]
