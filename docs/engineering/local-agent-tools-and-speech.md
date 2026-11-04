@@ -74,9 +74,9 @@ The core and native UI use synthetic fixtures, never personal Vaults. The task-o
 
 While the shared Mac has a resource pause, use the existing hosted workflow:
 ```sh
-gh workflow run ios-local.yml --ref codex/get-369-card-tools-speech -f native_ui=true -f native_ui_suite=card_tools_speech
+gh workflow run ios-local.yml --repo getyak/daypage --ref main -f native_ui=true -f native_ui_suite=card_tools_speech
 ```
 
-This selects eleven signed journeys (all new card-tools/speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
+This selects sixteen signed journeys (note authoring, relations, card tools, speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
 
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.
