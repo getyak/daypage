@@ -220,9 +220,29 @@ run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
 fi
 # Start only this disposable runner's selected device and wait for SpringBoard
 # readiness before asking XCTest to launch the unsigned app for the first time.
-run_logged "$daypage_evidence/simulator-boot.log" python3 - "$daypage_simulator" <<'PY'
-import subprocess, sys
-subprocess.run(['xcrun', 'simctl', 'bootstatus', sys.argv[1], '-b'], check=True, timeout=180)
+run_logged "$daypage_evidence/simulator-boot.log" python3 - "$daypage_simulator" "$daypage_evidence" <<'PY'
+import json, os, pathlib, platform, subprocess, sys, time
+hosted_intel = os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted' and os.environ.get('RUNNER_ARCH') == 'X64'
+budget = 360 if hosted_intel else 180
+receipt = {'udid': sys.argv[1], 'hostArchitecture': platform.machine(),
+    'runnerEnvironment': os.environ.get('RUNNER_ENVIRONMENT'),
+    'runnerArchitecture': os.environ.get('RUNNER_ARCH'),
+    'timeoutSeconds': budget, 'ready': False, 'outcome': 'failed'}
+started = time.monotonic()
+print(json.dumps({'event': 'boot-start', **receipt}), flush=True)
+try:
+    subprocess.run(['xcrun', 'simctl', 'bootstatus', sys.argv[1], '-b'], check=True, timeout=budget)
+    receipt.update({'ready': True, 'outcome': 'success', 'exitCode': 0})
+except subprocess.TimeoutExpired:
+    receipt['outcome'] = 'timeout'
+    raise
+except subprocess.CalledProcessError as error:
+    receipt['exitCode'] = error.returncode
+    raise
+finally:
+    receipt['elapsedSeconds'] = round(time.monotonic() - started, 3)
+    (pathlib.Path(sys.argv[2]) / 'simulator-boot-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+    print(json.dumps({'event': 'boot-finish', **receipt}), flush=True)
 PY
 if [[ "$daypage_ui_suite" != diary_navigation ]]; then
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \

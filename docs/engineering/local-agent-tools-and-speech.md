@@ -91,4 +91,6 @@ When GitHub cannot allocate its ARM runners, manual dispatch supports `-f runner
 
 The additional manual `runner_architecture=intel15` choice uses macos-15-intel and explicitly selects its installed Xcode 26.3 rather than the image's older default. Its iOS 26.2 Simulator result is separate evidence from macOS 26/iOS 26.5 runs. It retains the same complete native matrix and does not change publication or automatic CI defaults.
 
+Manual Intel core/app verification has a fixed 40-minute job budget after a cold build exceeded the original 25-minute limit; automatic PR/main verification remains at 25 minutes. On GitHub-hosted X64 runners only, the selected Simulator's single cold-boot wait has a fixed 360-second limit instead of 180 seconds. Boot status, architecture, budget and elapsed time are recorded. A timeout or failed boot still stops before XCTest; the 90-minute native job limit, signing checks and every UI assertion remain unchanged. This extra setup time is not evidence that a stalled migration will recover.
+
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.

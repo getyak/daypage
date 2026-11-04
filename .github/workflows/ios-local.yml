@@ -68,7 +68,9 @@ jobs:
   verify:
     name: Local iOS core and app
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-15' }}
-    timeout-minutes: 25
+    # Cold Intel builds exceeded 25 minutes after tests had already passed.
+    # Automatic PR/main checks retain their existing ARM budget.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && (inputs.runner_architecture == 'intel' || inputs.runner_architecture == 'intel15') && 40 || 25 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select the installed iOS 26 toolchain on the Intel 15 fallback

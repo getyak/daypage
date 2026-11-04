@@ -81,6 +81,8 @@ elif tool == "xcrun":
         }}))
     elif args[:2] == ["simctl", "bootstatus"]:
         event("mock-boot")
+        if mode == "boot_failure":
+            raise SystemExit(70)
     elif args[:4] == ["xcresulttool", "get", "test-results", "summary"]:
         negative = "negative-keychain" in option("--path")
         failed = negative_failed if negative else signed_failed
@@ -187,7 +189,7 @@ else:
 
 
 class NativeCIOrchestrationTests(unittest.TestCase):
-    def run_fixture(self, mode):
+    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted"):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -223,6 +225,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         environment = {
             **os.environ, "PATH": str(binaries) + os.pathsep + os.environ["PATH"],
             "CI": "true", "GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "host-mock",
+            "RUNNER_ARCH": runner_arch, "RUNNER_ENVIRONMENT": runner_environment,
             "RUNNER_TEMP": str(runner), "DAYPAGE_NATIVE_CI_OUTPUT_DIR": str(evidence),
             "DAYPAGE_NATIVE_UI_SUITE": "card_tools_speech",
             "NATIVE_CI_MOCK_MODE": mode, "NATIVE_CI_MOCK_STATE": str(state),
@@ -242,6 +245,37 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         events_path = state / "events"
         events = events_path.read_text().splitlines() if events_path.exists() else []
         return process.returncode, output, evidence, events
+
+    def test_only_hosted_intel_gets_the_fixed_cold_boot_budget(self):
+        for arch, environment, budget in (("X64", "github-hosted", 360),
+                                          ("ARM64", "github-hosted", 180),
+                                          ("X64", "self-hosted", 180)):
+            with self.subTest(arch=arch, environment=environment):
+                code, output, evidence, events = self.run_fixture(
+                    "success", runner_arch=arch, runner_environment=environment)
+                self.assertEqual(code, 0, output)
+                self.assert_signed_evidence(evidence, events)
+                path = evidence / "simulator-boot-receipt.json"
+                self.assertTrue(path.exists(), "A boot attempt must record its fixed budget and actual outcome")
+                receipt = json.loads(path.read_text())
+                self.assertEqual(receipt["timeoutSeconds"], budget)
+                self.assertEqual(receipt["runnerArchitecture"], arch)
+                self.assertEqual(receipt["runnerEnvironment"], environment)
+                self.assertTrue(receipt["ready"])
+                self.assertEqual(receipt["outcome"], "success")
+
+    def test_failed_boot_still_blocks_every_xctest_and_acceptance(self):
+        code, output, evidence, events = self.run_fixture("boot_failure", runner_arch="X64")
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("unsigned-build", events)
+        self.assertIn("mock-boot", events)
+        self.assertNotIn("negative-tests", events)
+        self.assertNotIn("signed-build", events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+        receipt = json.loads((evidence / "simulator-boot-receipt.json").read_text())
+        self.assertFalse(receipt["ready"])
+        self.assertEqual(receipt["outcome"], "failed")
+        self.assertEqual(receipt["exitCode"], 70)
 
     def test_foreign_listener_keeps_readiness_failure_and_collects_both_boundary_diagnostics(self):
         code, output, evidence, events = self.run_fixture("foreign_listener")
