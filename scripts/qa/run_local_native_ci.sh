@@ -71,6 +71,63 @@ daypage_destination="$(python3 scripts/ci/select_simulator.py --input "$daypage_
 daypage_simulator="$(python3 scripts/ci/select_simulator.py --input "$daypage_evidence/runner-simulators.json" --format udid)"
 printf '%s\n' "$daypage_destination" > "$daypage_evidence/destination.log"
 
+probe_fixture_listener() {
+  local daypage_listener_prefix="$1"
+  daypage_listener=""
+  if lsof -nP -iTCP:18763 -sTCP:LISTEN -Fp \
+    > "$daypage_evidence/$daypage_listener_prefix-fields.log" 2> "$daypage_evidence/$daypage_listener_prefix-errors.log"; then
+    daypage_listener_exit=0
+    # Field output includes implicit file-descriptor records as well as PIDs.
+    # Reject malformed records and keep every distinct process owner.
+    daypage_listener="$(awk '
+      /^p[1-9][0-9]*$/ { owners[substr($0, 2)] = 1; next }
+      /^f[0-9]+$/ { next }
+      { invalid = 1 }
+      END { if (invalid) exit 1; for (owner in owners) print owner }
+    ' "$daypage_evidence/$daypage_listener_prefix-fields.log" || true)"
+  else
+    daypage_listener_exit=$?
+  fi
+}
+
+probe_fixture_health() {
+  if curl --noproxy '*' --silent --fail --max-time 2 --max-filesize 1024 \
+    --output "$daypage_native_root/fixture-health.body" \
+    --write-out '%{http_code}' http://127.0.0.1:18763/health \
+    > "$daypage_native_root/fixture-health.status" 2> "$daypage_native_root/fixture-health.error"; then
+    daypage_health_exit=0
+  else
+    daypage_health_exit=$?
+  fi
+  if python3 - "$daypage_native_root" "$daypage_health_exit" <<'PY' > "$daypage_evidence/fixture-health.log"
+import json, pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+body_path, status_path, error_path = (root / ('fixture-health.' + suffix) for suffix in ('body', 'status', 'error'))
+result = {'curlExit': int(sys.argv[2]), 'httpCode': None, 'expectedMarkerMatches': False}
+try:
+    with body_path.open('rb') as response:
+        body = response.read(1025)
+    with status_path.open('rb') as response:
+        status = response.read(4).decode('ascii', errors='replace')
+    result.update({'httpCode': status if re.fullmatch(r'[0-9]{3}', status) else None,
+        'bodyBytesRead': len(body), 'bodyTruncated': len(body) > 1024,
+        'expectedMarkerMatches': body == b'GET-326-local-fixture'})
+except OSError as error:
+    result['probeFileError'] = error.errno
+finally:
+    for path in (body_path, status_path, error_path):
+        path.unlink(missing_ok=True)
+result['healthVerified'] = result['curlExit'] == 0 and result['httpCode'] == '200' and result['expectedMarkerMatches']
+print(json.dumps(result))
+raise SystemExit(0 if result['healthVerified'] else 1)
+PY
+  then
+    daypage_health_matches=true
+  else
+    daypage_health_matches=false
+  fi
+}
+
 # Own the fixture process; never borrow an existing service on this port.
 python3 -u scripts/qa/local_notebook_ai_fixture.py > "$daypage_evidence/fixture.log" 2>&1 &
 daypage_fixture_pid=$!
@@ -80,25 +137,21 @@ for daypage_probe in {1..30}; do
     echo "The task-owned loopback fixture could not start." >&2
     exit 1
   fi
-  daypage_listener=""
-  if lsof -nP -iTCP:18763 -sTCP:LISTEN -Fp \
-    > "$daypage_evidence/fixture-listener-fields.log" 2> "$daypage_evidence/fixture-listener-errors.log"; then
-    daypage_listener_exit=0
-    # Field output includes implicit file-descriptor records as well as PIDs.
-    # Reject malformed records and keep every distinct process owner.
-    daypage_listener="$(awk '
-      /^p[1-9][0-9]*$/ { owners[substr($0, 2)] = 1; next }
-      /^f[0-9]+$/ { next }
-      { invalid = 1 }
-      END { if (invalid) exit 1; for (owner in owners) print owner }
-    ' "$daypage_evidence/fixture-listener-fields.log" || true)"
-  else
-    daypage_listener_exit=$?
-  fi
-  printf 'attempt=%s fields_exit=%s listener=%q\n' "$daypage_probe" "$daypage_listener_exit" "$daypage_listener" \
+  probe_fixture_listener fixture-listener-before-health
+  daypage_before_listener="$daypage_listener"
+  daypage_before_exit="$daypage_listener_exit"
+  printf 'attempt=%s phase=before-health fields_exit=%s listener=%q\n' "$daypage_probe" "$daypage_before_exit" "$daypage_before_listener" \
     >> "$daypage_evidence/fixture-listener-probes.log"
-  if [[ "$daypage_listener" == "$daypage_fixture_pid" ]] && \
-    [[ "$(curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:18763/health 2>/dev/null || true)" == GET-326-local-fixture ]]; then
+  # Always sample HTTP, even when the initial owner lookup is empty. A first
+  # visible owner after GET is diagnostic only; the next round must reverify.
+  probe_fixture_health
+  probe_fixture_listener fixture-listener
+  printf 'attempt=%s phase=after-health fields_exit=%s listener=%q health_exit=%s health_verified=%s\n' \
+    "$daypage_probe" "$daypage_listener_exit" "$daypage_listener" "$daypage_health_exit" "$daypage_health_matches" \
+    >> "$daypage_evidence/fixture-listener-probes.log"
+  if [[ "$daypage_before_exit" == 0 && "$daypage_listener_exit" == 0 && \
+    "$daypage_before_listener" == "$daypage_fixture_pid" && "$daypage_listener" == "$daypage_fixture_pid" && \
+    "$daypage_health_matches" == true ]]; then
     # Compare the old terse lookup in this same successful probe. It is only
     # diagnostic; it cannot replace the exact machine-field ownership check.
     if lsof -nP -iTCP:18763 -sTCP:LISTEN -t \
@@ -108,14 +161,15 @@ for daypage_probe in {1..30}; do
       daypage_terse_exit=$?
     fi
     printf 'terse_exit=%s\n' "$daypage_terse_exit" >> "$daypage_evidence/fixture-listener-probes.log"
+    printf 'accepted_attempt=%s\n' "$daypage_probe" >> "$daypage_evidence/fixture-listener-probes.log"
     daypage_fixture_ready=true
     break
   fi
   sleep 1
 done
 if [[ "$daypage_fixture_ready" != true ]]; then
-  # Preserve both sides independently: the ownership check normally prevents
-  # curl from running when lsof's PID differs from the launched process.
+  # Preserve process metadata alongside the final round's independent HTTP
+  # result. Neither an earlier response nor a later owner can grant readiness.
   # Only process metadata and a bounded health summary enter evidence. The
   # unknown listener's headers, response body and curl errors are not uploaded.
   {
@@ -133,34 +187,7 @@ if [[ "$daypage_fixture_ready" != true ]]; then
     else
       printf 'listener_exit=%s\n' "$?"
     fi
-    if curl --noproxy '*' --silent --fail --max-time 2 --max-filesize 1024 \
-      --output "$daypage_native_root/fixture-health.body" \
-      --write-out '%{http_code}' http://127.0.0.1:18763/health \
-      > "$daypage_native_root/fixture-health.status" 2> "$daypage_native_root/fixture-health.error"; then
-      daypage_health_exit=0
-    else
-      daypage_health_exit=$?
-    fi
     printf 'health_exit=%s\n' "$daypage_health_exit"
-    python3 - "$daypage_native_root" "$daypage_health_exit" <<'PY' > "$daypage_evidence/fixture-health.log"
-import json, pathlib, re, sys
-root = pathlib.Path(sys.argv[1])
-body_path, status_path, error_path = (root / ('fixture-health.' + suffix) for suffix in ('body', 'status', 'error'))
-try:
-    with body_path.open('rb') as response:
-        body = response.read(1025)
-    with status_path.open('rb') as response:
-        status = response.read(4).decode('ascii', errors='replace')
-    print(json.dumps({'curlExit': int(sys.argv[2]),
-        'httpCode': status if re.fullmatch(r'[0-9]{3}', status) else None,
-        'bodyBytesRead': len(body), 'bodyTruncated': len(body) > 1024,
-        'expectedMarkerMatches': body == b'GET-326-local-fixture'}))
-except OSError as error:
-    print(json.dumps({'curlExit': int(sys.argv[2]), 'probeFileError': error.errno}))
-finally:
-    for path in (body_path, status_path, error_path):
-        path.unlink(missing_ok=True)
-PY
   } > "$daypage_evidence/fixture-readiness.log" 2>&1
   echo "The owned loopback fixture did not become ready." >&2
   exit 1

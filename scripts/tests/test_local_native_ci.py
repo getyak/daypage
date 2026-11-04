@@ -116,6 +116,12 @@ elif tool == "lsof":
         raise SystemExit(1)
     owner = path.read_text().strip()
     observed = "99999999" if mode in {"foreign_listener", "foreign_response"} else owner
+    calls_path = state / "health-calls"
+    calls = int(calls_path.read_text()) if calls_path.exists() else 0
+    if mode == "listener_after_health" and calls == 0:
+        raise SystemExit(1)
+    if mode == "foreign_handoff_failed_health" and calls == 0:
+        observed = "99999999"
     if "-t" in args:
         if mode == "terse_missing":
             raise SystemExit(1)
@@ -138,22 +144,38 @@ elif tool == "lsof":
         print("COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME")
         print("Python " + observed + " runner 3u IPv4 0x0 0t0 TCP 127.0.0.1:18763 (LISTEN)")
 elif tool == "curl":
+    calls_path = state / "health-calls"
+    calls = int(calls_path.read_text()) + 1 if calls_path.exists() else 1
+    calls_path.write_text(str(calls))
+    body = b"GET-326-local-fixture"
+    if mode == "foreign_response":
+        body = b"UNTRUSTED_BODY_SENTINEL"
+    elif mode == "wrong_health":
+        body = b"wrong-health-marker"
+    elif mode == "newline_health":
+        body += b"\n"
+    elif mode == "nul_health":
+        body += b"\0"
+    status = "302" if mode == "redirect_health" else "200"
     if "--output" in args:
         foreign = mode == "foreign_response"
-        pathlib.Path(option("--output")).write_text(
-            "UNTRUSTED_BODY_SENTINEL" if foreign else "GET-326-local-fixture")
+        pathlib.Path(option("--output")).write_bytes(body)
         if "--dump-header" in args:
             pathlib.Path(option("--dump-header")).write_text(
                 "HTTP/1.1 200 OK\nSet-Cookie: UNTRUSTED_HEADER_SENTINEL\n")
         if foreign:
             print("UNTRUSTED_ERROR_SENTINEL", file=sys.stderr)
-        print("200", end="")
+        print(status, end="")
     else:
-        print("GET-326-local-fixture")
+        sys.stdout.buffer.write(body)
+    if mode == "failed_health" or (mode == "foreign_handoff_failed_health" and calls > 1):
+        raise SystemExit(28)
 elif tool == "sleep":
     import time
     fast = {"foreign_listener", "foreign_response", "terse_missing", "empty_fields",
-            "multiple_fields", "invalid_fields", "invalid_fd_fields", "empty_fd_fields", "error_fields"}
+            "multiple_fields", "invalid_fields", "invalid_fd_fields", "empty_fd_fields", "error_fields",
+            "listener_after_health", "foreign_handoff_failed_health", "wrong_health", "failed_health",
+            "redirect_health", "newline_health", "nul_health"}
     time.sleep(0.005 if mode in fast else float(args[0]))
 elif tool == "codesign":
     event("mock-signature-check")
@@ -263,6 +285,24 @@ class NativeCIOrchestrationTests(unittest.TestCase):
 
     def test_missing_ambiguous_malformed_and_failed_owner_records_cannot_authorize_tests(self):
         for mode in ("empty_fields", "multiple_fields", "invalid_fields", "invalid_fd_fields", "empty_fd_fields", "error_fields"):
+            with self.subTest(mode=mode):
+                code, output, evidence, events = self.run_fixture(mode)
+                self.assertEqual(code, 1, output)
+                self.assertEqual(events, [])
+                self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_listener_first_visible_after_get_requires_a_new_stable_round(self):
+        code, output, evidence, events = self.run_fixture("listener_after_health")
+        self.assertEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        probes = (evidence / "fixture-listener-probes.log").read_text()
+        self.assertIn("attempt=1 phase=before-health fields_exit=1", probes)
+        self.assertIn("attempt=1 phase=after-health fields_exit=0", probes)
+        self.assertIn("accepted_attempt=2", probes)
+
+    def test_foreign_handoff_and_unhealthy_owned_responses_cannot_authorize_tests(self):
+        for mode in ("foreign_handoff_failed_health", "wrong_health", "failed_health",
+                     "redirect_health", "newline_health", "nul_health"):
             with self.subTest(mode=mode):
                 code, output, evidence, events = self.run_fixture(mode)
                 self.assertEqual(code, 1, output)
