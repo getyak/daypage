@@ -1,5 +1,7 @@
 # Local iOS notebook
 
+For the optional Watch/iCloud extension and its distinct acceptance gates, see [local Watch and personal iCloud continuity](local-watch-icloud.md). The local Vault and account-free core remain the source of truth.
+
 Open `DayPageLocal/DayPageLocal.xcodeproj`, scheme `DayPage`. This is the active iOS app. The root `DayPage.xcodeproj` remains the legacy multi-client project.
 
 The application stores notes as Markdown at `Documents/vault/raw/YYYY-MM-DD.md`, with attachments under `raw/assets`. It does not require a DayPage account, backend or database. It reads existing local files without migration. Import in Settings copies a downloaded older Vault into a separate namespace; the source stays untouched. Exports contain original files, imported notes and local conversations. Keep an independent copy of an old iCloud Vault until the imported result has been checked.

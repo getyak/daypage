@@ -20,6 +20,10 @@ platform :ios do
     "DayPageLocal/DayPageLocal.xcodeproj"
   end
 
+  def local_release_targets
+    { "DayPage" => "com.daypage.app", "DayPageWatch" => "com.daypage.app.watchkitapp" }
+  end
+
   desc "Build the local notebook without signing or uploading"
   lane :build_only do
     sh(
@@ -64,8 +68,8 @@ platform :ios do
     UI.success "App Store submission complete"
   end
 
-  # ADR-0027's local edition has one app target and no cloud configuration,
-  # generated provider credentials, Watch/Widget/Share extensions or databases.
+  # ADR-0031 adds a local Watch companion and optional personal iCloud documents.
+  # Neither target uses archived cloud configuration, generated secrets or databases.
   private_lane :archive_local_app do
     increment_build
     release_api_key = api_key
@@ -77,16 +81,18 @@ platform :ios do
       timeout: 3600,
       add_to_search_list: true
     )
-    match(
-      type: "appstore",
-      readonly: false,
-      force: true,
-      api_key: release_api_key,
-      git_url: ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier: "com.daypage.app",
-      keychain_name: "ci_keychain",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
-    )
+    local_release_targets.each_value do |identifier|
+      match(
+        type: "appstore",
+        readonly: false,
+        force: true,
+        api_key: release_api_key,
+        git_url: ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+        app_identifier: identifier,
+        keychain_name: "ci_keychain",
+        keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+      )
+    end
     configure_release_signing
     profiles = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
     build_app(
@@ -101,7 +107,7 @@ platform :ios do
         method: "app-store",
         signingStyle: "manual",
         teamID: ENV["DEVELOPMENT_TEAM"],
-        provisioningProfiles: { "com.daypage.app" => profiles.fetch("com.daypage.app") }
+        provisioningProfiles: local_release_targets.values.to_h { |identifier| [identifier, profiles.fetch(identifier)] }
       }
     )
   end
@@ -110,17 +116,19 @@ platform :ios do
   # returned, never a checked-in or cached profile name.
   private_lane :configure_release_signing do
     profiles = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
-    profile = profiles["com.daypage.app"]
-    UI.user_error!("match did not provide profiles for: com.daypage.app") unless profile
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      path: ios_project,
-      team_id: ENV["DEVELOPMENT_TEAM"],
-      targets: ["DayPage"],
-      build_configurations: ["Release"],
-      code_sign_identity: "Apple Distribution",
-      profile_name: profile
-    )
+    missing = local_release_targets.values.reject { |identifier| profiles[identifier] }
+    UI.user_error!("match did not provide profiles for: #{missing.join(', ')}") unless missing.empty?
+    local_release_targets.each do |target, identifier|
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        path: ios_project,
+        team_id: ENV["DEVELOPMENT_TEAM"],
+        targets: [target],
+        build_configurations: ["Release"],
+        code_sign_identity: "Apple Distribution",
+        profile_name: profiles.fetch(identifier)
+      )
+    end
   end
 
   # Avoid agvtool's generated-Info.plist path handling and leave the archived

@@ -84,6 +84,34 @@ final class LocalNotebookUITests: XCTestCase {
     screenshot("local-note-detail")
   }
 
+  func testDevicesAndICloudStartsLocalAndExplainsTheBackupScope() {
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-settings"].tap()
+    let devices = element("settings-continuity")
+    XCTAssertTrue(devices.waitForExistence(timeout: 5))
+    devices.tap()
+    let cloud = app.switches["icloud-enabled"]
+    for _ in 0..<4 {
+      if cloud.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertTrue(cloud.isHittable)
+    XCTAssertEqual(cloud.value as? String, "0")
+    XCTAssertFalse(app.buttons["icloud-sync-now"].isEnabled)
+    XCTAssertTrue(visibleText("iCloud uses Apple’s servers").exists)
+    screenshot("local-devices-and-icloud-off")
+    let recover = element("icloud-versions")
+    for _ in 0..<4 {
+      if recover.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertFalse(recover.isEnabled)
+    XCTAssertTrue(visibleText("Chats, model keys, unfinished drafts").exists)
+    screenshot("local-icloud-recovery-scope")
+  }
+
   func testSidebarKeepsItsDestinationsAndSettingsNeedsNoAccount() {
     app.launchArguments += ["-qaSeedNotebook"]
     app.launch()

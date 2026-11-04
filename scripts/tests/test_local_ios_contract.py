@@ -17,19 +17,38 @@ class LocalIOSContract(unittest.TestCase):
         app = next(o for o in objects.values() if o.get("isa") == "PBXNativeTarget" and o.get("name") == "DayPage")
         products = [objects[key]["productName"] for key in app.get("packageProductDependencies", [])]
         self.assertEqual(set(products), {"DayPageCore", "SwiftStreamingMarkdown"})
-        self.assertEqual(app.get("dependencies", []), [])
+        dependencies = [objects[objects[key]["target"]]["name"] for key in app.get("dependencies", [])]
+        self.assertEqual(dependencies, ["DayPageWatch"])
+        watch = next(o for o in objects.values() if o.get("isa") == "PBXNativeTarget" and o.get("name") == "DayPageWatch")
+        watch_products = [objects[key]["productName"] for key in watch.get("packageProductDependencies", [])]
+        self.assertEqual(watch_products, ["DayPageCapture"])
         sources = next(objects[p] for p in app["buildPhases"] if objects[p]["isa"] == "PBXSourcesBuildPhase")
         filenames = [objects[objects[b]["fileRef"]]["path"] for b in sources["files"]]
         self.assertTrue(filenames)
         self.assertFalse(any("Auth" in name or "Sync" in name or "Secrets" in name for name in filenames))
 
-    def test_local_info_has_no_login_callback_or_cloud_entitlement(self):
+    def test_local_info_has_no_login_and_only_personal_cloud_documents(self):
         with (ROOT / "DayPageLocal/Info.plist").open("rb") as f:
             info = plistlib.load(f)
         self.assertNotIn("CFBundleURLTypes", info)
         self.assertNotIn("UIBackgroundModes", info)
         with (ROOT / "DayPageLocal/DayPage.entitlements").open("rb") as f:
-            self.assertEqual(plistlib.load(f), {})
+            self.assertEqual(plistlib.load(f), {
+                "com.apple.developer.icloud-container-identifiers": ["iCloud.com.daypage.app"],
+                "com.apple.developer.ubiquity-container-identifiers": ["iCloud.com.daypage.app"],
+                "com.apple.developer.icloud-services": ["CloudDocuments"],
+            })
+        with (ROOT / "DayPageLocalWatch/Info.plist").open("rb") as f:
+            watch_info = plistlib.load(f)
+        self.assertEqual(watch_info["WKCompanionAppBundleIdentifier"], "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)")
+        self.assertTrue(watch_info["WKApplication"])
+        self.assertIn("NSSpeechRecognitionUsageDescription", info)
+        capture_sources = list((ROOT / "DayPageCore/Sources/DayPageCapture").glob("*.swift"))
+        self.assertTrue(capture_sources)
+        for source in capture_sources:
+            content = source.read_text()
+            self.assertNotIn("import DayPageCore", content)
+            self.assertNotIn("URLSession", content)
 
 
 class LocalPrivacyContract(unittest.TestCase):

@@ -29,6 +29,11 @@ struct SettingsView: View {
         }.accessibilityIdentifier("settings-speech")
       }.listRowBackground(NotebookTheme.card)
       Section("On this device") {
+        NavigationLink {
+          ContinuitySettingsView()
+        } label: {
+          Label("Devices & iCloud", systemImage: "icloud")
+        }.accessibilityIdentifier("settings-continuity")
         Button { importing = true } label: {
           Label(notebook.isImporting ? "Importing a copy…" : "Import a copy of an older Vault",
                 systemImage: "folder.badge.plus")

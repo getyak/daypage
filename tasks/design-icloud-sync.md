@@ -1,5 +1,7 @@
 # Design: iCloud Drive 同步方案
 
+> 历史设计。当前本地版的恢复实现见 [GET-392 设计](../docs/superpowers/specs/2026-11-05-local-watch-icloud-design.md) 和 [运行说明](../docs/engineering/local-watch-icloud.md)：保留本地 Vault，以可选的 iCloud 版本副本实现连续性，不移动旧 Vault。
+
 **Issue**: #64  
 **状态**: 设计评审中  
 **里程碑**: v3.1  

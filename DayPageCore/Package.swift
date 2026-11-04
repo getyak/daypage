@@ -3,10 +3,12 @@ import PackageDescription
 
 let package = Package(
     name: "DayPageCore",
-    platforms: [.iOS(.v16), .macOS(.v13)],
-    products: [.library(name: "DayPageCore", targets: ["DayPageCore"])],
+    platforms: [.iOS(.v16), .macOS(.v13), .watchOS(.v9)],
+    products: [.library(name: "DayPageCore", targets: ["DayPageCore"]),
+               .library(name: "DayPageCapture", targets: ["DayPageCapture"])],
     targets: [
-        .target(name: "DayPageCore"),
+        .target(name: "DayPageCapture"),
+        .target(name: "DayPageCore", dependencies: ["DayPageCapture"]),
         .testTarget(name: "DayPageCoreTests", dependencies: ["DayPageCore"])
     ]
 )
