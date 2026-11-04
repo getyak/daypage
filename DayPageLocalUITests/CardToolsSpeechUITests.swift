@@ -241,14 +241,24 @@ final class CardToolsSpeechUITests: XCTestCase {
   }
 
   @discardableResult
+  private func actionStatus(_ id: String, equals expected: String) -> XCUIElement {
+    let identifier = "note-action-status-" + id
+    let status = app.staticTexts[identifier]
+    let exactStatus = app.staticTexts.matching(NSPredicate(
+      format: "identifier == %@ AND label == %@", identifier, expected)).firstMatch
+    let found = exactStatus.waitForExistence(timeout: 10)
+    if !found { captureLookupFailure(status, scroller: app.scrollViews["chat-transcript"]) }
+    XCTAssertTrue(found, "The receipt must expose its exact saved or undone status as readable text")
+    return status
+  }
+
+  @discardableResult
   private func confirmAction(_ tool: String) -> String {
     let id = reviewAction(tool)
     let confirm = app.buttons["note-action-confirm"]
     reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
     tap44(confirm)
-    let status = element("note-action-status-" + id)
-    XCTAssertTrue(status.waitForExistence(timeout: 10))
-    XCTAssertTrue(status.label.contains("Change saved"))
+    actionStatus(id, equals: "Change saved")
     return id
   }
 
@@ -261,9 +271,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     app.buttons["Close"].firstMatch.tap()
     relaunch()
     openChat()
-    let status = element("note-action-status-" + id)
-    XCTAssertTrue(status.waitForExistence(timeout: 10))
-    XCTAssertTrue(status.label.contains("Change saved"))
+    actionStatus(id, equals: "Change saved")
     let open = app.buttons["note-action-open-" + id]
     reveal(open, in: app.scrollViews["chat-transcript"])
     tap44(open)
@@ -274,8 +282,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     let undo = app.buttons["note-action-undo-" + id]
     reveal(undo, in: app.scrollViews["chat-transcript"])
     tap44(undo)
-    let undone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Change undone'"), object: status)
-    XCTAssertEqual(XCTWaiter.wait(for: [undone], timeout: 10), .completed)
+    actionStatus(id, equals: "Change undone")
     app.buttons["Close"].firstMatch.tap()
     app.buttons["new-note"].tap()
     XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
@@ -328,7 +335,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     let confirm = app.buttons["note-action-confirm"]
     reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
     tap44(confirm)
-    XCTAssertTrue(element("note-action-status-" + id).waitForExistence(timeout: 10))
+    actionStatus(id, equals: "Change saved")
     app.buttons["Close"].firstMatch.tap()
     relaunch()
     openChat()

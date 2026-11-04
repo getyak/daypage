@@ -347,6 +347,7 @@ private struct ChatMessageRow: View {
                     Text(source.day).font(.caption.weight(.medium))
                     Text(source.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                   }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("chat-source-" + source.cardRef)
               }
             }

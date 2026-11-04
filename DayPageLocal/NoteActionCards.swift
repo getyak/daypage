@@ -60,10 +60,12 @@ struct NoteActionCard: View {
         Text(target.snippet).font(.caption).lineLimit(2)
       }
       if let receipt {
-        Label(receipt.status == .undone ? "Change undone" : "Change saved",
-          systemImage: receipt.status == .undone ? "arrow.uturn.backward" : "checkmark.circle")
-          .font(.caption).foregroundStyle(.secondary)
-          .accessibilityIdentifier("note-action-status-" + proposal.id.uuidString)
+        HStack(spacing: 4) {
+          Image(systemName: receipt.status == .undone ? "arrow.uturn.backward" : "checkmark.circle")
+            .accessibilityHidden(true)
+          Text(receipt.status == .undone ? LocalizedStringKey("Change undone") : LocalizedStringKey("Change saved"))
+            .accessibilityIdentifier("note-action-status-" + proposal.id.uuidString)
+        }.font(.caption).foregroundStyle(.secondary)
         if let relation = receipt.relation {
           Button { showsSavedRelation.toggle() } label: {
             HStack {
