@@ -1074,14 +1074,30 @@ public actor NotebookStore {
           && values.ubiquitousItemDownloadingStatus == .notDownloaded)
       else { throw NotebookError.invalidVault }
     }
-    try fm.createDirectory(at: root, withIntermediateDirectories: true)
     let staging = root.appendingPathComponent(".import-\(UUID())")
-    defer { if fm.fileExists(atPath: staging.path) { try? fm.removeItem(at: staging) } }
-    try fm.copyItem(at: original, to: staging)
-    _ = try readEntries(in: staging)
     let imports = root.appendingPathComponent("imports")
+    let destination = imports.appendingPathComponent(UUID().uuidString)
+    // Validate every publication path before creating or copying anything. A
+    // linked root/imports folder must never redirect staging or the final move.
+    try validateContained(staging)
+    try validateContained(imports)
+    try validateContained(destination)
+    try fm.createDirectory(at: root, withIntermediateDirectories: true)
+    var ownsStaging = false
+    defer {
+      if ownsStaging, (try? validateContained(staging)) != nil,
+        fm.fileExists(atPath: staging.path) { try? fm.removeItem(at: staging) }
+    }
+    try validateContained(staging)
+    try fm.copyItem(at: original, to: staging)
+    ownsStaging = true
+    _ = try readEntries(in: staging)
+    try validateContained(imports)
     try fm.createDirectory(at: imports, withIntermediateDirectories: true)
-    try fm.moveItem(at: staging, to: imports.appendingPathComponent(UUID().uuidString))
+    try validateContained(staging)
+    try validateContained(imports)
+    try validateContained(destination)
+    try fm.moveItem(at: staging, to: destination)
   }
 
   public func assetURL(_ path: String, for entry: NotebookEntry) throws -> URL {
@@ -1091,7 +1107,8 @@ public actor NotebookStore {
     let base = try vaultURL(namespace: entry.namespace)
     let relative = path.hasPrefix("raw/assets/") ? path : "raw/assets/" + path
     let url = base.appendingPathComponent(relative).standardizedFileURL
-    guard url.path.hasPrefix(base.appendingPathComponent("raw/assets").path + "/") else {
+    let assets = NotebookPath.canonicalPath(base.appendingPathComponent("raw/assets"))
+    guard NotebookPath.canonicalPath(url).hasPrefix(assets + "/") else {
       throw NotebookError.invalidPath
     }
     try validateContained(url)

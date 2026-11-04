@@ -118,4 +118,80 @@ final class NotebookPathTests: XCTestCase {
     XCTAssertEqual(normalized, NotebookPath.canonicalPath(root.appendingPathComponent("raw/note.md")))
     XCTAssertFalse(normalized.components(separatedBy: "/").contains("."))
   }
+
+  func testFreshAssetAndImportedNamespaceResolveAcrossCanonicalAliasesWithoutChangingOriginals() async throws {
+    let parent = try fixture(), (aliasParent, canonicalParent) = spellings(parent)
+    let source = canonicalParent.appendingPathComponent("fresh-source")
+    let sourceStore = NotebookStore(root: source)
+    let payload = Data("A synthetic text attachment".utf8)
+    try await sourceStore.append(Memo(body: "A memo with an attachment"), assets: [
+      NotebookAssetInput(data: payload, fileExtension: "txt", kind: "file")
+    ])
+    let entries = try await sourceStore.entries(), entry = try XCTUnwrap(entries.first)
+    let attachment = try XCTUnwrap(entry.memo.attachments.first)
+    let asset = try await sourceStore.assetURL(attachment.file, for: entry)
+    XCTAssertEqual(try Data(contentsOf: asset), payload)
+    let aliasedStore = NotebookStore(root: aliasParent.appendingPathComponent("fresh-source"))
+    let aliasedAsset = try await aliasedStore.assetURL(attachment.file, for: entry)
+    XCTAssertEqual(try Data(contentsOf: aliasedAsset), payload)
+    let originalFile = source.appendingPathComponent("raw/\(entry.day).md")
+    let originalMarkdown = try Data(contentsOf: originalFile)
+    let destination = canonicalParent.appendingPathComponent("fresh-destination")
+    let destinationStore = NotebookStore(root: destination)
+    try await destinationStore.importVault(from: aliasParent.appendingPathComponent("fresh-source"))
+    let importedEntries = try await destinationStore.entries()
+    let imported = try XCTUnwrap(importedEntries.first)
+    XCTAssertFalse(imported.namespace.isEmpty)
+    let importedAttachment = try XCTUnwrap(imported.memo.attachments.first)
+    let importedAsset = try await destinationStore.assetURL(importedAttachment.file, for: imported)
+    XCTAssertEqual(try Data(contentsOf: importedAsset), payload)
+    let importedFile = destination.appendingPathComponent("imports/\(imported.namespace)/raw/\(entry.day).md")
+    XCTAssertEqual(try Data(contentsOf: importedFile), originalMarkdown)
+    XCTAssertEqual(try Data(contentsOf: originalFile), originalMarkdown)
+    XCTAssertEqual(try Data(contentsOf: asset), payload)
+    for path in ["/tmp/outside.txt", "../outside.txt", "raw/assets/../../outside.txt"] {
+      do { _ = try await destinationStore.assetURL(path, for: imported); XCTFail("Unsafe asset path denied") } catch NotebookError.invalidPath { }
+    }
+    for dangling in [false, true] {
+      let filename = dangling ? "dangling.txt" : "internal-link.txt"
+      let link = importedAsset.deletingLastPathComponent().appendingPathComponent(filename)
+      let target = dangling ? importedAsset.deletingLastPathComponent().appendingPathComponent("missing-target.txt") : importedAsset
+      try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+      do { _ = try await destinationStore.assetURL("raw/assets/" + filename, for: imported); XCTFail("Asset links must be denied") } catch NotebookError.invalidPath { }
+    }
+    XCTAssertEqual(try Data(contentsOf: importedAsset), payload)
+    XCTAssertEqual(try Data(contentsOf: asset), payload)
+  }
+
+  func testImportRejectsLinkedRootAndImportsBeforeTouchingSiblingOrSourceBytes() async throws {
+    let parent = try fixture()
+    let source = parent.appendingPathComponent("import-source")
+    let sourceStore = NotebookStore(root: source)
+    try await sourceStore.append(Memo(body: "Source Markdown must remain unchanged"))
+    let sourceEntries = try await sourceStore.entries(), sourceEntry = try XCTUnwrap(sourceEntries.first)
+    let sourceFile = source.appendingPathComponent("raw/\(sourceEntry.day).md")
+    let sourceBytes = try Data(contentsOf: sourceFile)
+    for linkedRoot in [true, false] {
+      let label = linkedRoot ? "root" : "imports"
+      let sibling = parent.appendingPathComponent("protected-sibling-\(label)")
+      try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: false)
+      let sentinel = sibling.appendingPathComponent("sentinel.txt"), bytes = Data("Protected sibling \(label)".utf8)
+      try bytes.write(to: sentinel)
+      let root = parent.appendingPathComponent("linked-\(label)-vault")
+      if linkedRoot {
+        try FileManager.default.createSymbolicLink(at: root, withDestinationURL: sibling)
+      } else {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("imports"), withDestinationURL: sibling)
+      }
+      let beforeSibling = try FileManager.default.contentsOfDirectory(atPath: sibling.path).sorted()
+      let beforeRoot = try FileManager.default.contentsOfDirectory(atPath: root.path).sorted()
+      let store = NotebookStore(root: root)
+      do { try await store.importVault(from: source); XCTFail("Linked \(label) must not redirect import") } catch NotebookError.invalidPath { }
+      XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: sibling.path).sorted(), beforeSibling)
+      XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path).sorted(), beforeRoot)
+      XCTAssertEqual(try Data(contentsOf: sentinel), bytes)
+      XCTAssertEqual(try Data(contentsOf: sourceFile), sourceBytes)
+    }
+  }
 }
