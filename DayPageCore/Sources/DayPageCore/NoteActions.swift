@@ -83,15 +83,24 @@ enum NoteActionIdentity {
 // blocks on restart; reconciliation never performs an unconfirmed raw write.
 struct NoteActionState: Codable {
   var version = 1
+  var origin = UUID()
   var proposals: [NoteActionProposal] = []
   var records: [NoteActionRecord] = []
   var relations: [NoteRelation] = []
+  var relationGenerations: [String: Int] = [:]
+}
+
+struct NoteActionOrigin: Codable {
+  let version: Int
+  let origin: UUID
 }
 
 struct NoteActionRecord: Codable {
   var receipt: NoteActionReceipt
   var committed: Bool
   var undoPrepared: Bool
+  var quarantined = false
+  let relationGeneration: Int?
   let cardRef: String?
   let beforeBlock: String?
   let afterBlock: String?

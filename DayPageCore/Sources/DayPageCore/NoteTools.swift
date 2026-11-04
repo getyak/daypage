@@ -12,14 +12,20 @@ public struct NoteToolContext: Sendable {
   public let proposalWriter: ProposalWriter?
   public let proposalNamespace: UUID
   public let proposalCreatedAt: Date
+  public let authorizedCardRefs: Set<String>
+  public let allNotes: Bool
+  public let allowsCreation: Bool
   public init(entries: [NotebookEntry], attachmentReader: AttachmentReader? = nil,
               relations: [NoteRelation] = [], proposalWriter: ProposalWriter? = nil,
-              proposalNamespace: UUID = UUID(), proposalCreatedAt: Date = Date()) {
+              proposalNamespace: UUID = UUID(), proposalCreatedAt: Date = Date(),
+              authorizedCardRefs: Set<String>? = nil, allNotes: Bool = false, allowsCreation: Bool = true) {
     self.entries = entries
     self.attachmentReader = attachmentReader
     self.relations = relations; self.proposalWriter = proposalWriter
     self.proposalNamespace = proposalNamespace
     self.proposalCreatedAt = proposalCreatedAt
+    self.authorizedCardRefs = authorizedCardRefs ?? Set(entries.map(\.id))
+    self.allNotes = allNotes; self.allowsCreation = allowsCreation
   }
 }
 
@@ -255,6 +261,18 @@ extension NoteToolExecutor {
       else { throw ArgumentError.invalid }
       return value
     }
+    func authorized(_ ref: String) -> Bool { context.allNotes || context.authorizedCardRefs.contains(ref) }
+    func modelRelation(_ edge: NoteRelation) throws -> [String: Any] {
+      let data = try JSONEncoder().encode(edge)
+      guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ArgumentError.invalid }
+      let fromMissing = !context.entries.contains { $0.id == edge.from.cardRef }
+      let toMissing = !context.entries.contains { $0.id == edge.to.cardRef }
+      object["from_missing"] = fromMissing; object["to_missing"] = toMissing
+      if fromMissing { object["from"] = ["cardRef": edge.from.cardRef, "day": edge.from.day, "snippet": ""] }
+      if toMissing { object["to"] = ["cardRef": edge.to.cardRef, "day": edge.to.day, "snippet": ""] }
+      if fromMissing || toMissing { object["reason"] = ""; object["isStale"] = true }
+      return object
+    }
     func proposed(_ kind: NoteActionKind, target: NotebookEntry? = nil, body: String? = nil,
                   before: String? = nil, after: String? = nil, tags: [String]? = nil,
                   pinned: Bool? = nil, relation: NoteRelation? = nil) throws -> NoteActionProposal {
@@ -276,13 +294,19 @@ extension NoteToolExecutor {
       }
       try Task.checkCancellation()
       let data = try JSONEncoder().encode(proposal)
-      let object = try JSONSerialization.jsonObject(with: data)
+      guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ArgumentError.invalid }
+      if let edge = proposal.relation { object["relation"] = try modelRelation(edge) }
+      let relationSources = proposal.relation.map { [$0.from, $0.to].filter { endpoint in
+        authorized(endpoint.cardRef) && context.entries.contains { $0.id == endpoint.cardRef }
+      } }
       return try result(["status": "pending_confirmation", "proposal": object],
-        sources: proposal.relation.map { [$0.from, $0.to] } ?? proposal.target.map { [$0] } ?? [], proposals: [proposal])
+        sources: relationSources ?? proposal.target.map { [$0] } ?? [], proposals: [proposal])
     }
     do {
       switch name {
-      case "notes_create": return try await pending(proposed(.create, body: text("body")))
+      case "notes_create":
+        guard context.allowsCreation else { throw NoteActionError.outOfScope }
+        return try await pending(proposed(.create, body: text("body")))
       case "notes_append": return try await pending(proposed(.append, target: entry("card_ref"), body: text("body")))
       case "notes_propose_patch":
         let target = try entry("card_ref"), before = try text("before"), after = try text("after", allowEmpty: true)
@@ -309,8 +333,7 @@ extension NoteToolExecutor {
       case "relations_unlink":
         guard let id = UUID(uuidString: try text("relation_id", maximum: 36)),
           var relation = context.relations.first(where: { $0.id == id }),
-          context.entries.contains(where: { $0.id == relation.from.cardRef }),
-          context.entries.contains(where: { $0.id == relation.to.cardRef }) else { throw NoteActionError.outOfScope }
+          authorized(relation.from.cardRef), authorized(relation.to.cardRef) else { throw NoteActionError.outOfScope }
         relation.isStale = false // Read-time stale indication is not persisted edge identity.
         return try await pending(proposed(.unlink, relation: relation))
       case "notes_similar", "relations_suggest":
@@ -382,12 +405,12 @@ extension NoteToolExecutor {
           "truncated": inspected >= NoteDiscovery.maximumPairs || candidates.count < context.entries.count || pairs.count == limit],
           sources: sources.filter { seen.insert($0.cardRef).inserted })
       case "relations_list":
-        let anchor = args["card_ref"] != nil ? try entry("card_ref") : nil
+        let anchor = try string("card_ref", in: args, maximum: 1024)
+        if let anchor, !authorized(anchor) { throw NoteActionError.outOfScope }
         let limit = try integer("limit", in: args, fallback: 10, range: 1...20)
-        let scope = Set(context.entries.map(\.id))
         let visible = context.relations.filter {
-          scope.contains($0.from.cardRef) && scope.contains($0.to.cardRef)
-        }.filter { edge in anchor.map { edge.from.cardRef == $0.id || edge.to.cardRef == $0.id } ?? true }
+          authorized($0.from.cardRef) && authorized($0.to.cardRef)
+        }.filter { edge in anchor.map { edge.from.cardRef == $0 || edge.to.cardRef == $0 } ?? true }
         let selected = visible.prefix(limit).map { edge -> NoteRelation in
           var result = edge
           result.isStale = edge.isStale
@@ -395,9 +418,10 @@ extension NoteToolExecutor {
             || context.entries.first(where: { $0.id == edge.to.cardRef })?.revision != edge.toRevision
           return result
         }
-        let data = try JSONEncoder().encode(selected)
-        return try result(["relations": try JSONSerialization.jsonObject(with: data), "total": visible.count,
-          "truncated": visible.count > selected.count], sources: selected.flatMap { [$0.from, $0.to] })
+        return try result(["relations": try selected.map { try modelRelation($0) }, "total": visible.count,
+          "truncated": visible.count > selected.count], sources: selected.flatMap { [$0.from, $0.to] }.filter { endpoint in
+            authorized(endpoint.cardRef) && context.entries.contains { $0.id == endpoint.cardRef }
+          })
       default: throw ArgumentError.invalid
       }
     } catch is NoteActionError { return try failure("card_not_in_scope") }

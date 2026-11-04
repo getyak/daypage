@@ -47,7 +47,7 @@ extension NotebookStore {
   public func pendingProposals() throws -> [NoteActionProposal] {
     try withActionState { state, metadata in
       try reconcileActions(&state, metadata: metadata)
-      let completed = Set(state.records.filter(\.committed).map { $0.receipt.id })
+      let completed = Set(state.records.filter { $0.committed || $0.quarantined }.map { $0.receipt.id })
       return state.proposals.filter { !completed.contains($0.id) }
     }
   }
@@ -61,11 +61,11 @@ extension NotebookStore {
     }
   }
 
-  public func relations(allowedCardRefs: Set<String>) throws -> [NoteRelation] {
+  public func relations(allowedCardRefs: Set<String>, allNotes: Bool = false) throws -> [NoteRelation] {
     try withActionState { state, metadata in
       try reconcileActions(&state, metadata: metadata)
       return try state.relations.filter {
-        allowedCardRefs.contains($0.from.cardRef) && allowedCardRefs.contains($0.to.cardRef)
+        allNotes || allowedCardRefs.contains($0.from.cardRef) && allowedCardRefs.contains($0.to.cardRef)
       }.map { edge in
         var result = edge
         let from = try actionBlock(cardRef: edge.from.cardRef)
@@ -80,21 +80,23 @@ extension NotebookStore {
   /// Synchronous actor transaction: no suspension between journal preparation,
   /// exact revision validation and raw-file publication. Cross-instance writers
   /// also coordinate the metadata lock and affected raw file.
-  public func apply(_ proposal: NoteActionProposal, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
+  public func apply(_ proposal: NoteActionProposal, allowedCardRefs: Set<String>, authorization: NoteActionAuthorization? = nil) throws -> NoteActionReceipt {
+    try ConversationActionGate.withAuthorization(authorization, root: root, proposal: proposal, allowedCardRefs: allowedCardRefs) {
+      try applyAction(proposal, allowedCardRefs: allowedCardRefs)
+    }
+  }
+
+  private func applyAction(_ proposal: NoteActionProposal, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
     try validateActionProposal(proposal)
     try requireActionScope(proposal, allowed: allowedCardRefs)
     return try withActionState { state, metadata in
       try reconcileActions(&state, metadata: metadata)
+      guard !state.records.contains(where: { $0.receipt.id == proposal.id && $0.quarantined }) else { throw NoteActionError.transactionConflict }
       if let record = state.records.first(where: { $0.receipt.id == proposal.id && $0.committed }) {
         guard record.receipt.proposal == proposal else { throw NoteActionError.transactionConflict }
         return record.receipt
       }
-      if let old = state.proposals.first(where: { $0.id == proposal.id }) {
-        guard old == proposal else { throw NoteActionError.transactionConflict }
-      } else {
-        guard state.proposals.count < 1000 else { throw NoteActionError.limitExceeded }
-        state.proposals.append(proposal)
-      }
+      guard state.proposals.first(where: { $0.id == proposal.id }) == proposal else { throw NoteActionError.transactionConflict }
       guard state.records.count < 1000 else { throw NoteActionError.limitExceeded }
       if proposal.kind == .link || proposal.kind == .unlink {
         return try applyRelation(proposal, state: &state, metadata: metadata)
@@ -130,7 +132,7 @@ extension NotebookStore {
         let applied = NoteActionReceipt(id: proposal.id, proposal: proposal, status: .applied,
           savedSource: saved, appliedAt: Date())
         let record = NoteActionRecord(receipt: applied, committed: false, undoPrepared: false,
-          cardRef: ref, beforeBlock: before, afterBlock: after, ownsRelation: false)
+          relationGeneration: nil, cardRef: ref, beforeBlock: before, afterBlock: after, ownsRelation: false)
         if let index { document.blocks[index] = after } else { document.blocks.append(after) }
         try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
         guard document.content.utf8.count <= 4 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
@@ -152,7 +154,13 @@ extension NotebookStore {
     }
   }
 
-  public func undo(_ receipt: NoteActionReceipt, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
+  public func undo(_ receipt: NoteActionReceipt, allowedCardRefs: Set<String>, authorization: NoteActionAuthorization? = nil) throws -> NoteActionReceipt {
+    try ConversationActionGate.withAuthorization(authorization, root: root, proposal: receipt.proposal, allowedCardRefs: allowedCardRefs) {
+      try undoAction(receipt, allowedCardRefs: allowedCardRefs)
+    }
+  }
+
+  private func undoAction(_ receipt: NoteActionReceipt, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
     try validateActionProposal(receipt.proposal)
     // A persisted receipt authorizes undo of its own newly-created note, even
     // when that note was not silently added to a selected-note conversation.
@@ -163,8 +171,13 @@ extension NotebookStore {
         state.records[index].receipt.proposal == receipt.proposal,
         state.records[index].receipt.appliedAt == receipt.appliedAt else { throw NoteActionError.transactionConflict }
       var record = state.records[index]
+      guard !record.quarantined else { throw NoteActionError.transactionConflict }
       if record.receipt.status == .undone { return record.receipt }
       if let edge = record.receipt.relation {
+        let key = actionRelationKey(edge)
+        if record.ownsRelation {
+          guard state.relationGenerations[key] == record.relationGeneration else { throw NoteActionError.transactionConflict }
+        }
         if record.receipt.proposal.kind == .link {
           if record.ownsRelation {
             guard state.relations.contains(edge) else { throw NoteActionError.transactionConflict }
@@ -181,6 +194,7 @@ extension NotebookStore {
           }
           state.relations.append(edge)
         }
+        if record.ownsRelation { _ = try nextRelationGeneration(key, state: &state) }
         record.receipt = record.receipt.withStatus(.undone)
         state.records[index] = record
         try writeActionState(state, to: metadata)
@@ -194,11 +208,12 @@ extension NotebookStore {
           document.blocks[targetIndex].utf8.elementsEqual((record.afterBlock ?? "").utf8) else {
           throw NoteActionError.transactionConflict
         }
-        record.undoPrepared = true; state.records[index] = record
-        try self.writeActionState(state, to: metadata)
         if let before = record.beforeBlock { document.blocks[targetIndex] = before }
         else { document.blocks.remove(at: targetIndex) }
         try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
+        guard document.content.utf8.count <= 4 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
+        record.undoPrepared = true; state.records[index] = record
+        try self.writeActionState(state, to: metadata)
         try self.validateContained(coordinated)
         try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
         record.receipt = record.receipt.withStatus(.undone); record.undoPrepared = false
@@ -227,14 +242,19 @@ extension NotebookStore {
 
   private func readActionState(at url: URL) throws -> NoteActionState {
     try validateContained(url)
-    guard fm.fileExists(atPath: url.path) else { return NoteActionState() }
+    let originURL = url.deletingLastPathComponent().appendingPathComponent("note-actions-origin.json")
+    try validateContained(originURL)
+    let hasJournal = fm.fileExists(atPath: url.path), hasOrigin = fm.fileExists(atPath: originURL.path)
+    if !hasJournal && !hasOrigin { return NoteActionState() }
+    guard hasJournal && hasOrigin else { throw NoteActionError.corruptMetadata }
+    let origin = try readActionOrigin(at: originURL)
     let data = try boundedActionData(at: url, maximum: 32 * 1024 * 1024)
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let version = object["version"] as? Int else { throw NoteActionError.corruptMetadata }
     guard version == 1 else { throw NoteActionError.unsupportedVersion }
     try validateActionMetadataShape(object)
-    guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data),
-      state.proposals.count <= 1000, state.records.count <= 1000, state.relations.count <= 1000,
+    guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data), state.origin == origin,
+      state.proposals.count <= 1000, state.records.count <= 1000, state.relations.count <= 1000, state.relationGenerations.count <= 1000,
       Set(state.proposals.map(\.id)).count == state.proposals.count,
       Set(state.records.map { $0.receipt.id }).count == state.records.count,
       Set(state.relations.map(\.id)).count == state.relations.count else { throw NoteActionError.corruptMetadata }
@@ -251,9 +271,11 @@ extension NotebookStore {
         try validateActionRelation(edge)
         guard let proposed = record.receipt.proposal.relation, edge.sameEdge(as: proposed),
           record.committed, !record.undoPrepared, record.beforeBlock == nil, record.afterBlock == nil,
-          record.receipt.savedSource == nil else { throw NoteActionError.corruptMetadata }
+          record.receipt.savedSource == nil, let generation = record.relationGeneration, generation > 0,
+          state.relationGenerations[actionRelationKey(edge)].map({ $0 >= generation }) == true else { throw NoteActionError.corruptMetadata }
       }
       if let ref = record.cardRef {
+        guard record.relationGeneration == nil else { throw NoteActionError.corruptMetadata }
         _ = try actionURL(cardRef: ref)
         guard let after = record.afterBlock, after.utf8.count <= 4 * 1024 * 1024,
           let afterMemo = Memo.fromMarkdown(after), ref.hasSuffix("/" + afterMemo.id.uuidString),
@@ -275,7 +297,15 @@ extension NotebookStore {
         }
       }
     }
-    for relation in state.relations { try validateActionRelation(relation) }
+    for relation in state.relations {
+      try validateActionRelation(relation)
+      guard state.relationGenerations[actionRelationKey(relation)].map({ $0 > 0 }) == true else { throw NoteActionError.corruptMetadata }
+    }
+    for (key, generation) in state.relationGenerations {
+      let fields = key.components(separatedBy: "\n")
+      guard generation > 0, fields.count == 3, NoteRelationType(rawValue: fields[2]) != nil else { throw NoteActionError.corruptMetadata }
+      _ = try actionURL(cardRef: fields[0]); _ = try actionURL(cardRef: fields[1])
+    }
     let edgeKeys = state.relations.map { $0.from.cardRef + "\n" + $0.to.cardRef + "\n" + $0.type.rawValue }
     guard Set(edgeKeys).count == edgeKeys.count else { throw NoteActionError.corruptMetadata }
     return state
@@ -301,11 +331,11 @@ extension NotebookStore {
       let item = try keys(value, ["id", "kind", "createdAt", "target", "expectedRevision", "body", "before", "after", "tags", "pinned", "relation"])
       try source(item["target"]); try relation(item["relation"])
     }
-    _ = try keys(object, ["version", "proposals", "records", "relations"])
+    _ = try keys(object, ["version", "origin", "proposals", "records", "relations", "relationGenerations"])
     for value in object["proposals"] as? [Any] ?? [] { try proposal(value) }
     for value in object["relations"] as? [Any] ?? [] { try relation(value) }
     for value in object["records"] as? [Any] ?? [] {
-      let record = try keys(value, ["receipt", "committed", "undoPrepared", "cardRef", "beforeBlock", "afterBlock", "ownsRelation"])
+      let record = try keys(value, ["receipt", "committed", "undoPrepared", "quarantined", "relationGeneration", "cardRef", "beforeBlock", "afterBlock", "ownsRelation"])
       guard let value = record["receipt"] else { throw NoteActionError.corruptMetadata }
       let receipt = try keys(value, ["id", "proposal", "status", "savedSource", "relation", "appliedAt"])
       guard let value = receipt["proposal"] else { throw NoteActionError.corruptMetadata }
@@ -318,7 +348,26 @@ extension NotebookStore {
     let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
     let data = try encoder.encode(state)
     guard data.count <= 32 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
+    let originURL = url.deletingLastPathComponent().appendingPathComponent("note-actions-origin.json")
+    try validateContained(originURL)
+    if fm.fileExists(atPath: originURL.path) {
+      guard try readActionOrigin(at: originURL) == state.origin, fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+    } else {
+      guard !fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+      // Publish provenance first. Losing the journal after any attempted first
+      // write is conservatively an error, never permission to replay old actions.
+      try encoder.encode(NoteActionOrigin(version: 1, origin: state.origin)).write(to: originURL, options: .withoutOverwriting)
+    }
+    try validateContained(url)
     try data.write(to: url, options: .atomic)
+  }
+
+  private func readActionOrigin(at url: URL) throws -> UUID {
+    let data = try boundedActionData(at: url, maximum: 1024)
+    guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      Set(object.keys) == ["version", "origin"],
+      let origin = try? JSONDecoder().decode(NoteActionOrigin.self, from: data), origin.version == 1 else { throw NoteActionError.corruptMetadata }
+    return origin.origin
   }
 
   private func boundedActionData(at url: URL, maximum: Int) throws -> Data {
@@ -495,9 +544,16 @@ extension NotebookStore {
       edge = existing; owns = true; state.relations.removeAll { $0.id == proposed.id }
     }
     let receipt = NoteActionReceipt(id: proposal.id, proposal: proposal, status: .applied, relation: edge, appliedAt: Date())
+    let key = self.actionRelationKey(edge)
+    let generation: Int
+    if owns { generation = try self.nextRelationGeneration(key, state: &state) }
+    else {
+      guard let current = state.relationGenerations[key] else { throw NoteActionError.corruptMetadata }
+      generation = current
+    }
     state.records.removeAll { $0.receipt.id == proposal.id && !$0.committed }
     state.records.append(NoteActionRecord(receipt: receipt, committed: true, undoPrepared: false,
-      cardRef: nil, beforeBlock: nil, afterBlock: nil, ownsRelation: owns))
+      relationGeneration: generation, cardRef: nil, beforeBlock: nil, afterBlock: nil, ownsRelation: owns))
       try self.writeActionState(state, to: metadata)
       result = receipt
     }
@@ -514,7 +570,7 @@ extension NotebookStore {
 
   private func reconcileActions(_ state: inout NoteActionState, metadata: URL) throws {
     var changed = false
-    for index in state.records.indices where !state.records[index].committed || state.records[index].undoPrepared {
+    for index in state.records.indices where !state.records[index].quarantined && (!state.records[index].committed || state.records[index].undoPrepared) {
       let record = state.records[index]
       guard let ref = record.cardRef else { throw NoteActionError.corruptMetadata }
       let block = try actionBlock(cardRef: ref)
@@ -525,14 +581,29 @@ extension NotebookStore {
         if same(block, record.beforeBlock) {
           state.records[index].receipt = record.receipt.withStatus(.undone)
           state.records[index].undoPrepared = false; changed = true
-        } else if !same(block, record.afterBlock) { throw NoteActionError.transactionConflict }
+        } else if !same(block, record.afterBlock) {
+          state.records[index].quarantined = true; changed = true
+        }
       } else if same(block, record.afterBlock) {
         state.records[index].committed = true; changed = true
-      } else if !same(block, record.beforeBlock) { throw NoteActionError.transactionConflict }
+      } else if !same(block, record.beforeBlock) {
+        state.records[index].quarantined = true; changed = true
+      }
       // Equal before-block means publication did not happen. Keep the pending
       // evidence; only a new explicit apply may attempt the write.
     }
     if changed { try writeActionState(state, to: metadata) }
+  }
+
+  private func actionRelationKey(_ edge: NoteRelation) -> String {
+    edge.from.cardRef + "\n" + edge.to.cardRef + "\n" + edge.type.rawValue
+  }
+
+  private func nextRelationGeneration(_ key: String, state: inout NoteActionState) throws -> Int {
+    let old = state.relationGenerations[key, default: 0]
+    guard old < Int.max, old > 0 || state.relationGenerations.count < 1000 else { throw NoteActionError.limitExceeded }
+    state.relationGenerations[key] = old + 1
+    return old + 1
   }
 }
 
