@@ -13,9 +13,9 @@ on:
         options: [full, card_tools_speech, diary_navigation]
         default: full
       runner_architecture:
-        description: Hosted architecture (Intel is a manual capacity fallback)
+        description: Hosted pool (Intel options are manual capacity fallbacks)
         type: choice
-        options: [arm64, intel]
+        options: [arm64, intel, intel15]
         default: arm64
   pull_request:
     paths:
@@ -67,10 +67,15 @@ concurrency:
 jobs:
   verify:
     name: Local iOS core and app
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-15' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-15' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the installed iOS 26 toolchain on the Intel 15 fallback
+        if: github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
       - name: Verify native QA failure collection without Xcode or Simulator
         run: python3 scripts/tests/test_local_native_ci.py
       - run: swift test --package-path DayPageCore --jobs 2
@@ -89,7 +94,7 @@ jobs:
   native-ui:
     name: Native iOS UI (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.native_ui
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
     # The complete matrix includes two signing builds and 58 serial journeys.
     # A measured cold run hit 60 minutes during its final notebook cases.
     timeout-minutes: 90
@@ -99,6 +104,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Select the installed iOS 26 toolchain on the Intel 15 fallback
+        if: github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
       - name: Enable the pinned chat renderer macro
         run: |
           mkdir -p "$HOME/Library/org.swift.swiftpm/security"

@@ -85,4 +85,6 @@ The host-side regression `python3 scripts/tests/test_local_native_ci.py` execute
 
 When GitHub cannot allocate its ARM runners, manual dispatch supports `-f runner_architecture=intel`. Both jobs then use the standard macos-26-intel image, which includes the current Xcode/iOS Simulator tools; PR and main-push defaults stay unchanged. Record the actual host and Simulator architecture from the receipts. This selects capacity only: the same signed/unsigned journeys, evidence and failure gates still apply.
 
+The additional manual `runner_architecture=intel15` choice uses macos-15-intel and explicitly selects its installed Xcode 26.3 rather than the image's older default. Its iOS 26.2 Simulator result is separate evidence from macOS 26/iOS 26.5 runs. It retains the same complete native matrix and does not change publication or automatic CI defaults.
+
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.
