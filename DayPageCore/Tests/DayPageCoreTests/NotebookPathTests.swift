@@ -194,4 +194,55 @@ final class NotebookPathTests: XCTestCase {
       XCTAssertEqual(try Data(contentsOf: sourceFile), sourceBytes)
     }
   }
+
+  func testRecursiveCopyPermissionFailureRemovesOwnedStagingAndAllowsCleanRetry() async throws {
+    let parent = try fixture()
+    let source = parent.appendingPathComponent("copy-failure-source"), destination = parent.appendingPathComponent("copy-failure-destination")
+    let sourceStore = NotebookStore(root: source), destinationStore = NotebookStore(root: destination)
+    let payload = Data("Synthetic unreadable asset copy fixture".utf8)
+    try await sourceStore.append(Memo(body: "Source note survives failed import"), assets: [
+      NotebookAssetInput(data: payload, fileExtension: "txt", kind: "file")
+    ])
+    let sourceEntries = try await sourceStore.entries(), entry = try XCTUnwrap(sourceEntries.first)
+    let attachment = try XCTUnwrap(entry.memo.attachments.first)
+    let unreadable = try await sourceStore.assetURL(attachment.file, for: entry)
+    let markdown = source.appendingPathComponent("raw/\(entry.day).md"), originalMarkdown = try Data(contentsOf: markdown)
+    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+    let sentinel = destination.appendingPathComponent("keep.txt"), sentinelBytes = Data("Existing destination bytes".utf8)
+    try sentinelBytes.write(to: sentinel)
+    let before = try FileManager.default.contentsOfDirectory(atPath: destination.path).sorted()
+    let originalPermissions = try XCTUnwrap(try FileManager.default.attributesOfItem(atPath: unreadable.path)[.posixPermissions])
+    defer { try? FileManager.default.setAttributes([.posixPermissions: originalPermissions], ofItemAtPath: unreadable.path) }
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: unreadable.path)
+    guard !FileManager.default.isReadableFile(atPath: unreadable.path) else {
+      throw XCTSkip("This runtime bypasses POSIX read permissions, so it cannot exercise a real copy permission failure.")
+    }
+    // These are the import preflight keys: metadata remains readable while the
+    // following recursive copy cannot open the asset's content.
+    let metadata = try unreadable.resourceValues(forKeys: [.isSymbolicLinkKey, .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey])
+    XCTAssertNotEqual(metadata.isSymbolicLink, true)
+    do {
+      try await destinationStore.importVault(from: source)
+      XCTFail("Recursive copy must fail on the unreadable source asset")
+    } catch {
+      XCTAssertEqual((error as NSError).domain, NSCocoaErrorDomain)
+      XCTAssertEqual((error as NSError).code, NSFileReadNoPermissionError)
+    }
+    let afterFailure = try FileManager.default.contentsOfDirectory(atPath: destination.path).sorted()
+    XCTAssertEqual(afterFailure, before)
+    XCTAssertFalse(afterFailure.contains { $0.hasPrefix(".import-") })
+    XCTAssertEqual(try Data(contentsOf: markdown), originalMarkdown)
+    XCTAssertEqual(try Data(contentsOf: sentinel), sentinelBytes)
+    try FileManager.default.setAttributes([.posixPermissions: originalPermissions], ofItemAtPath: unreadable.path)
+    XCTAssertEqual(try Data(contentsOf: unreadable), payload)
+    try await destinationStore.importVault(from: source)
+    let importedEntries = try await destinationStore.entries(), imported = try XCTUnwrap(importedEntries.first)
+    let importedAttachment = try XCTUnwrap(imported.memo.attachments.first)
+    let importedAsset = try await destinationStore.assetURL(importedAttachment.file, for: imported)
+    XCTAssertEqual(try Data(contentsOf: importedAsset), payload)
+    XCTAssertEqual(try Data(contentsOf: markdown), originalMarkdown)
+    XCTAssertEqual(try Data(contentsOf: sentinel), sentinelBytes)
+    let afterSuccess = try FileManager.default.contentsOfDirectory(atPath: destination.path)
+    XCTAssertFalse(afterSuccess.contains { $0.hasPrefix(".import-") })
+  }
 }

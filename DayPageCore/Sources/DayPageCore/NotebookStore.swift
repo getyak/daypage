@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Stable path identity even when Foundation canonicalizes a newly-created
 /// /private/tmp or /private/var ancestor differently from its missing children.
@@ -1074,23 +1075,28 @@ public actor NotebookStore {
           && values.ubiquitousItemDownloadingStatus == .notDownloaded)
       else { throw NotebookError.invalidVault }
     }
-    let staging = root.appendingPathComponent(".import-\(UUID())")
+    let stagingParent = root.appendingPathComponent(".import-\(UUID())")
+    let staging = stagingParent.appendingPathComponent("vault")
     let imports = root.appendingPathComponent("imports")
     let destination = imports.appendingPathComponent(UUID().uuidString)
     // Validate every publication path before creating or copying anything. A
     // linked root/imports folder must never redirect staging or the final move.
+    try validateContained(stagingParent)
     try validateContained(staging)
     try validateContained(imports)
     try validateContained(destination)
     try fm.createDirectory(at: root, withIntermediateDirectories: true)
-    var ownsStaging = false
+    try validateContained(stagingParent)
+    // mkdir is exclusive: a failed reservation never claims an existing tree.
+    guard mkdir(stagingParent.path, mode_t(0o700)) == 0 else {
+      throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
     defer {
-      if ownsStaging, (try? validateContained(staging)) != nil,
-        fm.fileExists(atPath: staging.path) { try? fm.removeItem(at: staging) }
+      if (try? validateContained(stagingParent)) != nil,
+        fm.fileExists(atPath: stagingParent.path) { try? fm.removeItem(at: stagingParent) }
     }
     try validateContained(staging)
     try fm.copyItem(at: original, to: staging)
-    ownsStaging = true
     _ = try readEntries(in: staging)
     try validateContained(imports)
     try fm.createDirectory(at: imports, withIntermediateDirectories: true)
