@@ -18,6 +18,7 @@ import Foundation
 
 @main enum ChatSessionRecoveryChecks {
   @MainActor static func main() async throws {
+    checkpoint("starting existing chat recovery checks")
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("chat-session-check-\(UUID())")
     defer { try? FileManager.default.removeItem(at: root) }
     let notebook = NotebookModel(root: root)
@@ -114,8 +115,13 @@ import Foundation
     let afterSwitch = try await notebook.conversations.history().conversations.count
     precondition(afterSwitch == beforeSwitch + 1, "Concurrent navigation must not race two session transitions")
     print("PASS: rapid conversation navigation is serialized and flushes the old draft")
+    checkpoint("starting reviewed action checks")
     try await checkReviewedActions(root: root.appendingPathComponent("reviewed-actions"))
+    checkpoint("starting fresh tool scope checks")
     try await checkFreshToolScope(root: root.appendingPathComponent("fresh-scope"), port: port)
+  }
+  private static func checkpoint(_ value: String) {
+    FileHandle.standardError.write(Data(("CHECKPOINT: " + value + "\n").utf8))
   }
   @MainActor private static func checkReviewedActions(root: URL) async throws {
     let notebook = NotebookModel(root: root)
@@ -159,7 +165,9 @@ import Foundation
   }
   @MainActor private static func checkFreshToolScope(root: URL, port: String) async throws {
     let notebook = NotebookModel(root: root)
+    checkpoint("fresh scope append visible note")
     try await notebook.store.append(Memo(body: "Visible notebook idea."))
+    checkpoint("fresh scope append removed note")
     try await notebook.store.append(Memo(body: "REMOVED_PRIVATE_NOTE_388"))
     let cached = try await notebook.store.entries()
     guard let visible = cached.first(where: { $0.memo.body == "Visible notebook idea." }),
@@ -172,6 +180,7 @@ import Foundation
       context: .init(entries: cached, proposalWriter: { try await notebook.store.saveProposal($0) }))
     guard let proposal = result.proposals.first else { preconditionFailure("Missing link proposal") }
     _ = try await notebook.store.apply(proposal, allowedCardRefs: Set(cached.map(\.id)))
+    checkpoint("fresh scope remove original through another store")
     _ = try await NotebookStore(root: root).trash(removed)
     notebook.entries = cached // The native cache predates an external deletion.
     var conversation = Conversation(); conversation.usesTools = true
