@@ -104,4 +104,18 @@ final class NotebookPathTests: XCTestCase {
     XCTAssertEqual(files.count, 1)
     XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("raw").path))
   }
+
+  func testMissingAncestorTraversalIsNormalizedOutsideTheNotebookPrefix() throws {
+    let parent = try fixture(), (_, canonicalParent) = spellings(parent)
+    let root = canonicalParent.appendingPathComponent("vault")
+    let escaped = URL(fileURLWithPath: root.path + "/missing/../../outside/note.md")
+    let actual = NotebookPath.canonicalPath(escaped)
+    let expected = NotebookPath.canonicalPath(canonicalParent.appendingPathComponent("outside/note.md"))
+    XCTAssertEqual(actual, expected)
+    XCTAssertFalse(actual.hasPrefix(NotebookPath.canonicalPath(root) + "/"))
+    XCTAssertFalse(actual.components(separatedBy: "/").contains(".."))
+    let normalized = NotebookPath.canonicalPath(URL(fileURLWithPath: root.path + "/missing/.././raw/note.md"))
+    XCTAssertEqual(normalized, NotebookPath.canonicalPath(root.appendingPathComponent("raw/note.md")))
+    XCTAssertFalse(normalized.components(separatedBy: "/").contains("."))
+  }
 }
