@@ -97,6 +97,12 @@ the matching GitHub release notes and dispatch only `update-changelog.yml` with
 that release tag and its original publication run ID; the updater recovers those
 notes without rebuilding, reuploading or relabeling the binary.
 
+Manual publication also accepts `runner_architecture=intel` as a capacity fallback
+on GitHub's standard macos-26-intel image. The default remains ARM, and automatic
+publication is unchanged. This does not bypass main-only publication, either exact
+candidate CI workflow, signing, version integrity or Apple readback. Use only one
+publication run for a candidate and inspect Apple after any partial-upload failure.
+
 The metadata updater confirms the App Store Connect app's Bundle ID and exact
 iOS prerelease/build identity before changing notes, then reads the saved notes,
 processing/testing state and existing beta groups back. Its

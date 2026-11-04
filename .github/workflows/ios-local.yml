@@ -12,6 +12,11 @@ on:
         type: choice
         options: [full, card_tools_speech, diary_navigation]
         default: full
+      runner_architecture:
+        description: Hosted architecture (Intel is a manual capacity fallback)
+        type: choice
+        options: [arm64, intel]
+        default: arm64
   pull_request:
     paths:
       - 'DayPageLocal/**'
@@ -62,7 +67,7 @@ concurrency:
 jobs:
   verify:
     name: Local iOS core and app
-    runs-on: macos-15
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-15' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,7 +89,7 @@ jobs:
   native-ui:
     name: Native iOS UI (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.native_ui
-    runs-on: macos-26
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
     # The complete matrix includes two signing builds and 58 serial journeys.
     # A measured cold run hit 60 minutes during its final notebook cases.
     timeout-minutes: 90

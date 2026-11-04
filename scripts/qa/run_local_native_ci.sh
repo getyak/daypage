@@ -53,12 +53,13 @@ run_logged() {
 }
 
 python3 - "$daypage_evidence/provenance.json" <<'PY'
-import json, os, pathlib, subprocess, sys
+import json, os, pathlib, platform, subprocess, sys
 receipt = {
     'sourceSHA': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
     'runId': os.environ.get('GITHUB_RUN_ID'),
     'runAttempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
     'runnerImage': os.environ.get('ImageVersion'),
+    'hostArchitecture': platform.machine(),
     'xcode': subprocess.check_output(['xcodebuild', '-version'], text=True).strip(),
     'simulatorSDK': subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version'], text=True).strip(),
     'bundleId': 'com.daypage.app.localqa',
