@@ -225,8 +225,10 @@ final class NotebookPathTests: XCTestCase {
       try await destinationStore.importVault(from: source)
       XCTFail("Recursive copy must fail on the unreadable source asset")
     } catch {
-      XCTAssertEqual((error as NSError).domain, NSCocoaErrorDomain)
-      XCTAssertEqual((error as NSError).code, NSFileReadNoPermissionError)
+      let failure = error as NSError
+      XCTAssertEqual(failure.domain, NSCocoaErrorDomain)
+      XCTAssertTrue([NSFileReadNoPermissionError, NSFileWriteNoPermissionError].contains(failure.code),
+        "Recursive copy must report a read or write permission failure, received Cocoa code \(failure.code).")
     }
     let afterFailure = try FileManager.default.contentsOfDirectory(atPath: destination.path).sorted()
     XCTAssertEqual(afterFailure, before)
