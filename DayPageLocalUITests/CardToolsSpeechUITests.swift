@@ -319,10 +319,21 @@ final class CardToolsSpeechUITests: XCTestCase {
     let open = app.buttons["note-action-open-" + id]
     reveal(open, in: app.scrollViews["chat-transcript"])
     tap44(open)
-    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
-    XCTAssertTrue(text("A revised notebook idea for next week.").exists)
-    XCTAssertTrue(text("#reviewed").exists)
-    XCTAssertFalse(text("An appended notebook idea for tomorrow.").exists)
+    let detail = app.scrollViews["note-detail-scroll"]
+    XCTAssertTrue(detail.waitForExistence(timeout: 5))
+    XCTAssertTrue(detail.descendants(matching: .any).matching(identifier: "note-original").firstMatch.exists)
+    let revised = detail.descendants(matching: .any).matching(NSPredicate(
+      format: "label CONTAINS %@", "A revised notebook idea for next week.")).firstMatch
+    let tag = detail.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "#reviewed")).firstMatch
+    let old = detail.descendants(matching: .any).matching(NSPredicate(
+      format: "label CONTAINS %@", "An appended notebook idea for tomorrow.")).firstMatch
+    if !revised.exists || !tag.exists || old.exists || !detail.images["Pinned"].exists {
+      captureLookupFailure(detail, scroller: detail)
+    }
+    XCTAssertTrue(revised.exists)
+    XCTAssertTrue(tag.exists)
+    XCTAssertTrue(detail.images["Pinned"].exists)
+    XCTAssertFalse(old.exists)
     capture("note-action-edited-original")
   }
 
@@ -491,31 +502,32 @@ final class CardToolsSpeechUITests: XCTestCase {
     let field = app.textFields[id]
     reveal(field)
     field.tap()
+    let keyboard = app.keyboards.firstMatch
+    _ = keyboard.waitForExistence(timeout: 2)
+    // Refocus once after the keyboard has had a chance to change the Form's
+    // layout. The field's own input APIs still require its keyboard focus.
+    field.tap()
+    guard keyboard.waitForExistence(timeout: 3) else {
+      captureLookupFailure(field, scroller: form)
+      XCTFail("The keyboard must be visible before editing the selected field")
+      return
+    }
     let current = field.value as? String ?? ""
-    let placeholders = ["Channel name", "Service address", "Model", "Voice", "Voice ID"]
-    if !current.isEmpty && !placeholders.contains(current) {
-      // A tap can place the caret in the middle of an address. Observe native
-      // whole-field selection before deleting, as in the existing AI settings tests.
-      field.press(forDuration: 1.1)
-      let selectAllMenu = app.menuItems["Select All"]
-      // Native evidence exposes this edit action as a MenuItem. Query it directly
-      // so an unrelated Button lookup cannot consume its wait budget.
-      guard selectAllMenu.waitForExistence(timeout: 3) else {
-        captureLookupFailure(field, scroller: form)
-        XCTFail("The native Select All menu item must be visible before replacing a saved field")
-        return
-      }
-      XCTAssertTrue(selectAllMenu.isHittable)
-      selectAllMenu.tap()
+    let placeholder = field.placeholderValue ?? ""
+    if !current.isEmpty && current != placeholder {
+      // Use the native whole-field selection shortcut rather than relying on
+      // a long press to open an editing menu at an arbitrary caret position.
+      field.typeKey("a", modifierFlags: .command)
       field.typeText(XCUIKeyboardKey.delete.rawValue)
       let cleared = field.value as? String ?? ""
-      guard cleared.isEmpty || placeholders.contains(cleared) else {
+      guard cleared.isEmpty || cleared == placeholder else {
         captureLookupFailure(field, scroller: form)
         XCTFail("The saved field must be completely empty before typing its replacement")
         return
       }
     }
     field.typeText(value)
+    if field.value as? String != value { captureLookupFailure(field, scroller: form) }
     XCTAssertEqual(field.value as? String, value)
   }
 

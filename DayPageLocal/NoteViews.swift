@@ -423,6 +423,7 @@ struct NoteDetailView: View {
       .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 40)
       .frame(maxWidth: 680).frame(maxWidth: .infinity)
     }
+    .accessibilityIdentifier("note-detail-scroll")
     .notebookSurface().tint(NotebookTheme.accent)
     .onDisappear { notebook.speech.stop() }
     .navigationTitle("Note").navigationBarTitleDisplayMode(.inline)
