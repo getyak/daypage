@@ -4,7 +4,7 @@ Scope: GET-369/GET-388, ADR-0030/ADR-0031. Active app: DayPageLocal, iOS 16.1+.
 
 ## Card tools
 
-In Conversation, expand the notes row and enable Search notes as needed. On explicit Send, the AI may search/read all cards in the conversation's current selection, including supported attachment text. The row shows that complete available count. Include note excerpts off also disables tools. Opening history uses that conversation's stored scope. Roles affect style, never scope.
+In Conversation, expand the notes row and enable Use note tools. On explicit Send, the AI may search/read all cards in the conversation's current selection, including supported attachment text, and propose changes for review. The row shows that complete available count. Include note excerpts off also disables tools. Opening history uses that conversation's stored scope. Roles affect style, never scope.
 
 Eighteen tools are available within the current conversation's selection:
 

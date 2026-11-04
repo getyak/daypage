@@ -132,7 +132,7 @@ struct NoteChatView: View {
           Toggle("Include note excerpts", isOn: Binding(get: { session.conversation.includesNotes != false },
             set: { value in Task { await session.setIncludesNotes(value) } }))
             .disabled(session.sending).font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-include-notes")
-          Toggle("Search notes as needed", isOn: Binding(get: { session.conversation.usesTools == true },
+          Toggle("Use note tools", isOn: Binding(get: { session.conversation.usesTools == true },
             set: { value in Task { await session.setUsesTools(value) } }))
             .disabled(session.sending || session.conversation.includesNotes == false)
             .font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-note-tools")
