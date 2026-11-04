@@ -520,10 +520,12 @@ final class CardToolsSpeechUITests: XCTestCase {
     let preview = app.buttons["speech-preview"]
     reveal(preview)
     tap44(preview)
-    let status = element("speech-status")
-    let playing = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "exists == true AND label == 'Reading aloud'"), object: status)
-    XCTAssertEqual(XCTWaiter.wait(for: [playing], timeout: 10), .completed,
+    let status = app.staticTexts["speech-status"]
+    // Match the decoded-playback state in one typed AX query. Resolving an Any
+    // element's existence and label separately can consume the observation window.
+    let playing = app.staticTexts.matching(NSPredicate(
+      format: "identifier == %@ AND label == %@", "speech-status", "Reading aloud")).firstMatch
+    XCTAssertTrue(playing.waitForExistence(timeout: 10),
       "Only decoded audio reaching playback counts as a successful preview")
     XCTAssertFalse(element("speech-error").exists)
     let stop = app.buttons["speech-stop"]
