@@ -268,4 +268,55 @@ final class NoteActionsTests: XCTestCase {
     XCTAssertEqual(committedUndo.first?.status, .undone)
     XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), before)
   }
+
+  func testImportedNamespaceMutationLeavesSameUUIDLocalRecordUntouched() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    let memo = Memo(body: "Same UUID in different namespaces")
+    try await store.append(memo)
+    let entries = try await store.entries(), local = try XCTUnwrap(entries.first)
+    let namespace = UUID().uuidString
+    let importedRaw = root.appendingPathComponent("imports/\(namespace)/raw")
+    try FileManager.default.createDirectory(at: importedRaw, withIntermediateDirectories: true)
+    let file = importedRaw.appendingPathComponent("\(local.day).md")
+    let importedOriginal = memo.toMarkdown().replacingOccurrences(of: "type: text", with: "external_key: preserve\ntype: text")
+    try importedOriginal.write(to: file, atomically: true, encoding: .utf8)
+    let scopeEntries = try await store.entries()
+    let imported = try XCTUnwrap(scopeEntries.first { $0.namespace == namespace })
+    let proposal = try await propose("notes_append", ["card_ref": imported.id, "body": "Imported-only addition"], entries: scopeEntries)
+    let receipt = try await store.apply(proposal, allowedCardRefs: [imported.id])
+    let after = try await store.entries()
+    XCTAssertEqual(after.first { $0.namespace.isEmpty }?.memo.body, memo.body)
+    XCTAssertEqual(after.first { $0.namespace == namespace }?.memo.body, memo.body + "\n\nImported-only addition")
+    _ = try await store.undo(receipt, allowedCardRefs: [imported.id])
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), importedOriginal)
+  }
+
+  func testMalformedOrExtendedMetadataIsPreservedAndOversizeWritesAreRejectedBeforePublication() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    let directory = root.appendingPathComponent(".daypage")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let metadata = directory.appendingPathComponent("note-actions.json")
+    for text in ["{", #"{"version":1}"#,
+      #"{"version":1,"proposals":[],"records":[],"relations":[],"future_evidence":"keep"}"#] {
+      let bytes = Data(text.utf8); try bytes.write(to: metadata)
+      do { _ = try await store.actionReceipts(); XCTFail("Malformed/extended metadata") } catch { }
+      XCTAssertEqual(try Data(contentsOf: metadata), bytes)
+    }
+    // Restore valid metadata explicitly in the isolated fixture only.
+    try Data(#"{"version":1,"proposals":[],"records":[],"relations":[]}"#.utf8).write(to: metadata)
+    let memo = Memo(body: "placeholder")
+    try await store.append(memo)
+    var entries = try await store.entries()
+    let target = try XCTUnwrap(entries.first)
+    let file = root.appendingPathComponent("raw/\(target.day).md")
+    var large = memo.toMarkdown()
+    large += String(repeating: "x", count: 4 * 1024 * 1024 - large.utf8.count - 20)
+    try large.write(to: file, atomically: true, encoding: .utf8)
+    entries = try await store.entries()
+    let proposal = try await propose("notes_append", ["card_ref": target.id, "body": String(repeating: "z", count: 100)], entries: entries)
+    do { _ = try await store.apply(proposal, allowedCardRefs: [target.id]); XCTFail("Bounded raw day cap") } catch { }
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), large)
+    let receipts = try await store.actionReceipts()
+    XCTAssertTrue(receipts.isEmpty)
+  }
 }

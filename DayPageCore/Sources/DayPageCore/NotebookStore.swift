@@ -131,13 +131,14 @@ extension NotebookStore {
           savedSource: saved, appliedAt: Date())
         let record = NoteActionRecord(receipt: applied, committed: false, undoPrepared: false,
           cardRef: ref, beforeBlock: before, afterBlock: after, ownsRelation: false)
+        if let index { document.blocks[index] = after } else { document.blocks.append(after) }
+        try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
+        guard document.content.utf8.count <= 4 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
         state.records.removeAll { $0.receipt.id == proposal.id && !$0.committed }
         state.records.append(record)
         // Journal goes first. Restart will only read/compare these bytes, never
         // publish the prepared after-block without a fresh confirmed apply call.
         try self.writeActionState(state, to: metadata)
-        if let index { document.blocks[index] = after } else { document.blocks.append(after) }
-        try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
         try self.validateContained(coordinated)
         try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
         state.records[state.records.count - 1].committed = true
@@ -231,6 +232,7 @@ extension NotebookStore {
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let version = object["version"] as? Int else { throw NoteActionError.corruptMetadata }
     guard version == 1 else { throw NoteActionError.unsupportedVersion }
+    try validateActionMetadataShape(object)
     guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data),
       state.proposals.count <= 1000, state.records.count <= 1000, state.relations.count <= 1000,
       Set(state.proposals.map(\.id)).count == state.proposals.count,
@@ -239,19 +241,76 @@ extension NotebookStore {
     for proposal in state.proposals { try validateActionProposal(proposal) }
     for record in state.records {
       try validateActionProposal(record.receipt.proposal)
-      guard record.receipt.id == record.receipt.proposal.id else { throw NoteActionError.corruptMetadata }
+      guard record.receipt.id == record.receipt.proposal.id,
+        state.proposals.contains(record.receipt.proposal),
+        record.receipt.appliedAt.timeIntervalSince1970.isFinite,
+        record.receipt.status != .undone || record.committed && !record.undoPrepared else { throw NoteActionError.corruptMetadata }
+      let relationAction = record.receipt.proposal.kind == .link || record.receipt.proposal.kind == .unlink
+      guard relationAction == (record.cardRef == nil), relationAction == (record.receipt.relation != nil) else { throw NoteActionError.corruptMetadata }
+      if let edge = record.receipt.relation {
+        try validateActionRelation(edge)
+        guard let proposed = record.receipt.proposal.relation, edge.sameEdge(as: proposed),
+          record.committed, !record.undoPrepared, record.beforeBlock == nil, record.afterBlock == nil,
+          record.receipt.savedSource == nil else { throw NoteActionError.corruptMetadata }
+      }
       if let ref = record.cardRef {
         _ = try actionURL(cardRef: ref)
         guard let after = record.afterBlock, after.utf8.count <= 4 * 1024 * 1024,
           let afterMemo = Memo.fromMarkdown(after), ref.hasSuffix("/" + afterMemo.id.uuidString),
           record.receipt.savedSource?.cardRef == ref,
+          record.receipt.savedSource?.day == actionDay(cardRef: ref),
+          record.receipt.savedSource?.snippet == String(afterMemo.body.prefix(360)),
           record.beforeBlock.map({ $0.utf8.count <= 4 * 1024 * 1024 && Memo.fromMarkdown($0)?.id == afterMemo.id }) ?? true,
           record.receipt.proposal.kind == .create ? record.receipt.proposal.id == afterMemo.id && record.beforeBlock == nil : record.receipt.proposal.target?.cardRef == ref
         else { throw NoteActionError.corruptMetadata }
+        if let before = record.beforeBlock {
+          guard NoteActionIdentity.digest(before) == record.receipt.proposal.expectedRevision,
+            let memo = Memo.fromMarkdown(before),
+            try actionEditedBlock(before, memo: memo, proposal: record.receipt.proposal).utf8.elementsEqual(after.utf8)
+          else { throw NoteActionError.corruptMetadata }
+        } else {
+          guard record.receipt.proposal.kind == .create, let body = record.receipt.proposal.body,
+            Memo(id: afterMemo.id, created: record.receipt.proposal.createdAt, body: body).toMarkdown().utf8.elementsEqual(after.utf8)
+          else { throw NoteActionError.corruptMetadata }
+        }
       }
     }
     for relation in state.relations { try validateActionRelation(relation) }
+    let edgeKeys = state.relations.map { $0.from.cardRef + "\n" + $0.to.cardRef + "\n" + $0.type.rawValue }
+    guard Set(edgeKeys).count == edgeKeys.count else { throw NoteActionError.corruptMetadata }
     return state
+  }
+
+  /// Unknown fields cannot be silently discarded by Codable on the next save.
+  /// A future format must increment its version or explicitly preserve extensions.
+  private func validateActionMetadataShape(_ object: [String: Any]) throws {
+    func keys(_ value: Any, _ allowed: Set<String>) throws -> [String: Any] {
+      guard let object = value as? [String: Any], Set(object.keys).isSubset(of: allowed) else { throw NoteActionError.corruptMetadata }
+      return object
+    }
+    func source(_ value: Any?) throws {
+      if let value, !(value is NSNull) { _ = try keys(value, ["cardRef", "day", "snippet"]) }
+    }
+    func relation(_ value: Any?) throws {
+      if let value, !(value is NSNull) {
+        let edge = try keys(value, ["id", "from", "to", "type", "reason", "createdAt", "fromRevision", "toRevision", "isStale"])
+        try source(edge["from"]); try source(edge["to"])
+      }
+    }
+    func proposal(_ value: Any) throws {
+      let item = try keys(value, ["id", "kind", "createdAt", "target", "expectedRevision", "body", "before", "after", "tags", "pinned", "relation"])
+      try source(item["target"]); try relation(item["relation"])
+    }
+    _ = try keys(object, ["version", "proposals", "records", "relations"])
+    for value in object["proposals"] as? [Any] ?? [] { try proposal(value) }
+    for value in object["relations"] as? [Any] ?? [] { try relation(value) }
+    for value in object["records"] as? [Any] ?? [] {
+      let record = try keys(value, ["receipt", "committed", "undoPrepared", "cardRef", "beforeBlock", "afterBlock", "ownsRelation"])
+      guard let value = record["receipt"] else { throw NoteActionError.corruptMetadata }
+      let receipt = try keys(value, ["id", "proposal", "status", "savedSource", "relation", "appliedAt"])
+      guard let value = receipt["proposal"] else { throw NoteActionError.corruptMetadata }
+      try proposal(value); try source(receipt["savedSource"]); try relation(receipt["relation"])
+    }
   }
 
   private func writeActionState(_ state: NoteActionState, to url: URL) throws {
@@ -323,6 +382,7 @@ extension NotebookStore {
   private func validateActionRelation(_ edge: NoteRelation) throws {
     _ = try actionURL(cardRef: edge.from.cardRef); _ = try actionURL(cardRef: edge.to.cardRef)
     guard edge.from.cardRef != edge.to.cardRef, edge.reason.count <= 1000,
+      edge.createdAt.timeIntervalSince1970.isFinite,
       !edge.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
       edge.from.snippet.count <= 360, edge.to.snippet.count <= 360,
       edge.from.day == actionDay(cardRef: edge.from.cardRef), edge.to.day == actionDay(cardRef: edge.to.cardRef),
@@ -400,7 +460,12 @@ extension NotebookStore {
     }
     guard !body.contains(DayDocument.modern), !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !memo.attachments.isEmpty else { throw NotebookError.emptyNote }
     // Replace only the body. Preserve all header bytes, including unknown YAML.
-    return String(block[..<bodyStart]) + body
+    var prefix = String(block[..<bodyStart])
+    if bodyStart == block.endIndex {
+      if !prefix.hasSuffix("\n") { prefix += "\n\n" }
+      else if !prefix.hasSuffix("\n\n") { prefix += "\n" }
+    }
+    return prefix + body
   }
 
   private func applyRelation(_ proposal: NoteActionProposal, state: inout NoteActionState, metadata: URL) throws -> NoteActionReceipt {
