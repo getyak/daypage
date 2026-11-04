@@ -515,10 +515,30 @@ final class CardToolsSpeechUITests: XCTestCase {
     let current = field.value as? String ?? ""
     let placeholder = field.placeholderValue ?? ""
     if !current.isEmpty && current != placeholder {
-      // Use the native whole-field selection shortcut rather than relying on
-      // a long press to open an editing menu at an arbitrary caret position.
-      field.typeKey("a", modifierFlags: .command)
-      field.typeText(XCUIKeyboardKey.delete.rawValue)
+      // These fixtures use short LTR values. Tap an unobscured point near the
+      // field's right edge and send real backspaces; read any residual text
+      // before one bounded second attempt. The empty-value guard stays strict.
+      for attempt in 1...2 {
+        let remaining = field.value as? String ?? ""
+        if remaining.isEmpty || remaining == placeholder { break }
+        let frame = field.frame
+        let point = CGPoint(x: frame.minX + frame.width * 0.98, y: frame.midY)
+        guard field.isHittable, frame.width > 0, frame.height > 0,
+          visibleFrame(of: form).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(point) else {
+          captureLookupFailure(field, scroller: form)
+          XCTFail("The field's clearing point must be visible above the keyboard")
+          return
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+          dx: point.x - app.frame.minX, dy: point.y - app.frame.minY)).tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: remaining.utf16.count))
+        let after = field.value as? String ?? ""
+        let trace = XCTAttachment(string: "field=\(id) attempt=\(attempt) frame=\(frame) point=\(point) "
+          + "beforeUTF16=\(remaining.utf16.count) afterUTF16=\(after.utf16.count) placeholder=\(after == placeholder)")
+        trace.name = "field-clear-geometry-" + id + "-" + String(attempt)
+        trace.lifetime = .keepAlways
+        add(trace)
+      }
       let cleared = field.value as? String ?? ""
       guard cleared.isEmpty || cleared == placeholder else {
         captureLookupFailure(field, scroller: form)
