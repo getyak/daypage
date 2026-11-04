@@ -143,12 +143,21 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
       XCTAssertTrue(control.isHittable)
-      // UIKit exposes the native switch's 28pt intrinsic AX footprint even when
-      // SwiftUI gives its row a 44pt activation area. Keep geometry assertions
-      // distinct from the 44pt custom buttons and verify the semantic change.
+      // SwiftUI can expose the identified Form row and its unlabelled native
+      // switch as separate AX elements. Tap the actual switch's centre when
+      // present; a fixed fraction of the row can miss its activation area.
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+      let bounds = control.frame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
+      let nativeSwitches = app.switches.allElementsBoundByIndex.filter {
+        $0.identifier.isEmpty && bounds.contains($0.frame) && $0.isHittable
+      }
+      XCTAssertLessThanOrEqual(nativeSwitches.count, 1,
+        "The identified row must contain at most one native switch")
+      let target = nativeSwitches.first ?? control
+      XCTAssertGreaterThanOrEqual(target.frame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(target.frame.height + geometryEpsilon, 28)
+      target.tap()
     }
     let updated = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
