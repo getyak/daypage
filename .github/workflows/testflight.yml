@@ -32,6 +32,13 @@ on:
         description: "Override version (e.g. 0.1.0). Leave empty to auto-bump patch."
         required: false
         type: string
+      runner_architecture:
+        description: "Hosted architecture (Intel is a manual capacity fallback)"
+        type: choice
+        options:
+          - arm64
+          - intel
+        default: arm64
 
 # 需要写仓库（push tag）和读取 PR 信息
 permissions:
@@ -71,7 +78,7 @@ jobs:
     name: Build & Upload to TestFlight
     needs: candidate-ci
     if: ${{ github.event_name != 'push' || (github.event.commits[0] != null && github.event.commits[2047] == null && !contains(github.event.head_commit.message, '[skip testflight]') && !contains(join(github.event.commits.*.message), '[skip testflight]')) }}
-    runs-on: macos-26
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
     timeout-minutes: 90
 
     steps:

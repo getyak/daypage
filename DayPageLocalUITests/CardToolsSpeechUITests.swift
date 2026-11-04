@@ -143,16 +143,49 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
       XCTAssertTrue(control.isHittable)
-      // UIKit exposes the native switch's 28pt intrinsic AX footprint even when
-      // SwiftUI gives its row a 44pt activation area. Keep geometry assertions
-      // distinct from the 44pt custom buttons and verify the semantic change.
+      // SwiftUI exposes the row and its native switch separately. The thumb
+      // may extend a few points past the row, so associate it by its centre.
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+      let rowFrame = control.frame
+      let bounds = rowFrame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
+      let nativeFrames = app.switches.allElementsBoundByIndex.compactMap { element -> CGRect? in
+        guard element.identifier.isEmpty else { return nil }
+        let frame = element.frame
+        guard bounds.contains(CGPoint(x: frame.midX, y: frame.midY)), element.isHittable else { return nil }
+        return frame
+      }
+      XCTAssertLessThanOrEqual(nativeFrames.count, 1,
+        "The identified row must contain at most one native switch")
+      let point: XCUICoordinate
+      let targetFrame: CGRect
+      let targetMode: String
+      if let nativeFrame = nativeFrames.first {
+        targetFrame = nativeFrame
+        targetMode = "native-centre"
+        // Anchor the physical centre to the stable row identifier, not an
+        // unlabelled switch index or XCTest's inferred activation hit point.
+        point = control.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+          dx: targetFrame.midX - rowFrame.minX, dy: targetFrame.midY - rowFrame.minY))
+      } else {
+        targetFrame = rowFrame
+        targetMode = "identified-trailing"
+        point = control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+      }
+      XCTAssertGreaterThanOrEqual(targetFrame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(targetFrame.height + geometryEpsilon, 28)
+      let geometry = XCTAttachment(string:
+        "id=\(id) requested=\(on) mode=\(targetMode)\nrow=\(rowFrame)\ntarget=\(targetFrame)")
+      geometry.name = "switch-activation-" + id
+      geometry.lifetime = .keepAlways
+      add(geometry)
+      point.tap()
     }
-    let updated = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
-    XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+    let updated = app.switches.matching(NSPredicate(
+      format: "identifier == %@ AND value == %@", id, on ? "1" : "0")).firstMatch
+    let changed = updated.waitForExistence(timeout: 5)
+    if !changed { captureLookupFailure(control, scroller: form) }
+    XCTAssertTrue(changed, "The identified switch must reach the requested value")
   }
 
   private func openChat() {
@@ -184,6 +217,172 @@ final class CardToolsSpeechUITests: XCTestCase {
     image.name = name
     image.lifetime = .keepAlways
     add(image)
+  }
+
+  private func startAuthoringChat() {
+    app.launchArguments += ["-qaSeedNoteRelations"]
+    app.launch()
+    openChat()
+    openContext()
+    setSwitch("chat-note-tools", on: true)
+    tap44(app.buttons["chat-context"])
+  }
+
+  private func reviewAction(_ tool: String) -> String {
+    let review = button(prefix: "note-action-review-" + tool + "-")
+    XCTAssertTrue(review.waitForExistence(timeout: 15))
+    let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: review)
+    XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
+    reveal(review, in: app.scrollViews["chat-transcript"])
+    let id = String(review.identifier.dropFirst(("note-action-review-" + tool + "-").count))
+    tap44(review)
+    XCTAssertTrue(element("note-action-review-scroll").waitForExistence(timeout: 5))
+    return id
+  }
+
+  @discardableResult
+  private func actionStatus(_ id: String, equals expected: String) -> XCUIElement {
+    let identifier = "note-action-status-" + id
+    let status = app.staticTexts[identifier]
+    let exactStatus = app.staticTexts.matching(NSPredicate(
+      format: "identifier == %@ AND label == %@", identifier, expected)).firstMatch
+    let found = exactStatus.waitForExistence(timeout: 10)
+    if !found { captureLookupFailure(status, scroller: app.scrollViews["chat-transcript"]) }
+    XCTAssertTrue(found, "The receipt must expose its exact saved or undone status as readable text")
+    return status
+  }
+
+  @discardableResult
+  private func confirmAction(_ tool: String) -> String {
+    let id = reviewAction(tool)
+    let confirm = app.buttons["note-action-confirm"]
+    reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
+    tap44(confirm)
+    actionStatus(id, equals: "Change saved")
+    return id
+  }
+
+  func testCreatedNoteAndReceiptReopenAndUndoWithoutConsumingCaptureDraft() {
+    app.launchArguments += ["-qaSeedCaptureDraft"]
+    startAuthoringChat()
+    send("GET388 create")
+    let id = confirmAction("notes_create")
+    capture("note-action-created")
+    app.buttons["Close"].firstMatch.tap()
+    relaunch()
+    openChat()
+    actionStatus(id, equals: "Change saved")
+    let open = app.buttons["note-action-open-" + id]
+    reveal(open, in: app.scrollViews["chat-transcript"])
+    tap44(open)
+    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Created through a reviewed note tool.").exists)
+    capture("note-action-created-original")
+    app.buttons["Done"].tap()
+    let undo = app.buttons["note-action-undo-" + id]
+    reveal(undo, in: app.scrollViews["chat-transcript"])
+    tap44(undo)
+    actionStatus(id, equals: "Change undone")
+    app.buttons["Close"].firstMatch.tap()
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Trip checklist.txt").exists)
+  }
+
+  func testCancelledNoteProposalReopensWithoutPublishingANote() {
+    startAuthoringChat()
+    send("GET388 cancel creation")
+    let id = reviewAction("notes_create")
+    let cancel = app.buttons["note-action-cancel"]
+    reveal(cancel, in: app.scrollViews["note-action-review-scroll"])
+    tap44(cancel)
+    XCTAssertTrue(element("note-action-cancelled-" + id).waitForExistence(timeout: 5))
+    XCTAssertFalse(element("note-action-status-" + id).exists)
+    app.buttons["Close"].firstMatch.tap()
+    relaunch()
+    openChat()
+    XCTAssertTrue(element("note-action-cancelled-" + id).waitForExistence(timeout: 10))
+    XCTAssertFalse(element("note-action-status-" + id).exists)
+    capture("note-action-cancelled-reopened")
+  }
+
+  func testAppendPatchTagsAndPinAreReviewedAndOpenTheUpdatedOriginal() {
+    startAuthoringChat()
+    send("GET388 append")
+    _ = confirmAction("notes_append")
+    send("GET388 patch")
+    _ = confirmAction("notes_propose_patch")
+    send("GET388 tags")
+    _ = confirmAction("notes_set_tags")
+    send("GET388 pin")
+    let id = confirmAction("notes_set_pin")
+    let open = app.buttons["note-action-open-" + id]
+    reveal(open, in: app.scrollViews["chat-transcript"])
+    tap44(open)
+    let detail = app.scrollViews["note-detail-scroll"]
+    XCTAssertTrue(detail.waitForExistence(timeout: 5))
+    XCTAssertTrue(detail.descendants(matching: .any).matching(identifier: "note-original").firstMatch.exists)
+    let revised = detail.descendants(matching: .any).matching(NSPredicate(
+      format: "label CONTAINS %@", "A revised notebook idea for next week.")).firstMatch
+    let tag = detail.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "#reviewed")).firstMatch
+    let old = detail.descendants(matching: .any).matching(NSPredicate(
+      format: "label CONTAINS %@", "An appended notebook idea for tomorrow.")).firstMatch
+    if !revised.exists || !tag.exists || old.exists || !detail.images["Pinned"].exists {
+      captureLookupFailure(detail, scroller: detail)
+    }
+    XCTAssertTrue(revised.exists)
+    XCTAssertTrue(tag.exists)
+    XCTAssertTrue(detail.images["Pinned"].exists)
+    XCTAssertFalse(old.exists)
+    capture("note-action-edited-original")
+  }
+
+  func testConnectionsRequireConfirmationAndCanBeReadRemovedAndRestored() {
+    startAuthoringChat()
+    send("GET388 connect")
+    let id = reviewAction("relations_link")
+    XCTAssertTrue(text("Both original notes discuss notebook ideas.").exists)
+    capture("note-relation-review")
+    let confirm = app.buttons["note-action-confirm"]
+    reveal(confirm, in: app.scrollViews["note-action-review-scroll"])
+    tap44(confirm)
+    actionStatus(id, equals: "Change saved")
+    app.buttons["Close"].firstMatch.tap()
+    relaunch()
+    openChat()
+    let details = element("note-relation-details-" + id)
+    reveal(details, in: app.scrollViews["chat-transcript"])
+    tap44(details)
+    XCTAssertTrue(text("Both original notes discuss notebook ideas.").waitForExistence(timeout: 5))
+    capture("note-relation-saved-reopened")
+    send("GET388 connections")
+    XCTAssertTrue(text("GET388 saved connections: 1").waitForExistence(timeout: 15))
+    send("GET388 unlink")
+    let removalID = confirmAction("relations_unlink")
+    send("GET388 connections")
+    XCTAssertTrue(text("GET388 saved connections: 0").waitForExistence(timeout: 15))
+    let undo = app.buttons["note-action-undo-" + removalID]
+    reveal(undo, in: app.scrollViews["chat-transcript"], down: true)
+    tap44(undo)
+    send("GET388 connections restored")
+    XCTAssertTrue(text("GET388 restored connections: 1").waitForExistence(timeout: 15))
+    capture("note-relation-restored")
+  }
+
+  func testSimilarNotesReturnSourcesThatOpenTheActualOriginal() {
+    startAuthoringChat()
+    send("GET388 similar")
+    XCTAssertTrue(text("GET388 related note:").waitForExistence(timeout: 15))
+    let sources = app.buttons["chat-sources"]
+    reveal(sources, in: app.scrollViews["chat-transcript"])
+    tap44(sources)
+    let source = app.buttons.matching(NSPredicate(
+      format: "identifier BEGINSWITH 'chat-source-' AND label CONTAINS[c] 'Notebook pricing'" )).firstMatch
+    reveal(source, in: app.scrollViews["chat-transcript"])
+    tap44(source)
+    XCTAssertTrue(element("note-original").waitForExistence(timeout: 5))
+    XCTAssertTrue(text("Notebook pricing should leave room for a free plan.").exists)
+    capture("note-similar-original-source")
   }
 
   func testCardToolsOpenTheOriginalAndSavedReplySurvivesRelaunchWithoutConsumingCaptureDraft() {
@@ -303,31 +502,52 @@ final class CardToolsSpeechUITests: XCTestCase {
     let field = app.textFields[id]
     reveal(field)
     field.tap()
+    let keyboard = app.keyboards.firstMatch
+    _ = keyboard.waitForExistence(timeout: 2)
+    // Refocus once after the keyboard has had a chance to change the Form's
+    // layout. The field's own input APIs still require its keyboard focus.
+    field.tap()
+    guard keyboard.waitForExistence(timeout: 3) else {
+      captureLookupFailure(field, scroller: form)
+      XCTFail("The keyboard must be visible before editing the selected field")
+      return
+    }
     let current = field.value as? String ?? ""
-    let placeholders = ["Channel name", "Service address", "Model", "Voice", "Voice ID"]
-    if !current.isEmpty && !placeholders.contains(current) {
-      // A tap can place the caret in the middle of an address. Observe native
-      // whole-field selection before deleting, as in the existing AI settings tests.
-      field.press(forDuration: 1.1)
-      let selectAllMenu = app.menuItems["Select All"]
-      // Native evidence exposes this edit action as a MenuItem. Query it directly
-      // so an unrelated Button lookup cannot consume its wait budget.
-      guard selectAllMenu.waitForExistence(timeout: 3) else {
-        captureLookupFailure(field, scroller: form)
-        XCTFail("The native Select All menu item must be visible before replacing a saved field")
-        return
+    let placeholder = field.placeholderValue ?? ""
+    if !current.isEmpty && current != placeholder {
+      // These fixtures use short LTR values. Tap an unobscured point near the
+      // field's right edge and send real backspaces; read any residual text
+      // before one bounded second attempt. The empty-value guard stays strict.
+      for attempt in 1...2 {
+        let remaining = field.value as? String ?? ""
+        if remaining.isEmpty || remaining == placeholder { break }
+        let frame = field.frame
+        let point = CGPoint(x: frame.minX + frame.width * 0.98, y: frame.midY)
+        guard field.isHittable, frame.width > 0, frame.height > 0,
+          visibleFrame(of: form).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(point) else {
+          captureLookupFailure(field, scroller: form)
+          XCTFail("The field's clearing point must be visible above the keyboard")
+          return
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+          dx: point.x - app.frame.minX, dy: point.y - app.frame.minY)).tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: remaining.utf16.count))
+        let after = field.value as? String ?? ""
+        let trace = XCTAttachment(string: "field=\(id) attempt=\(attempt) frame=\(frame) point=\(point) "
+          + "beforeUTF16=\(remaining.utf16.count) afterUTF16=\(after.utf16.count) placeholder=\(after == placeholder)")
+        trace.name = "field-clear-geometry-" + id + "-" + String(attempt)
+        trace.lifetime = .keepAlways
+        add(trace)
       }
-      XCTAssertTrue(selectAllMenu.isHittable)
-      selectAllMenu.tap()
-      field.typeText(XCUIKeyboardKey.delete.rawValue)
       let cleared = field.value as? String ?? ""
-      guard cleared.isEmpty || placeholders.contains(cleared) else {
+      guard cleared.isEmpty || cleared == placeholder else {
         captureLookupFailure(field, scroller: form)
         XCTFail("The saved field must be completely empty before typing its replacement")
         return
       }
     }
     field.typeText(value)
+    if field.value as? String != value { captureLookupFailure(field, scroller: form) }
     XCTAssertEqual(field.value as? String, value)
   }
 
@@ -363,10 +583,17 @@ final class CardToolsSpeechUITests: XCTestCase {
     let preview = app.buttons["speech-preview"]
     reveal(preview)
     tap44(preview)
-    let status = element("speech-status")
-    let playing = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "exists == true AND label == 'Reading aloud'"), object: status)
-    XCTAssertEqual(XCTWaiter.wait(for: [playing], timeout: 10), .completed,
+    let status = app.staticTexts["speech-status"]
+    // Form creates lower rows lazily. The extra authenticated-channel fields
+    // can leave the playback status below the revealed Preview button.
+    if !status.exists { scrollVisibleContent(form, toward: status, down: false) }
+    // Match the decoded-playback state in one typed AX query. Resolving an Any
+    // element's existence and label separately can consume the observation window.
+    let playing = app.staticTexts.matching(NSPredicate(
+      format: "identifier == %@ AND label == %@", "speech-status", "Reading aloud")).firstMatch
+    let didPlay = playing.waitForExistence(timeout: 10)
+    if !didPlay { captureLookupFailure(status, scroller: form) }
+    XCTAssertTrue(didPlay,
       "Only decoded audio reaching playback counts as a successful preview")
     XCTAssertFalse(element("speech-error").exists)
     let stop = app.buttons["speech-stop"]

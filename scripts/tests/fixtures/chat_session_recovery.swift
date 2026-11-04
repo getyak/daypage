@@ -7,6 +7,7 @@ import Foundation
   var entries: [NotebookEntry] = []
   var configuration = AIConfiguration(baseURL: "http://127.0.0.1:1/v1", model: "fixture-model", allowsLocalHTTP: true)
   init(root: URL) { conversations = ConversationStore(root: root); store = NotebookStore(root: root) }
+  func refresh() async { if let values = try? await store.entries() { entries = values } }
   func readToolAttachment(cardRef: String, index: Int, allowedEntries: [NotebookEntry]) async throws -> String {
     guard let entry = allowedEntries.first(where: { $0.id == cardRef }), entry.memo.attachments.indices.contains(index) else { throw NotebookError.conflict }
     let attachment = entry.memo.attachments[index]
@@ -17,6 +18,7 @@ import Foundation
 
 @main enum ChatSessionRecoveryChecks {
   @MainActor static func main() async throws {
+    checkpoint("starting existing chat recovery checks")
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("chat-session-check-\(UUID())")
     defer { try? FileManager.default.removeItem(at: root) }
     let notebook = NotebookModel(root: root)
@@ -113,6 +115,85 @@ import Foundation
     let afterSwitch = try await notebook.conversations.history().conversations.count
     precondition(afterSwitch == beforeSwitch + 1, "Concurrent navigation must not race two session transitions")
     print("PASS: rapid conversation navigation is serialized and flushes the old draft")
+    checkpoint("starting reviewed action checks")
+    try await checkReviewedActions(root: root.appendingPathComponent("reviewed-actions"))
+    checkpoint("starting fresh tool scope checks")
+    try await checkFreshToolScope(root: root.appendingPathComponent("fresh-scope"), port: port)
+  }
+  private static func checkpoint(_ value: String) {
+    FileHandle.standardError.write(Data(("CHECKPOINT: " + value + "\n").utf8))
+  }
+  @MainActor private static func checkReviewedActions(root: URL) async throws {
+    let notebook = NotebookModel(root: root)
+    let result = try await NoteToolExecutor.execute(name: "notes_create",
+      arguments: #"{"body":"A reviewed synthetic note"}"#,
+      context: .init(entries: [], proposalWriter: { try await notebook.store.saveProposal($0) }))
+    guard let proposal = result.proposals.first else { preconditionFailure("Missing proposal") }
+    var reply = ChatMessage(role: .assistant, content: "Review", delivery: .complete)
+    reply.proposals = [proposal]
+    var conversation = Conversation(messages: [reply]); conversation.usesTools = true
+    try await notebook.conversations.save(conversation)
+    let first = ChatSession()
+    await first.load(notebook: notebook, selectedIDs: nil)
+    precondition(first.canReviewActions)
+    let saved = await first.confirm(proposal, messageID: reply.id, notebook: notebook)
+    precondition(saved && notebook.entries.count == 1)
+    let receipt = first.receipt(for: proposal)
+    precondition(receipt?.status == .applied)
+    let reopened = ChatSession()
+    await reopened.load(notebook: notebook, selectedIDs: nil)
+    precondition(reopened.receipt(for: proposal) == receipt)
+    let staleUndo = await first.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(!staleUndo && notebook.entries.count == 1, "A superseded session must never undo")
+    await reopened.setIncludesNotes(false)
+    let disabledUndo = await reopened.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(!disabledUndo && notebook.entries.count == 1)
+    await reopened.setIncludesNotes(true); await reopened.setUsesTools(true)
+    let undone = await reopened.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(undone && notebook.entries.isEmpty)
+    print("PASS: native session confirms one real note, reads receipts after reopening, rejects stale/disabled undo")
+    let journal = root.appendingPathComponent(".daypage/note-actions.json")
+    try FileManager.default.moveItem(at: journal, to: root.appendingPathComponent("retained-action-journal.json"))
+    let damaged = ChatSession()
+    await damaged.load(notebook: notebook, selectedIDs: nil)
+    precondition(!damaged.actionsReady && damaged.actionError != nil)
+    precondition(damaged.receipt(for: proposal)?.status == .undone,
+      "Losing a journal must never turn a known receipt into a new proposal")
+    let blocked = await damaged.confirm(proposal, messageID: reply.id, notebook: notebook)
+    precondition(!blocked && notebook.entries.isEmpty)
+    print("PASS: missing action history preserves known receipt state and blocks replay")
+  }
+  @MainActor private static func checkFreshToolScope(root: URL, port: String) async throws {
+    let notebook = NotebookModel(root: root)
+    checkpoint("fresh scope append visible note")
+    try await notebook.store.append(Memo(body: "Visible notebook idea."))
+    checkpoint("fresh scope append removed note")
+    try await notebook.store.append(Memo(body: "REMOVED_PRIVATE_NOTE_388"))
+    let cached = try await notebook.store.entries()
+    guard let visible = cached.first(where: { $0.memo.body == "Visible notebook idea." }),
+      let removed = cached.first(where: { $0.memo.body == "REMOVED_PRIVATE_NOTE_388" }) else {
+      preconditionFailure("Missing isolated fixtures")
+    }
+    let args = try JSONSerialization.data(withJSONObject: ["from_card_ref": visible.id,
+      "to_card_ref": removed.id, "type": "related", "reason": "REMOVED_PRIVATE_RELATION_388"])
+    let result = try await NoteToolExecutor.execute(name: "relations_link", arguments: String(decoding: args, as: UTF8.self),
+      context: .init(entries: cached, proposalWriter: { try await notebook.store.saveProposal($0) }))
+    guard let proposal = result.proposals.first else { preconditionFailure("Missing link proposal") }
+    _ = try await notebook.store.apply(proposal, allowedCardRefs: Set(cached.map(\.id)))
+    checkpoint("fresh scope remove original through another store")
+    _ = try await NotebookStore(root: root).trash(removed)
+    notebook.entries = cached // The native cache predates an external deletion.
+    var conversation = Conversation(); conversation.usesTools = true
+    try await notebook.conversations.save(conversation)
+    let session = ChatSession()
+    await session.load(notebook: notebook, selectedIDs: nil)
+    notebook.configuration.baseURL = "http://127.0.0.1:\(port)/fresh-tools/v1"
+    session.draft = "Verify fresh note scope"
+    session.send(notebook: notebook, context: .build(entries: cached, question: session.draft))
+    try await waitForReply(session)
+    precondition(session.conversation.messages.last?.content == "Fresh scope verified.")
+    precondition(session.conversation.messages.last?.delivery == .complete)
+    print("PASS: stale native cache cannot send deleted note or relation evidence to the provider")
   }
   @MainActor private static func waitForReply(_ session: ChatSession) async throws {
     for _ in 0..<80 {

@@ -56,7 +56,12 @@ BDuCaEgQ7AiiIUGwI4iGBMFOMpD7X9hJdgmC4pAg2BFEQ4JgRxANCYIdQTQkCHYE0ZAg2BFEQ4JgRxAN
 sCOIhgTBjiAaEgQ7gmhIEOwIoiFBsCOIhgTBjiAaEgQ7yUDuf2En2SUIikOCYEcQDQmCHUE0JAh2BNGQINgRREOCYEcQDQmCHUE0
 dIKAjtf7JNDxev8HIZd/Xg==
 """))
-TOOL_NAMES = {"notes_search", "notes_read", "notes_list", "notes_stats", "notes_tags", "assets_read"}
+TOOL_NAMES = {
+    "notes_search", "notes_read", "notes_list", "notes_stats", "notes_tags", "assets_read",
+    "notes_create", "notes_append", "notes_propose_patch", "notes_similar", "notes_neighbors",
+    "notes_find_duplicates", "relations_suggest", "relations_list", "relations_link",
+    "relations_unlink", "notes_set_tags", "notes_set_pin",
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -132,9 +137,13 @@ class Handler(BaseHTTPRequestHandler):
     def tools(self, payload):
         assert not payload.get("stream"), "Tool turns must be complete nonstream responses"
         names = {tool["function"]["name"] for tool in payload["tools"]}
-        assert names == TOOL_NAMES, "Only the six scoped read-only tools may be exposed"
+        assert names == TOOL_NAMES, "Only the scoped reads and pending-proposal tools may be exposed"
         messages = payload["messages"]
         assert messages[0]["role"] == "system"
+        question = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+        if question.startswith("GET388 "):
+            self.note_actions(messages, question.removeprefix("GET388 "))
+            return
         results = [message for message in messages if message.get("role") == "tool"]
         if not results:
             self.json_response({"choices": [{"finish_reason": "tool_calls", "message": {
@@ -156,6 +165,80 @@ class Handler(BaseHTTPRequestHandler):
         # substitute note. The native test opens that source and checks its original.
         reply = "Tool reply: " + source["snippet"] + "\n\nSource: " + source["day"] + "."
         self.json_response({"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": reply}}]})
+
+    def call_tool(self, name, arguments, step):
+        self.json_response({"choices": [{"finish_reason": "tool_calls", "message": {
+            "role": "assistant", "content": None,
+            "tool_calls": [{"id": "get388-step-" + str(step), "type": "function", "function": {
+                "name": name, "arguments": json.dumps(arguments)}}],
+        }}]})
+
+    def finish_tools(self, text):
+        self.json_response({"choices": [{"finish_reason": "stop", "message": {
+            "role": "assistant", "content": text}}]})
+
+    def note_actions(self, messages, question):
+        results = [json.loads(m["content"]) for m in messages if m.get("role") == "tool"]
+        assert all("error" not in r for r in results), "Every requested synthetic tool must actually succeed"
+        step = len(results)
+        if question in {"create", "cancel creation"}:
+            if step == 0:
+                body = "Created through a reviewed note tool. Keep the capture draft."
+                if question == "cancel creation":
+                    body = "This cancelled proposal must never become a note."
+                self.call_tool("notes_create", {"body": body}, step)
+            else:
+                assert results[-1]["status"] == "pending_confirmation"
+                self.finish_tools("GET388 proposal ready. Review before saving.")
+            return
+        if question in {"append", "patch", "pin", "tags", "similar", "connect"}:
+            if step == 0:
+                self.call_tool("notes_search", {"query": "notebook", "limit": 8}, step)
+                return
+            if step == 1:
+                cards = results[0]["cards"]
+                assert cards
+                ref = cards[0]["card_ref"]
+                if question == "append":
+                    self.call_tool("notes_append", {"card_ref": ref, "body": "An appended notebook idea for tomorrow."}, step)
+                elif question == "patch":
+                    self.call_tool("notes_propose_patch", {"card_ref": ref,
+                        "before": "An appended notebook idea for tomorrow.",
+                        "after": "A revised notebook idea for next week."}, step)
+                elif question == "pin":
+                    self.call_tool("notes_set_pin", {"card_ref": ref, "pinned": True}, step)
+                elif question == "tags":
+                    self.call_tool("notes_set_tags", {"card_ref": ref, "tags": ["reviewed", "ideas"]}, step)
+                elif question == "similar":
+                    self.call_tool("notes_similar", {"card_ref": ref, "limit": 4}, step)
+                else:
+                    assert len(cards) >= 2
+                    self.call_tool("relations_link", {"from_card_ref": ref,
+                        "to_card_ref": cards[1]["card_ref"], "type": "related",
+                        "reason": "Both original notes discuss notebook ideas."}, step)
+                return
+            if question == "similar":
+                assert results[-1]["cards"], "Similarity must return an actual scoped candidate"
+                self.finish_tools("GET388 related note: " + results[-1]["cards"][0]["snippet"])
+            else:
+                assert results[-1]["status"] == "pending_confirmation"
+                self.finish_tools("GET388 proposal ready. Review before saving.")
+            return
+        if question in {"connections", "connections restored", "unlink"}:
+            if step == 0:
+                self.call_tool("relations_list", {"limit": 8}, step)
+            elif question.startswith("connections"):
+                label = "GET388 restored connections: " if question.endswith("restored") else "GET388 saved connections: "
+                self.finish_tools(label + str(results[-1]["total"]))
+            elif step == 1:
+                relations = results[0]["relations"]
+                assert len(relations) == 1
+                self.call_tool("relations_unlink", {"relation_id": relations[0]["id"]}, step)
+            else:
+                assert results[-1]["status"] == "pending_confirmation"
+                self.finish_tools("GET388 proposal ready. Review before saving.")
+            return
+        raise AssertionError("Unknown GET388 synthetic journey")
 
     def speech(self, route):
         size = int(self.headers.get("Content-Length", "0"))
