@@ -1,5 +1,22 @@
 import Foundation
 
+/// Stable path identity even when Foundation canonicalizes a newly-created
+/// /private/tmp or /private/var ancestor differently from its missing children.
+/// This is not authorization: callers must separately reject notebook links.
+enum NotebookPath {
+  static func canonicalPath(_ url: URL) -> String {
+    var ancestor = url.standardizedFileURL
+    var missing: [String] = []
+    while ancestor.path != "/" && !FileManager.default.fileExists(atPath: ancestor.path) {
+      missing.append(ancestor.lastPathComponent)
+      ancestor.deleteLastPathComponent()
+    }
+    let existing = ancestor.resolvingSymlinksInPath().standardizedFileURL.path
+    guard !missing.isEmpty else { return existing }
+    return (existing == "/" ? "" : existing) + "/" + missing.reversed().joined(separator: "/")
+  }
+}
+
 public struct NotebookEntry: Identifiable, Equatable, Sendable {
   public let memo: Memo
   public let day: String
@@ -990,7 +1007,7 @@ public actor NotebookStore {
   }
 
   public func restore(_ receipt: NotebookTrashReceipt) throws {
-    guard receipt.originRoot == root else { throw NotebookError.invalidPath }
+    guard NotebookPath.canonicalPath(receipt.originRoot) == NotebookPath.canonicalPath(root) else { throw NotebookError.invalidPath }
     let url = try fileURL(for: receipt.entry)
     try coordinatedWrite(at: url) { coordinated in
       let record = try self.readTrash(receipt.id, origin: self.trashOrigin(create: false))
@@ -1039,7 +1056,8 @@ public actor NotebookStore {
   /// Copies only into a new namespace; originals and existing local notes are untouched.
   public func importVault(from source: URL) throws {
     let original = source.standardizedFileURL
-    guard original != root, !original.path.hasPrefix(root.path + "/"),
+    let sourcePath = NotebookPath.canonicalPath(original), rootPath = NotebookPath.canonicalPath(root)
+    guard sourcePath != rootPath, !sourcePath.hasPrefix(rootPath + "/"),
       fm.fileExists(atPath: original.appendingPathComponent("raw").path)
         || fm.fileExists(atPath: original.appendingPathComponent("imports").path)
     else { throw NotebookError.invalidVault }
@@ -1215,7 +1233,7 @@ public actor NotebookStore {
 
   private func fileURL(for entry: NotebookEntry) throws -> URL {
     guard Self.validDay(entry.day) else { throw NotebookError.invalidPath }
-    if let origin = entry.originRoot, origin != root { throw NotebookError.invalidPath }
+    if let origin = entry.originRoot, NotebookPath.canonicalPath(origin) != NotebookPath.canonicalPath(root) { throw NotebookError.invalidPath }
     let url = try vaultURL(namespace: entry.namespace).appendingPathComponent("raw/\(entry.day).md")
     try validateContained(url)
     return url
@@ -1258,13 +1276,13 @@ public actor NotebookStore {
     if let attributes = try? fm.attributesOfItem(atPath: requestedBase.path),
       attributes[.type] as? FileAttributeType == .typeSymbolicLink
     { throw NotebookError.invalidPath }
-    // Directory enumeration canonicalizes system ancestors such as /var → /private/var.
-    let base = candidate.path.hasPrefix(requestedBase.path + "/")
-      ? requestedBase : requestedBase.resolvingSymlinksInPath().standardizedFileURL
-    guard candidate.path.hasPrefix(base.path + "/") else { throw NotebookError.invalidPath }
+    let base = NotebookPath.canonicalPath(requestedBase)
+    let resolved = NotebookPath.canonicalPath(candidate)
+    guard resolved.hasPrefix(base + "/") else { throw NotebookError.invalidPath }
     // Reject links even when they resolve inside the notebook, including dangling links.
+    // Walk the original spelling so canonical comparison cannot hide a link.
     var path = candidate
-    while path.path.hasPrefix(base.path + "/") || path == base {
+    while true {
       do {
         let attributes = try fm.attributesOfItem(atPath: path.path)
         guard attributes[.type] as? FileAttributeType != .typeSymbolicLink else {
@@ -1273,12 +1291,11 @@ public actor NotebookStore {
       } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError {
         // New files and directories are validated through their existing ancestors.
       }
-      if path == base { break }
+      let current = NotebookPath.canonicalPath(path)
+      if current == base { break }
+      guard current.hasPrefix(base + "/") else { throw NotebookError.invalidPath }
       path.deleteLastPathComponent()
     }
-    let resolvedRoot = base.resolvingSymlinksInPath().standardizedFileURL.path
-    let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL.path
-    guard resolved.hasPrefix(resolvedRoot + "/") else { throw NotebookError.invalidPath }
   }
   private static func validDay(_ day: String) -> Bool {
     guard day.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil else {
