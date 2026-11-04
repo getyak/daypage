@@ -43,6 +43,14 @@ enum ConversationActionGate {
       return permit
     }
   }
+  static func validateToolAccess(root: URL, conversationID: UUID, lease: UUID, scope: String) throws {
+    try synchronized {
+      let conversation = try read(root: root, id: conversationID)
+      guard state.leases[key(root: root, id: conversationID)] == lease,
+        conversation.scope == scope, conversation.usesTools == true,
+        conversation.includesNotes != false else { throw NotebookError.conflict }
+    }
+  }
   static func withAuthorization<T>(_ permit: NoteActionAuthorization?, root: URL,
     proposal: NoteActionProposal, allowedCardRefs: Set<String>, operation: () throws -> T) throws -> T {
     // Trusted standalone core operations retain their explicit caller authority.

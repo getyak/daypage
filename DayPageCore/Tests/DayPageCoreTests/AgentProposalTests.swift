@@ -5,8 +5,36 @@ private actor ProposalEvents {
   var values: [AgentEvent] = []
   func append(_ event: AgentEvent) { values.append(event) }
 }
+private actor ToolAccessFlag {
+  var allowed = true
+  func revoke() { allowed = false }
+  func validate() throws { if !allowed { throw NotebookError.conflict } }
+}
 
 final class AgentProposalTests: XCTestCase {
+  func testRevokingAccessAfterAProviderResponsePreventsTheNextToolAndRequest() async throws {
+    let flag = ToolAccessFlag(), events = ProposalEvents()
+    let fixture = try AIFixture([["choices": [["finish_reason": "tool_calls", "message": [
+      "role": "assistant", "tool_calls": [["id": "create", "type": "function", "function": [
+        "name": "notes_create", "arguments": #"{"body":"Must not be proposed"}"#]]]]]]]])
+    let client = AIClient(transport: AITransport(load: { request, _ in
+      let result = try await fixture.load(request)
+      await flag.revoke()
+      return result
+    }))
+    do {
+      try await client.runWithTools(configuration: .init(baseURL: "https://example.com/v1", model: "fixture-model"),
+        apiKey: "fixture", messages: [.init(role: .user, content: "Create a note")],
+        context: .build(entries: [], question: ""),
+        toolContext: .init(entries: [], validateAccess: { try await flag.validate() }),
+        character: .companion, onEvent: { await events.append($0) })
+      XCTFail("Revoked tool session continued")
+    } catch { }
+    let requests = await fixture.recorded(), captured = await events.values
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertFalse(captured.contains { if case .proposals = $0 { return true }; return false })
+    XCTAssertFalse(captured.contains(.stream(.finished)))
+  }
   func testModelCanOnlyProposeAndTheExactProposalSurvivesConversationReopening() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }

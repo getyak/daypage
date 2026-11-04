@@ -182,6 +182,10 @@ public actor ConversationStore {
     try ConversationActionGate.issue(root: root, conversationID: conversationID, messageID: messageID,
       lease: lease, proposal: proposal, allowsCreation: allowsCreation)
   }
+  public func validateToolAccess(conversationID: UUID, lease: UUID, scope: String) throws {
+    try ConversationActionGate.validateToolAccess(root: root, conversationID: conversationID,
+      lease: lease, scope: scope)
+  }
   public func history() throws -> ChatHistory {
     let folder = root.appendingPathComponent(".daypage/chats")
     guard FileManager.default.fileExists(atPath: folder.path) else {

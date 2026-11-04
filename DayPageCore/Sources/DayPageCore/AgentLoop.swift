@@ -29,6 +29,7 @@ extension AIClient {
     context: NoteContext, toolContext: NoteToolContext, character: ChatCharacter,
     onEvent: @escaping @Sendable (AgentEvent) async throws -> Void) async throws {
     try Task.checkCancellation()
+    try await toolContext.validateAccess?()
     let resolved = try await AIModelCatalog(transport: transport).resolve(configuration: configuration, apiKey: apiKey)
     let dialect = AgentDialect(configuration: resolved)
     var request = try makeRequest(configuration: resolved, apiKey: apiKey, messages: messages,
@@ -49,6 +50,8 @@ extension AIClient {
       let payload = try JSONSerialization.data(withJSONObject: body)
       guard payload.count <= 512 * 1024 else { throw AIError.tooLarge }
       request.httpBody = payload
+      try await toolContext.validateAccess?()
+      try Task.checkCancellation()
       let data = try await transport.data(for: request, maximumBytes: 512 * 1024)
       try Task.checkCancellation()
       let reply = try dialect.parse(data: data)

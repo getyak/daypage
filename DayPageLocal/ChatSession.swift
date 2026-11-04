@@ -175,7 +175,6 @@ final class ChatSession: ObservableObject {
       let key = config.usesAPIKey ? try KeychainSecretStore.read(origin: origin) : ""
       let character = retry ? conversation.messages.last?.character ?? conversation.nextCharacter : conversation.nextCharacter
       let useTools = conversation.usesTools == true && conversation.includesNotes != false
-      let allowedEntries = ConversationNoteScope.entries(notebook.entries, conversation: conversation)
       draftTask?.cancel(); sending = true; error = nil; recovery = .none
       toolStatus = nil
       if !retry, conversation.messages.last?.role != .user || conversation.messages.last?.content != question {
@@ -199,21 +198,31 @@ final class ChatSession: ObservableObject {
           lastCheckpoint = Date()
           if useTools {
             let allNotes = conversation.scope == "all-notes"
-            let authorizedRefs = allNotes ? Set(allowedEntries.map(\.id))
-              : Set(conversation.scope.components(separatedBy: "\n"))
-            let relations = try await notebook.store.relations(allowedCardRefs: authorizedRefs, allNotes: allNotes)
+            let authorizedRefs = allNotes ? Set<String>() : Set(conversation.scope.components(separatedBy: "\n"))
+            let snapshot = try await notebook.store.toolSnapshot(allowedCardRefs: authorizedRefs, allNotes: allNotes)
+            let allowedEntries = snapshot.entries
+            guard let currentLease = lease else { throw NotebookError.conflict }
+            let chatStore = notebook.conversations
+            let conversationID = conversation.id, scope = conversation.scope
             let toolContext = NoteToolContext(entries: allowedEntries, attachmentReader: { cardRef, index in
               try await notebook.readToolAttachment(cardRef: cardRef, index: index, allowedEntries: allowedEntries)
-            }, relations: relations, proposalWriter: { try await notebook.store.saveProposal($0) },
+            }, relations: snapshot.relations, proposalWriter: { try await notebook.store.saveProposal($0) },
               proposalNamespace: userID, proposalCreatedAt: userDate,
-              authorizedCardRefs: authorizedRefs, allNotes: allNotes, allowsCreation: true)
+              authorizedCardRefs: authorizedRefs, allNotes: allNotes, allowsCreation: true,
+              validateAccess: { try await chatStore.validateToolAccess(conversationID: conversationID,
+                lease: currentLease, scope: scope) })
+            await notebook.refresh()
             try await AIClient().runWithTools(configuration: config, apiKey: key, messages: outbound,
               context: NoteContext.build(entries: allowedEntries, question: question), toolContext: toolContext, character: character) { [weak self] event in
                 try await self?.receiveAgent(event, replyID: reply.id)
               }
           } else {
+            let fresh: [NotebookEntry]
+            if conversation.includesNotes == false { fresh = [] }
+            else { fresh = try await notebook.store.entries() }
+            let allowed = ConversationNoteScope.entries(fresh, conversation: conversation, requireTools: false)
             try await AIClient().stream(configuration: config, apiKey: key, messages: outbound,
-              context: context, character: character) { [weak self] event in
+              context: NoteContext.build(entries: allowed, question: question), character: character) { [weak self] event in
                 try await self?.receive(event, replyID: reply.id)
               }
           }
