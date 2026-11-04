@@ -182,6 +182,33 @@ final class NoteActionsTests: XCTestCase {
     XCTAssertEqual(entries.count, 1)
   }
 
+  func testSameUserTurnRetryAfterConfirmationCannotAppendTwice() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "Original once"))
+    let originalEntries = try await store.entries(), target = try XCTUnwrap(originalEntries.first)
+    let namespace = UUID(), timestamp = Date(timeIntervalSince1970: 1_799_999_999)
+    let args = try JSONSerialization.data(withJSONObject: ["card_ref": target.id, "body": "Only one addition"])
+    let arguments = String(decoding: args, as: UTF8.self)
+    let first = try await NoteToolExecutor.execute(name: "notes_append", arguments: arguments,
+      context: .init(entries: originalEntries, proposalNamespace: namespace, proposalCreatedAt: timestamp))
+    let proposal = try XCTUnwrap(first.proposals.first)
+    _ = try await store.apply(proposal, allowedCardRefs: [target.id])
+    let currentEntries = try await store.entries()
+    let retry = try await NoteToolExecutor.execute(name: "notes_append", arguments: arguments,
+      context: .init(entries: currentEntries, proposalNamespace: namespace, proposalCreatedAt: timestamp))
+    let retriedProposal = try XCTUnwrap(retry.proposals.first)
+    XCTAssertEqual(retriedProposal.id, proposal.id)
+    XCTAssertNotEqual(retriedProposal.expectedRevision, proposal.expectedRevision)
+    do { _ = try await store.apply(retriedProposal, allowedCardRefs: [target.id]); XCTFail("A retry must not create another action") } catch { }
+    let after = try await store.entries()
+    XCTAssertEqual(after.first?.memo.body, "Original once\n\nOnly one addition")
+    let persistedRetry = try await NoteToolExecutor.execute(name: "notes_append", arguments: arguments,
+      context: .init(entries: currentEntries, proposalWriter: { try await store.saveProposal($0) },
+        proposalNamespace: namespace, proposalCreatedAt: timestamp))
+    XCTAssertTrue(persistedRetry.isError)
+    XCTAssertTrue(persistedRetry.proposals.isEmpty)
+  }
+
   func testStaleRelationReadsAndUnlinkUndoKeepExactSelectedEdge() async throws {
     let root = try temporaryRoot(), store = NotebookStore(root: root)
     try await store.append(Memo(body: "First source pricing notebook"))

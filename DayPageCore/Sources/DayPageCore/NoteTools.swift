@@ -259,8 +259,10 @@ extension NoteToolExecutor {
                   before: String? = nil, after: String? = nil, tags: [String]? = nil,
                   pinned: Bool? = nil, relation: NoteRelation? = nil) throws -> NoteActionProposal {
       let canonical = try JSONSerialization.data(withJSONObject: args, options: [.sortedKeys, .withoutEscapingSlashes])
+      // Turn identity must survive the very mutation it authorized. Revisions
+      // stay in the immutable payload; a changed snapshot under the same ID
+      // conflicts with the durable original instead of becoming a second action.
       let identity = context.proposalNamespace.uuidString + "\n" + name + "\n" + String(decoding: canonical, as: UTF8.self)
-        + "\n" + (target?.revision ?? "") + "\n" + (relation?.fromRevision ?? "") + "\n" + (relation?.toRevision ?? "")
       return NoteActionProposal(id: NoteActionIdentity.uuid(identity), kind: kind, createdAt: context.proposalCreatedAt,
         target: target.map { source($0) }, expectedRevision: target?.revision,
         body: body, before: before, after: after, tags: tags, pinned: pinned, relation: relation)
