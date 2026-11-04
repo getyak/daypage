@@ -83,6 +83,8 @@ Unsigned test or evidence-validation failures are retained while the signed jour
 
 The host-side regression `python3 scripts/tests/test_local_native_ci.py` executes this shell orchestration with isolated command doubles. It checks failure propagation, evidence collection and preservation of the unsigned hash before overwrite. It opens no network listener, runs no Simulator or Xcode and supplies no native-acceptance evidence.
 
+If fixture readiness fails, the runner preserves the launched PID, direct child process metadata, raw listener output and an independent bounded loopback health summary. Only the HTTP status, exit code, byte count and expected-marker comparison are recorded; unknown response headers, body and errors are not uploaded. A healthy response alone cannot satisfy ownership or authorize tests. These failure-only diagnostics do not change the readiness timeout or acceptance conditions.
+
 When GitHub cannot allocate its ARM runners, manual dispatch supports `-f runner_architecture=intel`. Both jobs then use the standard macos-26-intel image, which includes the current Xcode/iOS Simulator tools; PR and main-push defaults stay unchanged. Record the actual host and Simulator architecture from the receipts. This selects capacity only: the same signed/unsigned journeys, evidence and failure gates still apply.
 
 The additional manual `runner_architecture=intel15` choice uses macos-15-intel and explicitly selects its installed Xcode 26.3 rather than the image's older default. Its iOS 26.2 Simulator result is separate evidence from macOS 26/iOS 26.5 runs. It retains the same complete native matrix and does not change publication or automatic CI defaults.

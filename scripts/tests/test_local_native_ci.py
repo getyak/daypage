@@ -114,9 +114,23 @@ elif tool == "lsof":
     path = state / "fixture.pid"
     if not path.exists():
         raise SystemExit(1)
-    print(path.read_text())
+    print("99999999" if mode in {"foreign_listener", "foreign_response"} else path.read_text())
 elif tool == "curl":
-    print("GET-326-local-fixture")
+    if "--output" in args:
+        foreign = mode == "foreign_response"
+        pathlib.Path(option("--output")).write_text(
+            "UNTRUSTED_BODY_SENTINEL" if foreign else "GET-326-local-fixture")
+        if "--dump-header" in args:
+            pathlib.Path(option("--dump-header")).write_text(
+                "HTTP/1.1 200 OK\nSet-Cookie: UNTRUSTED_HEADER_SENTINEL\n")
+        if foreign:
+            print("UNTRUSTED_ERROR_SENTINEL", file=sys.stderr)
+        print("200", end="")
+    else:
+        print("GET-326-local-fixture")
+elif tool == "sleep":
+    import time
+    time.sleep(0.005 if mode in {"foreign_listener", "foreign_response"} else float(args[0]))
 elif tool == "codesign":
     event("mock-signature-check")
 elif tool == "otool":
@@ -155,7 +169,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         double = binaries / "command-double"
         double.write_text(TOOL_DOUBLE)
         double.chmod(0o700)
-        for tool in ("git", "xcodebuild", "xcrun", "lsof", "curl", "codesign", "otool"):
+        for tool in ("git", "xcodebuild", "xcrun", "lsof", "curl", "sleep", "codesign", "otool"):
             (binaries / tool).symlink_to(double.name)
         runner = root / "runner"
         runner.mkdir()
@@ -179,8 +193,42 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             os.killpg(process.pid, signal.SIGTERM)
             output, _ = process.communicate(timeout=5)
             self.fail("Host orchestration fixture timed out:\n" + output[-2000:])
-        events = (state / "events").read_text().splitlines()
+        events_path = state / "events"
+        events = events_path.read_text().splitlines() if events_path.exists() else []
         return process.returncode, output, evidence, events
+
+    def test_foreign_listener_keeps_readiness_failure_and_collects_both_boundary_diagnostics(self):
+        code, output, evidence, events = self.run_fixture("foreign_listener")
+        self.assertEqual(code, 1, output)
+        self.assertEqual(events, [])
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+        self.assertFalse((evidence / "negative-build.log").exists())
+        diagnostics = evidence / "fixture-readiness.log"
+        self.assertTrue(diagnostics.exists(), "A readiness failure must preserve ownership and HTTP evidence")
+        text = diagnostics.read_text()
+        self.assertIn("fixture_pid=", text)
+        self.assertIn("last_listener=99999999", text)
+        self.assertIn("listener_exit=0", text)
+        self.assertIn("health_exit=0", text)
+        self.assertIn("99999999", (evidence / "fixture-listeners.log").read_text())
+        health = json.loads((evidence / "fixture-health.log").read_text())
+        self.assertEqual(health["httpCode"], "200")
+        self.assertTrue(health["expectedMarkerMatches"])
+
+    def test_unknown_listener_http_content_never_enters_uploaded_evidence(self):
+        code, output, evidence, events = self.run_fixture("foreign_response")
+        self.assertEqual(code, 1, output)
+        self.assertEqual(events, [])
+        for path in evidence.rglob("*"):
+            if path.is_file():
+                self.assertNotIn(b"UNTRUSTED_", path.read_bytes(), path.name)
+        self.assertNotIn("UNTRUSTED_", output)
+        self.assertFalse((evidence / "fixture-health-body.log").exists())
+        self.assertFalse((evidence / "fixture-health-headers.log").exists())
+        health = json.loads((evidence / "fixture-health.log").read_text())
+        self.assertEqual(health["httpCode"], "200")
+        self.assertFalse(health["expectedMarkerMatches"])
+        self.assertLessEqual(health["bodyBytesRead"], 1025)
 
     def assert_signed_evidence(self, evidence, events):
         self.assertIn("signed-tests", events)
@@ -240,6 +288,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
     def test_missing_unsigned_binary_stops_before_it_can_be_overwritten(self):
         code, output, evidence, events = self.run_fixture("missing_unsigned_binary")
         self.assertNotEqual(code, 0, output)
+        self.assertIn("unsigned-build", events)
         self.assertNotIn("signed-build", events)
         self.assertFalse((evidence / "native-acceptance.json").exists())
 
