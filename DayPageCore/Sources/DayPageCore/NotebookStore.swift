@@ -336,10 +336,10 @@ extension NotebookStore {
     for value in object["relations"] as? [Any] ?? [] { try relation(value) }
     for value in object["records"] as? [Any] ?? [] {
       let record = try keys(value, ["receipt", "committed", "undoPrepared", "quarantined", "relationGeneration", "cardRef", "beforeBlock", "afterBlock", "ownsRelation"])
-      guard let value = record["receipt"] else { throw NoteActionError.corruptMetadata }
-      let receipt = try keys(value, ["id", "proposal", "status", "savedSource", "relation", "appliedAt"])
-      guard let value = receipt["proposal"] else { throw NoteActionError.corruptMetadata }
-      try proposal(value); try source(receipt["savedSource"]); try relation(receipt["relation"])
+      guard let receiptValue = record["receipt"] else { throw NoteActionError.corruptMetadata }
+      let receipt = try keys(receiptValue, ["id", "proposal", "status", "savedSource", "relation", "appliedAt"])
+      guard let proposalValue = receipt["proposal"] else { throw NoteActionError.corruptMetadata }
+      try proposal(proposalValue); try source(receipt["savedSource"]); try relation(receipt["relation"])
     }
   }
 
