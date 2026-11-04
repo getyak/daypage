@@ -114,6 +114,47 @@ import Foundation
     let afterSwitch = try await notebook.conversations.history().conversations.count
     precondition(afterSwitch == beforeSwitch + 1, "Concurrent navigation must not race two session transitions")
     print("PASS: rapid conversation navigation is serialized and flushes the old draft")
+    try await checkReviewedActions(root: root.appendingPathComponent("reviewed-actions"))
+  }
+  @MainActor private static func checkReviewedActions(root: URL) async throws {
+    let notebook = NotebookModel(root: root)
+    let result = try await NoteToolExecutor.execute(name: "notes_create",
+      arguments: #"{"body":"A reviewed synthetic note"}"#,
+      context: .init(entries: [], proposalWriter: { try await notebook.store.saveProposal($0) }))
+    guard let proposal = result.proposals.first else { preconditionFailure("Missing proposal") }
+    var reply = ChatMessage(role: .assistant, content: "Review", delivery: .complete)
+    reply.proposals = [proposal]
+    var conversation = Conversation(messages: [reply]); conversation.usesTools = true
+    try await notebook.conversations.save(conversation)
+    let first = ChatSession()
+    await first.load(notebook: notebook, selectedIDs: nil)
+    precondition(first.canReviewActions)
+    let saved = await first.confirm(proposal, messageID: reply.id, notebook: notebook)
+    precondition(saved && notebook.entries.count == 1)
+    let receipt = first.receipt(for: proposal)
+    precondition(receipt?.status == .applied)
+    let reopened = ChatSession()
+    await reopened.load(notebook: notebook, selectedIDs: nil)
+    precondition(reopened.receipt(for: proposal) == receipt)
+    let staleUndo = await first.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(!staleUndo && notebook.entries.count == 1, "A superseded session must never undo")
+    await reopened.setIncludesNotes(false)
+    let disabledUndo = await reopened.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(!disabledUndo && notebook.entries.count == 1)
+    await reopened.setIncludesNotes(true); await reopened.setUsesTools(true)
+    let undone = await reopened.confirm(proposal, messageID: reply.id, notebook: notebook, undo: true)
+    precondition(undone && notebook.entries.isEmpty)
+    print("PASS: native session confirms one real note, reads receipts after reopening, rejects stale/disabled undo")
+    let journal = root.appendingPathComponent(".daypage/note-actions.json")
+    try FileManager.default.moveItem(at: journal, to: root.appendingPathComponent("retained-action-journal.json"))
+    let damaged = ChatSession()
+    await damaged.load(notebook: notebook, selectedIDs: nil)
+    precondition(!damaged.actionsReady && damaged.actionError != nil)
+    precondition(damaged.receipt(for: proposal)?.status == .undone,
+      "Losing a journal must never turn a known receipt into a new proposal")
+    let blocked = await damaged.confirm(proposal, messageID: reply.id, notebook: notebook)
+    precondition(!blocked && notebook.entries.isEmpty)
+    print("PASS: missing action history preserves known receipt state and blocks replay")
   }
   @MainActor private static func waitForReply(_ session: ChatSession) async throws {
     for _ in 0..<80 {

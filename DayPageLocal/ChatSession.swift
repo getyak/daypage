@@ -198,11 +198,15 @@ final class ChatSession: ObservableObject {
           try await flush() // Save the question before starting any network request.
           lastCheckpoint = Date()
           if useTools {
-            let relations = try await notebook.store.relations(allowedCardRefs: Set(allowedEntries.map(\.id)))
+            let allNotes = conversation.scope == "all-notes"
+            let authorizedRefs = allNotes ? Set(allowedEntries.map(\.id))
+              : Set(conversation.scope.components(separatedBy: "\n"))
+            let relations = try await notebook.store.relations(allowedCardRefs: authorizedRefs, allNotes: allNotes)
             let toolContext = NoteToolContext(entries: allowedEntries, attachmentReader: { cardRef, index in
               try await notebook.readToolAttachment(cardRef: cardRef, index: index, allowedEntries: allowedEntries)
             }, relations: relations, proposalWriter: { try await notebook.store.saveProposal($0) },
-              proposalNamespace: userID, proposalCreatedAt: userDate)
+              proposalNamespace: userID, proposalCreatedAt: userDate,
+              authorizedCardRefs: authorizedRefs, allNotes: allNotes, allowsCreation: true)
             try await AIClient().runWithTools(configuration: config, apiKey: key, messages: outbound,
               context: NoteContext.build(entries: allowedEntries, question: question), toolContext: toolContext, character: character) { [weak self] event in
                 try await self?.receiveAgent(event, replyID: reply.id)
@@ -268,13 +272,22 @@ final class ChatSession: ObservableObject {
 
   func reloadReceipts() async {
     guard let actionStore else { return }
+    let known = conversation.messages.flatMap { $0.receipts ?? [] }
+      .reduce(into: [UUID: NoteActionReceipt]()) { $0[$1.id] = $1 }
     do {
       let receipts = try await actionStore.actionReceipts()
       guard Set(receipts.map(\.id)).count == receipts.count else { throw NotebookError.ambiguousRecord }
-      persistedReceipts = receipts.reduce(into: [:]) { $0[$1.id] = $1 }
+      let disk = receipts.reduce(into: [UUID: NoteActionReceipt]()) { $0[$1.id] = $1 }
+      guard known.allSatisfy({ id, old in
+        disk[id]?.proposal == old.proposal && disk[id]?.appliedAt == old.appliedAt
+          && (old.status != .undone || disk[id]?.status == .undone)
+      }) else { throw NoteActionError.corruptMetadata }
+      persistedReceipts = disk
       actionsReady = true
       actionError = nil
     } catch {
+      // Never present a known historical success as a new unsaved proposal.
+      persistedReceipts.merge(known) { current, _ in current }
       actionsReady = false
       actionError = String(localized: "Previous changes could not be checked. Your notes are kept. Retry before saving another change.")
     }
@@ -311,13 +324,20 @@ final class ChatSession: ObservableObject {
       let fresh = try await notebook.store.entries()
       guard conversation.id == conversationID, conversation.includesNotes != false,
         conversation.usesTools == true else { throw NotebookError.conflict }
-      let refs = Set(ConversationNoteScope.entries(fresh, conversation: conversation).map(\.id))
+      var refs = conversation.scope == "all-notes" ? Set(fresh.map(\.id))
+        : Set(conversation.scope.components(separatedBy: "\n"))
+      if conversation.scope == "all-notes", let relation = proposal.relation {
+        refs.formUnion([relation.from.cardRef, relation.to.cardRef])
+      }
+      guard let store, let lease else { throw NotebookError.conflict }
+      let authorization = try await store.authorizeAction(conversationID: conversationID,
+        messageID: messageID, lease: lease, proposal: proposal, allowsCreation: true)
       let saved: NoteActionReceipt
       if undo {
         guard let receipt = persistedReceipts[proposal.id], receipt.status == .applied else { return false }
-        saved = try await notebook.store.undo(receipt, allowedCardRefs: refs)
+        saved = try await notebook.store.undo(receipt, allowedCardRefs: refs, authorization: authorization)
       } else {
-        saved = try await notebook.store.apply(proposal, allowedCardRefs: refs)
+        saved = try await notebook.store.apply(proposal, allowedCardRefs: refs, authorization: authorization)
       }
       persistedReceipts[saved.id] = saved
       var receipts = conversation.messages[index].receipts ?? []

@@ -48,6 +48,7 @@ struct NoteActionCard: View {
   @State private var showsReview = false
   @State private var savedEntry: NotebookEntry?
   @State private var openError: String?
+  @State private var showsSavedRelation = false
   private var receipt: NoteActionReceipt? { session.receipt(for: proposal) }
 
   var body: some View {
@@ -63,6 +64,24 @@ struct NoteActionCard: View {
           systemImage: receipt.status == .undone ? "arrow.uturn.backward" : "checkmark.circle")
           .font(.caption).foregroundStyle(.secondary)
           .accessibilityIdentifier("note-action-status-" + proposal.id.uuidString)
+        if let relation = receipt.relation {
+          Button { showsSavedRelation.toggle() } label: {
+            HStack {
+              Text("Connection details")
+              Spacer()
+              Image(systemName: showsSavedRelation ? "chevron.up" : "chevron.down")
+            }.font(.caption).frame(minHeight: 44).contentShape(Rectangle())
+          }.buttonStyle(.plain).accessibilityIdentifier("note-relation-details-" + proposal.id.uuidString)
+          if showsSavedRelation {
+            VStack(alignment: .leading, spacing: 8) {
+              Text(relation.type.title).font(.subheadline)
+              savedEndpoint(relation.from, revision: relation.fromRevision)
+              Label("To", systemImage: "arrow.down").font(.caption)
+              savedEndpoint(relation.to, revision: relation.toRevision)
+              Text(relation.reason).font(.caption).textSelection(.enabled)
+            }.padding(.vertical, 6)
+          }
+        }
         if receipt.status == .applied {
           HStack {
             if let source = receipt.savedSource {
@@ -101,6 +120,22 @@ struct NoteActionCard: View {
           }
         }
       }
+  }
+
+  private func savedEndpoint(_ source: NoteToolSource, revision: String) -> some View {
+    let authorized = session.conversation.scope == "all-notes"
+      || session.conversation.scope.components(separatedBy: "\n").contains(source.cardRef)
+    let entry = authorized ? notebook.entries.first(where: { $0.id == source.cardRef }) : nil
+    return VStack(alignment: .leading, spacing: 4) {
+      Text(source.day).font(.caption).foregroundStyle(.secondary)
+      if let entry {
+        Text(source.snippet).font(.caption).textSelection(.enabled)
+        if entry.revision != revision { Text("Original note changed since this connection was saved.").font(.caption).foregroundStyle(.secondary) }
+        Button("Open original") { savedEntry = entry }.font(.caption).frame(minHeight: 44)
+      } else {
+        Text("Original note unavailable").font(.caption).foregroundStyle(.secondary)
+      }
+    }
   }
 }
 

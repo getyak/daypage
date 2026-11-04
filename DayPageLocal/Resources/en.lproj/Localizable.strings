@@ -390,6 +390,9 @@
 "Keep a thought. The earlier days are just below." = "Keep a thought. The earlier days are just below.";
 "Keep scrolling to explore the days around it." = "Keep scrolling to explore the days around it.";
 "Privacy policy" = "Privacy policy";
+"Connection details" = "Connection details";
+"Original note changed since this connection was saved." = "Original note changed since this connection was saved.";
+"Original note unavailable" = "Original note unavailable";
 
 // GET-388: reviewed note changes and relationships
 "Create note" = "Create note";

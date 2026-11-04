@@ -390,6 +390,9 @@
 "Keep a thought. The earlier days are just below." = "随手记一点，往下也能翻到从前。";
 "Keep scrolling to explore the days around it." = "继续翻阅，看看前后的日子。";
 "Privacy policy" = "隐私政策";
+"Connection details" = "关联详情";
+"Original note changed since this connection was saved." = "保存关联后，原笔记已有修改。";
+"Original note unavailable" = "原笔记已不可用";
 
 // GET-388: reviewed note changes and relationships
 "Create note" = "创建笔记";
