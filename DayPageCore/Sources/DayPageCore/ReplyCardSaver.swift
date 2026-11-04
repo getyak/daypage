@@ -39,11 +39,11 @@ public enum ReplyCardSaver {
 
 /// Coalesces rapid taps even when separate store actors straddle a local-day boundary.
 private actor ReplySaveCoordinator {
-  private struct Key: Hashable { let root: URL; let id: UUID }
+  private struct Key: Hashable { let root: String; let id: UUID }
   private var pending: [Key: Task<NotebookEntry, Error>] = [:]
 
   func save(id: UUID, text: String, store: NotebookStore, created: Date) async throws -> NotebookEntry {
-    let key = Key(root: store.root.standardizedFileURL, id: id)
+    let key = Key(root: NotebookPath.canonicalPath(store.root), id: id)
     if let task = pending[key] {
       let result = try await task.value
       guard result.memo.body == text else { throw NotebookError.conflict }
