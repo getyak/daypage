@@ -116,7 +116,7 @@ final class NoteActionsTests: XCTestCase {
     let directory = root.appendingPathComponent(".daypage")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let state = directory.appendingPathComponent("note-actions.json")
-    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: UUID())).write(to: directory.appendingPathComponent("note-actions-origin.json"))
+    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: UUID(), established: true)).write(to: directory.appendingPathComponent("note-actions-origin.json"))
     let bytes = Data(#"{"version":999,"evidence":"preserve"}"#.utf8)
     try bytes.write(to: state)
     let store = NotebookStore(root: root)
@@ -327,7 +327,7 @@ final class NoteActionsTests: XCTestCase {
     let directory = root.appendingPathComponent(".daypage")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let metadata = directory.appendingPathComponent("note-actions.json")
-    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: UUID())).write(to: directory.appendingPathComponent("note-actions-origin.json"))
+    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: UUID(), established: true)).write(to: directory.appendingPathComponent("note-actions-origin.json"))
     for text in ["{", #"{"version":1}"#,
       #"{"version":1,"proposals":[],"records":[],"relations":[],"future_evidence":"keep"}"#] {
       let bytes = Data(text.utf8); try bytes.write(to: metadata)
@@ -488,5 +488,75 @@ final class NoteActionsTests: XCTestCase {
     XCTAssertTrue(denied.isError)
     let createDenied = try await NoteToolExecutor.execute(name: "notes_create", arguments: #"{"body":"Host disabled creation"}"#, context: .init(entries: current, allowsCreation: false))
     XCTAssertTrue(createDenied.isError)
+  }
+
+  func testFreshToolSnapshotSupportsLargeOrdinaryCaptureDaysAndReflectsCurrentEvidence() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "First current notebook source"))
+    try await store.append(Memo(body: "Second current notebook source"))
+    let entries = try await store.entries(), scope = Set(entries.map(\.id))
+    let link = try await propose("relations_link", ["from_card_ref": entries[0].id, "to_card_ref": entries[1].id, "type": "related", "reason": "Same notebook topic"], entries: entries, store: store)
+    _ = try await store.apply(link, allowedCardRefs: scope)
+    try await store.append(Memo(created: entries[0].memo.created, body: String(repeating: "x", count: 4 * 1024 * 1024)))
+    try await store.update(entries[0], body: "Changed current evidence")
+    let snapshot = try await store.toolSnapshot(allowedCardRefs: scope)
+    XCTAssertEqual(snapshot.entries.count, 2)
+    XCTAssertTrue(snapshot.entries.contains { $0.memo.body == "Changed current evidence" })
+    XCTAssertTrue(snapshot.relations[0].isStale)
+    let listed = try await store.relations(allowedCardRefs: scope)
+    XCTAssertEqual(listed.count, 1)
+    let all = try await store.toolSnapshot(allowedCardRefs: [], allNotes: true)
+    XCTAssertEqual(all.entries.count, 3)
+    let search = try await NoteToolExecutor.execute(name: "notes_search", arguments: #"{"query":"Changed current"}"#, context: .init(entries: snapshot.entries, relations: snapshot.relations))
+    XCTAssertEqual(search.sources.map(\.cardRef), [entries[0].id])
+  }
+
+  func testInitialOriginPublicationCanRetryButEstablishedHistoryCannotReset() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    let directory = root.appendingPathComponent(".daypage")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let marker = directory.appendingPathComponent("note-actions-origin.json"), origin = UUID()
+    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: origin, established: false)).write(to: marker)
+    let empty = try await store.actionReceipts()
+    XCTAssertTrue(empty.isEmpty)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("note-actions.json").path))
+    let proposal = try await propose("notes_create", ["body": "Retried initial proposal publication"], entries: [], store: store)
+    var established = try JSONDecoder().decode(NoteActionOrigin.self, from: Data(contentsOf: marker))
+    XCTAssertEqual(established.origin, origin); XCTAssertTrue(established.established)
+    // Simulate a crash after first proposal-only journal but before establishment.
+    try JSONEncoder().encode(NoteActionOrigin(version: 1, origin: origin, established: false)).write(to: marker)
+    let pending = try await NotebookStore(root: root).pendingProposals()
+    XCTAssertEqual(pending.map(\.id), [proposal.id])
+    established = try JSONDecoder().decode(NoteActionOrigin.self, from: Data(contentsOf: marker))
+    XCTAssertTrue(established.established)
+    _ = try await store.apply(proposal, allowedCardRefs: [])
+    let journal = directory.appendingPathComponent("note-actions.json")
+    try FileManager.default.moveItem(at: journal, to: directory.appendingPathComponent("preserved-established.json"))
+    do { _ = try await store.actionReceipts(); XCTFail("Established history cannot reset") } catch { }
+  }
+
+  func testMetadataOnlyUnlinkWorksWhenImportedRawDirectoryIsMissing() async throws {
+    let root = try temporaryRoot(), store = NotebookStore(root: root)
+    try await store.append(Memo(body: "Local endpoint remains"))
+    let localEntries = try await store.entries(), local = try XCTUnwrap(localEntries.first)
+    let namespace = UUID().uuidString, importedRaw = root.appendingPathComponent("imports/\(namespace)/raw")
+    try FileManager.default.createDirectory(at: importedRaw, withIntermediateDirectories: true)
+    try Memo(body: "Imported endpoint later unavailable").toMarkdown().write(to: importedRaw.appendingPathComponent("\(local.day).md"), atomically: true, encoding: .utf8)
+    let entries = try await store.entries(), imported = try XCTUnwrap(entries.first { $0.namespace == namespace })
+    let scope = Set(entries.map(\.id))
+    let link = try await propose("relations_link", ["from_card_ref": local.id, "to_card_ref": imported.id, "type": "derived_from", "reason": "An imported source"], entries: entries, store: store)
+    _ = try await store.apply(link, allowedCardRefs: scope)
+    let edges = try await store.relations(allowedCardRefs: scope)
+    // Preserve fixture evidence while simulating an unavailable imported folder.
+    try FileManager.default.moveItem(at: importedRaw, to: root.appendingPathComponent("preserved-imported-raw"))
+    let current = try await store.toolSnapshot(allowedCardRefs: scope)
+    XCTAssertEqual(current.entries.map(\.id), [local.id]); XCTAssertTrue(current.relations[0].isStale)
+    let args = try JSONSerialization.data(withJSONObject: ["relation_id": edges[0].id.uuidString])
+    let result = try await NoteToolExecutor.execute(name: "relations_unlink", arguments: String(decoding: args, as: UTF8.self),
+      context: .init(entries: current.entries, relations: current.relations, proposalWriter: { try await store.saveProposal($0) }, authorizedCardRefs: scope))
+    let unlink = try XCTUnwrap(result.proposals.first)
+    _ = try await store.apply(unlink, allowedCardRefs: scope)
+    let after = try await store.relations(allowedCardRefs: scope)
+    XCTAssertTrue(after.isEmpty)
   }
 }

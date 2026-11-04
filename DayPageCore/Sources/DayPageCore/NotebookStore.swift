@@ -62,18 +62,23 @@ extension NotebookStore {
   }
 
   public func relations(allowedCardRefs: Set<String>, allNotes: Bool = false) throws -> [NoteRelation] {
+    try toolSnapshot(allowedCardRefs: allowedCardRefs, allNotes: allNotes).relations
+  }
+
+  public func toolSnapshot(allowedCardRefs: Set<String>, allNotes: Bool = false) throws -> NoteToolSnapshot {
     try withActionState { state, metadata in
-      try reconcileActions(&state, metadata: metadata)
-      return try state.relations.filter {
+      let fresh = try readEntries(in: root)
+      try reconcileActions(&state, metadata: metadata, entries: fresh)
+      let byRef = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+      let edges = state.relations.filter {
         allNotes || allowedCardRefs.contains($0.from.cardRef) && allowedCardRefs.contains($0.to.cardRef)
       }.map { edge in
         var result = edge
-        let from = try actionBlock(cardRef: edge.from.cardRef)
-        let to = try actionBlock(cardRef: edge.to.cardRef)
-        result.isStale = from.map(NoteActionIdentity.digest) != edge.fromRevision
-          || to.map(NoteActionIdentity.digest) != edge.toRevision
+        result.isStale = byRef[edge.from.cardRef]?.revision != edge.fromRevision
+          || byRef[edge.to.cardRef]?.revision != edge.toRevision
         return result
       }
+      return NoteToolSnapshot(entries: fresh.filter { allNotes || allowedCardRefs.contains($0.id) }, relations: edges)
     }
   }
 
@@ -246,14 +251,18 @@ extension NotebookStore {
     try validateContained(originURL)
     let hasJournal = fm.fileExists(atPath: url.path), hasOrigin = fm.fileExists(atPath: originURL.path)
     if !hasJournal && !hasOrigin { return NoteActionState() }
-    guard hasJournal && hasOrigin else { throw NoteActionError.corruptMetadata }
+    guard hasOrigin else { throw NoteActionError.corruptMetadata }
     let origin = try readActionOrigin(at: originURL)
+    if !hasJournal {
+      guard !origin.established else { throw NoteActionError.corruptMetadata }
+      return NoteActionState(origin: origin.origin)
+    }
     let data = try boundedActionData(at: url, maximum: 32 * 1024 * 1024)
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let version = object["version"] as? Int else { throw NoteActionError.corruptMetadata }
     guard version == 1 else { throw NoteActionError.unsupportedVersion }
     try validateActionMetadataShape(object)
-    guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data), state.origin == origin,
+    guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data), state.origin == origin.origin,
       state.proposals.count <= 1000, state.records.count <= 1000, state.relations.count <= 1000, state.relationGenerations.count <= 1000,
       Set(state.proposals.map(\.id)).count == state.proposals.count,
       Set(state.records.map { $0.receipt.id }).count == state.records.count,
@@ -308,6 +317,12 @@ extension NotebookStore {
     }
     let edgeKeys = state.relations.map { $0.from.cardRef + "\n" + $0.to.cardRef + "\n" + $0.type.rawValue }
     guard Set(edgeKeys).count == edgeKeys.count else { throw NoteActionError.corruptMetadata }
+    if !origin.established {
+      guard state.records.isEmpty, state.relations.isEmpty, state.relationGenerations.isEmpty else { throw NoteActionError.corruptMetadata }
+      // Initial proposal-only publication finished; finalize its provenance
+      // before allowing saveProposal to return or any apply to proceed.
+      try writeActionOrigin(NoteActionOrigin(version: 1, origin: state.origin, established: true), to: originURL)
+    }
     return state
   }
 
@@ -350,24 +365,35 @@ extension NotebookStore {
     guard data.count <= 32 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
     let originURL = url.deletingLastPathComponent().appendingPathComponent("note-actions-origin.json")
     try validateContained(originURL)
+    let established: Bool
     if fm.fileExists(atPath: originURL.path) {
-      guard try readActionOrigin(at: originURL) == state.origin, fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+      let marker = try readActionOrigin(at: originURL)
+      guard marker.origin == state.origin, !marker.established || fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+      established = marker.established
     } else {
       guard !fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
-      // Publish provenance first. Losing the journal after any attempted first
-      // write is conservatively an error, never permission to replay old actions.
-      try encoder.encode(NoteActionOrigin(version: 1, origin: state.origin)).write(to: originURL, options: .withoutOverwriting)
+      established = false
+      try encoder.encode(NoteActionOrigin(version: 1, origin: state.origin, established: false)).write(to: originURL, options: .withoutOverwriting)
+    }
+    if !established {
+      guard state.records.isEmpty, state.relations.isEmpty, state.relationGenerations.isEmpty else { throw NoteActionError.corruptMetadata }
     }
     try validateContained(url)
     try data.write(to: url, options: .atomic)
+    if !established { try writeActionOrigin(NoteActionOrigin(version: 1, origin: state.origin, established: true), to: originURL) }
   }
 
-  private func readActionOrigin(at url: URL) throws -> UUID {
+  private func readActionOrigin(at url: URL) throws -> NoteActionOrigin {
     let data = try boundedActionData(at: url, maximum: 1024)
     guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-      Set(object.keys) == ["version", "origin"],
+      Set(object.keys) == ["version", "origin", "established"],
       let origin = try? JSONDecoder().decode(NoteActionOrigin.self, from: data), origin.version == 1 else { throw NoteActionError.corruptMetadata }
-    return origin.origin
+    return origin
+  }
+
+  private func writeActionOrigin(_ origin: NoteActionOrigin, to url: URL) throws {
+    try validateContained(url)
+    try JSONEncoder().encode(origin).write(to: url, options: .atomic)
   }
 
   private func boundedActionData(at url: URL, maximum: Int) throws -> Data {
@@ -415,11 +441,6 @@ extension NotebookStore {
     let matches = document.blocks.indices.filter { Memo.fromMarkdown(document.blocks[$0])?.id == id }
     guard matches.count <= 1 else { throw NotebookError.ambiguousRecord }
     return matches.first
-  }
-
-  private func actionBlock(cardRef: String) throws -> String? {
-    let document = try actionDocument(at: actionURL(cardRef: cardRef))
-    return try actionIndex(cardRef: cardRef, document: document).map { document.blocks[$0] }
   }
 
   private func requireActionScope(_ proposal: NoteActionProposal, allowed: Set<String>) throws {
@@ -520,14 +541,14 @@ extension NotebookStore {
   private func applyRelation(_ proposal: NoteActionProposal, state: inout NoteActionState, metadata: URL) throws -> NoteActionReceipt {
     guard let proposed = proposal.relation else { throw NoteActionError.invalidProposal }
     // Lock both endpoint day files in stable path order until the metadata commit.
-    let urls = try Array(Set([actionURL(cardRef: proposed.from.cardRef), actionURL(cardRef: proposed.to.cardRef)])).sorted { $0.path < $1.path }
+    let urls = proposal.kind == .link ? try Array(Set([actionURL(cardRef: proposed.from.cardRef), actionURL(cardRef: proposed.to.cardRef)])).sorted { $0.path < $1.path } : []
     var result: NoteActionReceipt?
     try withActionEndpointLocks(urls) {
       if proposal.kind == .link {
-        guard let from = try self.actionBlock(cardRef: proposed.from.cardRef), let to = try self.actionBlock(cardRef: proposed.to.cardRef),
-          NoteActionIdentity.digest(from) == proposed.fromRevision, NoteActionIdentity.digest(to) == proposed.toRevision,
-          Memo.fromMarkdown(from)?.body.hasPrefix(proposed.from.snippet) == true,
-          Memo.fromMarkdown(to)?.body.hasPrefix(proposed.to.snippet) == true else { throw NoteActionError.transactionConflict }
+        let fresh = try self.readEntries(in: self.root)
+        guard let from = fresh.first(where: { $0.id == proposed.from.cardRef }), let to = fresh.first(where: { $0.id == proposed.to.cardRef }),
+          from.revision == proposed.fromRevision, to.revision == proposed.toRevision,
+          from.memo.body.hasPrefix(proposed.from.snippet), to.memo.body.hasPrefix(proposed.to.snippet) else { throw NoteActionError.transactionConflict }
       }
     let edge: NoteRelation
     let owns: Bool
@@ -568,12 +589,16 @@ extension NotebookStore {
     }
   }
 
-  private func reconcileActions(_ state: inout NoteActionState, metadata: URL) throws {
+  private func reconcileActions(_ state: inout NoteActionState, metadata: URL, entries: [NotebookEntry]? = nil) throws {
     var changed = false
-    for index in state.records.indices where !state.records[index].quarantined && (!state.records[index].committed || state.records[index].undoPrepared) {
+    let pending = state.records.indices.filter { !state.records[$0].quarantined && (!state.records[$0].committed || state.records[$0].undoPrepared) }
+    guard !pending.isEmpty else { return }
+    let fresh = try entries ?? readEntries(in: root)
+    let byRef = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+    for index in pending {
       let record = state.records[index]
       guard let ref = record.cardRef else { throw NoteActionError.corruptMetadata }
-      let block = try actionBlock(cardRef: ref)
+      let block = byRef[ref]?.originalMarkdown
       func same(_ a: String?, _ b: String?) -> Bool {
         if let a, let b { return a.utf8.elementsEqual(b.utf8) }; return a == nil && b == nil
       }

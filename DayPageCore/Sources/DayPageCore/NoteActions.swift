@@ -93,6 +93,7 @@ struct NoteActionState: Codable {
 struct NoteActionOrigin: Codable {
   let version: Int
   let origin: UUID
+  let established: Bool
 }
 
 struct NoteActionRecord: Codable {

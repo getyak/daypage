@@ -1,6 +1,15 @@
 import CoreFoundation
 import Foundation
 
+/// Existence, exact revisions and relation evidence share one fresh Vault read.
+public struct NoteToolSnapshot: Sendable {
+  public let entries: [NotebookEntry]
+  public let relations: [NoteRelation]
+  public init(entries: [NotebookEntry], relations: [NoteRelation]) {
+    self.entries = entries; self.relations = relations
+  }
+}
+
 /// All entries must already be filtered by the host's explicit conversation scope.
 /// Attachment access is by a validated card identity and index, never a model-supplied path.
 public struct NoteToolContext: Sendable {
