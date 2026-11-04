@@ -24,10 +24,12 @@ public struct NoteToolContext: Sendable {
   public let authorizedCardRefs: Set<String>
   public let allNotes: Bool
   public let allowsCreation: Bool
+  public let validateAccess: (@Sendable () async throws -> Void)?
   public init(entries: [NotebookEntry], attachmentReader: AttachmentReader? = nil,
               relations: [NoteRelation] = [], proposalWriter: ProposalWriter? = nil,
               proposalNamespace: UUID = UUID(), proposalCreatedAt: Date = Date(),
-              authorizedCardRefs: Set<String>? = nil, allNotes: Bool = false, allowsCreation: Bool = true) {
+              authorizedCardRefs: Set<String>? = nil, allNotes: Bool = false, allowsCreation: Bool = true,
+              validateAccess: (@Sendable () async throws -> Void)? = nil) {
     self.entries = entries
     self.attachmentReader = attachmentReader
     self.relations = relations; self.proposalWriter = proposalWriter
@@ -35,6 +37,7 @@ public struct NoteToolContext: Sendable {
     self.proposalCreatedAt = proposalCreatedAt
     self.authorizedCardRefs = authorizedCardRefs ?? Set(entries.map(\.id))
     self.allNotes = allNotes; self.allowsCreation = allowsCreation
+    self.validateAccess = validateAccess
   }
 }
 
@@ -70,6 +73,8 @@ public enum NoteToolExecutor {
   private static let maximumText = 6000
 
   public static func execute(name: String, arguments: String, context: NoteToolContext) async throws -> NoteToolResult {
+    try Task.checkCancellation()
+    if let validateAccess = context.validateAccess { try await validateAccess() }
     try Task.checkCancellation()
     guard names.contains(name) else { return try failure("unknown_tool") }
     guard arguments.utf8.count <= 16 * 1024,

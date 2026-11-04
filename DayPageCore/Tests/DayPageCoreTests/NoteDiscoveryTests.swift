@@ -118,4 +118,24 @@ final class NoteDiscoveryTests: XCTestCase {
     let other = try await NoteToolExecutor.execute(name: "notes_append", arguments: String(decoding: firstArgs, as: UTF8.self), context: .init(entries: [note], proposalCreatedAt: timestamp))
     XCTAssertNotEqual(first.proposals.first?.id, other.proposals.first?.id)
   }
+
+  func testEveryToolChecksLiveAccessBeforeReadingOrProposing() async throws {
+    let probe = NoteAccessProbe()
+    let entry = NotebookEntry(memo: Memo(body: "Protected note text"), day: "2026-11-01")
+    let context = NoteToolContext(entries: [entry], proposalWriter: { _ in XCTFail("Revoked access cannot persist proposals") },
+      validateAccess: { try await probe.check() })
+    for name in NoteToolExecutor.names {
+      do {
+        _ = try await NoteToolExecutor.execute(name: name, arguments: "{}", context: context)
+        XCTFail("\(name) must throw the live authority error before evaluating arguments")
+      } catch NotebookError.conflict { }
+    }
+    let count = await probe.count
+    XCTAssertEqual(count, NoteToolExecutor.names.count)
+  }
+}
+
+private actor NoteAccessProbe {
+  var count = 0
+  func check() throws { count += 1; throw NotebookError.conflict }
 }
