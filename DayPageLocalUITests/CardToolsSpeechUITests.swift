@@ -143,25 +143,49 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
       XCTAssertTrue(control.isHittable)
-      // SwiftUI can expose the identified Form row and its unlabelled native
-      // switch as separate AX elements. Tap the actual switch's centre when
-      // present; a fixed fraction of the row can miss its activation area.
+      // SwiftUI exposes the row and its native switch separately. The thumb
+      // may extend a few points past the row, so associate it by its centre.
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      let bounds = control.frame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
-      let nativeSwitches = app.switches.allElementsBoundByIndex.filter {
-        $0.identifier.isEmpty && bounds.contains($0.frame) && $0.isHittable
+      let rowFrame = control.frame
+      let bounds = rowFrame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
+      let nativeFrames = app.switches.allElementsBoundByIndex.compactMap { element -> CGRect? in
+        guard element.identifier.isEmpty else { return nil }
+        let frame = element.frame
+        guard bounds.contains(CGPoint(x: frame.midX, y: frame.midY)), element.isHittable else { return nil }
+        return frame
       }
-      XCTAssertLessThanOrEqual(nativeSwitches.count, 1,
+      XCTAssertLessThanOrEqual(nativeFrames.count, 1,
         "The identified row must contain at most one native switch")
-      let target = nativeSwitches.first ?? control
-      XCTAssertGreaterThanOrEqual(target.frame.width + geometryEpsilon, 44)
-      XCTAssertGreaterThanOrEqual(target.frame.height + geometryEpsilon, 28)
-      target.tap()
+      let point: XCUICoordinate
+      let targetFrame: CGRect
+      let targetMode: String
+      if let nativeFrame = nativeFrames.first {
+        targetFrame = nativeFrame
+        targetMode = "native-centre"
+        // Anchor the physical centre to the stable row identifier, not an
+        // unlabelled switch index or XCTest's inferred activation hit point.
+        point = control.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+          dx: targetFrame.midX - rowFrame.minX, dy: targetFrame.midY - rowFrame.minY))
+      } else {
+        targetFrame = rowFrame
+        targetMode = "identified-trailing"
+        point = control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+      }
+      XCTAssertGreaterThanOrEqual(targetFrame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(targetFrame.height + geometryEpsilon, 28)
+      let geometry = XCTAttachment(string:
+        "id=\(id) requested=\(on) mode=\(targetMode)\nrow=\(rowFrame)\ntarget=\(targetFrame)")
+      geometry.name = "switch-activation-" + id
+      geometry.lifetime = .keepAlways
+      add(geometry)
+      point.tap()
     }
     let updated = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "value == %@", on ? "1" : "0"), object: control)
-    XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+    let result = XCTWaiter.wait(for: [updated], timeout: 5)
+    if result != .completed { captureLookupFailure(control, scroller: form) }
+    XCTAssertEqual(result, .completed)
   }
 
   private func openChat() {
