@@ -7,15 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		388F1E0A1C9D4D30AF223001 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */; };
+		0205CF27058895692D8E25D5 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 599C854163773DF1181ACB07 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D23DB1E615AB05808521FDE /* NoteActionCards.swift */; };
 		1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */; };
 		20B4023F9DCDCDBF60EB4512 /* ChatExperienceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC24EB1348D01E6B37C6749F /* ChatExperienceUITests.swift */; };
+		210366F0849F77831D9D8EFC /* CloudContinuity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935495540B117E3F23C47171 /* CloudContinuity.swift */; };
 		22F32AB77218949F65D1B8DF /* NotebookArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */; };
+		2B68E6782668A89C8B1B7988 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0BC9CBD3F76A9A268DB6D030 /* InfoPlist.strings */; };
+		36A13AB9E3DBD1C2C726036D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BBEE0014FF4F192B3AAD03DA /* Assets.xcassets */; };
+		399CB48270337A1E6E11A731 /* WatchNotebookApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C957047C1509986CB094E1D4 /* WatchNotebookApp.swift */; };
 		45DDB40A06DD48F3FED9CC58 /* NotebookTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E832D94740F93B539B414A /* NotebookTheme.swift */; };
 		4BDACFAF9397B1D723B35DF4 /* ChatLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */; };
 		4F46EBFC753BD8FDB5C8DC61 /* DiaryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7ECFAD6E1ED72AB6EE8BD5 /* DiaryUITests.swift */; };
+		50CB9E3274A7B22B330DC9F6 /* DayPageCapture in Frameworks */ = {isa = PBXBuildFile; productRef = 6C08B27A80BD7271539DA475 /* DayPageCapture */; };
 		50D1A1C0719E8DDEC0ADBEFD /* CardToolsSpeechUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */; };
+		5109BD8BC40D4B4E09A7CECC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FEE1DFEF946E3E735065DB6A /* Localizable.strings */; };
 		5263C6527479721671F9AE3C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FAA2886EC734DB1242104559 /* PrivacyInfo.xcprivacy */; };
+		67D32844DEADA7EDBF13A610 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A7BED31971787CA0B828360 /* PrivacyInfo.xcprivacy */; };
 		68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A12D5409FE7A0E2425076A /* DayPageApp.swift */; };
 		6C92B059AB1751F799352DA8 /* NotebookTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C1D640E47EC73833A40545 /* NotebookTimeline.swift */; };
 		6DD198A44975E86DB9FA4921 /* CardShareUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099023364FADB7679C63FBA2 /* CardShareUITests.swift */; };
@@ -23,6 +31,7 @@
 		7F5D2C080E4696A3B7006E4B /* NoteChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD97C712C706DD0EB4961587 /* NoteChatView.swift */; };
 		807B0171361C166229E5A0B4 /* CaptureDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196EE745EEF63F4963F3EB9 /* CaptureDraftStore.swift */; };
 		84A06DD23620A61D73E8D7E6 /* NotebookCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */; };
+		85000233EECCCEBF19662EDB /* WatchNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838FA77D20724235F76022A0 /* WatchNotebook.swift */; };
 		9026BB9EBBF9E75DF126D944 /* DayPageCore in Frameworks */ = {isa = PBXBuildFile; productRef = DDAED5873F1D8A74489C5368 /* DayPageCore */; };
 		93464F5B38BE2206E90F8620 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4326C54BBF11D8F68313C675 /* FeedbackView.swift */; };
 		93CE8D40839E310DC54BFF51 /* NotebookAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B221DD921B96956690BA7B4A /* NotebookAssets.xcassets */; };
@@ -37,6 +46,7 @@
 		BCAB12EED4B166E2E2DBDC25 /* SwiftStreamingMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = 1CDFF53DFCE972FD8158FDE6 /* SwiftStreamingMarkdown */; };
 		C50D46A2431A2D025EAB6B3E /* SpeechControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9843132165B4C1CD121CC6 /* SpeechControls.swift */; };
 		CBFF32AE985722CB7A9DA3F6 /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A194219200321F0DE1B2F852 /* ChatSession.swift */; };
+		CDE7DF6C57537DAEC6304BAF /* ContinuitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8905BDB010ED901549F9C6D /* ContinuitySettingsView.swift */; };
 		D1D0DE25A6DB3CC80124639F /* SpeechSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F4EBB9AA8CD1979ADD79A2 /* SpeechSettingsView.swift */; };
 		D42EAA92F20DFAD94C3879F2 /* SourceSerif4-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9FD067F0B60B8F11A89DE87D /* SourceSerif4-Regular.ttf */; };
 		D55690A043E98FF67577A3A7 /* AIConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80743B6F3E33F0CDFD639BB2 /* AIConnectionSettings.swift */; };
@@ -44,10 +54,18 @@
 		DF18E53E5BBD6BEFFA8D1BC9 /* NotebookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B2DE012C6256A9431E48687 /* NotebookView.swift */; };
 		E1263D7528EDB3BA73ACD23E /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5E0ACFB1792DD48A60620E25 /* Localizable.strings */; };
 		E7DE6BD62F34193F86DEA4C1 /* CaptureMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */; };
+		EED4BFB8E69AF694B12FA0CA /* WatchPhoneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C08CAABAFF10A0B55637F7B /* WatchPhoneBridge.swift */; };
 		FD05E1FA5220F76F24A9BCB7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5269FEFE6FF33DC70EECB67E /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		73B4E7C925A68D15C8D1F799 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58D9B5B097E19F6AFD3FA232 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A359724FBD0E86A9CDA8DB6B;
+			remoteInfo = DayPageWatch;
+		};
 		F77E11C3AE79F013A802C314 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 58D9B5B097E19F6AFD3FA232 /* Project object */;
@@ -57,13 +75,28 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		0D630FEAFF1E0EB22283DA26 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				0205CF27058895692D8E25D5 /* DayPageWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteActionCards.swift; sourceTree = "<group>"; };
 		099023364FADB7679C63FBA2 /* CardShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardShareUITests.swift; sourceTree = "<group>"; };
+		0BC9CBD3F76A9A268DB6D030 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		17BA8822022266F739F97C75 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		1DE0F9701B254EFD0B2B9B33 /* CardToolsSpeechUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardToolsSpeechUITests.swift; sourceTree = "<group>"; };
 		1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLibraryViews.swift; sourceTree = "<group>"; };
 		2B472ABD75D5BA06FE11266C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2C08CAABAFF10A0B55637F7B /* WatchPhoneBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPhoneBridge.swift; sourceTree = "<group>"; };
 		3A3C7CFE021BBF74392D8690 /* NoteViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteViews.swift; sourceTree = "<group>"; };
 		3B2DE012C6256A9431E48687 /* NotebookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookView.swift; sourceTree = "<group>"; };
 		3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookModel.swift; sourceTree = "<group>"; };
@@ -74,13 +107,18 @@
 		4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlayback.swift; sourceTree = "<group>"; };
 		511B7AAB4845F4D9A37648AF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5269FEFE6FF33DC70EECB67E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		599C854163773DF1181ACB07 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C3F9A8DA8A34C000858CA06 /* LocalNotebookUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotebookUITests.swift; sourceTree = "<group>"; };
 		6A7ECFAD6E1ED72AB6EE8BD5 /* DiaryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryUITests.swift; sourceTree = "<group>"; };
 		6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMedia.swift; sourceTree = "<group>"; };
 		72E832D94740F93B539B414A /* NotebookTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTheme.swift; sourceTree = "<group>"; };
+		7D23DB1E615AB05808521FDE /* NoteActionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteActionCards.swift; sourceTree = "<group>"; };
 		80743B6F3E33F0CDFD639BB2 /* AIConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConnectionSettings.swift; sourceTree = "<group>"; };
 		8196EE745EEF63F4963F3EB9 /* CaptureDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDraftStore.swift; sourceTree = "<group>"; };
+		838FA77D20724235F76022A0 /* WatchNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNotebook.swift; sourceTree = "<group>"; };
+		8A7BED31971787CA0B828360 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		8A9B787E934D8C99F5B64E7B /* NoteSharePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteSharePreview.swift; sourceTree = "<group>"; };
+		935495540B117E3F23C47171 /* CloudContinuity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudContinuity.swift; sourceTree = "<group>"; };
 		9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookCalendar.swift; sourceTree = "<group>"; };
 		99E06C3B524FDC2056F133AD /* CalendarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarUITests.swift; sourceTree = "<group>"; };
 		9E9843132165B4C1CD121CC6 /* SpeechControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechControls.swift; sourceTree = "<group>"; };
@@ -90,8 +128,11 @@
 		A785B771ED5E447AFB58954B /* SourceHanSerifSC-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceHanSerifSC-Regular.otf"; sourceTree = "<group>"; };
 		B221DD921B96956690BA7B4A /* NotebookAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = NotebookAssets.xcassets; sourceTree = "<group>"; };
 		B29DA4446DDCFC57EA07C323 /* DayPageCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DayPageCore; path = ../DayPageCore; sourceTree = SOURCE_ROOT; };
+		BBEE0014FF4F192B3AAD03DA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BD97C712C706DD0EB4961587 /* NoteChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteChatView.swift; sourceTree = "<group>"; };
 		C489F5992B805416BAE8E2C0 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		C8905BDB010ED901549F9C6D /* ContinuitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuitySettingsView.swift; sourceTree = "<group>"; };
+		C957047C1509986CB094E1D4 /* WatchNotebookApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNotebookApp.swift; sourceTree = "<group>"; };
 		CBAE1642BBAC4C4150329295 /* DayPageLocalUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DayPageLocalUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4C1D640E47EC73833A40545 /* NotebookTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTimeline.swift; sourceTree = "<group>"; };
 		D9FBF437C5450DE2016B9939 /* LaunchExperienceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchExperienceUITests.swift; sourceTree = "<group>"; };
@@ -99,9 +140,18 @@
 		DEE6DD6E6C0C1DF17ABAA156 /* DayPage.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1A12D5409FE7A0E2425076A /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		FAA2886EC734DB1242104559 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		FEE1DFEF946E3E735065DB6A /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		915231CF8CDDEA1CAA0AB0A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				50CB9E3274A7B22B330DC9F6 /* DayPageCapture in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E0D1B6953560B8776259F954 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -132,9 +182,11 @@
 				6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */,
 				1F98C8D27CB85D7222D29E65 /* ChatLibraryViews.swift */,
 				A194219200321F0DE1B2F852 /* ChatSession.swift */,
-				388F1E0A1C9D4D30AF223002 /* NoteActionCards.swift */,
+				935495540B117E3F23C47171 /* CloudContinuity.swift */,
+				C8905BDB010ED901549F9C6D /* ContinuitySettingsView.swift */,
 				E1A12D5409FE7A0E2425076A /* DayPageApp.swift */,
 				4326C54BBF11D8F68313C675 /* FeedbackView.swift */,
+				7D23DB1E615AB05808521FDE /* NoteActionCards.swift */,
 				482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */,
 				9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */,
 				3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */,
@@ -150,13 +202,28 @@
 				9E9843132165B4C1CD121CC6 /* SpeechControls.swift */,
 				4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */,
 				40F4EBB9AA8CD1979ADD79A2 /* SpeechSettingsView.swift */,
+				2C08CAABAFF10A0B55637F7B /* WatchPhoneBridge.swift */,
 				44090EE4FD1BC44658A1E369 /* App */,
 				281E392320B4007E2FAAD444 /* DayPageLocalUITests */,
+				0A7ED133BB2E31F1EF8F93B3 /* DayPageLocalWatch */,
 				03DD2F0BF5B9776A9696C84E /* Fonts */,
 				D72531B0965FF35CC0AB3074 /* Packages */,
 				1431AF285754327246817EF0 /* Resources */,
+				AA760AA030BA77D9EF4004EA /* Resources */,
 				63C940AC9E90ECFC39FCE981 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		0A7ED133BB2E31F1EF8F93B3 /* DayPageLocalWatch */ = {
+			isa = PBXGroup;
+			children = (
+				8A7BED31971787CA0B828360 /* PrivacyInfo.xcprivacy */,
+				838FA77D20724235F76022A0 /* WatchNotebook.swift */,
+				C957047C1509986CB094E1D4 /* WatchNotebookApp.swift */,
+				5730F5C72F3503FD0803E375 /* Resources */,
+			);
+			name = DayPageLocalWatch;
+			path = ../DayPageLocalWatch;
 			sourceTree = "<group>";
 		};
 		1431AF285754327246817EF0 /* Resources */ = {
@@ -193,13 +260,32 @@
 			path = ../DayPage/App;
 			sourceTree = "<group>";
 		};
+		5730F5C72F3503FD0803E375 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0BC9CBD3F76A9A268DB6D030 /* InfoPlist.strings */,
+				FEE1DFEF946E3E735065DB6A /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		63C940AC9E90ECFC39FCE981 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				DEE6DD6E6C0C1DF17ABAA156 /* DayPage.app */,
 				CBAE1642BBAC4C4150329295 /* DayPageLocalUITests.xctest */,
+				599C854163773DF1181ACB07 /* DayPageWatch.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AA760AA030BA77D9EF4004EA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BBEE0014FF4F192B3AAD03DA /* Assets.xcassets */,
+			);
+			name = Resources;
+			path = ../DayPageWatch/Resources;
 			sourceTree = "<group>";
 		};
 		D72531B0965FF35CC0AB3074 /* Packages */ = {
@@ -220,10 +306,12 @@
 				40C1492530377563C3E360D4 /* Sources */,
 				B1B37C433E14BD82C169F842 /* Resources */,
 				E0D1B6953560B8776259F954 /* Frameworks */,
+				0D630FEAFF1E0EB22283DA26 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E1AFDE7A37D96E950B56C968 /* PBXTargetDependency */,
 			);
 			name = DayPage;
 			packageProductDependencies = (
@@ -232,6 +320,26 @@
 			);
 			productName = DayPage;
 			productReference = DEE6DD6E6C0C1DF17ABAA156 /* DayPage.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A359724FBD0E86A9CDA8DB6B /* DayPageWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0128D0110FD92B647B7E2B03 /* Build configuration list for PBXNativeTarget "DayPageWatch" */;
+			buildPhases = (
+				87E3BA087E33BC1066C565EB /* Sources */,
+				3E497909EC9E6B47FAFF6226 /* Resources */,
+				915231CF8CDDEA1CAA0AB0A5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DayPageWatch;
+			packageProductDependencies = (
+				6C08B27A80BD7271539DA475 /* DayPageCapture */,
+			);
+			productName = DayPageWatch;
+			productReference = 599C854163773DF1181ACB07 /* DayPageWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D49C5BE691DD02DCCD9536B5 /* DayPageLocalUITests */ = {
@@ -265,6 +373,10 @@
 						DevelopmentTeam = 6RG2F8YY59;
 						ProvisioningStyle = Automatic;
 					};
+					A359724FBD0E86A9CDA8DB6B = {
+						DevelopmentTeam = 6RG2F8YY59;
+						ProvisioningStyle = Automatic;
+					};
 					D49C5BE691DD02DCCD9536B5 = {
 						DevelopmentTeam = 6RG2F8YY59;
 						TestTargetID = 7C4EEE910BDD04893B2AF32B;
@@ -291,12 +403,24 @@
 			projectRoot = "";
 			targets = (
 				7C4EEE910BDD04893B2AF32B /* DayPage */,
+				A359724FBD0E86A9CDA8DB6B /* DayPageWatch */,
 				D49C5BE691DD02DCCD9536B5 /* DayPageLocalUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		3E497909EC9E6B47FAFF6226 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				36A13AB9E3DBD1C2C726036D /* Assets.xcassets in Resources */,
+				2B68E6782668A89C8B1B7988 /* InfoPlist.strings in Resources */,
+				5109BD8BC40D4B4E09A7CECC /* Localizable.strings in Resources */,
+				67D32844DEADA7EDBF13A610 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B1B37C433E14BD82C169F842 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -323,9 +447,11 @@
 				E7DE6BD62F34193F86DEA4C1 /* CaptureMedia.swift in Sources */,
 				4BDACFAF9397B1D723B35DF4 /* ChatLibraryViews.swift in Sources */,
 				CBFF32AE985722CB7A9DA3F6 /* ChatSession.swift in Sources */,
-				388F1E0A1C9D4D30AF223001 /* NoteActionCards.swift in Sources */,
+				210366F0849F77831D9D8EFC /* CloudContinuity.swift in Sources */,
+				CDE7DF6C57537DAEC6304BAF /* ContinuitySettingsView.swift in Sources */,
 				68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */,
 				93464F5B38BE2206E90F8620 /* FeedbackView.swift in Sources */,
+				03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */,
 				7F5D2C080E4696A3B7006E4B /* NoteChatView.swift in Sources */,
 				A6A9EC28F23A2B6892AADAC4 /* NoteSharePreview.swift in Sources */,
 				9AA74C7DB2F6E9816F9C9E93 /* NoteViews.swift in Sources */,
@@ -340,6 +466,7 @@
 				C50D46A2431A2D025EAB6B3E /* SpeechControls.swift in Sources */,
 				1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */,
 				D1D0DE25A6DB3CC80124639F /* SpeechSettingsView.swift in Sources */,
+				EED4BFB8E69AF694B12FA0CA /* WatchPhoneBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,6 +484,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		87E3BA087E33BC1066C565EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85000233EECCCEBF19662EDB /* WatchNotebook.swift in Sources */,
+				399CB48270337A1E6E11A731 /* WatchNotebookApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -364,6 +500,11 @@
 			isa = PBXTargetDependency;
 			target = 7C4EEE910BDD04893B2AF32B /* DayPage */;
 			targetProxy = F77E11C3AE79F013A802C314 /* PBXContainerItemProxy */;
+		};
+		E1AFDE7A37D96E950B56C968 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A359724FBD0E86A9CDA8DB6B /* DayPageWatch */;
+			targetProxy = 73B4E7C925A68D15C8D1F799 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -407,6 +548,23 @@
 				PRODUCT_NAME = DayPage;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		61478173F275829A60AD0570 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DAYPAGE_QA_BUNDLE_SUFFIX = .localqa;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../DayPageLocalWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).watchkitapp";
+				PRODUCT_NAME = DayPageWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Debug;
 		};
@@ -517,7 +675,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -583,16 +740,41 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
+		F9B995C4B1A89E06C566A3B9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DAYPAGE_QA_BUNDLE_SUFFIX = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../DayPageLocalWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).watchkitapp";
+				PRODUCT_NAME = DayPageWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0128D0110FD92B647B7E2B03 /* Build configuration list for PBXNativeTarget "DayPageWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				61478173F275829A60AD0570 /* Debug */,
+				F9B995C4B1A89E06C566A3B9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		240230F2CD93BF641DCA73F8 /* Build configuration list for PBXProject "DayPageLocal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -645,6 +827,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FE9B07DF08A46A905D09AD6E /* XCRemoteSwiftPackageReference "SwiftStreamingMarkdown" */;
 			productName = SwiftStreamingMarkdown;
+		};
+		6C08B27A80BD7271539DA475 /* DayPageCapture */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DayPageCapture;
 		};
 		DDAED5873F1D8A74489C5368 /* DayPageCore */ = {
 			isa = XCSwiftPackageProductDependency;

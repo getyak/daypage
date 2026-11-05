@@ -1,2 +1,3 @@
-"NSMicrophoneUsageDescription" = "Record voice notes in your local notebook. Audio is never sent automatically.";
+"NSMicrophoneUsageDescription" = "Record voice notes in your local notebook. Recordings stay on this device unless you enable iCloud sync or choose to send them.";
+"NSSpeechRecognitionUsageDescription" = "Optionally transcribe Watch voice notes on this iPhone, without a cloud speech service.";
 "NSCameraUsageDescription" = "Take a photo to keep with a note in your local notebook.";

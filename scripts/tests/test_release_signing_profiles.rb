@@ -197,7 +197,8 @@ end
 class TestReleaseSigningProfiles < Minitest::Test
   SHIPPED_FASTFILE = File.expand_path("../../fastlane/Fastfile", __dir__).freeze
   TARGETS = {
-    "DayPage" => "com.daypage.app"
+    "DayPage" => "com.daypage.app",
+    "DayPageWatch" => "com.daypage.app.watchkitapp"
   }.freeze
   ALL_IDENTIFIERS = TARGETS.values.freeze
   LANES = %w[beta release].freeze
@@ -223,7 +224,7 @@ class TestReleaseSigningProfiles < Minitest::Test
       match_calls = calls.select { |call| call.action == :match }
       assert_equal ["increment_build"], calls.select { |call| call.action == :lane_stub }.map { |call| call.params[:lane] },
                    "local releases must not generate or validate cloud credentials"
-      assert_equal 1, match_calls.size, "the local notebook has one signed app target"
+      assert_equal TARGETS.size, match_calls.size, "each local app target needs its own profile"
       assert_equal ALL_IDENTIFIERS.sort,
                    match_calls.map { |call| call.params[:app_identifier] }.sort
       match_calls.each do |call|
@@ -276,6 +277,13 @@ class TestReleaseSigningProfiles < Minitest::Test
                    "no archive/export may run with a missing app mapping"
       assert_empty actions.select { |action| %i[upload_to_testflight upload_to_app_store].include?(action) },
                    "no upload may run with a missing app mapping"
+    end
+
+    define_method("test_#{lane_name}_missing_watch_mapping_fails_before_archive_or_upload") do
+      h = harness(match_omits: ["com.daypage.app.watchkitapp"])
+      error = assert_raises(UserError) { h.execute(lane_name) }
+      assert_includes error.message, "com.daypage.app.watchkitapp"
+      assert_empty h.calls.select { |call| %i[build_app upload_to_testflight upload_to_app_store].include?(call.action) }
     end
 
     define_method("test_#{lane_name}_preserves_release_upload_behavior") do

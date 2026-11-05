@@ -1,5 +1,7 @@
 # Design: Apple Watch 一键录音功能架构方案
 
+> 历史设计。当前本地版的恢复实现见 [GET-392 设计](../docs/superpowers/specs/2026-11-05-local-watch-icloud-design.md) 和 [运行说明](../docs/engineering/local-watch-icloud.md)：Watch 原音直达手机，不自动调用 Whisper 或其他云端转写。
+
 **Issue**: #96
 **状态**: 设计评审中
 **里程碑**: post-MVP

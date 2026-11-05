@@ -755,6 +755,85 @@ public actor NotebookStore {
     try readEntries(in: root)
   }
 
+  /// Byte-preserving export for personal replication; rejects identities ambiguous across days.
+  public func replicaRecords() throws -> [ReplicaRecord] {
+    let entries = try readEntries(in: root)
+    try ReplicaNamespace.validateAliases(entries.map(\.namespace))
+    let identities = entries.map { $0.namespace + "/" + $0.memo.id.uuidString }
+    guard Set(identities).count == identities.count else { throw ReplicaError.invalidData }
+    return try entries.map { entry in
+      var assets: [String: Data] = [:]
+      for attachment in entry.memo.attachments {
+        let url = try assetURL(attachment.file, for: entry)
+        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+        guard size <= 25 * 1024 * 1024 else { throw ReplicaError.invalidData }
+        assets[attachment.file] = try Data(contentsOf: url, options: .mappedIfSafe)
+      }
+      return ReplicaRecord(namespace: entry.namespace, day: entry.day,
+        markdown: entry.originalMarkdown ?? entry.memo.toMarkdown(), assets: assets)
+    }
+  }
+
+  /// Compare-and-swap integration. Called only after every needed object is downloaded/verified.
+  public func applyReplica(_ replacement: ReplicaRecord?, identity: String, expected: String?,
+    validateSession: @Sendable () throws -> Void = {}) throws {
+    try validateSession(); try Task.checkCancellation()
+    let currentRecords = try replicaRecords()
+    try ReplicaNamespace.validateAliases(currentRecords.map(\.namespace) + [try VaultRevision.namespace(for: identity)])
+    let existing = currentRecords.first { $0.identity == identity }
+    if try existing?.fingerprint != expected { throw ReplicaError.changed }
+    if replacement == nil {
+      if let entry = try readEntries(in: root).first(where: { $0.namespace + "/" + $0.memo.id.uuidString == identity }) {
+        _ = try trash(entry, validateSession: validateSession)
+      }
+      return
+    }
+    guard let record = replacement, record.identity == identity,
+      let memo = Memo.fromMarkdown(record.markdown), Self.validDay(record.day),
+      !record.markdown.contains(DayDocument.modern),
+      existing == nil || existing?.day == record.day,
+      Set(memo.attachments.map(\.file)) == Set(record.assets.keys) else { throw ReplicaError.invalidData }
+    let base = try vaultURL(namespace: record.namespace)
+    let url = base.appendingPathComponent("raw/" + record.day + ".md")
+    try validateContained(url)
+    try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try coordinatedWrite(at: url) { coordinated in
+      try validateSession(); try Task.checkCancellation()
+      _ = try self.vaultURL(namespace: record.namespace)
+      // Other NotebookStore instances can write while this actor is awaiting coordination.
+      let currentRecords = try self.replicaRecords()
+      try ReplicaNamespace.validateAliases(currentRecords.map(\.namespace) + [record.namespace])
+      guard try currentRecords.first(where: { $0.identity == identity })?.fingerprint == expected
+      else { throw ReplicaError.changed }
+      var document = DayDocument(self.fm.fileExists(atPath: coordinated.path)
+        ? try String(contentsOf: coordinated, encoding: .utf8) : "")
+      guard document.valid else { throw ReplicaError.invalidData }
+      for (path, data) in record.assets {
+        guard !data.isEmpty, data.count <= 25 * 1024 * 1024 else { throw ReplicaError.invalidData }
+        let asset = try self.assetURL(path, for: .init(memo: memo, day: record.day, namespace: record.namespace))
+        try self.fm.createDirectory(at: asset.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if self.fm.fileExists(atPath: asset.path) {
+          guard try Data(contentsOf: asset) == data else { throw ReplicaError.invalidData }
+        } else { try data.write(to: asset, options: .atomic) }
+      }
+      let matches = document.blocks.indices.filter { Memo.fromMarkdown(document.blocks[$0])?.id == memo.id }
+      if let index = matches.first {
+        guard matches.count == 1, expected != nil else { throw ReplicaError.changed }
+        document.blocks[index] = record.markdown
+      } else { document.blocks.append(record.markdown) }
+      try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
+      try validateSession(); try Task.checkCancellation()
+      try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
+    }
+  }
+
+  public func wasReplicaTrashed(_ record: ReplicaRecord) throws -> Bool {
+    try trashReceipts().contains {
+      $0.entry.namespace == record.namespace && $0.entry.memo.id == record.memoID
+        && $0.entry.day == record.day && $0.entry.originalMarkdown == record.markdown
+    }
+  }
+
   private func readEntries(in searchRoot: URL) throws -> [NotebookEntry] {
     var locations: [(URL, String)] = [(searchRoot, "")]
     var result: [NotebookEntry] = []
@@ -931,10 +1010,11 @@ public actor NotebookStore {
   }
 
   /// Moves only the selected record into a recoverable hidden backup. Assets stay in place.
-  public func trash(_ entry: NotebookEntry) throws -> NotebookTrashReceipt {
+  public func trash(_ entry: NotebookEntry, validateSession: @Sendable () throws -> Void = {}) throws -> NotebookTrashReceipt {
     let url = try fileURL(for: entry)
     var result: NotebookTrashReceipt?
     try coordinatedWrite(at: url) { coordinated in
+      try validateSession(); try Task.checkCancellation()
       var (document, index) = try self.target(entry, at: coordinated)
       try self.finishPendingRestores(for: entry)
       let original = document.content
@@ -954,6 +1034,7 @@ public actor NotebookStore {
       let deleting = folder.appendingPathComponent("deleting")
       try Data().write(to: deleting, options: .atomic)
       try self.validateContained(coordinated)
+      try validateSession(); try Task.checkCancellation()
       try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
       committed = true
       // Keep deletion's commit separate from its prepared backup. If finalizing this
@@ -1267,7 +1348,19 @@ public actor NotebookStore {
     guard parts.count <= 16, parts.allSatisfy({ UUID(uuidString: String($0)) != nil }) else {
       throw NotebookError.invalidPath
     }
-    return parts.reduce(root) { $0.appendingPathComponent("imports/" + $1) }
+    var base = root
+    for part in parts {
+      let imports = base.appendingPathComponent("imports")
+      try validateContained(imports)
+      if fm.fileExists(atPath: imports.path) {
+        let aliases = try fm.contentsOfDirectory(at: imports, includingPropertiesForKeys: nil)
+          .filter { $0.lastPathComponent.lowercased() == part.lowercased() }
+        guard aliases.count <= 1, aliases.first.map({ $0.lastPathComponent == String(part) }) ?? true
+        else { throw NotebookError.invalidPath }
+      }
+      base = imports.appendingPathComponent(String(part))
+    }
+    return base
   }
   private func validateEncoding(_ document: DayDocument, expected: [UUID]) throws {
     let candidate = DayDocument(document.content)

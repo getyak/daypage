@@ -9,8 +9,16 @@
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSRequiresIPhoneOS</key><true/>
-  <key>NSMicrophoneUsageDescription</key><string>Record voice notes that are saved in your local notebook. Audio is never sent automatically.</string>
+  <key>NSMicrophoneUsageDescription</key><string>Record voice notes in your local notebook. Recordings stay on this device unless you enable iCloud sync or choose to send them.</string>
   <key>NSCameraUsageDescription</key><string>Take a photo to keep with a note in your local notebook.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Optionally transcribe Watch voice notes on this iPhone. Original audio stays in your notebook; no cloud speech service is used.</string>
+  <key>NSUbiquitousContainers</key><dict>
+    <key>iCloud.com.daypage.app</key><dict>
+      <key>NSUbiquitousContainerIsDocumentScopePublic</key><true/>
+      <key>NSUbiquitousContainerName</key><string>DayPage</string>
+      <key>NSUbiquitousContainerSupportedFolderLevels</key><string>Any</string>
+    </dict>
+  </dict>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>UILaunchScreen</key><dict><key>UIColorName</key><string>NotebookPaper</string></dict>
   <key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>

@@ -6,6 +6,8 @@ to drive a change.
 
 ## Current
 
+- [Local Watch and personal iCloud continuity](engineering/local-watch-icloud.md) — GET-392 implementation and pending native/device acceptance; [ADR-0032](architecture/decisions/ADR-0032-local-watch-and-personal-replication.md)
+
 - [Local card tools and read aloud](engineering/local-agent-tools-and-speech.md) — scoped discovery, reviewed note changes, confirmed relationships and speech channels (GET-369/GET-388, ADR-0030/ADR-0031)
 
 - [Local-only iOS notebook](architecture/decisions/ADR-0027-local-ios-notebook.md) — current iOS product boundary; other clients retain their previous architecture

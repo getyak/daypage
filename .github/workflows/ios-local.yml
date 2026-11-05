@@ -21,6 +21,7 @@ on:
     paths:
       - 'DayPageLocal/**'
       - 'DayPageCore/**'
+      - 'DayPageLocalWatch/**'
       - 'DayPageLocalUITests/**'
       - 'DayPage/App/Fonts/**'
       - 'DayPage/App/Assets.xcassets/**'
@@ -43,6 +44,7 @@ on:
     paths:
       - 'DayPageLocal/**'
       - 'DayPageCore/**'
+      - 'DayPageLocalWatch/**'
       - 'DayPageLocalUITests/**'
       - 'DayPage/App/Fonts/**'
       - 'DayPage/App/Assets.xcassets/**'
@@ -92,6 +94,8 @@ jobs:
           cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
       - name: Build the isolated local app
         run: xcodebuild -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPage -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Build the local Watch companion
+        run: xcodebuild -project DayPageLocal/DayPageLocal.xcodeproj -scheme DayPageWatch -configuration Release -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
   native-ui:
     name: Native iOS UI (manual)

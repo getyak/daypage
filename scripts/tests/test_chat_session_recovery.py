@@ -9,11 +9,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 def run(build):
     build = build.resolve()
     modules = next(build.glob("*/debug/Modules"), None)
-    if modules is None or not list(modules.parent.glob("DayPageCore.build/*.swift.o")):
+    if (modules is None or not list(modules.parent.glob("DayPageCore.build/*.swift.o"))
+            or not list(modules.parent.glob("DayPageCapture.build/*.swift.o"))):
         subprocess.run(["swift", "build", "--package-path", str(ROOT / "DayPageCore"),
                         "--scratch-path", str(build), "--jobs", "2"], check=True)
         modules = next(build.glob("*/debug/Modules"))
     objects = list(modules.parent.glob("DayPageCore.build/*.swift.o"))
+    # DayPageCore re-exports its capture dependency; fixture executables must
+    # link the dependency's objects as well as the core's own objects.
+    objects += list(modules.parent.glob("DayPageCapture.build/*.swift.o"))
     with tempfile.TemporaryDirectory(prefix="daypage-chat-session-") as temporary:
         binary = pathlib.Path(temporary) / "chat-session-checks"
         subprocess.run([
