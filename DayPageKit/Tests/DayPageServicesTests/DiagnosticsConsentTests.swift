@@ -267,14 +267,21 @@ struct DiagnosticsConsentTests {
             DiagnosticsConsent.changeHandler = { recorder.record($0) }
             let entered = DispatchSemaphore(value: 0)
             let release = DispatchSemaphore(value: 0)
+            defer { release.signal() }
             let permitFinished = DispatchSemaphore(value: 0)
             let mutationAttempted = DispatchSemaphore(value: 0)
             let mutationFinished = DispatchSemaphore(value: 0)
-            DispatchQueue.global().async {
+            let permitTimedOut = GateCallCounter()
+            // These workers deliberately block. Dedicated threads avoid starving
+            // a shared Dispatch pool while the test driver waits for handshakes.
+            Thread.detachNewThread {
                 let operation = {
                     recorder.record(true)
                     entered.signal()
-                    _ = release.wait(timeout: .now() + 2)
+                    // Report a deadline as failure instead of silently releasing.
+                    if release.wait(timeout: .now() + 10) != .success {
+                        permitTimedOut.increment()
+                    }
                     // Consent is still true throughout registration/resume.
                     recorder.record(DiagnosticsConsent.isOptedIn(in: box.store))
                 }
@@ -282,17 +289,18 @@ struct DiagnosticsConsentTests {
                 else { DiagnosticsConsent.withSerializedTransition(operation) }
                 permitFinished.signal()
             }
-            #expect(entered.wait(timeout: .now() + 2) == .success)
-            DispatchQueue.global().async {
+            #expect(entered.wait(timeout: .now() + 10) == .success)
+            Thread.detachNewThread {
                 mutationAttempted.signal()
                 DiagnosticsConsent.setOptedIn(false, in: box.store)
                 mutationFinished.signal()
             }
-            #expect(mutationAttempted.wait(timeout: .now() + 2) == .success)
+            #expect(mutationAttempted.wait(timeout: .now() + 10) == .success)
             #expect(mutationFinished.wait(timeout: .now() + 0.02) == .timedOut)
             release.signal()
-            #expect(permitFinished.wait(timeout: .now() + 2) == .success)
-            #expect(mutationFinished.wait(timeout: .now() + 2) == .success)
+            #expect(permitFinished.wait(timeout: .now() + 10) == .success)
+            #expect(mutationFinished.wait(timeout: .now() + 10) == .success)
+            #expect(permitTimedOut.count == 0)
             #expect(recorder.values == [true, true, false])
             #expect(!DiagnosticsConsent.isOptedIn(in: store))
             let calls = GateCallCounter()
