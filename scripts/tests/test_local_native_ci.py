@@ -236,12 +236,19 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             start_new_session=True,
         )
         try:
-            output, _ = process.communicate(timeout=30)
+            # Rejection cases intentionally execute all 30 probe rounds, each
+            # launching several Python command doubles. Cold hosted Intel
+            # interpreters exceeded 30 seconds without an orchestration hang.
+            # This budget affects only the command-double test, not native
+            # readiness, ownership checks, boot budgets or test assertions.
+            output, _ = process.communicate(timeout=120)
         except subprocess.TimeoutExpired:
             # Only this test's newly created process group is terminated.
             os.killpg(process.pid, signal.SIGTERM)
             output, _ = process.communicate(timeout=5)
-            self.fail("Host orchestration fixture timed out:\n" + output[-2000:])
+            probes = evidence / "fixture-listener-probes.log"
+            diagnostics = probes.read_text()[-2000:] if probes.exists() else "No mock probe record"
+            self.fail("Host orchestration fixture timed out:\n" + output[-2000:] + "\nMock probes:\n" + diagnostics)
         events_path = state / "events"
         events = events_path.read_text().splitlines() if events_path.exists() else []
         return process.returncode, output, evidence, events
