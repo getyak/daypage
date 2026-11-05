@@ -1,4 +1,22 @@
 import Foundation
+import Darwin
+
+/// Stable path identity even when Foundation canonicalizes a newly-created
+/// /private/tmp or /private/var ancestor differently from its missing children.
+/// This is not authorization: callers must separately reject notebook links.
+enum NotebookPath {
+  static func canonicalPath(_ url: URL) -> String {
+    var ancestor = url.standardizedFileURL
+    var missing: [String] = []
+    while ancestor.path != "/" && !FileManager.default.fileExists(atPath: ancestor.path) {
+      missing.append(ancestor.lastPathComponent)
+      ancestor.deleteLastPathComponent()
+    }
+    let existing = ancestor.resolvingSymlinksInPath().standardizedFileURL.path
+    guard !missing.isEmpty else { return existing }
+    return (existing == "/" ? "" : existing) + "/" + missing.reversed().joined(separator: "/")
+  }
+}
 
 public struct NotebookEntry: Identifiable, Equatable, Sendable {
   public let memo: Memo
@@ -7,6 +25,8 @@ public struct NotebookEntry: Identifiable, Equatable, Sendable {
   fileprivate let originalMarkdown: String?
   fileprivate let originRoot: URL?
   public var id: String { "\(namespace)/\(day)/\(memo.id.uuidString)" }
+  /// Hash the exact original Markdown, including unknown YAML and spacing.
+  public var revision: String { NoteActionIdentity.digest(originalMarkdown ?? memo.toMarkdown()) }
   public init(memo: Memo, day: String, namespace: String = "") {
     self.memo = memo
     self.day = day
@@ -23,6 +43,610 @@ public struct NotebookEntry: Identifiable, Equatable, Sendable {
   }
   public static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.memo == rhs.memo && lhs.day == rhs.day && lhs.namespace == rhs.namespace
+  }
+}
+
+extension NotebookStore {
+  /// Persisting a proposal grants no raw-write authority. The host separately owns
+  /// the enabled conversation selection and the person's explicit Save gesture.
+  public func saveProposal(_ proposal: NoteActionProposal) throws {
+    try validateActionProposal(proposal)
+    try withActionState { state, metadata in
+      if let old = state.proposals.first(where: { $0.id == proposal.id }) {
+        guard old == proposal else { throw NoteActionError.transactionConflict }
+        return
+      }
+      guard state.proposals.count < 1000 else { throw NoteActionError.limitExceeded }
+      state.proposals.append(proposal)
+      try writeActionState(state, to: metadata)
+    }
+  }
+
+  public func pendingProposals() throws -> [NoteActionProposal] {
+    try withActionState { state, metadata in
+      try reconcileActions(&state, metadata: metadata)
+      let completed = Set(state.records.filter { $0.committed || $0.quarantined }.map { $0.receipt.id })
+      return state.proposals.filter { !completed.contains($0.id) }
+    }
+  }
+
+  public func actionReceipts() throws -> [NoteActionReceipt] {
+    try withActionState { state, metadata in
+      try reconcileActions(&state, metadata: metadata)
+      return state.records.filter(\.committed).map(\.receipt).sorted {
+        $0.appliedAt == $1.appliedAt ? $0.id.uuidString < $1.id.uuidString : $0.appliedAt > $1.appliedAt
+      }
+    }
+  }
+
+  public func relations(allowedCardRefs: Set<String>, allNotes: Bool = false) throws -> [NoteRelation] {
+    try toolSnapshot(allowedCardRefs: allowedCardRefs, allNotes: allNotes).relations
+  }
+
+  public func toolSnapshot(allowedCardRefs: Set<String>, allNotes: Bool = false) throws -> NoteToolSnapshot {
+    try withActionState { state, metadata in
+      let fresh = try readEntries(in: root)
+      try reconcileActions(&state, metadata: metadata, entries: fresh)
+      let byRef = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+      let edges = state.relations.filter {
+        allNotes || allowedCardRefs.contains($0.from.cardRef) && allowedCardRefs.contains($0.to.cardRef)
+      }.map { edge in
+        var result = edge
+        result.isStale = byRef[edge.from.cardRef]?.revision != edge.fromRevision
+          || byRef[edge.to.cardRef]?.revision != edge.toRevision
+        return result
+      }
+      return NoteToolSnapshot(entries: fresh.filter { allNotes || allowedCardRefs.contains($0.id) }, relations: edges)
+    }
+  }
+
+  /// Synchronous actor transaction: no suspension between journal preparation,
+  /// exact revision validation and raw-file publication. Cross-instance writers
+  /// also coordinate the metadata lock and affected raw file.
+  public func apply(_ proposal: NoteActionProposal, allowedCardRefs: Set<String>, authorization: NoteActionAuthorization? = nil) throws -> NoteActionReceipt {
+    try ConversationActionGate.withAuthorization(authorization, root: root, proposal: proposal, allowedCardRefs: allowedCardRefs) {
+      try applyAction(proposal, allowedCardRefs: allowedCardRefs)
+    }
+  }
+
+  private func applyAction(_ proposal: NoteActionProposal, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
+    try validateActionProposal(proposal)
+    try requireActionScope(proposal, allowed: allowedCardRefs)
+    return try withActionState { state, metadata in
+      try reconcileActions(&state, metadata: metadata)
+      guard !state.records.contains(where: { $0.receipt.id == proposal.id && $0.quarantined }) else { throw NoteActionError.transactionConflict }
+      if let record = state.records.first(where: { $0.receipt.id == proposal.id && $0.committed }) {
+        guard record.receipt.proposal == proposal else { throw NoteActionError.transactionConflict }
+        return record.receipt
+      }
+      guard state.proposals.first(where: { $0.id == proposal.id }) == proposal else { throw NoteActionError.transactionConflict }
+      guard state.records.count < 1000 else { throw NoteActionError.limitExceeded }
+      if proposal.kind == .link || proposal.kind == .unlink {
+        return try applyRelation(proposal, state: &state, metadata: metadata)
+      }
+      let ref: String
+      if proposal.kind == .create {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        ref = "/\(formatter.string(from: proposal.createdAt))/\(proposal.id.uuidString)"
+      } else {
+        guard let target = proposal.target else { throw NoteActionError.invalidProposal }
+        ref = target.cardRef
+      }
+      let url = try actionURL(cardRef: ref)
+      try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+      var receipt: NoteActionReceipt?
+      try coordinatedWrite(at: url) { coordinated in
+        var document = try self.actionDocument(at: coordinated)
+        let index = try self.actionIndex(cardRef: ref, document: document)
+        let before = index.map { document.blocks[$0] }
+        let after: String
+        if proposal.kind == .create {
+          guard before == nil, let body = proposal.body else { throw NoteActionError.transactionConflict }
+          after = Memo(id: proposal.id, created: proposal.createdAt, body: body).toMarkdown()
+        } else {
+          guard let before, NoteActionIdentity.digest(before) == proposal.expectedRevision,
+            let memo = Memo.fromMarkdown(before), memo.body.hasPrefix(proposal.target?.snippet ?? "") else { throw NoteActionError.transactionConflict }
+          after = try self.actionEditedBlock(before, memo: memo, proposal: proposal)
+        }
+        guard let memo = Memo.fromMarkdown(after), let day = self.actionDay(cardRef: ref) else { throw NoteActionError.invalidProposal }
+        let saved = NoteToolSource(cardRef: ref, day: day, snippet: memo.body)
+        let applied = NoteActionReceipt(id: proposal.id, proposal: proposal, status: .applied,
+          savedSource: saved, appliedAt: Date())
+        let record = NoteActionRecord(receipt: applied, committed: false, undoPrepared: false,
+          relationGeneration: nil, cardRef: ref, beforeBlock: before, afterBlock: after, ownsRelation: false)
+        if let index { document.blocks[index] = after } else { document.blocks.append(after) }
+        try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
+        guard document.content.utf8.count <= 4 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
+        state.records.removeAll { $0.receipt.id == proposal.id && !$0.committed }
+        state.records.append(record)
+        // Journal goes first. Restart will only read/compare these bytes, never
+        // publish the prepared after-block without a fresh confirmed apply call.
+        try self.writeActionState(state, to: metadata)
+        try self.validateContained(coordinated)
+        try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
+        state.records[state.records.count - 1].committed = true
+        // If finalization fails, retain the prepared journal and return an error.
+        // A retry/reopen reconciles the already-written exact after-block once.
+        try self.writeActionState(state, to: metadata)
+        receipt = applied
+      }
+      guard let receipt else { throw NoteActionError.transactionConflict }
+      return receipt
+    }
+  }
+
+  public func undo(_ receipt: NoteActionReceipt, allowedCardRefs: Set<String>, authorization: NoteActionAuthorization? = nil) throws -> NoteActionReceipt {
+    try ConversationActionGate.withAuthorization(authorization, root: root, proposal: receipt.proposal, allowedCardRefs: allowedCardRefs) {
+      try undoAction(receipt, allowedCardRefs: allowedCardRefs)
+    }
+  }
+
+  private func undoAction(_ receipt: NoteActionReceipt, allowedCardRefs: Set<String>) throws -> NoteActionReceipt {
+    try validateActionProposal(receipt.proposal)
+    // A persisted receipt authorizes undo of its own newly-created note, even
+    // when that note was not silently added to a selected-note conversation.
+    try requireActionScope(receipt.proposal, allowed: allowedCardRefs)
+    return try withActionState { state, metadata in
+      try reconcileActions(&state, metadata: metadata)
+      guard let index = state.records.firstIndex(where: { $0.receipt.id == receipt.id && $0.committed }),
+        state.records[index].receipt.proposal == receipt.proposal,
+        state.records[index].receipt.appliedAt == receipt.appliedAt else { throw NoteActionError.transactionConflict }
+      var record = state.records[index]
+      guard !record.quarantined else { throw NoteActionError.transactionConflict }
+      if record.receipt.status == .undone { return record.receipt }
+      if let edge = record.receipt.relation {
+        let key = actionRelationKey(edge)
+        if record.ownsRelation {
+          guard state.relationGenerations[key] == record.relationGeneration else { throw NoteActionError.transactionConflict }
+        }
+        if record.receipt.proposal.kind == .link {
+          if record.ownsRelation {
+            guard state.relations.contains(edge) else { throw NoteActionError.transactionConflict }
+            // A later confirmed action may now depend on this same edge.
+            guard !state.records.contains(where: {
+              $0.committed && $0.receipt.status == .applied && $0.receipt.id != receipt.id
+                && $0.receipt.appliedAt > receipt.appliedAt && $0.receipt.relation?.id == edge.id
+            }) else { throw NoteActionError.transactionConflict }
+            state.relations.removeAll { $0.id == edge.id }
+          }
+        } else {
+          guard !state.relations.contains(where: { $0.id == edge.id || $0.sameEdge(as: edge) }) else {
+            throw NoteActionError.transactionConflict
+          }
+          state.relations.append(edge)
+        }
+        if record.ownsRelation { _ = try nextRelationGeneration(key, state: &state) }
+        record.receipt = record.receipt.withStatus(.undone)
+        state.records[index] = record
+        try writeActionState(state, to: metadata)
+        return record.receipt
+      }
+      guard let ref = record.cardRef else { throw NoteActionError.corruptMetadata }
+      var result: NoteActionReceipt?
+      try coordinatedWrite(at: actionURL(cardRef: ref)) { coordinated in
+        var document = try self.actionDocument(at: coordinated)
+        guard let targetIndex = try self.actionIndex(cardRef: ref, document: document),
+          document.blocks[targetIndex].utf8.elementsEqual((record.afterBlock ?? "").utf8) else {
+          throw NoteActionError.transactionConflict
+        }
+        if let before = record.beforeBlock { document.blocks[targetIndex] = before }
+        else { document.blocks.remove(at: targetIndex) }
+        try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
+        guard document.content.utf8.count <= 4 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
+        record.undoPrepared = true; state.records[index] = record
+        try self.writeActionState(state, to: metadata)
+        try self.validateContained(coordinated)
+        try document.content.write(to: coordinated, atomically: true, encoding: .utf8)
+        record.receipt = record.receipt.withStatus(.undone); record.undoPrepared = false
+        state.records[index] = record
+        try self.writeActionState(state, to: metadata)
+        result = record.receipt
+      }
+      guard let result else { throw NoteActionError.transactionConflict }
+      return result
+    }
+  }
+
+  private func withActionState<T>(_ operation: (inout NoteActionState, URL) throws -> T) throws -> T {
+    let directory = root.appendingPathComponent(".daypage")
+    let metadata = directory.appendingPathComponent("note-actions.json")
+    try validateContained(metadata)
+    try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+    var result: T?
+    try coordinatedWrite(at: metadata) { coordinated in
+      var state = try self.readActionState(at: coordinated)
+      result = try operation(&state, coordinated)
+    }
+    guard let result else { throw NoteActionError.corruptMetadata }
+    return result
+  }
+
+  private func readActionState(at url: URL) throws -> NoteActionState {
+    try validateContained(url)
+    let originURL = url.deletingLastPathComponent().appendingPathComponent("note-actions-origin.json")
+    try validateContained(originURL)
+    let hasJournal = fm.fileExists(atPath: url.path), hasOrigin = fm.fileExists(atPath: originURL.path)
+    if !hasJournal && !hasOrigin { return NoteActionState() }
+    guard hasOrigin else { throw NoteActionError.corruptMetadata }
+    let origin = try readActionOrigin(at: originURL)
+    if !hasJournal {
+      guard !origin.established else { throw NoteActionError.corruptMetadata }
+      return NoteActionState(origin: origin.origin)
+    }
+    let data = try boundedActionData(at: url, maximum: 32 * 1024 * 1024)
+    guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let version = object["version"] as? Int else { throw NoteActionError.corruptMetadata }
+    guard version == 1 else { throw NoteActionError.unsupportedVersion }
+    try validateActionMetadataShape(object)
+    guard let state = try? JSONDecoder().decode(NoteActionState.self, from: data), state.origin == origin.origin,
+      state.proposals.count <= 1000, state.records.count <= 1000, state.relations.count <= 1000, state.relationGenerations.count <= 1000,
+      Set(state.proposals.map(\.id)).count == state.proposals.count,
+      Set(state.records.map { $0.receipt.id }).count == state.records.count,
+      Set(state.relations.map(\.id)).count == state.relations.count else { throw NoteActionError.corruptMetadata }
+    for proposal in state.proposals { try validateActionProposal(proposal) }
+    for record in state.records {
+      try validateActionProposal(record.receipt.proposal)
+      guard record.receipt.id == record.receipt.proposal.id,
+        state.proposals.contains(record.receipt.proposal),
+        record.receipt.appliedAt.timeIntervalSince1970.isFinite,
+        record.receipt.status != .undone || record.committed && !record.undoPrepared else { throw NoteActionError.corruptMetadata }
+      let relationAction = record.receipt.proposal.kind == .link || record.receipt.proposal.kind == .unlink
+      guard relationAction == (record.cardRef == nil), relationAction == (record.receipt.relation != nil) else { throw NoteActionError.corruptMetadata }
+      if let edge = record.receipt.relation {
+        try validateActionRelation(edge)
+        guard let proposed = record.receipt.proposal.relation, edge.sameEdge(as: proposed),
+          record.committed, !record.undoPrepared, record.beforeBlock == nil, record.afterBlock == nil,
+          record.receipt.savedSource == nil, let generation = record.relationGeneration, generation > 0,
+          state.relationGenerations[actionRelationKey(edge)].map({ $0 >= generation }) == true else { throw NoteActionError.corruptMetadata }
+      }
+      if let ref = record.cardRef {
+        guard record.relationGeneration == nil else { throw NoteActionError.corruptMetadata }
+        _ = try actionURL(cardRef: ref)
+        guard let after = record.afterBlock, after.utf8.count <= 4 * 1024 * 1024,
+          let afterMemo = Memo.fromMarkdown(after), ref.hasSuffix("/" + afterMemo.id.uuidString),
+          record.receipt.savedSource?.cardRef == ref,
+          record.receipt.savedSource?.day == actionDay(cardRef: ref),
+          record.receipt.savedSource?.snippet == String(afterMemo.body.prefix(360)),
+          record.beforeBlock.map({ $0.utf8.count <= 4 * 1024 * 1024 && Memo.fromMarkdown($0)?.id == afterMemo.id }) ?? true,
+          record.receipt.proposal.kind == .create ? record.receipt.proposal.id == afterMemo.id && record.beforeBlock == nil : record.receipt.proposal.target?.cardRef == ref
+        else { throw NoteActionError.corruptMetadata }
+        if let before = record.beforeBlock {
+          guard NoteActionIdentity.digest(before) == record.receipt.proposal.expectedRevision,
+            let memo = Memo.fromMarkdown(before),
+            try actionEditedBlock(before, memo: memo, proposal: record.receipt.proposal).utf8.elementsEqual(after.utf8)
+          else { throw NoteActionError.corruptMetadata }
+        } else {
+          guard record.receipt.proposal.kind == .create, let body = record.receipt.proposal.body,
+            Memo(id: afterMemo.id, created: record.receipt.proposal.createdAt, body: body).toMarkdown().utf8.elementsEqual(after.utf8)
+          else { throw NoteActionError.corruptMetadata }
+        }
+      }
+    }
+    for relation in state.relations {
+      try validateActionRelation(relation)
+      guard state.relationGenerations[actionRelationKey(relation)].map({ $0 > 0 }) == true else { throw NoteActionError.corruptMetadata }
+    }
+    for (key, generation) in state.relationGenerations {
+      let fields = key.components(separatedBy: "\n")
+      guard generation > 0, fields.count == 3, NoteRelationType(rawValue: fields[2]) != nil else { throw NoteActionError.corruptMetadata }
+      _ = try actionURL(cardRef: fields[0]); _ = try actionURL(cardRef: fields[1])
+    }
+    let edgeKeys = state.relations.map { $0.from.cardRef + "\n" + $0.to.cardRef + "\n" + $0.type.rawValue }
+    guard Set(edgeKeys).count == edgeKeys.count else { throw NoteActionError.corruptMetadata }
+    if !origin.established {
+      guard state.records.isEmpty, state.relations.isEmpty, state.relationGenerations.isEmpty else { throw NoteActionError.corruptMetadata }
+      // Initial proposal-only publication finished; finalize its provenance
+      // before allowing saveProposal to return or any apply to proceed.
+      try writeActionOrigin(NoteActionOrigin(version: 1, origin: state.origin, established: true), to: originURL)
+    }
+    return state
+  }
+
+  /// Unknown fields cannot be silently discarded by Codable on the next save.
+  /// A future format must increment its version or explicitly preserve extensions.
+  private func validateActionMetadataShape(_ object: [String: Any]) throws {
+    func keys(_ value: Any, _ allowed: Set<String>) throws -> [String: Any] {
+      guard let object = value as? [String: Any], Set(object.keys).isSubset(of: allowed) else { throw NoteActionError.corruptMetadata }
+      return object
+    }
+    func source(_ value: Any?) throws {
+      if let value, !(value is NSNull) { _ = try keys(value, ["cardRef", "day", "snippet"]) }
+    }
+    func relation(_ value: Any?) throws {
+      if let value, !(value is NSNull) {
+        let edge = try keys(value, ["id", "from", "to", "type", "reason", "createdAt", "fromRevision", "toRevision", "isStale"])
+        try source(edge["from"]); try source(edge["to"])
+      }
+    }
+    func proposal(_ value: Any) throws {
+      let item = try keys(value, ["id", "kind", "createdAt", "target", "expectedRevision", "body", "before", "after", "tags", "pinned", "relation"])
+      try source(item["target"]); try relation(item["relation"])
+    }
+    _ = try keys(object, ["version", "origin", "proposals", "records", "relations", "relationGenerations"])
+    for value in object["proposals"] as? [Any] ?? [] { try proposal(value) }
+    for value in object["relations"] as? [Any] ?? [] { try relation(value) }
+    for value in object["records"] as? [Any] ?? [] {
+      let record = try keys(value, ["receipt", "committed", "undoPrepared", "quarantined", "relationGeneration", "cardRef", "beforeBlock", "afterBlock", "ownsRelation"])
+      guard let receiptValue = record["receipt"] else { throw NoteActionError.corruptMetadata }
+      let receipt = try keys(receiptValue, ["id", "proposal", "status", "savedSource", "relation", "appliedAt"])
+      guard let proposalValue = receipt["proposal"] else { throw NoteActionError.corruptMetadata }
+      try proposal(proposalValue); try source(receipt["savedSource"]); try relation(receipt["relation"])
+    }
+  }
+
+  private func writeActionState(_ state: NoteActionState, to url: URL) throws {
+    try validateContained(url)
+    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+    let data = try encoder.encode(state)
+    guard data.count <= 32 * 1024 * 1024 else { throw NoteActionError.limitExceeded }
+    let originURL = url.deletingLastPathComponent().appendingPathComponent("note-actions-origin.json")
+    try validateContained(originURL)
+    let established: Bool
+    if fm.fileExists(atPath: originURL.path) {
+      let marker = try readActionOrigin(at: originURL)
+      guard marker.origin == state.origin, !marker.established || fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+      established = marker.established
+    } else {
+      guard !fm.fileExists(atPath: url.path) else { throw NoteActionError.corruptMetadata }
+      established = false
+      try encoder.encode(NoteActionOrigin(version: 1, origin: state.origin, established: false)).write(to: originURL, options: .withoutOverwriting)
+    }
+    if !established {
+      guard state.records.isEmpty, state.relations.isEmpty, state.relationGenerations.isEmpty else { throw NoteActionError.corruptMetadata }
+    }
+    try validateContained(url)
+    try data.write(to: url, options: .atomic)
+    if !established { try writeActionOrigin(NoteActionOrigin(version: 1, origin: state.origin, established: true), to: originURL) }
+  }
+
+  private func readActionOrigin(at url: URL) throws -> NoteActionOrigin {
+    let data = try boundedActionData(at: url, maximum: 1024)
+    guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      Set(object.keys) == ["version", "origin", "established"],
+      let origin = try? JSONDecoder().decode(NoteActionOrigin.self, from: data), origin.version == 1 else { throw NoteActionError.corruptMetadata }
+    return origin
+  }
+
+  private func writeActionOrigin(_ origin: NoteActionOrigin, to url: URL) throws {
+    try validateContained(url)
+    try JSONEncoder().encode(origin).write(to: url, options: .atomic)
+  }
+
+  private func boundedActionData(at url: URL, maximum: Int) throws -> Data {
+    try validateContained(url)
+    let attrs = try fm.attributesOfItem(atPath: url.path)
+    guard attrs[.type] as? FileAttributeType == .typeRegular,
+      let size = attrs[.size] as? NSNumber, size.int64Value <= maximum else { throw NoteActionError.limitExceeded }
+    let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
+    let data = try handle.read(upToCount: maximum + 1) ?? Data()
+    guard data.count <= maximum else { throw NoteActionError.limitExceeded }
+    return data
+  }
+
+  private func actionDocument(at url: URL) throws -> DayDocument {
+    try validateContained(url)
+    guard fm.fileExists(atPath: url.path) else { return DayDocument("") }
+    let data = try boundedActionData(at: url, maximum: 4 * 1024 * 1024)
+    guard let text = String(data: data, encoding: .utf8) else { throw NotebookError.unreadableFile }
+    let document = DayDocument(text)
+    guard document.valid else { throw NotebookError.ambiguousRecord }
+    return document
+  }
+
+  private func actionDay(cardRef: String) -> String? {
+    let parts = cardRef.split(separator: "/", omittingEmptySubsequences: false)
+    guard parts.count >= 3 else { return nil }
+    return String(parts[parts.count - 2])
+  }
+
+  private func actionURL(cardRef: String) throws -> URL {
+    let parts = cardRef.split(separator: "/", omittingEmptySubsequences: false)
+    guard parts.count >= 3, let last = parts.last, UUID(uuidString: String(last)) != nil,
+      let day = actionDay(cardRef: cardRef), Self.validDay(day) else { throw NotebookError.invalidPath }
+    let namespace = parts.dropLast(2).joined(separator: "/")
+    // Local refs have exactly one empty leading namespace; imported refs are
+    // slash-separated UUIDs. Empty intermediate components are rejected.
+    guard namespace.isEmpty ? parts.count == 3 && parts[0].isEmpty : !parts[0].isEmpty else { throw NotebookError.invalidPath }
+    let url = try vaultURL(namespace: namespace).appendingPathComponent("raw/\(day).md")
+    try validateContained(url)
+    return url
+  }
+
+  private func actionIndex(cardRef: String, document: DayDocument) throws -> Int? {
+    guard let idText = cardRef.split(separator: "/").last, let id = UUID(uuidString: String(idText)) else { throw NotebookError.invalidPath }
+    let matches = document.blocks.indices.filter { Memo.fromMarkdown(document.blocks[$0])?.id == id }
+    guard matches.count <= 1 else { throw NotebookError.ambiguousRecord }
+    return matches.first
+  }
+
+  private func requireActionScope(_ proposal: NoteActionProposal, allowed: Set<String>) throws {
+    if let target = proposal.target, !allowed.contains(target.cardRef) { throw NoteActionError.outOfScope }
+    if let relation = proposal.relation,
+      !allowed.contains(relation.from.cardRef) || !allowed.contains(relation.to.cardRef) { throw NoteActionError.outOfScope }
+  }
+
+  private func validateActionRelation(_ edge: NoteRelation) throws {
+    _ = try actionURL(cardRef: edge.from.cardRef); _ = try actionURL(cardRef: edge.to.cardRef)
+    guard edge.from.cardRef != edge.to.cardRef, edge.reason.count <= 1000,
+      edge.createdAt.timeIntervalSince1970.isFinite,
+      !edge.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      edge.from.snippet.count <= 360, edge.to.snippet.count <= 360,
+      edge.from.day == actionDay(cardRef: edge.from.cardRef), edge.to.day == actionDay(cardRef: edge.to.cardRef),
+      edge.fromRevision.range(of: #"^[a-f0-9]{64}$"#, options: .regularExpression) != nil,
+      edge.toRevision.range(of: #"^[a-f0-9]{64}$"#, options: .regularExpression) != nil else { throw NoteActionError.invalidProposal }
+  }
+
+  private func validateActionProposal(_ proposal: NoteActionProposal) throws {
+    guard proposal.createdAt.timeIntervalSince1970.isFinite else { throw NoteActionError.invalidProposal }
+    if let target = proposal.target {
+      _ = try actionURL(cardRef: target.cardRef)
+      guard target.day == actionDay(cardRef: target.cardRef), target.snippet.count <= 360,
+        proposal.expectedRevision?.range(of: #"^[a-f0-9]{64}$"#, options: .regularExpression) != nil else { throw NoteActionError.invalidProposal }
+    }
+    for text in [proposal.body, proposal.before, proposal.after].compactMap({ $0 }) {
+      guard text.count <= 6000, !text.contains(DayDocument.modern) else { throw NoteActionError.invalidProposal }
+    }
+    func nonempty(_ text: String?) -> Bool { text.map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? false }
+    if proposal.kind != .create && proposal.kind != .append, proposal.body != nil { throw NoteActionError.invalidProposal }
+    if proposal.kind != .patch, proposal.before != nil || proposal.after != nil { throw NoteActionError.invalidProposal }
+    if proposal.kind != .setTags, proposal.tags != nil { throw NoteActionError.invalidProposal }
+    if proposal.kind != .setPin, proposal.pinned != nil { throw NoteActionError.invalidProposal }
+    if proposal.target == nil, proposal.expectedRevision != nil { throw NoteActionError.invalidProposal }
+    switch proposal.kind {
+    case .create:
+      guard proposal.target == nil, nonempty(proposal.body), proposal.relation == nil else { throw NoteActionError.invalidProposal }
+    case .append:
+      guard proposal.target != nil, nonempty(proposal.body), proposal.relation == nil else { throw NoteActionError.invalidProposal }
+    case .patch:
+      guard proposal.target != nil, nonempty(proposal.before), proposal.after != nil, proposal.relation == nil else { throw NoteActionError.invalidProposal }
+    case .setTags:
+      guard proposal.target != nil, let tags = proposal.tags, tags.count <= 20,
+        Set(tags).count == tags.count, tags.allSatisfy({ $0.range(of: #"^[\p{L}\p{N}_-]{1,64}$"#, options: .regularExpression) != nil }),
+        proposal.relation == nil else { throw NoteActionError.invalidProposal }
+    case .setPin:
+      guard proposal.target != nil, proposal.pinned != nil, proposal.relation == nil else { throw NoteActionError.invalidProposal }
+    case .link, .unlink:
+      guard proposal.target == nil, let relation = proposal.relation else { throw NoteActionError.invalidProposal }
+      try validateActionRelation(relation)
+    }
+  }
+
+  private func actionEditedBlock(_ block: String, memo: Memo, proposal: NoteActionProposal) throws -> String {
+    let header = try frontmatterRange(in: block)
+    if proposal.kind == .setPin {
+      if (memo.pinnedAt != nil) == proposal.pinned { return block }
+      var lines = String(block[header]).components(separatedBy: "\n")
+      let pins = lines.indices.filter { lines[$0].hasPrefix("pinned_at:") }
+      guard pins.count <= 1 else { throw NotebookError.ambiguousRecord }
+      if let pin = pins.first { lines.remove(at: pin) }
+      if proposal.pinned == true { lines.insert("pinned_at: " + ISO8601DateFormatter.memo.string(from: proposal.createdAt), at: 0) }
+      return String(block[..<header.lowerBound]) + lines.joined(separator: "\n") + String(block[header.upperBound...])
+    }
+    // Work from raw body bytes rather than the parser's trimmed presentation.
+    // Appending must retain the user's existing trailing whitespace/newlines.
+    let closingLineEnd = block[header.upperBound...].firstIndex(of: "\n") ?? block.endIndex
+    var bodyStart = closingLineEnd
+    if bodyStart < block.endIndex { bodyStart = block.index(after: bodyStart) }
+    if bodyStart < block.endIndex, block[bodyStart] == "\n" { bodyStart = block.index(after: bodyStart) }
+    var body = String(block[bodyStart...])
+    switch proposal.kind {
+    case .append:
+      guard let text = proposal.body else { throw NoteActionError.invalidProposal }
+      body += (body.isEmpty ? "" : "\n\n") + text
+    case .patch:
+      guard let before = proposal.before, let after = proposal.after,
+        let range = NoteActionIdentity.uniqueRange(of: before, in: body) else { throw NoteActionError.invalidProposal }
+      body.replaceSubrange(range, with: after)
+    case .setTags:
+      let regex = try NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_-]+)"#)
+      body = regex.stringByReplacingMatches(in: body, range: NSRange(body.startIndex..., in: body), withTemplate: "")
+      let tags = (proposal.tags ?? []).map { "#" + $0 }.joined(separator: " ")
+      if !tags.isEmpty { body += (body.isEmpty ? "" : "\n\n") + tags }
+    default: throw NoteActionError.invalidProposal
+    }
+    guard !body.contains(DayDocument.modern), !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !memo.attachments.isEmpty else { throw NotebookError.emptyNote }
+    // Replace only the body. Preserve all header bytes, including unknown YAML.
+    var prefix = String(block[..<bodyStart])
+    if bodyStart == block.endIndex {
+      if !prefix.hasSuffix("\n") { prefix += "\n\n" }
+      else if !prefix.hasSuffix("\n\n") { prefix += "\n" }
+    }
+    return prefix + body
+  }
+
+  private func applyRelation(_ proposal: NoteActionProposal, state: inout NoteActionState, metadata: URL) throws -> NoteActionReceipt {
+    guard let proposed = proposal.relation else { throw NoteActionError.invalidProposal }
+    // Lock both endpoint day files in stable path order until the metadata commit.
+    let urls = proposal.kind == .link ? try Array(Set([actionURL(cardRef: proposed.from.cardRef), actionURL(cardRef: proposed.to.cardRef)])).sorted { $0.path < $1.path } : []
+    var result: NoteActionReceipt?
+    try withActionEndpointLocks(urls) {
+      if proposal.kind == .link {
+        let fresh = try self.readEntries(in: self.root)
+        guard let from = fresh.first(where: { $0.id == proposed.from.cardRef }), let to = fresh.first(where: { $0.id == proposed.to.cardRef }),
+          from.revision == proposed.fromRevision, to.revision == proposed.toRevision,
+          from.memo.body.hasPrefix(proposed.from.snippet), to.memo.body.hasPrefix(proposed.to.snippet) else { throw NoteActionError.transactionConflict }
+      }
+    let edge: NoteRelation
+    let owns: Bool
+    if proposal.kind == .link {
+      if let existing = state.relations.first(where: { $0.sameEdge(as: proposed) }) { edge = existing; owns = false }
+      else {
+        guard state.relations.count < 1000, !state.relations.contains(where: { $0.id == proposed.id }) else { throw NoteActionError.limitExceeded }
+        edge = proposed; owns = true; state.relations.append(proposed)
+      }
+    } else {
+      guard let existing = state.relations.first(where: { $0.id == proposed.id }), existing == proposed else {
+        throw NoteActionError.transactionConflict
+      }
+      edge = existing; owns = true; state.relations.removeAll { $0.id == proposed.id }
+    }
+    let receipt = NoteActionReceipt(id: proposal.id, proposal: proposal, status: .applied, relation: edge, appliedAt: Date())
+    let key = self.actionRelationKey(edge)
+    let generation: Int
+    if owns { generation = try self.nextRelationGeneration(key, state: &state) }
+    else {
+      guard let current = state.relationGenerations[key] else { throw NoteActionError.corruptMetadata }
+      generation = current
+    }
+    state.records.removeAll { $0.receipt.id == proposal.id && !$0.committed }
+    state.records.append(NoteActionRecord(receipt: receipt, committed: true, undoPrepared: false,
+      relationGeneration: generation, cardRef: nil, beforeBlock: nil, afterBlock: nil, ownsRelation: owns))
+      try self.writeActionState(state, to: metadata)
+      result = receipt
+    }
+    guard let result else { throw NoteActionError.transactionConflict }
+    return result
+  }
+
+  private func withActionEndpointLocks(_ urls: [URL], operation: () throws -> Void) throws {
+    guard let first = urls.first else { return try operation() }
+    try coordinatedWrite(at: first) { _ in
+      try self.withActionEndpointLocks(Array(urls.dropFirst()), operation: operation)
+    }
+  }
+
+  private func reconcileActions(_ state: inout NoteActionState, metadata: URL, entries: [NotebookEntry]? = nil) throws {
+    var changed = false
+    let pending = state.records.indices.filter { !state.records[$0].quarantined && (!state.records[$0].committed || state.records[$0].undoPrepared) }
+    guard !pending.isEmpty else { return }
+    let fresh = try entries ?? readEntries(in: root)
+    let byRef = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+    for index in pending {
+      let record = state.records[index]
+      guard let ref = record.cardRef else { throw NoteActionError.corruptMetadata }
+      let block = byRef[ref]?.originalMarkdown
+      func same(_ a: String?, _ b: String?) -> Bool {
+        if let a, let b { return a.utf8.elementsEqual(b.utf8) }; return a == nil && b == nil
+      }
+      if record.undoPrepared {
+        if same(block, record.beforeBlock) {
+          state.records[index].receipt = record.receipt.withStatus(.undone)
+          state.records[index].undoPrepared = false; changed = true
+        } else if !same(block, record.afterBlock) {
+          state.records[index].quarantined = true; changed = true
+        }
+      } else if same(block, record.afterBlock) {
+        state.records[index].committed = true; changed = true
+      } else if !same(block, record.beforeBlock) {
+        state.records[index].quarantined = true; changed = true
+      }
+      // Equal before-block means publication did not happen. Keep the pending
+      // evidence; only a new explicit apply may attempt the write.
+    }
+    if changed { try writeActionState(state, to: metadata) }
+  }
+
+  private func actionRelationKey(_ edge: NoteRelation) -> String {
+    edge.from.cardRef + "\n" + edge.to.cardRef + "\n" + edge.type.rawValue
+  }
+
+  private func nextRelationGeneration(_ key: String, state: inout NoteActionState) throws -> Int {
+    let old = state.relationGenerations[key, default: 0]
+    guard old < Int.max, old > 0 || state.relationGenerations.count < 1000 else { throw NoteActionError.limitExceeded }
+    state.relationGenerations[key] = old + 1
+    return old + 1
   }
 }
 
@@ -458,7 +1082,7 @@ public actor NotebookStore {
   }
 
   public func restore(_ receipt: NotebookTrashReceipt) throws {
-    guard receipt.originRoot == root else { throw NotebookError.invalidPath }
+    guard NotebookPath.canonicalPath(receipt.originRoot) == NotebookPath.canonicalPath(root) else { throw NotebookError.invalidPath }
     let url = try fileURL(for: receipt.entry)
     try coordinatedWrite(at: url) { coordinated in
       let record = try self.readTrash(receipt.id, origin: self.trashOrigin(create: false))
@@ -507,7 +1131,8 @@ public actor NotebookStore {
   /// Copies only into a new namespace; originals and existing local notes are untouched.
   public func importVault(from source: URL) throws {
     let original = source.standardizedFileURL
-    guard original != root, !original.path.hasPrefix(root.path + "/"),
+    let sourcePath = NotebookPath.canonicalPath(original), rootPath = NotebookPath.canonicalPath(root)
+    guard sourcePath != rootPath, !sourcePath.hasPrefix(rootPath + "/"),
       fm.fileExists(atPath: original.appendingPathComponent("raw").path)
         || fm.fileExists(atPath: original.appendingPathComponent("imports").path)
     else { throw NotebookError.invalidVault }
@@ -524,14 +1149,35 @@ public actor NotebookStore {
           && values.ubiquitousItemDownloadingStatus == .notDownloaded)
       else { throw NotebookError.invalidVault }
     }
+    let stagingParent = root.appendingPathComponent(".import-\(UUID())")
+    let staging = stagingParent.appendingPathComponent("vault")
+    let imports = root.appendingPathComponent("imports")
+    let destination = imports.appendingPathComponent(UUID().uuidString)
+    // Validate every publication path before creating or copying anything. A
+    // linked root/imports folder must never redirect staging or the final move.
+    try validateContained(stagingParent)
+    try validateContained(staging)
+    try validateContained(imports)
+    try validateContained(destination)
     try fm.createDirectory(at: root, withIntermediateDirectories: true)
-    let staging = root.appendingPathComponent(".import-\(UUID())")
-    defer { if fm.fileExists(atPath: staging.path) { try? fm.removeItem(at: staging) } }
+    try validateContained(stagingParent)
+    // mkdir is exclusive: a failed reservation never claims an existing tree.
+    guard mkdir(stagingParent.path, mode_t(0o700)) == 0 else {
+      throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+    defer {
+      if (try? validateContained(stagingParent)) != nil,
+        fm.fileExists(atPath: stagingParent.path) { try? fm.removeItem(at: stagingParent) }
+    }
+    try validateContained(staging)
     try fm.copyItem(at: original, to: staging)
     _ = try readEntries(in: staging)
-    let imports = root.appendingPathComponent("imports")
+    try validateContained(imports)
     try fm.createDirectory(at: imports, withIntermediateDirectories: true)
-    try fm.moveItem(at: staging, to: imports.appendingPathComponent(UUID().uuidString))
+    try validateContained(staging)
+    try validateContained(imports)
+    try validateContained(destination)
+    try fm.moveItem(at: staging, to: destination)
   }
 
   public func assetURL(_ path: String, for entry: NotebookEntry) throws -> URL {
@@ -541,7 +1187,8 @@ public actor NotebookStore {
     let base = try vaultURL(namespace: entry.namespace)
     let relative = path.hasPrefix("raw/assets/") ? path : "raw/assets/" + path
     let url = base.appendingPathComponent(relative).standardizedFileURL
-    guard url.path.hasPrefix(base.appendingPathComponent("raw/assets").path + "/") else {
+    let assets = NotebookPath.canonicalPath(base.appendingPathComponent("raw/assets"))
+    guard NotebookPath.canonicalPath(url).hasPrefix(assets + "/") else {
       throw NotebookError.invalidPath
     }
     try validateContained(url)
@@ -683,7 +1330,7 @@ public actor NotebookStore {
 
   private func fileURL(for entry: NotebookEntry) throws -> URL {
     guard Self.validDay(entry.day) else { throw NotebookError.invalidPath }
-    if let origin = entry.originRoot, origin != root { throw NotebookError.invalidPath }
+    if let origin = entry.originRoot, NotebookPath.canonicalPath(origin) != NotebookPath.canonicalPath(root) { throw NotebookError.invalidPath }
     let url = try vaultURL(namespace: entry.namespace).appendingPathComponent("raw/\(entry.day).md")
     try validateContained(url)
     return url
@@ -726,13 +1373,13 @@ public actor NotebookStore {
     if let attributes = try? fm.attributesOfItem(atPath: requestedBase.path),
       attributes[.type] as? FileAttributeType == .typeSymbolicLink
     { throw NotebookError.invalidPath }
-    // Directory enumeration canonicalizes system ancestors such as /var → /private/var.
-    let base = candidate.path.hasPrefix(requestedBase.path + "/")
-      ? requestedBase : requestedBase.resolvingSymlinksInPath().standardizedFileURL
-    guard candidate.path.hasPrefix(base.path + "/") else { throw NotebookError.invalidPath }
+    let base = NotebookPath.canonicalPath(requestedBase)
+    let resolved = NotebookPath.canonicalPath(candidate)
+    guard resolved.hasPrefix(base + "/") else { throw NotebookError.invalidPath }
     // Reject links even when they resolve inside the notebook, including dangling links.
+    // Walk the original spelling so canonical comparison cannot hide a link.
     var path = candidate
-    while path.path.hasPrefix(base.path + "/") || path == base {
+    while true {
       do {
         let attributes = try fm.attributesOfItem(atPath: path.path)
         guard attributes[.type] as? FileAttributeType != .typeSymbolicLink else {
@@ -741,12 +1388,11 @@ public actor NotebookStore {
       } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError {
         // New files and directories are validated through their existing ancestors.
       }
-      if path == base { break }
+      let current = NotebookPath.canonicalPath(path)
+      if current == base { break }
+      guard current.hasPrefix(base + "/") else { throw NotebookError.invalidPath }
       path.deleteLastPathComponent()
     }
-    let resolvedRoot = base.resolvingSymlinksInPath().standardizedFileURL.path
-    let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL.path
-    guard resolved.hasPrefix(resolvedRoot + "/") else { throw NotebookError.invalidPath }
   }
   private static func validDay(_ day: String) -> Bool {
     guard day.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil else {

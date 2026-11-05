@@ -34,6 +34,7 @@ targets:
       - path: CaptureMedia.swift
       - path: NoteViews.swift
       - path: NoteChatView.swift
+      - path: NoteActionCards.swift
       - path: ChatSession.swift
       - path: ChatLibraryViews.swift
       - path: SpeechControls.swift

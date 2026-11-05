@@ -1,12 +1,45 @@
 # Local card tools and read aloud
 
-Scope: GET-369, ADR-0030. Active app: DayPageLocal, iOS 16.1+.
+Scope: GET-369/GET-388, ADR-0030/ADR-0031. Active app: DayPageLocal, iOS 16.1+.
 
 ## Card tools
 
-In Conversation, expand the notes row and enable Search notes as needed. On explicit Send, the AI may search/read all cards in the conversation's current selection, including supported attachment text. The row shows that complete available count. Include note excerpts off also disables tools. Opening history uses that conversation's stored scope. Roles affect style, never scope.
+In Conversation, expand the notes row and enable Use note tools. On explicit Send, the AI may search/read all cards in the conversation's current selection, including supported attachment text, and propose changes for review. The row shows that complete available count. Include note excerpts off also disables tools. Opening history uses that conversation's stored scope. Roles affect style, never scope.
 
-Six tools: notes_search, notes_read, notes_list, notes_stats, notes_tags, assets_read. Dates use inclusive YYYY-MM-DD bounds. Counts cover matching scoped cards, not only returned previews. Sources below the answer open the exact original card and persist after reopening. A missing source shows a recoverable message.
+Eighteen tools are available within the current conversation's selection:
+
+| Tool | Behavior |
+|---|---|
+| notes_search | Keyword/date/tag search, exact count before preview limits |
+| notes_read | Bounded original body and attachment metadata |
+| notes_list | List cards with date/tag filters |
+| notes_stats | Exact scoped card/day/attachment/body-character counts |
+| notes_tags | Tags and distinct-card counts |
+| assets_read | Supported attachment text |
+| notes_create | Propose a new note independently of the capture draft |
+| notes_append | Propose text appended to one note |
+| notes_propose_patch | Propose one unambiguous before/after replacement |
+| notes_set_tags | Propose replacing body hashtags, preserving other text |
+| notes_set_pin | Propose pin/unpin using existing metadata |
+| notes_similar | Local lexical candidates from an anchor or query |
+| notes_neighbors | Chronological neighbors of an exact card |
+| notes_find_duplicates | Exact-normalized or near-lexical candidates, never merging |
+| relations_suggest | Candidate relationships with original excerpts |
+| relations_list | Confirmed incoming/outgoing connections within scope |
+| relations_link | Propose a directed connection and explanation |
+| relations_unlink | Propose removing one confirmed connection |
+
+Dates use inclusive YYYY-MM-DD bounds. Search/list/statistics counts cover matching scoped cards, not only previews. Sources open the exact original card and persist after reopening. Missing sources show a recoverable message.
+
+### Review and save changes
+
+The model only prepares a change. Review change opens the target and proposed text or relationship endpoints. Confirm change writes the local files and returns a durable receipt; Cancel proposal never changes a note. Saved cards can be opened. Undo change refuses to overwrite subsequent edits. Reopening reads the file receipt rather than trusting assistant text. Retries in the same user turn reuse stable proposal identity and timestamp. Disabling note inclusion/tools disables confirmation as well as reading.
+
+Relationships follow the user's selected policy: suggest first, save after confirmation. Types are related, supplements, contradicts, evolves, duplicate and derived_from. Both endpoints must be authorized by the host scope. Directions are explicit, incoming edges are discoverable and changed evidence is marked stale. Authorized missing endpoints remain unavailable markers with their old text and explanation masked from new model requests; excluded endpoints are hidden. Explanations remain interpretations. Original note files are preserved. Sending reads a fresh Vault snapshot rather than the native UI cache. Live tool authority is rechecked before tools and subsequent model rounds; already-dispatched requests cannot be recalled.
+
+Version-1 local metadata lives at `.daypage/note-actions.json`: pending proposals, confirmed edges and recoverable receipts, including bounded original/updated blocks for undo. `.daypage/note-actions-origin.json` binds its initialization identity, so a missing journal after prior use cannot silently become a new history. Raw Markdown format is unchanged. Damaged, unsupported-version or linked metadata fails without replacement. Interrupted preparation never automatically publishes an unconfirmed change; reopening reconciles only already-published bytes. Ambiguous interrupted actions are quarantined while unrelated reads and safe changes remain available. Per-edge generations prevent an old undo from reviving a later removed relation. Native commits validate the live conversation lease, scope, switches and cancellation under the same synchronous gate as session changes. No database, embedding provider or background cloud request is introduced.
+
+Similarity uses local words, Chinese bigrams and shared hashtags, not semantic embeddings. The configured chat model can interpret candidates or try alternate queries. Retrieval inspects up to 500 candidate cards and 6,000 body characters per card; duplicate discovery inspects at most 5,000 pairs. Results expose method/coverage/truncation. No-match remains empty, and equal long prefixes are never called exact duplicates. Write text is bounded to 6,000 characters; invalid arguments never reach the write path.
 
 The runtime allows at most six model requests/twelve tool calls, twenty result cards and twenty-four source refs, with bounded text and input sizes. Tool mode completes bounded nonstream rounds; ordinary mode remains streamed. Unsupported responses preserve the question and let the person switch off tools.
 
@@ -41,9 +74,23 @@ The core and native UI use synthetic fixtures, never personal Vaults. The task-o
 
 While the shared Mac has a resource pause, use the existing hosted workflow:
 ```sh
-gh workflow run ios-local.yml --ref codex/get-369-card-tools-speech -f native_ui=true -f native_ui_suite=card_tools_speech
+gh workflow run ios-local.yml --repo getyak/daypage --ref main -f native_ui=true -f native_ui_suite=card_tools_speech
 ```
 
-This selects eleven signed journeys (all new card-tools/speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
+This selects sixteen signed journeys (note authoring, relations, card tools, speech and existing ChatExperienceUITests), plus two unsigned cases: real Keychain denial and anonymous speech that must remain usable without Keychain. native-acceptance.json records the suite and exact source SHA. Omit the suite or use full for every native journey. Do not interpret the selected suite as all-app acceptance.
+
+Unsigned test or evidence-validation failures are retained while the signed journeys run, so one failed prerequisite does not hide independent diagnostics. The unsigned result bundle, summary, attachments and executable hash are captured before re-signing. Any unsigned or signed failure still makes the job fail; native-acceptance.json is written only after both stages pass. Build, signing, entitlement and unsigned-binary preservation failures remain immediate stops.
+
+The host-side regression `python3 scripts/tests/test_local_native_ci.py` executes this shell orchestration with isolated command doubles. It checks failure propagation, evidence collection and preservation of the unsigned hash before overwrite. It opens no network listener, runs no Simulator or Xcode and supplies no native-acceptance evidence.
+
+If fixture readiness fails, the runner preserves the launched PID, direct child process metadata and raw listener output alongside the final round's bounded loopback health summary. Only the HTTP status, exit code, byte count and expected-marker comparison are recorded; unknown response headers, body and errors are not uploaded. A healthy response alone cannot satisfy ownership or authorize tests.
+
+Listener ownership uses lsof's machine fields (`-Fp`), requiring exactly the launched PID and successful queries both before and after the same health GET. That GET must exit successfully with HTTP 200 and the exact marker bytes. Empty, malformed or multiple-owner results fail closed; an owner first visible after GET requires a new stable round. Readiness retains 30 rounds with one-second pauses and a two-second HTTP timeout per round. The independent GET can add time when ownership is invisible. Probe records and a same-cycle terse-output comparison distinguish lookup behavior from HTTP readiness without accepting another service's health response.
+
+When GitHub cannot allocate its ARM runners, manual dispatch supports `-f runner_architecture=intel`. Both jobs then use the standard macos-26-intel image, which includes the current Xcode/iOS Simulator tools; PR and main-push defaults stay unchanged. Record the actual host and Simulator architecture from the receipts. This selects capacity only: the same signed/unsigned journeys, evidence and failure gates still apply.
+
+The additional manual `runner_architecture=intel15` choice uses macos-15-intel and explicitly selects its installed Xcode 26.3 rather than the image's older default. Its iOS 26.2 Simulator result is separate evidence from macOS 26/iOS 26.5 runs. It retains the same complete native matrix and does not change publication or automatic CI defaults.
+
+Manual Intel core/app verification has a fixed 40-minute job budget after a cold build exceeded the original 25-minute limit; automatic PR/main verification remains at 25 minutes. On GitHub-hosted X64 runners only, the selected Simulator's single cold-boot wait has a fixed 360-second limit instead of 180 seconds. Boot status, architecture, budget and elapsed time are recorded. A timeout or failed boot still stops before XCTest; the 90-minute native job limit, signing checks and every UI assertion remain unchanged. This extra setup time is not evidence that a stalled migration will recover.
 
 Live OpenAI/ElevenLabs/custom account access, voice quality, quota and physical-device audio remain separate checks requiring an actually configured service. Fixture success is protocol and app-path evidence only.

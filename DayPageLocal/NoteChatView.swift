@@ -51,10 +51,10 @@ struct NoteChatView: View {
         ToolbarItemGroup(placement: .primaryAction) {
           Button { sheet = .history } label: { Image(systemName: "clock.arrow.circlepath").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("Conversation history").accessibilityIdentifier("chat-history")
-            .disabled(session.switching)
+            .disabled(session.switching || session.applyingProposal != nil)
           Button { Task { await session.newConversation() } } label: { Image(systemName: "square.and.pencil").frame(minWidth: 44, minHeight: 44) }
             .accessibilityLabel("New conversation").accessibilityIdentifier("chat-new")
-            .disabled(session.sending || session.switching)
+            .disabled(session.sending || session.switching || session.applyingProposal != nil)
         }
       }
       .disabled(!session.ready && session.error == nil)
@@ -132,12 +132,12 @@ struct NoteChatView: View {
           Toggle("Include note excerpts", isOn: Binding(get: { session.conversation.includesNotes != false },
             set: { value in Task { await session.setIncludesNotes(value) } }))
             .disabled(session.sending).font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-include-notes")
-          Toggle("Search notes as needed", isOn: Binding(get: { session.conversation.usesTools == true },
+          Toggle("Use note tools", isOn: Binding(get: { session.conversation.usesTools == true },
             set: { value in Task { await session.setUsesTools(value) } }))
             .disabled(session.sending || session.conversation.includesNotes == false)
             .font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("chat-note-tools")
           Text(LocalizedStringKey(session.conversation.usesTools == true && session.conversation.includesNotes != false
-            ? "When you tap Send, your AI can search and read notes and supported attachments within this conversation’s note selection. It cannot change your notes."
+            ? "When you tap Send, your AI can search selected notes and suggest new notes, edits and connections. Review and confirm each change before it is saved."
             : "Only these excerpts and this conversation are sent when you tap Send."))
             .font(.caption).foregroundStyle(.secondary)
           if !context.text.isEmpty {
@@ -168,7 +168,7 @@ struct NoteChatView: View {
         TextField("Ask about your notes…", text: $session.draft, axis: .vertical)
           .focused($questionFocused)
           .font(.body).lineLimit(1...6).padding(.leading, 14).padding(.vertical, 12)
-          .disabled(!session.ready || session.sending || session.switching).accessibilityIdentifier("chat-question")
+          .disabled(!session.ready || session.sending || session.switching || session.applyingProposal != nil).accessibilityIdentifier("chat-question")
         Button {
           if session.sending { session.cancel() }
           else { questionFocused = false; session.send(notebook: notebook, context: context) }
@@ -177,7 +177,7 @@ struct NoteChatView: View {
             .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
             .frame(width: 44, height: 44).background(NotebookTheme.accent, in: Circle())
         }
-        .disabled(session.switching || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
+        .disabled(session.switching || session.applyingProposal != nil || (!session.sending && (!configured || !session.ready || session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.draft.count > 4000)))
         .accessibilityLabel(session.sending ? "Cancel request" : "Send")
         .accessibilityIdentifier(session.sending ? "cancel-chat" : "send-chat")
         .padding(4)
@@ -209,7 +209,14 @@ private struct ChatTranscript: View {
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 14) {
             if session.conversation.messages.isEmpty && session.ready { greeting.id("chat-start") }
-            ForEach(session.conversation.messages) { message in ChatMessageRow(message: message).id(message.id) }
+            ForEach(session.conversation.messages) { message in ChatMessageRow(message: message, session: session).id(message.id) }
+            if let error = session.actionError {
+              Text(error).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("chat-action-error")
+              if !session.actionsReady {
+                Button("Retry checking changes") { Task { await session.reloadReceipts() } }
+                  .frame(minHeight: 44).accessibilityIdentifier("chat-action-retry")
+              }
+            }
             if let status = session.toolStatus {
               Label(status, systemImage: "text.magnifyingglass").font(.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("chat-tool-status")
@@ -282,6 +289,7 @@ private struct ChatTranscript: View {
 
 private struct ChatMessageRow: View {
   let message: ChatMessage
+  @ObservedObject var session: ChatSession
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var saving = false
@@ -339,8 +347,15 @@ private struct ChatMessageRow: View {
                     Text(source.day).font(.caption.weight(.medium))
                     Text(source.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                   }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("chat-source-" + source.cardRef)
               }
+            }
+          }
+          if let proposals = message.proposals {
+            ForEach(proposals) { proposal in
+              NoteActionCard(session: session, messageID: message.id, proposal: proposal,
+                dismissed: message.dismissedProposalIDs?.contains(proposal.id) == true)
             }
           }
           if message.delivery == .complete, !message.content.isEmpty {

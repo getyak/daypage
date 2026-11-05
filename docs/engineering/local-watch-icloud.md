@@ -1,6 +1,6 @@
 # Local Watch capture and optional iCloud continuity
 
-GET-392 / GitHub #969. Implementation branch; native and real-device acceptance is pending. See [ADR-0031](../architecture/decisions/ADR-0031-local-watch-and-personal-replication.md).
+GET-392 / GitHub #969. Implementation branch; native and real-device acceptance is pending. See [ADR-0032](../architecture/decisions/ADR-0032-local-watch-and-personal-replication.md).
 
 ## What the user sees
 
@@ -26,7 +26,7 @@ Each revision identifies `namespace/memoUUID`, a sorted parent list, the origina
 
 Before raw integration, persist a journal and an intent marker per operation. Recover by comparing the current record with its expected/target fingerprints. A changed value becomes a branch; a valid local trash receipt preserves deletion of a newly downloaded note. A nonnil ambiguous value after a marked operation is conservatively preserved, including a user restore of the old value. A crash between marking intent and writing may therefore retain an extra old-value branch. A missing new record without trash evidence is safely re-downloaded rather than being mistaken for a deletion. This avoids turning a write-before-commit interruption into deletion on every other device.
 
-Saved versions recover as separate deterministic imported copies, with original audio; repeated selection is idempotent. This is **notes and attachments version history**, not a complete app backup. Chats, characters, model keys, unfinished capture drafts and notes trashed before sync was enabled are excluded. The existing notebook file export remains the way to copy the full on-disk Vault; credentials remain device-only.
+Saved versions recover as separate deterministic imported copies, with original audio; repeated selection is idempotent. This is **notes and attachments version history**, not a complete app backup. Chats, characters, note relationships/action receipts, model keys, unfinished capture drafts and notes trashed before sync was enabled are excluded. Relationships and operation history stay on the local device. The existing notebook file export remains the way to copy the full on-disk Vault, including local relationships; credentials remain device-only.
 
 No automatic history collection or pruning. Metadata discovery plus coalesced mutations/foreground activation drives exchange; errors retry after 30 seconds, subject to system suspension. A running exchange retains a dirty flag for another pass. Large libraries and long histories need capacity/performance acceptance before a release: the current core scans metadata and uses mapped attachment reads where safe, but is not a streaming engine.
 

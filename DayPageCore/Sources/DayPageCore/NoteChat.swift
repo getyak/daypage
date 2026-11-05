@@ -10,6 +10,10 @@ public struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
   public var character: ChatCharacter?
   public var delivery: Delivery?
   public var sources: [NoteToolSource]?
+  public var proposals: [NoteActionProposal]?
+  public var receipts: [NoteActionReceipt]?
+  public var dismissedProposalIDs: [UUID]?
+  public var createdAt: Date?
   public enum Delivery: String, Codable, Sendable { case streaming, complete, interrupted }
   public init(id: UUID = UUID(), role: Role, content: String, reasoning: String? = nil,
     character: ChatCharacter? = nil, delivery: Delivery? = nil) {
@@ -19,6 +23,7 @@ public struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
     self.reasoning = reasoning
     self.character = character
     self.delivery = delivery
+    self.createdAt = Date()
   }
 }
 public struct Conversation: Codable, Identifiable, Sendable {
@@ -110,6 +115,8 @@ public actor ConversationStore {
   public init(root: URL) { self.root = root }
   public func save(_ conversation: Conversation, revision: UInt64? = nil, lease: UUID? = nil) throws
   {
+    try ConversationActionGate.synchronized {
+    try ConversationActionGate.validateLease(root: root, id: conversation.id, lease: lease)
     if let current = leases[conversation.id], current != lease { throw NotebookError.conflict }
     if let revision {
       guard revision >= revisions[conversation.id, default: 0] else { return }
@@ -121,6 +128,7 @@ public actor ConversationStore {
     try conversation.id.uuidString.write(
       to: marker(scope: conversation.scope), atomically: true, encoding: .utf8)
     if let revision { revisions[conversation.id] = revision }
+    }
   }
   public func load(id: UUID) throws -> Conversation {
     try JSONDecoder().decode(
@@ -138,27 +146,45 @@ public actor ConversationStore {
   public func beginSession(scope: String = "all-notes") throws -> (
     conversation: Conversation, lease: UUID
   ) {
+    try ConversationActionGate.synchronized {
     let conversation = try loadLast(scope: scope) ?? Conversation(scope: scope)
     let lease = UUID()
     leases[conversation.id] = lease
+    ConversationActionGate.register(root: root, id: conversation.id, lease: lease)
     revisions[conversation.id] = 0
     return (conversation, lease)
+    }
   }
   public func beginSession(id: UUID) throws -> (conversation: Conversation, lease: UUID) {
+    try ConversationActionGate.synchronized {
     let conversation = try load(id: id)
     let lease = UUID()
     leases[id] = lease
+    ConversationActionGate.register(root: root, id: id, lease: lease)
     revisions[id] = 0
     return (conversation, lease)
+    }
   }
   public func createSession(scope: String = "all-notes") throws -> (conversation: Conversation, lease: UUID) {
+    try ConversationActionGate.synchronized {
     var conversation = Conversation(scope: scope)
     conversation.updatedAt = Date()
     let lease = UUID()
     leases[conversation.id] = lease
+    ConversationActionGate.register(root: root, id: conversation.id, lease: lease)
     revisions[conversation.id] = 0
     try save(conversation, revision: 0, lease: lease)
     return (conversation, lease)
+    }
+  }
+  public func authorizeAction(conversationID: UUID, messageID: UUID, lease: UUID,
+    proposal: NoteActionProposal, allowsCreation: Bool = false) throws -> NoteActionAuthorization {
+    try ConversationActionGate.issue(root: root, conversationID: conversationID, messageID: messageID,
+      lease: lease, proposal: proposal, allowsCreation: allowsCreation)
+  }
+  public func validateToolAccess(conversationID: UUID, lease: UUID, scope: String) throws {
+    try ConversationActionGate.validateToolAccess(root: root, conversationID: conversationID,
+      lease: lease, scope: scope)
   }
   public func history() throws -> ChatHistory {
     let folder = root.appendingPathComponent(".daypage/chats")

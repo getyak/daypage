@@ -36,7 +36,7 @@ struct ContinuitySettingsView: View {
       Section("Recover notes") {
         NavigationLink("Browse saved versions") { SavedNoteVersionsView() }
           .disabled(!cloud.enabled).accessibilityIdentifier("icloud-versions")
-        Text("Versions preserve notes and their attachments after sync is enabled. Recovery adds a separate copy. Chats, model keys, unfinished drafts and notes already in Recently Deleted are excluded. Export notebook files in Settings for a complete file copy.")
+        Text("Versions preserve notes and their attachments after sync is enabled. Recovery adds a separate copy. Chats, note relationships and action history, model keys, unfinished drafts and notes already in Recently Deleted are excluded. Export notebook files in Settings for a complete file copy.")
           .font(.caption).foregroundStyle(.secondary)
         Text("Turning sync off or signing out of iCloud keeps this device’s downloaded notes. Concurrent edits keep both copies. iCloud upload and delivery timing are managed by the system.")
           .font(.caption).foregroundStyle(.secondary)

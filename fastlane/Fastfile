@@ -68,7 +68,7 @@ platform :ios do
     UI.success "App Store submission complete"
   end
 
-  # ADR-0031 adds a local Watch companion and optional personal iCloud documents.
+  # ADR-0032 adds a local Watch companion and optional personal iCloud documents.
   # Neither target uses archived cloud configuration, generated secrets or databases.
   private_lane :archive_local_app do
     increment_build

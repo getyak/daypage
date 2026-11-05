@@ -108,7 +108,7 @@ final class LocalNotebookUITests: XCTestCase {
       app.swipeUp()
     }
     XCTAssertFalse(recover.isEnabled)
-    XCTAssertTrue(visibleText("Chats, model keys, unfinished drafts").exists)
+    XCTAssertTrue(visibleText("note relationships and action history").exists)
     screenshot("local-icloud-recovery-scope")
   }
 

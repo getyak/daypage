@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0205CF27058895692D8E25D5 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 599C854163773DF1181ACB07 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D23DB1E615AB05808521FDE /* NoteActionCards.swift */; };
 		1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */; };
 		20B4023F9DCDCDBF60EB4512 /* ChatExperienceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC24EB1348D01E6B37C6749F /* ChatExperienceUITests.swift */; };
 		210366F0849F77831D9D8EFC /* CloudContinuity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935495540B117E3F23C47171 /* CloudContinuity.swift */; };
@@ -111,6 +112,7 @@
 		6A7ECFAD6E1ED72AB6EE8BD5 /* DiaryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryUITests.swift; sourceTree = "<group>"; };
 		6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMedia.swift; sourceTree = "<group>"; };
 		72E832D94740F93B539B414A /* NotebookTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookTheme.swift; sourceTree = "<group>"; };
+		7D23DB1E615AB05808521FDE /* NoteActionCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteActionCards.swift; sourceTree = "<group>"; };
 		80743B6F3E33F0CDFD639BB2 /* AIConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConnectionSettings.swift; sourceTree = "<group>"; };
 		8196EE745EEF63F4963F3EB9 /* CaptureDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDraftStore.swift; sourceTree = "<group>"; };
 		838FA77D20724235F76022A0 /* WatchNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNotebook.swift; sourceTree = "<group>"; };
@@ -184,6 +186,7 @@
 				C8905BDB010ED901549F9C6D /* ContinuitySettingsView.swift */,
 				E1A12D5409FE7A0E2425076A /* DayPageApp.swift */,
 				4326C54BBF11D8F68313C675 /* FeedbackView.swift */,
+				7D23DB1E615AB05808521FDE /* NoteActionCards.swift */,
 				482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */,
 				9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */,
 				3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */,
@@ -448,6 +451,7 @@
 				CDE7DF6C57537DAEC6304BAF /* ContinuitySettingsView.swift in Sources */,
 				68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */,
 				93464F5B38BE2206E90F8620 /* FeedbackView.swift in Sources */,
+				03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */,
 				7F5D2C080E4696A3B7006E4B /* NoteChatView.swift in Sources */,
 				A6A9EC28F23A2B6892AADAC4 /* NoteSharePreview.swift in Sources */,
 				9AA74C7DB2F6E9816F9C9E93 /* NoteViews.swift in Sources */,

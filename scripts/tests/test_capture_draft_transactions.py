@@ -53,9 +53,18 @@ class CaptureDraftTransactions(unittest.TestCase):
                 self.skipTest("SwiftUI is unavailable in this toolchain")
             self.assertEqual(probe.returncode, 0, probe.stderr)
 
+            capture_sources = sorted((ROOT / "DayPageCore/Sources/DayPageCapture").glob("*.swift"))
+            self.run_command([
+                *swift, "-parse-as-library", "-emit-library", "-emit-module",
+                "-module-name", "DayPageCapture", "-emit-module-path",
+                str(modules / "DayPageCapture.swiftmodule"), "-o",
+                str(work / "libDayPageCapture.dylib"), *map(str, capture_sources),
+            ])
             core_sources = sorted((ROOT / "DayPageCore/Sources/DayPageCore").glob("*.swift"))
             self.run_command([
                 *swift, "-parse-as-library", "-emit-library", "-emit-module",
+                "-I", str(modules), "-L", str(work), "-lDayPageCapture",
+                "-Xlinker", "-rpath", "-Xlinker", str(work),
                 "-module-name", "DayPageCore", "-emit-module-path",
                 str(modules / "DayPageCore.swiftmodule"), "-o",
                 str(work / "libDayPageCore.dylib"), *map(str, core_sources),
@@ -92,7 +101,7 @@ class CaptureDraftTransactions(unittest.TestCase):
             binary = work / "draft-tests"
             self.run_command([
                 *swift, "-parse-as-library", "-I", str(modules), "-L", str(work),
-                "-lDayPageCore", "-Xlinker", "-rpath", "-Xlinker", str(work),
+                "-lDayPageCore", "-lDayPageCapture", "-Xlinker", "-rpath", "-Xlinker", str(work),
                 str(model_file), str(asset_file),
                 str(ROOT / "DayPageLocal/CaptureDraftStore.swift"),
                 str(ROOT / "scripts/tests/fixtures/capture_draft_transactions.swift"),

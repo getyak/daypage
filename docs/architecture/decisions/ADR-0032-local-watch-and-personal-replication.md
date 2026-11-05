@@ -1,4 +1,4 @@
-# ADR-0031: Local Watch capture and optional personal replication
+# ADR-0032: Local Watch capture and optional personal replication
 
 Status: Proposed, implemented behind opt-in sync; pending native/device acceptance. GET-392 / #969.
 

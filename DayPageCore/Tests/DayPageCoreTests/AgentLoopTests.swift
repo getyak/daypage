@@ -34,7 +34,15 @@ final class AgentLoopTests: XCTestCase {
     XCTAssertEqual(requests.count, 2)
     XCTAssertTrue(requests.allSatisfy { $0.url?.host == "example.com" })
     let first = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: Any])
-    XCTAssertEqual((first["tools"] as? [[String: Any]])?.count, 6)
+    let registered = (first["tools"] as? [[String: Any]])?.compactMap {
+      ($0["function"] as? [String: Any])?["name"] as? String
+    }
+    XCTAssertEqual(Set(registered ?? []), Set([
+      "notes_search", "notes_read", "notes_list", "notes_stats", "notes_tags", "assets_read",
+      "notes_create", "notes_append", "notes_propose_patch", "notes_similar", "notes_neighbors",
+      "notes_find_duplicates", "relations_suggest", "relations_list", "relations_link",
+      "relations_unlink", "notes_set_tags", "notes_set_pin"
+    ]))
     let second = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.last?.httpBody)) as? [String: Any])
     let payload = try XCTUnwrap(second["messages"] as? [[String: Any]])
     let result = try XCTUnwrap(payload.last)
