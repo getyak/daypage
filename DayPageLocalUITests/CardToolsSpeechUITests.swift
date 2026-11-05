@@ -158,7 +158,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     target.tap()
   }
 
-  private func setSwitch(_ id: String, on: Bool) {
+  private func setChatSwitch(_ id: String, on: Bool) {
     let control = app.switches[id]
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
@@ -216,6 +216,58 @@ final class CardToolsSpeechUITests: XCTestCase {
     }
   }
 
+  // Speech Form has a different accessibility tree from the chat header.
+  // Retain its validated physical target path independently of chat settling.
+  private func setSpeechSwitch(_ id: String, on: Bool) {
+    let control = app.switches[id]
+    XCTAssertTrue(control.waitForExistence(timeout: 5))
+    if (control.value as? String == "1") != on {
+      XCTAssertTrue(control.isHittable)
+      // SwiftUI exposes the row and its native switch separately. The thumb
+      // may extend a few points past the row, so associate it by its centre.
+      XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
+      let rowFrame = control.frame
+      let bounds = rowFrame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
+      let nativeFrames = app.switches.allElementsBoundByIndex.compactMap { element -> CGRect? in
+        guard element.identifier.isEmpty else { return nil }
+        let frame = element.frame
+        guard bounds.contains(CGPoint(x: frame.midX, y: frame.midY)), element.isHittable else { return nil }
+        return frame
+      }
+      XCTAssertLessThanOrEqual(nativeFrames.count, 1,
+        "The identified row must contain at most one native switch")
+      let point: XCUICoordinate
+      let targetFrame: CGRect
+      let targetMode: String
+      if let nativeFrame = nativeFrames.first {
+        targetFrame = nativeFrame
+        targetMode = "native-centre"
+        // Anchor the physical centre to the stable row identifier, not an
+        // unlabelled switch index or XCTest's inferred activation hit point.
+        point = control.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+          dx: targetFrame.midX - rowFrame.minX, dy: targetFrame.midY - rowFrame.minY))
+      } else {
+        targetFrame = rowFrame
+        targetMode = "identified-trailing"
+        point = control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+      }
+      XCTAssertGreaterThanOrEqual(targetFrame.width + geometryEpsilon, 44)
+      XCTAssertGreaterThanOrEqual(targetFrame.height + geometryEpsilon, 28)
+      let geometry = XCTAttachment(string:
+        "id=\(id) requested=\(on) mode=\(targetMode)\nrow=\(rowFrame)\ntarget=\(targetFrame)")
+      geometry.name = "switch-activation-" + id
+      geometry.lifetime = .keepAlways
+      add(geometry)
+      point.tap()
+    }
+    let updated = app.switches.matching(NSPredicate(
+      format: "identifier == %@ AND value == %@", id, on ? "1" : "0")).firstMatch
+    let changed = updated.waitForExistence(timeout: 5)
+    if !changed { captureLookupFailure(control, scroller: form) }
+    XCTAssertTrue(changed, "The identified switch must reach the requested value")
+  }
+
   private func openChat() {
     XCTAssertTrue(app.buttons["chat-with-notes"].waitForExistence(timeout: 10))
     app.buttons["chat-with-notes"].tap()
@@ -252,7 +304,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     app.launch()
     openChat()
     openContext()
-    setSwitch("chat-note-tools", on: true)
+    setChatSwitch("chat-note-tools", on: true)
     tap44(app.buttons["chat-context"])
   }
 
@@ -426,7 +478,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     openChat()
     openContext()
     XCTAssertEqual(app.switches["chat-note-tools"].value as? String, "0")
-    setSwitch("chat-note-tools", on: true)
+    setChatSwitch("chat-note-tools", on: true)
     tap44(app.buttons["chat-context"])
     send("Find my notebook thought using card tools")
     XCTAssertTrue(text("Tool reply: " + notebookOpening).waitForExistence(timeout: 15))
@@ -498,8 +550,8 @@ final class CardToolsSpeechUITests: XCTestCase {
     app.launch()
     openChat()
     openContext()
-    setSwitch("chat-note-tools", on: true)
-    setSwitch("chat-include-notes", on: false)
+    setChatSwitch("chat-note-tools", on: true)
+    setChatSwitch("chat-include-notes", on: false)
     XCTAssertEqual(app.switches["chat-note-tools"].value as? String, "0")
     XCTAssertFalse(app.switches["chat-note-tools"].isEnabled)
     tap44(app.buttons["chat-context"])
@@ -592,7 +644,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     replace("speech-voice", with: "fixture-voice")
     let local = app.switches["speech-local-http"]
     reveal(local)
-    setSwitch("speech-local-http", on: true)
+    setSpeechSwitch("speech-local-http", on: true)
     XCTAssertEqual(app.switches["speech-requires-key"].value as? String, "0")
     reveal(app.buttons["speech-save-channel"])
     XCTAssertTrue(app.buttons["speech-save-channel"].isEnabled)
@@ -755,7 +807,7 @@ final class CardToolsSpeechUITests: XCTestCase {
     replace("speech-model", with: "fixture-tts")
     replace("speech-voice", with: "fixture-voice")
     reveal(app.switches["speech-local-http"])
-    setSwitch("speech-local-http", on: true)
+    setSpeechSwitch("speech-local-http", on: true)
     reveal(app.buttons["speech-save-channel"])
     XCTAssertFalse(app.buttons["speech-save-channel"].isEnabled,
       "The ElevenLabs dialect requires its own channel key")
