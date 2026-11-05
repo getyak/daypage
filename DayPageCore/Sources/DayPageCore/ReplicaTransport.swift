@@ -99,6 +99,22 @@ private struct RecordFingerprint: Encodable {
   let assets: [String: String]
 }
 
+/// UUID spelling must not create two logical namespaces for one physical directory.
+enum ReplicaNamespace {
+  static func validateAliases(_ namespaces: [String]) throws {
+    var spelling: [String: String] = [:]
+    for namespace in namespaces {
+      var prefix = ""
+      for part in namespace.split(separator: "/") {
+        prefix = prefix.isEmpty ? String(part) : prefix + "/" + part
+        let folded = prefix.lowercased()
+        if let existing = spelling[folded], existing != prefix { throw ReplicaError.invalidData }
+        spelling[folded] = prefix
+      }
+    }
+  }
+}
+
 public struct VaultRevision: Codable, Equatable, Sendable, Identifiable {
   public let version: Int
   public let key: String

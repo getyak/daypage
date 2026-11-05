@@ -20,9 +20,17 @@ iCloud is off by default. Enabling it copies local notes and attachments to the 
 
 An iCloud identity change revokes the old lease, cancels tasks, stops metadata discovery and disables sync. The user must enable it again after seeing that the current local Vault will be copied to the new account. Each account uses a separate scope. Lease/cancellation checks run in the transport and inside the Store's coordinated commit, rather than only before an async call.
 
+### Legacy Watch upgrade recovery
+
+The archived Watch sends `type=watchAudio/source=daypage-watch` and deletes its source on WC transport success. The phone therefore moves that ephemeral file synchronously into a random-name legacy spool before reading, hashing or decoding it. Conversion errors, missing metadata and clips outside current admission limits retain the original spool file. The background drain retries coalesced arrivals, derives a stable content UUID and copies usable audio into the canonical inbox. Existing legacy `watch_<sha>.m4a` references are hash-verified across live/trash entries, preserving their memo UUID and deletion intent. Small date/duration probe differences retain the first canonical metadata.
+
+On the Watch, eligible old `tmp/com.daypage.watch/watch_*.m4a` recordings are copied into the durable outbox at activation, without deleting or rewriting the old path. New capture/legacy recovery remain mutually exclusive. This is an additive recovery plan, not an in-place format migration. Corrupt or unsupported old clips remain for recovery; paired upgrade ordering still needs real-device acceptance.
+
 ## Merge and recovery
 
 Each revision identifies `namespace/memoUUID`, a sorted parent list, the original Markdown/day or a tombstone, and attachment content hashes. Reject duplicate logical identities across days before publishing, malformed versions, path traversal, symlinks, oversized objects, missing parents and mismatched hashes. Download/verify required objects before applying. The revision DAG, rather than wall-clock time, identifies concurrent heads. Both live heads become visible copies with stable namespaces; deletion racing with an edit preserves the edit. Historical revisions are retained.
+
+Reject namespace case aliases at every prefix in the graph, materialization plan and Store commit. Recheck actual directory spellings, including empty directories, inside coordinated writes; an expected-missing record cannot replace an existing UUID. A standalone lowercase namespace remains compatible. Validate a pulled graph before persisting its revision JSON, so correcting an invalid remote graph also recovers the next exchange instead of poisoning the local cache.
 
 Before raw integration, persist a journal and an intent marker per operation. Recover by comparing the current record with its expected/target fingerprints. A changed value becomes a branch; a valid local trash receipt preserves deletion of a newly downloaded note. A nonnil ambiguous value after a marked operation is conservatively preserved, including a user restore of the old value. A crash between marking intent and writing may therefore retain an extra old-value branch. A missing new record without trash evidence is safely re-downloaded rather than being mistaken for a deletion. This avoids turning a write-before-commit interruption into deletion on every other device.
 

@@ -758,6 +758,7 @@ public actor NotebookStore {
   /// Byte-preserving export for personal replication; rejects identities ambiguous across days.
   public func replicaRecords() throws -> [ReplicaRecord] {
     let entries = try readEntries(in: root)
+    try ReplicaNamespace.validateAliases(entries.map(\.namespace))
     let identities = entries.map { $0.namespace + "/" + $0.memo.id.uuidString }
     guard Set(identities).count == identities.count else { throw ReplicaError.invalidData }
     return try entries.map { entry in
@@ -777,7 +778,9 @@ public actor NotebookStore {
   public func applyReplica(_ replacement: ReplicaRecord?, identity: String, expected: String?,
     validateSession: @Sendable () throws -> Void = {}) throws {
     try validateSession(); try Task.checkCancellation()
-    let existing = try replicaRecords().first { $0.identity == identity }
+    let currentRecords = try replicaRecords()
+    try ReplicaNamespace.validateAliases(currentRecords.map(\.namespace) + [try VaultRevision.namespace(for: identity)])
+    let existing = currentRecords.first { $0.identity == identity }
     if try existing?.fingerprint != expected { throw ReplicaError.changed }
     if replacement == nil {
       if let entry = try readEntries(in: root).first(where: { $0.namespace + "/" + $0.memo.id.uuidString == identity }) {
@@ -796,8 +799,11 @@ public actor NotebookStore {
     try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try coordinatedWrite(at: url) { coordinated in
       try validateSession(); try Task.checkCancellation()
+      _ = try self.vaultURL(namespace: record.namespace)
       // Other NotebookStore instances can write while this actor is awaiting coordination.
-      guard try self.replicaRecords().first(where: { $0.identity == identity })?.fingerprint == expected
+      let currentRecords = try self.replicaRecords()
+      try ReplicaNamespace.validateAliases(currentRecords.map(\.namespace) + [record.namespace])
+      guard try currentRecords.first(where: { $0.identity == identity })?.fingerprint == expected
       else { throw ReplicaError.changed }
       var document = DayDocument(self.fm.fileExists(atPath: coordinated.path)
         ? try String(contentsOf: coordinated, encoding: .utf8) : "")
@@ -812,7 +818,8 @@ public actor NotebookStore {
       }
       let matches = document.blocks.indices.filter { Memo.fromMarkdown(document.blocks[$0])?.id == memo.id }
       if let index = matches.first {
-        guard matches.count == 1 else { throw ReplicaError.invalidData }; document.blocks[index] = record.markdown
+        guard matches.count == 1, expected != nil else { throw ReplicaError.changed }
+        document.blocks[index] = record.markdown
       } else { document.blocks.append(record.markdown) }
       try self.validateEncoding(document, expected: document.blocks.compactMap(Memo.fromMarkdown).map(\.id))
       try validateSession(); try Task.checkCancellation()
@@ -1341,7 +1348,19 @@ public actor NotebookStore {
     guard parts.count <= 16, parts.allSatisfy({ UUID(uuidString: String($0)) != nil }) else {
       throw NotebookError.invalidPath
     }
-    return parts.reduce(root) { $0.appendingPathComponent("imports/" + $1) }
+    var base = root
+    for part in parts {
+      let imports = base.appendingPathComponent("imports")
+      try validateContained(imports)
+      if fm.fileExists(atPath: imports.path) {
+        let aliases = try fm.contentsOfDirectory(at: imports, includingPropertiesForKeys: nil)
+          .filter { $0.lastPathComponent.lowercased() == part.lowercased() }
+        guard aliases.count <= 1, aliases.first.map({ $0.lastPathComponent == String(part) }) ?? true
+        else { throw NotebookError.invalidPath }
+      }
+      base = imports.appendingPathComponent(String(part))
+    }
+    return base
   }
   private func validateEncoding(_ document: DayDocument, expected: [UUID]) throws {
     let candidate = DayDocument(document.content)

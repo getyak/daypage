@@ -28,6 +28,7 @@ final class WatchNotebook: NSObject, ObservableObject, WCSessionDelegate, AVAudi
 
   func activate() async {
     if WCSession.isSupported() { WCSession.default.delegate = self; WCSession.default.activate() }
+    await recoverLegacyRecordings()
     await recoverDrafts()
     await reload()
     await sendPending()
@@ -102,6 +103,23 @@ final class WatchNotebook: NSObject, ObservableObject, WCSessionDelegate, AVAudi
         // Only these task-owned draft copies are removed, after durable canonical storage.
         try FileManager.default.removeItem(at: file)
         try FileManager.default.removeItem(at: audio)
+      } catch { message = String(localized: "An interrupted original is kept on this Watch. Reopen to retry.") }
+    }
+  }
+  private func recoverLegacyRecordings() async {
+    guard !recording, recorder == nil, !recovering else { return }
+    recovering = true; defer { recovering = false }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("com.daypage.watch")
+    for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+      where file.lastPathComponent.hasPrefix("watch_") && file.pathExtension == "m4a" {
+      do {
+        let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .creationDateKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true,
+          (values.fileSize ?? Int.max) <= 25 * 1024 * 1024 else { continue }
+        let duration = try await AVURLAsset(url: file).load(.duration).seconds
+        let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        try await outbox.stage(WatchCapture.legacy(audio: data, created: values.creationDate ?? Date(), duration: duration), audio: data)
+        // Keep the legacy path untouched; the new outbox now owns a durable copy.
       } catch { message = String(localized: "An interrupted original is kept on this Watch. Reopen to retry.") }
     }
   }

@@ -43,6 +43,51 @@ final class LocalContinuityTests: XCTestCase {
       XCTFail("invalid audio accepted")
     } catch {}
   }
+  func testLegacyWatchReplayKeepsExistingMemoIdentityAndOriginalAudio() async throws {
+    let notebook = store("phone"), audio = Data("legacy original".utf8)
+    let digest = ReplicaDigest.hash(audio)
+    let assetFolder = directory.appendingPathComponent("phone/raw/assets")
+    try FileManager.default.createDirectory(at: assetFolder, withIntermediateDirectories: true)
+    let name = "watch_" + digest + ".m4a"
+    try audio.write(to: assetFolder.appendingPathComponent(name))
+    let old = Memo(type: .voice, device: "Apple Watch", attachments: [.init(file: "raw/assets/" + name, kind: "audio")])
+    try await notebook.append(old)
+    let inbox = WatchCaptureStore(root: directory.appendingPathComponent("legacy-inbox"))
+    let legacy = try WatchCapture.legacy(audio: audio, created: old.created, duration: 4)
+    try await inbox.stage(legacy, audio: audio)
+    _ = try await inbox.importCapture(legacy.id, into: notebook)
+    var entries = try await notebook.entries()
+    XCTAssertEqual(entries.map(\.memo.id), [old.id])
+    _ = try await notebook.trash(try XCTUnwrap(entries.first))
+    let another = WatchCaptureStore(root: directory.appendingPathComponent("legacy-replay"))
+    try await another.stage(legacy, audio: audio)
+    _ = try await another.importCapture(legacy.id, into: notebook)
+    entries = try await notebook.entries()
+    XCTAssertTrue(entries.isEmpty)
+    XCTAssertEqual(try Data(contentsOf: assetFolder.appendingPathComponent(name)), audio)
+  }
+  func testLegacyWatchRetriesTolerateDurationProbeDifferencesWithoutReplacingMetadata() async throws {
+    let audio = Data("one old clip".utf8), created = Date()
+    let one = try WatchCapture.legacy(audio: audio, created: created, duration: 4)
+    let two = try WatchCapture.legacy(audio: audio, created: created.addingTimeInterval(1), duration: 3.95)
+    XCTAssertEqual(one.id, two.id)
+    let outbox = WatchCaptureStore(root: directory.appendingPathComponent("legacy-watch"))
+    try await outbox.stage(one, audio: audio)
+    try await outbox.stage(two, audio: audio)
+    let stored = try await outbox.capture(one.id)
+    XCTAssertEqual(stored, one)
+  }
+  func testLegacyFileIsPreservedWithoutReadingBeforeConversion() throws {
+    let original = directory.appendingPathComponent("incoming.m4a")
+    let audio = Data("an unreadable original must survive conversion failure".utf8)
+    try audio.write(to: original)
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: original.path)
+    let destination = try WatchCaptureStore.preserveLegacyFile(original, in: directory.appendingPathComponent("durable"))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: original.path))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+    XCTAssertEqual(try Data(contentsOf: destination), audio)
+  }
   func testTwoDevicesExchangeUpdateDeleteAndHistoricalRestore() async throws {
     let a = store("a"), b = store("b"), ea = engine("a"), eb = engine("b")
     let memo = Memo(body: "Original")
@@ -226,6 +271,70 @@ final class LocalContinuityTests: XCTestCase {
     } catch {}
     let entries = try await target.entries()
     XCTAssertTrue(entries.isEmpty)
+  }
+  func testCaseVariantRemoteNamespaceCannotOverwriteAnotherLocalIdentity() async throws {
+    let namespace = "AAAAAAAA-1111-4111-8111-111111111111"
+    let notebook = store("phone"), replica = engine("phone"), remote = transport()
+    let memo = Memo(body: "Keep this original")
+    let original = ReplicaRecord(namespace: namespace, day: "2026-11-05", markdown: memo.toMarkdown(), assets: [:])
+    try await notebook.applyReplica(original, identity: original.identity, expected: nil)
+    try await replica.exchange(with: remote)
+    var changed = memo
+    changed.body = "Different remote logical identity"
+    let collision = VaultRevision(version: 1, key: namespace.lowercased() + "/" + memo.id.uuidString,
+      parents: [], day: original.day, markdown: changed.toMarkdown(), assets: [:])
+    try await remote.write(ReplicaDigest.encode(collision), key: "revisions/" + collision.id + ".json")
+    do { try await replica.exchange(with: remote); XCTFail("case-colliding identities were accepted") } catch {}
+    let records = try await notebook.replicaRecords()
+    XCTAssertEqual(records, [original])
+    // Correcting an invalid remote graph must not leave a poisoned local cache.
+    try FileManager.default.removeItem(at: directory.appendingPathComponent("remote/revisions/" + collision.id + ".json"))
+    try await replica.exchange(with: remote)
+    let recovered = try await notebook.replicaRecords()
+    XCTAssertEqual(recovered, [original])
+  }
+  func testCaseVariantNamespacePrefixesWithDifferentMemosAreRejected() throws {
+    let upper = "AAAAAAAA-1111-4111-8111-111111111111"
+    let childA = "BBBBBBBB-1111-4111-8111-111111111111"
+    let childB = "CCCCCCCC-1111-4111-8111-111111111111"
+    XCTAssertThrowsError(try ReplicaNamespace.validateAliases([upper + "/" + childA, upper.lowercased() + "/" + childB]))
+    XCTAssertThrowsError(try ReplicaNamespace.validateAliases([upper, upper.lowercased()]))
+    XCTAssertNoThrow(try ReplicaNamespace.validateAliases([upper.lowercased(), upper.lowercased() + "/" + childA]))
+  }
+  func testStoreRejectsAnEmptyCaseAliasDirectoryAndKeepsLowercaseCompatibility() async throws {
+    let namespace = "AAAAAAAA-1111-4111-8111-111111111111"
+    let notebook = store("phone")
+    try FileManager.default.createDirectory(at: directory.appendingPathComponent("phone/imports/" + namespace), withIntermediateDirectories: true)
+    let memo = Memo(body: "must not drift between namespaces")
+    let lower = ReplicaRecord(namespace: namespace.lowercased(), day: "2026-11-05", markdown: memo.toMarkdown(), assets: [:])
+    do { try await notebook.applyReplica(lower, identity: lower.identity, expected: nil); XCTFail("empty namespace alias accepted") } catch {}
+    let untouched = try await notebook.entries()
+    XCTAssertTrue(untouched.isEmpty)
+    let another = store("lowercase")
+    try await another.applyReplica(lower, identity: lower.identity, expected: nil)
+    let records = try await another.replicaRecords()
+    XCTAssertEqual(records, [lower])
+  }
+  func testRecoveryRejectsANamespaceAliasImportedAfterTheJournalWasWritten() async throws {
+    let upper = "AAAAAAAA-1111-4111-8111-111111111111"
+    let remote = transport(), notebook = store("phone")
+    let remoteMemo = Memo(body: "remote memo")
+    let revision = VaultRevision(version: 1, key: upper.lowercased() + "/" + remoteMemo.id.uuidString,
+      parents: [], day: "2026-11-05", markdown: remoteMemo.toMarkdown(), assets: [:])
+    try await remote.write(ReplicaDigest.encode(revision), key: "revisions/" + revision.id + ".json")
+    let state = directory.appendingPathComponent("phone-state")
+    let journal = state.appendingPathComponent("apply.json")
+    let interrupted = VaultReplica(store: notebook, stateRoot: state, validateSession: {
+      if FileManager.default.fileExists(atPath: journal.path) { throw CancellationError() }
+    })
+    do { try await interrupted.exchange(with: remote); XCTFail("not interrupted before apply") } catch {}
+    XCTAssertTrue(FileManager.default.fileExists(atPath: journal.path))
+    let localMemo = Memo(body: "a new local import")
+    let local = ReplicaRecord(namespace: upper, day: "2026-11-05", markdown: localMemo.toMarkdown(), assets: [:])
+    try await notebook.applyReplica(local, identity: local.identity, expected: nil)
+    do { try await engine("phone").exchange(with: remote); XCTFail("journal ignored the new local alias") } catch {}
+    let result = try await notebook.replicaRecords()
+    XCTAssertEqual(result, [local])
   }
   func testOldOrWrongReceiptDoesNotAcknowledgeAnotherCapture() async throws {
     let outbox = WatchCaptureStore(root: directory.appendingPathComponent("watch"))

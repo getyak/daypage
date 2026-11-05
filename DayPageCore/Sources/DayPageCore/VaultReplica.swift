@@ -63,9 +63,11 @@ public actor VaultReplica {
     // Pull immutable files before publishing. Missing dependencies block integration, never delete a note.
     let remoteIDs = try await transport.revisionIDs()
     guard remoteIDs.count <= 10000 else { throw ReplicaError.invalidData }
+    var all = try await revisions()
+    var pulled: [VaultRevision] = []
     for id in remoteIDs {
       guard ReplicaDigest.valid(id) else { throw ReplicaError.invalidData }
-      if local[id] != nil { continue } // validated immutable revisions need no repeated iCloud read
+      if all[id] != nil { continue } // validated immutable revisions need no repeated iCloud read
       let data = try await transport.read("revisions/" + id + ".json")
       let value = try JSONDecoder().decode(VaultRevision.self, from: data)
       try value.validate()
@@ -77,10 +79,14 @@ public actor VaultReplica {
           try await cache.write(object, key: "objects/" + hash)
         }
       }
-      try await cache.write(try ReplicaDigest.encode(value), key: "revisions/" + id + ".json")
+      all[id] = value
+      pulled.append(value)
     }
-    let all = try await revisions()
     try validateGraph(all)
+    // Do not poison the durable cache with a graph the user may correct remotely.
+    for value in pulled {
+      try await cache.write(try ReplicaDigest.encode(value), key: "revisions/" + value.id + ".json")
+    }
     let remote = Set(remoteIDs)
     for (id, value) in all.sorted(by: { $0.key < $1.key }) where !remote.contains(id) {
       for hash in Set(value.assets.values) {
@@ -136,6 +142,7 @@ public actor VaultReplica {
     return result
   }
   private func validateGraph(_ values: [String: VaultRevision]) throws {
+    try ReplicaNamespace.validateAliases(try values.values.map { try VaultRevision.namespace(for: $0.key) })
     for value in values.values {
       for parent in value.parents {
         guard let prior = values[parent] else { throw ReplicaError.unavailable }
@@ -168,6 +175,7 @@ public actor VaultReplica {
       }
     }
     let current = Dictionary(uniqueKeysWithValues: before.map { ($0.identity, $0) })
+    try ReplicaNamespace.validateAliases(before.map(\.namespace) + desired.values.map(\.namespace))
     var operations: [ReplicaApply] = []
     for identity in Set(current.keys).union(desired.keys).sorted() where current[identity] != desired[identity] {
       operations.append(ReplicaApply(identity: identity, expected: try current[identity]?.fingerprint,
@@ -179,6 +187,7 @@ public actor VaultReplica {
     guard var journal = try load(ReplicaJournal.self, name: "apply.json") else { return }
     guard journal.version == 1, journal.state.version == 1 else { throw ReplicaError.invalidData }
     let all = try await revisions()
+    try validateGraph(all)
     let current = try await store.replicaRecords()
     let records = Dictionary(uniqueKeysWithValues: current.map { ($0.identity, $0) })
     var replanned = false

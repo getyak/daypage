@@ -10,6 +10,11 @@ private struct WatchInboxEnvelope: Codable {
   let audio: Data
 }
 
+private struct LegacyWatchMetadata: Codable {
+  let created: Date
+  let duration: Double?
+}
+
 @MainActor
 final class WatchPhoneBridge: NSObject, ObservableObject, WCSessionDelegate {
   @Published private(set) var status = String(localized: "Watch recordings arrive automatically when the devices reconnect.")
@@ -20,6 +25,7 @@ final class WatchPhoneBridge: NSObject, ObservableObject, WCSessionDelegate {
   private let defaults: UserDefaults
   private let disabled: Bool
   private var draining = false
+  private var drainRequested = false
   private var transcribing = false
   private var recognition: SFSpeechRecognitionTask?
   var didChange: (() async -> Void)?
@@ -59,10 +65,32 @@ final class WatchPhoneBridge: NSObject, ObservableObject, WCSessionDelegate {
     else { status = String(localized: "Speech permission is off. Original Watch audio is still saved.") }
   }
   private func drain() async {
-    guard !draining else { return }; draining = true; defer { draining = false }
+    if draining { drainRequested = true; return }
+    draining = true; drainRequested = false
+    defer {
+      draining = false
+      if drainRequested { Task { [weak self] in await self?.drain() } }
+    }
     do {
       var received = Set<UUID>()
       var hasFailure = false
+      let legacyFolder = spool.appendingPathComponent("legacy")
+      let oldFiles = (try? FileManager.default.contentsOfDirectory(at: legacyFolder, includingPropertiesForKeys: nil)) ?? []
+      for file in oldFiles where file.pathExtension == "m4a" {
+        do {
+          let metadata = try? JSONDecoder().decode(LegacyWatchMetadata.self, from: Data(contentsOf: file.deletingPathExtension().appendingPathExtension("json")))
+          let values = try file.resourceValues(forKeys: [.creationDateKey, .fileSizeKey, .isSymbolicLinkKey])
+          guard values.isSymbolicLink != true, (values.fileSize ?? Int.max) <= 25 * 1024 * 1024 else { throw ReplicaError.invalidData }
+          let duration = try await AVURLAsset(url: file).load(.duration).seconds
+          let audio = try Data(contentsOf: file, options: .mappedIfSafe)
+          let capture = try WatchCapture.legacy(audio: audio, created: metadata?.created ?? values.creationDate ?? Date(),
+            duration: duration.isFinite && duration > 0 ? duration : metadata?.duration ?? 0)
+          try await inbox.stage(capture, audio: audio)
+          received.insert(capture.id)
+          try FileManager.default.removeItem(at: file)
+          try? FileManager.default.removeItem(at: file.deletingPathExtension().appendingPathExtension("json"))
+        } catch { hasFailure = true } // Keep every unconverted original, including oversized/invalid old clips.
+      }
       let files = (try? FileManager.default.contentsOfDirectory(at: spool, includingPropertiesForKeys: nil)) ?? []
       for file in files where file.pathExtension == "json" {
         do {
@@ -93,6 +121,20 @@ final class WatchPhoneBridge: NSObject, ObservableObject, WCSessionDelegate {
   /// WCSession deletes file.fileURL after this callback. Persist the complete envelope before returning.
   nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
     do {
+      if file.metadata?["type"] as? String == "watchAudio", file.metadata?["source"] as? String == "daypage-watch" {
+        // Old senders delete on WC transport success. Preserve their original synchronously,
+        // even when it cannot yet be decoded/imported; never discard it for a missing v1 envelope.
+        let directory = spool.appendingPathComponent("legacy")
+        let destination = try WatchCaptureStore.preserveLegacyFile(file.fileURL, in: directory)
+        let values = try? destination.resourceValues(forKeys: [.creationDateKey])
+        let timestamp = file.metadata?["timestamp"] as? Double
+        let created = timestamp.flatMap { $0.isFinite ? Date(timeIntervalSince1970: $0) : nil } ?? values?.creationDate ?? Date()
+        let duration = (file.metadata?["duration"] as? Double).flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        try JSONEncoder().encode(LegacyWatchMetadata(created: created, duration: duration))
+          .write(to: destination.deletingPathExtension().appendingPathExtension("json"), options: .atomic)
+        Task { @MainActor [weak self] in await self?.drain(); await self?.transcribePending() }
+        return
+      }
       guard let data = file.metadata?["daypage.capture.v1"] as? Data else { return }
       let capture = try JSONDecoder().decode(WatchCapture.self, from: data)
       try capture.validate()

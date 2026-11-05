@@ -9,9 +9,17 @@ public struct WatchCapture: Codable, Equatable, Sendable, Identifiable {
   public init(id: UUID, created: Date, duration: Double, digest: String) {
     version = 1; self.id = id; self.created = created; self.duration = duration; self.digest = digest
   }
+  public var isLegacy: Bool { id.uuidString == ReplicaDigest.namespace("legacy-watch/" + digest) }
+  public static func legacy(audio: Data, created: Date, duration: Double) throws -> WatchCapture {
+    guard !audio.isEmpty else { throw ReplicaError.invalidData }
+    let digest = ReplicaDigest.hash(audio)
+    guard let id = UUID(uuidString: ReplicaDigest.namespace("legacy-watch/" + digest)) else { throw ReplicaError.invalidData }
+    let capture = WatchCapture(id: id, created: created, duration: duration, digest: digest)
+    try capture.validate(); return capture
+  }
   public func validate() throws {
     guard version == 1, created.timeIntervalSince1970.isFinite, duration.isFinite,
-      duration > 0, duration <= 610, ReplicaDigest.valid(digest) else { throw ReplicaError.invalidData }
+      duration > 0, duration <= (isLegacy ? 7200 : 610), ReplicaDigest.valid(digest) else { throw ReplicaError.invalidData }
   }
 }
 
@@ -26,6 +34,13 @@ public struct WatchCaptureReceipt: Codable, Equatable, Sendable {
 public actor WatchCaptureStore {
   public let root: URL
   public init(root: URL) { self.root = root }
+  /// Preserve WCSession's ephemeral legacy file before attempting any read or decode.
+  public static func preserveLegacyFile(_ source: URL, in folder: URL) throws -> URL {
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let destination = folder.appendingPathComponent(UUID().uuidString + ".m4a")
+    try FileManager.default.moveItem(at: source, to: destination)
+    return destination
+  }
   public func stage(_ capture: WatchCapture, audio: Data) throws {
     try capture.validate()
     guard !audio.isEmpty, audio.count <= 25 * 1024 * 1024,
@@ -33,7 +48,8 @@ public actor WatchCaptureStore {
     let folder = root.appendingPathComponent(capture.id.uuidString)
     try ensureSafe(folder)
     if FileManager.default.fileExists(atPath: folder.path) {
-      guard try metadata(capture.id) == capture,
+      let previous = try metadata(capture.id)
+      guard previous == capture || (previous.isLegacy && capture.isLegacy && previous.digest == capture.digest),
         ReplicaDigest.hash(try Data(contentsOf: audioURL(capture.id))) == capture.digest else { throw ReplicaError.invalidData }
       return
     }
