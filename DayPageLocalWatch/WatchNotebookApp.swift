@@ -76,7 +76,7 @@ private struct WatchCaptureView: View {
 
 struct RecordDayPageWatchNote: AppIntent {
   static var title: LocalizedStringResource = "Record a DayPage voice note"
-  static var description = IntentDescription("Open DayPage on Apple Watch and start a local voice recording.")
+  static var description = IntentDescription("Open DayPage on your watch and start a local voice recording.")
   static var openAppWhenRun = true
   func perform() async throws -> some IntentResult {
     UserDefaults.standard.set(true, forKey: "watch.startRecording")

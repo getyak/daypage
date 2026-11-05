@@ -2,6 +2,7 @@
 import json
 import pathlib
 import plistlib
+import re
 import subprocess
 import sys
 import unittest
@@ -67,6 +68,25 @@ class LocalPrivacyContract(unittest.TestCase):
         self.assertEqual(manifest["NSPrivacyTrackingDomains"], [])
         for data_type in manifest["NSPrivacyCollectedDataTypes"]:
             self.assertFalse(data_type["NSPrivacyCollectedDataTypeTracking"])
+
+
+class LocalAppIntentMetadataContract(unittest.TestCase):
+    def test_shipping_intent_descriptions_avoid_rejected_siri_branding(self):
+        # ASC 90626 rejects descriptions containing "apple", including localized metadata.
+        descriptions = []
+        for target in ("DayPageLocal", "DayPageLocalWatch"):
+            for source in (ROOT / target).glob("*.swift"):
+                literals = re.findall(r'IntentDescription\(\s*("(?:[^"\\]|\\.)*")', source.read_text())
+                for literal in literals:
+                    descriptions.append(literal)
+                    self.assertNotRegex(json.loads(literal), r"(?i)apple", str(source))
+                    for strings in (ROOT / target / "Resources").glob("*.lproj/Localizable.strings"):
+                        translations = re.findall(
+                            r"^" + re.escape(literal) + r'\s*=\s*("(?:[^"\\]|\\.)*")\s*;',
+                            strings.read_text(), re.MULTILINE)
+                        for translation in translations:
+                            self.assertNotRegex(json.loads(translation), r"(?i)apple", str(strings))
+        self.assertTrue(descriptions, "Shipping Watch App Intent metadata must be checked")
 
 
 if __name__ == "__main__":
