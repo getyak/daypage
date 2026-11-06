@@ -137,11 +137,12 @@ final class DiaryUITests: XCTestCase {
     openReadingSettings()
     let stepper = app.steppers["note-font-size"]
     XCTAssertEqual(stepper.value as? String, "15")
-    stepper.buttons["Increment"].tap()
+    stepper.buttons["note-font-size-Increment"].tap()
     XCTAssertEqual(stepper.value as? String, "16")
     element("note-font-style").tap()
     app.buttons["Rounded"].tap()
     XCTAssertEqual(element("note-font-style").value as? String, "Rounded")
+    reveal(element("note-typography-preview"), in: app.collectionViews.firstMatch)
     capture("card-reading-font-preview")
     app.terminate()
     app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
@@ -192,13 +193,20 @@ final class DiaryUITests: XCTestCase {
     XCTAssertFalse(app.buttons["save-note"].isEnabled)
     XCTAssertTrue(app.buttons["collapse-note"].isEnabled)
     app.buttons["cancel-capture-location"].tap()
+    let stopped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: app.buttons["cancel-capture-location"])
+    XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 3), .completed,
+                   "Cancel must end the pending request before the ten-second fixture completes")
+    XCTAssertTrue(app.buttons["capture-location"].exists)
+    XCTAssertFalse(element("capture-selected-location").exists)
+    capture("card-location-cancelled")
     let late = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"),
                                          object: element("capture-selected-location"))
     late.isInverted = true
-    XCTAssertEqual(XCTWaiter.wait(for: [late], timeout: 4), .completed)
+    XCTAssertEqual(XCTWaiter.wait(for: [late], timeout: 11), .completed)
     XCTAssertTrue(app.buttons["save-note"].isEnabled)
     app.buttons["capture-location"].tap()
-    XCTAssertTrue(element("capture-selected-location").waitForExistence(timeout: 6))
+    XCTAssertTrue(element("capture-selected-location").waitForExistence(timeout: 14))
     app.buttons["remove-capture-location"].tap()
     let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
                                             object: element("capture-selected-location"))
@@ -246,6 +254,7 @@ final class DiaryUITests: XCTestCase {
     let font = element("note-font-style")
     reveal(font, in: app.collectionViews.firstMatch)
     XCTAssertTrue(font.waitForExistence(timeout: 5))
+    reveal(element("note-font-size"), in: app.collectionViews.firstMatch)
   }
 
   private func openEditor(_ body: String) {

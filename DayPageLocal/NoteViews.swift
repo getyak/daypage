@@ -284,7 +284,7 @@ struct NoteEditor: View {
           VStack(spacing: 4) {
             ProgressView()
             Text("Cancel").font(.caption2)
-          }.frame(minWidth: 48, minHeight: 48)
+          }.frame(minWidth: 48, minHeight: 48).contentShape(Rectangle())
         }.accessibilityLabel("Cancel location request")
           .accessibilityIdentifier("cancel-capture-location")
       } else {
@@ -435,18 +435,18 @@ struct NoteLocationLabel: View {
     }
     return String(format: "%.4f, %.4f", locale: Locale(identifier: "en_US_POSIX"), lat, lng)
   }
+  private var title: String {
+    if let name = location.name, !name.isEmpty { return name }
+    return coordinates ?? String(localized: "Location")
+  }
   var body: some View {
     Label {
-      if let name = location.name, !name.isEmpty {
-        Text(name)
-      } else if let coordinates {
-        Text(coordinates)
-      } else {
-        Text("Location")
-      }
+      Text(title)
     } icon: { Image(systemName: "mappin.and.ellipse") }
     .font(.caption).foregroundStyle(NotebookTheme.muted)
     .fixedSize(horizontal: false, vertical: true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Text(String(localized: "Location") + ": " + title))
   }
 }
 

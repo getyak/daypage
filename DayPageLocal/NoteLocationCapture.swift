@@ -38,7 +38,9 @@ final class NoteLocationCapture: NSObject, ObservableObject, @preconcurrency CLL
         // Only the isolated QA binary can use synthetic coordinates. This does
         // not establish real permission/device-location evidence.
         timeout = Task { [weak self] in
-          try? await Task.sleep(for: .milliseconds(args.contains("-qaLocationDelay") ? 3000 : 200))
+          // Keep the request pending long enough to inspect and tap Cancel.
+          // The UI test then observes beyond this entire synthetic deadline.
+          try? await Task.sleep(for: .milliseconds(args.contains("-qaLocationDelay") ? 10_000 : 200))
           guard !Task.isCancelled, let self, self.requestID == id else { return }
           self.finish(.success(Memo.Location(name: "Synthetic place", lat: 31.25, lng: 121.5)))
         }
