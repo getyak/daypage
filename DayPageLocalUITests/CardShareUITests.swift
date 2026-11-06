@@ -51,6 +51,17 @@ final class CardShareUITests: XCTestCase {
                   "An intentional tap after a drag must still open the note")
   }
 
+  func testSmallTouchMovementStillOpensNote() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    let start = note.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+    start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 3, dy: 2)),
+                withVelocity: .slow, thenHoldForDuration: 0)
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5),
+                  "Normal tap movement must remain usable")
+  }
+
   func testFullSwipesRevealActionsWithoutOpeningAnotherScreen() {
     app.launchArguments += ["-qaSeedNotebook"]
     app.launch()
@@ -165,6 +176,8 @@ final class CardShareUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Unpin note"].waitForExistence(timeout: 5))
     app.buttons["Unpin note"].tap()
     fullSwipe(note, right: true)
+    XCTAssertTrue(app.buttons["swipe-chat-note"].waitForExistence(timeout: 5))
+    app.buttons["swipe-chat-note"].tap()
     XCTAssertTrue(app.buttons["chat-setup-ai"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.buttons["send-chat"].isEnabled)
   }
@@ -174,6 +187,8 @@ final class CardShareUITests: XCTestCase {
     app.launch()
     write("Keep this note until I confirm Trash.")
     fullSwipe(note, right: false)
+    XCTAssertTrue(app.buttons["swipe-share-note"].waitForExistence(timeout: 5))
+    app.buttons["swipe-share-note"].tap()
     XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
     XCTAssertFalse(app.alerts["Move this note to Trash?"].exists)
     app.buttons["Close"].tap()
@@ -197,6 +212,8 @@ final class CardShareUITests: XCTestCase {
     app.launch()
     write("A complete thought for a friend.")
     fullSwipe(note, right: false)
+    XCTAssertTrue(app.buttons["swipe-share-note"].waitForExistence(timeout: 5))
+    app.buttons["swipe-share-note"].tap()
     XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
     XCTAssertTrue(element("share-card-preview").exists)
     app.buttons["share-style-ink"].tap()
