@@ -8,7 +8,7 @@ public struct Memo: Identifiable, Equatable, Sendable {
 
   // MARK: Attachment types
 
-  public struct Location: Equatable, Sendable {
+  public struct Location: Codable, Equatable, Sendable {
     public var name: String?
     public var lat: Double?
     public var lng: Double?
@@ -17,6 +17,11 @@ public struct Memo: Identifiable, Equatable, Sendable {
       self.name = name
       self.lat = lat
       self.lng = lng
+    }
+
+    public var hasValidCoordinates: Bool {
+      guard let lat, let lng else { return false }
+      return lat.isFinite && lng.isFinite && (-90...90).contains(lat) && (-180...180).contains(lng)
     }
   }
 

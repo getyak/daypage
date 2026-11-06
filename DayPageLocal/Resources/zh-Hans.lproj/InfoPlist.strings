@@ -1,3 +1,4 @@
 "NSMicrophoneUsageDescription" = "录制语音并保存在本机笔记中。只有你开启 iCloud 同步或主动发送时，录音才会离开本机。";
 "NSSpeechRecognitionUsageDescription" = "按你的选择，在这台 iPhone 上将手表语音转成文字，不使用云端转写服务。";
 "NSCameraUsageDescription" = "拍摄照片并保存在你的本机笔记中。";
+"NSLocationWhenInUseUsageDescription" = "仅在你主动选择添加位置时，为这条笔记获取当前位置。默认不添加位置。";

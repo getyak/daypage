@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E41800000000000000000002 /* NoteLocationCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41800000000000000000001 /* NoteLocationCapture.swift */; };
 		0205CF27058895692D8E25D5 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 599C854163773DF1181ACB07 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D23DB1E615AB05808521FDE /* NoteActionCards.swift */; };
 		1F39943C6B475EC9C0358A3E /* SpeechPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6AC9CD57F49192C6D5117 /* SpeechPlayback.swift */; };
@@ -90,6 +91,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E41800000000000000000001 /* NoteLocationCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteLocationCapture.swift; sourceTree = "<group>"; };
 		099023364FADB7679C63FBA2 /* CardShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardShareUITests.swift; sourceTree = "<group>"; };
 		0BC9CBD3F76A9A268DB6D030 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		17BA8822022266F739F97C75 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -187,6 +189,7 @@
 				E1A12D5409FE7A0E2425076A /* DayPageApp.swift */,
 				4326C54BBF11D8F68313C675 /* FeedbackView.swift */,
 				7D23DB1E615AB05808521FDE /* NoteActionCards.swift */,
+				E41800000000000000000001 /* NoteLocationCapture.swift */,
 				482D956868A8EF4CAAF63F51 /* NotebookArchive.swift */,
 				9535EA1A9766BFBC31F8B224 /* NotebookCalendar.swift */,
 				3C7D918C6EA6CAEB3592B3BB /* NotebookModel.swift */,
@@ -452,6 +455,7 @@
 				68AB9EFCC0D24B74DB9F43AC /* DayPageApp.swift in Sources */,
 				93464F5B38BE2206E90F8620 /* FeedbackView.swift in Sources */,
 				03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */,
+				E41800000000000000000002 /* NoteLocationCapture.swift in Sources */,
 				7F5D2C080E4696A3B7006E4B /* NoteChatView.swift in Sources */,
 				A6A9EC28F23A2B6892AADAC4 /* NoteSharePreview.swift in Sources */,
 				9AA74C7DB2F6E9816F9C9E93 /* NoteViews.swift in Sources */,

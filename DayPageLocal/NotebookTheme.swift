@@ -23,10 +23,27 @@ enum NotebookTheme {
   static let spineSelection = accent.opacity(0.10)
 
   static func reading(_ size: CGFloat = 17, text: String? = nil) -> Font {
+    .custom(serifFamily(for: text), size: size, relativeTo: .body)
+  }
+
+  /// The caller supplies a Dynamic Type scaled size, so custom fonts stay fixed
+  /// here rather than applying accessibility scaling a second time.
+  static func noteReading(_ style: NoteTypography.Style, scaledSize: CGFloat, text: String?) -> Font {
+    switch style {
+    case .serif: return .custom(serifFamily(for: text), fixedSize: scaledSize)
+    case .system: return .system(size: scaledSize, design: .default)
+    case .rounded: return .system(size: scaledSize, design: .rounded)
+    case .monospaced: return .system(size: scaledSize, design: .monospaced)
+    }
+  }
+
+  private static func serifFamily(for text: String?) -> String {
     let chinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
-      || text?.unicodeScalars.contains(where: { (0x3400...0x9FFF).contains($0.value) }) == true
-    return .custom(chinese ? "SourceHanSerifSC-Regular" : "SourceSerif4-Regular",
-                   size: size, relativeTo: .body)
+      || text?.unicodeScalars.contains(where: {
+        (0x3400...0x9FFF).contains($0.value) || (0xF900...0xFAFF).contains($0.value)
+          || (0x20000...0x323AF).contains($0.value)
+      }) == true
+    return chinese ? "SourceHanSerifSC-Regular" : "SourceSerif4-Regular"
   }
 
   static func mono(_ size: CGFloat = 11) -> Font {
@@ -82,9 +99,26 @@ struct NotebookPressStyle: ButtonStyle {
 }
 
 extension View {
+  func noteReadingStyle(_ typography: NoteTypography, text: String? = nil) -> some View {
+    modifier(NoteReadingStyle(typography: typography, text: text))
+  }
+
   func notebookSurface() -> some View {
     background(NotebookTheme.paper.ignoresSafeArea())
       .foregroundStyle(NotebookTheme.ink)
+  }
+}
+
+private struct NoteReadingStyle: ViewModifier {
+  let typography: NoteTypography
+  let text: String?
+  @ScaledMetric(relativeTo: .body) private var scaledDefaultSize = CGFloat(NoteTypography.defaultSize)
+
+  func body(content: Content) -> some View {
+    let size = scaledDefaultSize * CGFloat(typography.size / NoteTypography.defaultSize)
+    content
+      .font(NotebookTheme.noteReading(typography.style, scaledSize: size, text: text))
+      .lineSpacing(size * 0.3)
   }
 }
 

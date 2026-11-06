@@ -1,6 +1,6 @@
 # DayPage iOS 隐私政策 / Privacy Policy
 
-生效日期 / Effective date: 2026-11-04
+生效日期 / Effective date: 2026-11-06
 
 本政策适用于由 Xiong Xinwei 提供的 DayPage 本地版 iOS 应用。旧版云端客户端和第三方服务有各自的数据处理范围。
 
@@ -9,6 +9,8 @@
 无需创建 DayPage 账户即可记录、阅读、搜索、导入和导出。笔记、草稿、对话、照片、录音及其他附件保存在应用的本地文件中。DayPage 没有自营的笔记上传、云同步、广告、追踪或使用分析服务，不会自动把你的笔记发送给开发者。
 
 相机和麦克风仅用于你主动发起的拍照和录音；拒绝权限后仍可使用文字笔记。通过“文件”导入时，应用读取你选择的文件夹并保存副本。系统备份、设备管理和你主动导出或分享的文件由对应的系统设置和接收方管理。
+
+位置默认不添加。只有你在写笔记时主动选择“添加位置”，应用才会请求使用期间定位权限，并获取一次当前位置。所选位置随草稿和笔记保存在现有文件中，可在保存前移除；新笔记不会自动继承位置。应用不进行后台定位，也不把位置发送给开发者或用于反向地理编码。主动导出笔记或开启个人 iCloud 同步时，位置会作为笔记元数据随文件一起传输。
 
 ## 可选 AI
 
@@ -45,6 +47,8 @@ This policy covers the local iOS edition of DayPage, provided by Xiong Xinwei. L
 You can write, read, search, import and export without a DayPage account. Notes, drafts, conversations, photos, recordings and other attachments are stored in local app files. DayPage has no developer-operated note-upload, cloud-sync, advertising, tracking or usage-analytics service. It does not automatically send your notebook to the developer.
 
 Camera and microphone access is used only when you choose to take a photo or record audio. Text notes remain available if you decline. Import reads the folder you select and saves a copy. System backups, device management and files you explicitly export or share are governed by your system settings and the recipient.
+
+Location is off by default. Only choosing Add location while writing a note requests When In Use permission and a single current fix. The selected location is stored with the draft and note in existing files and can be removed before saving. A new note does not inherit it. The app does not collect background location, send it to the developer, or perform reverse geocoding. Explicit notebook export or personal iCloud sync includes this metadata with the note files.
 
 ## Optional AI
 

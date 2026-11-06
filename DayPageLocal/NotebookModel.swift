@@ -11,6 +11,10 @@ final class NotebookModel: ObservableObject {
   @Published private(set) var pendingCaptureRevealID: UUID?
   @Published private(set) var configuration: AIConfiguration
   @Published var draft = ""
+  @Published private(set) var pendingLocation: Memo.Location?
+  @Published var noteTypography = NoteTypography() {
+    didSet { NoteTypography.save(noteTypography, to: preferences) }
+  }
   @Published var error: String?
   @Published var loadIssue: String?
   @Published private(set) var pendingAssets: [PendingNoteAsset] = []
@@ -35,6 +39,7 @@ final class NotebookModel: ObservableObject {
   private var loaded = false
   private var captureRevision: UInt64 = 0
   private var captureMemoID = UUID()
+  var captureDraftID: UUID { captureMemoID }
   private var needsDraftSave = false
   private var captureDraftReady = false
   private var changingCapture = false
@@ -65,6 +70,7 @@ final class NotebookModel: ObservableObject {
         try? FileManager.default.removeItem(at: root)
         preferences.removeObject(forKey: Self.connectionKey)
         preferences.removeObject(forKey: SpeechPreferencesStore.key)
+        preferences.removeObject(forKey: NoteTypography.storageKey)
       }
     #endif
     store = NotebookStore(root: root)
@@ -73,6 +79,7 @@ final class NotebookModel: ObservableObject {
     configuration =
       preferences.data(forKey: Self.connectionKey)
       .flatMap { try? JSONDecoder().decode(AIConfiguration.self, from: $0) } ?? AIConfiguration()
+    noteTypography = NoteTypography.load(from: preferences)
     #if DEBUG
       let args = ProcessInfo.processInfo.arguments
       if Self.isQA, let index = args.firstIndex(of: "-qaEndpoint"), args.indices.contains(index + 1)
@@ -109,6 +116,7 @@ final class NotebookModel: ObservableObject {
       captureRevision = snapshot.revision
       draft = snapshot.body
       pendingAssets = snapshot.assets
+      pendingLocation = snapshot.location
       captureDraftReady = true
       #if DEBUG
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedCaptureDraft"),
@@ -231,7 +239,8 @@ final class NotebookModel: ObservableObject {
     }
     captureRevision += 1
     let revision = captureRevision
-    let snapshot = CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: pendingAssets)
+    let snapshot = CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: pendingAssets,
+                                       location: pendingLocation)
     Task {
       do { try await captureDrafts.saveBody(snapshot, revision: revision) } catch { report(error) }
     }
@@ -257,13 +266,13 @@ final class NotebookModel: ObservableObject {
       } else {
         draft = body
         let snapshot = CaptureDraftSnapshot(
-          memoID: captureMemoID, body: body, assets: pendingAssets)
+          memoID: captureMemoID, body: body, assets: pendingAssets, location: pendingLocation)
         captureRevision += 1
         // Persist the identity and full draft before publishing any raw data.
         // After a crash this same ID identifies an already committed note.
         try await captureDrafts.save(snapshot, revision: captureRevision)
         try await store.append(
-          Memo(id: snapshot.memoID, body: body),
+          Memo(id: snapshot.memoID, location: snapshot.location, body: body),
           assets: snapshot.assets.map {
             NotebookAssetInput(
               data: $0.data, fileExtension: $0.fileExtension, kind: $0.kind, duration: $0.duration)
@@ -282,6 +291,7 @@ final class NotebookModel: ObservableObject {
         captureMemoID = next.memoID
         draft = ""
         pendingAssets = []
+        pendingLocation = nil
         needsDraftSave = false
       }
       await refresh()
@@ -323,7 +333,8 @@ final class NotebookModel: ObservableObject {
     captureRevision += 1
     do {
       try await captureDrafts.save(
-        CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: proposed),
+        CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: proposed,
+                             location: pendingLocation),
         revision: captureRevision)
       pendingAssets = proposed
       return true
@@ -344,7 +355,8 @@ final class NotebookModel: ObservableObject {
     let proposed = pendingAssets.filter { $0.id != id }
     do {
       try await captureDrafts.save(
-        CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: proposed),
+        CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: proposed,
+                             location: pendingLocation),
         revision: captureRevision)
       pendingAssets = proposed
     } catch { report(error) }
@@ -363,10 +375,35 @@ final class NotebookModel: ObservableObject {
       try await captureDrafts.save(next, revision: captureRevision)
       captureMemoID = next.memoID
       pendingAssets = []
+      pendingLocation = nil
       captureDraftReady = true
       draft = ""
       needsDraftSave = false
     } catch { report(error) }
+  }
+
+  /// The caller's identity prevents a late location fix from entering a new draft.
+  @discardableResult
+  func setCaptureLocation(_ location: Memo.Location?, for draftID: UUID) async -> Bool {
+    guard captureDraftReady, draftID == captureMemoID, !isSaving, !changingCapture else {
+      return false
+    }
+    changingCapture = true
+    defer {
+      changingCapture = false
+      flushDeferredDraft()
+    }
+    captureRevision += 1
+    do {
+      try await captureDrafts.save(
+        CaptureDraftSnapshot(memoID: captureMemoID, body: draft, assets: pendingAssets,
+                             location: location), revision: captureRevision)
+      pendingLocation = location
+      return true
+    } catch {
+      report(error)
+      return false
+    }
   }
 
   func pin(_ entry: NotebookEntry) async {

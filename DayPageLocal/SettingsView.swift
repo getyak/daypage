@@ -9,6 +9,9 @@ struct SettingsView: View {
   @State private var exporting = false
   @State private var modelsOpen = false
   @State private var speechOpen = false
+  private var notePreviewText: String {
+    String(localized: "A little space for a thought.\n留一点空间，记下此刻的想法。")
+  }
 
   var body: some View {
     Form {
@@ -54,6 +57,35 @@ struct SettingsView: View {
           Text("Dark").tag("dark")
         }
         .accessibilityIdentifier("appearance-picker")
+      }
+      .listRowBackground(NotebookTheme.card)
+      Section("Reading") {
+        Picker("Font style", selection: $notebook.noteTypography.style) {
+          Text("Serif").tag(NoteTypography.Style.serif)
+          Text("System").tag(NoteTypography.Style.system)
+          Text("Rounded").tag(NoteTypography.Style.rounded)
+          Text("Monospaced").tag(NoteTypography.Style.monospaced)
+        }
+        .accessibilityIdentifier("note-font-style")
+        Stepper(value: $notebook.noteTypography.size, in: NoteTypography.sizeRange, step: 1) {
+          HStack {
+            Text("Font size")
+            Text(notebook.noteTypography.size, format: .number.precision(.fractionLength(0)))
+              .monospacedDigit().foregroundStyle(NotebookTheme.muted)
+          }.frame(minHeight: 44, alignment: .leading)
+        }
+        .accessibilityLabel("Font size")
+        .accessibilityValue(Text(notebook.noteTypography.size, format: .number.precision(.fractionLength(0))))
+        .accessibilityIdentifier("note-font-size")
+        VStack(alignment: .leading, spacing: 12) {
+          Text("Preview").font(.caption).foregroundStyle(NotebookTheme.muted)
+          Text(notePreviewText)
+            .noteReadingStyle(notebook.noteTypography, text: notePreviewText)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("note-typography-preview")
+        }
+        .padding(.vertical, 8)
       }
       .listRowBackground(NotebookTheme.card)
       Section {

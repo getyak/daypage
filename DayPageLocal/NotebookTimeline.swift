@@ -65,15 +65,16 @@ struct NotebookTimeline: View {
           if !notebook.isLoading, notebook.loadIssue == nil, !notebook.entries.isEmpty,
              day != today || awayFromToday {
             Button(action: onToday) {
-              Label("Back to today", systemImage: "arrow.up")
+              Image(systemName: "arrow.up")
                 .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 16).frame(minHeight: 44)
+                .frame(width: 44, height: 44)
                 .foregroundStyle(NotebookTheme.readingAccent)
-                .background(NotebookTheme.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(NotebookTheme.line))
+                .background(NotebookTheme.card, in: Circle())
+                .overlay(Circle().strokeBorder(NotebookTheme.line))
                 .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
             }
             .buttonStyle(NotebookPressStyle())
+            .accessibilityLabel("Back to today")
             .accessibilityIdentifier("diary-back-today")
             .padding(.trailing, 20).padding(.bottom, 8)
             .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
@@ -90,12 +91,13 @@ struct NotebookTimeline: View {
         } else if let issue = notebook.loadIssue {
           NotebookEmptyState(icon: "exclamationmark.circle", title: "Couldn't read this notebook",
                              detail: issue)
-          Button("Try again") { Task { await notebook.refresh() } }.padding(.horizontal, 20)
+          Button("Try again") { Task { await notebook.refresh() } }
+            .frame(minHeight: 44).padding(.horizontal, 20)
         } else if notebook.entries.isEmpty {
           emptyDay
         } else {
           ForEach(sections) { section in
-            dayHeading(section)
+            dayAnchor(section)
               .id("diary-day-" + section.day)
             if section.entries.isEmpty {
               VStack(alignment: .leading, spacing: 6) {
@@ -105,57 +107,40 @@ struct NotebookTimeline: View {
                   .font(.caption).foregroundStyle(NotebookTheme.muted)
               }
               .padding(.horizontal, 6).padding(.vertical, 16)
+              .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
               .accessibilityIdentifier("diary-empty-" + section.day)
             }
             ForEach(section.entries) { entry in
               LocalMemoCard(entry: entry, onOpen: { onOpenNote(entry.id) })
                 .id(entry.id)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             }
           }
-          HStack(spacing: 7) {
-            Text(NotebookTheme.noteCount(notebook.entries.count))
-            Text("·")
-            Text("All saved on this device")
-          }
-          .font(.caption2).foregroundStyle(NotebookTheme.muted)
-          .frame(maxWidth: .infinity).padding(.top, 16).padding(.bottom, 20)
         }
       }
-      .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
       .listRowBackground(Color.clear).listRowSeparator(.hidden)
     }
+    .environment(\.defaultMinListRowHeight, 1)
     .listStyle(.plain).scrollContentBackground(.hidden)
     .accessibilityIdentifier("today-timeline")
     .refreshable { await notebook.refresh() }
     .notebookSurface()
   }
 
-  private func dayHeading(_ section: NotebookDaySection) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 10) {
-      VStack(alignment: .leading, spacing: 4) {
+  private func dayAnchor(_ section: NotebookDaySection) -> some View {
+    // Keep calendar and capture scroll targets without adding a visible heading
+    // above a card whose own timestamp already identifies its date.
+    Color.clear.frame(height: 1)
+      .listRowInsets(EdgeInsets())
+      .accessibilityHidden(true)
+      .background {
         if section.day == today {
-          Text("Today").font(NotebookTheme.reading(23))
-          Text(NotebookDate.fullTitle(section.day)).font(.caption).foregroundStyle(NotebookTheme.muted)
-        } else {
-          Text(NotebookDate.fullTitle(section.day)).font(NotebookTheme.reading(20))
+          GeometryReader { geometry in
+            Color.clear.preference(key: TodayPositionKey.self,
+              value: geometry.frame(in: .named("diary-scroll")).minY)
+          }
         }
       }
-      Spacer(minLength: 8)
-      Text(NotebookTheme.noteCount(section.entries.count))
-        .font(.caption).foregroundStyle(NotebookTheme.muted)
-    }
-    .padding(.horizontal, 4).padding(.top, 20).padding(.bottom, 4)
-    .accessibilityElement(children: .combine)
-    .accessibilityAddTraits(.isHeader)
-    .accessibilityIdentifier("diary-heading-" + section.day)
-    .background {
-      if section.day == today {
-        GeometryReader { geometry in
-          Color.clear.preference(key: TodayPositionKey.self,
-            value: geometry.frame(in: .named("diary-scroll")).minY)
-        }
-      }
-    }
   }
 
   @ViewBuilder private var emptyDay: some View {
@@ -221,17 +206,17 @@ struct LocalMemoCard: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 10) {
       header
       Button {
         guard interactionEnabled, !working else { return }
         onOpen()
       } label: {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
           if !entry.memo.body.isEmpty {
             Text(entry.memo.body)
-              .font(NotebookTheme.reading(17, text: entry.memo.body))
-              .lineSpacing(7).lineLimit(expanded ? nil : 6).multilineTextAlignment(.leading)
+              .noteReadingStyle(notebook.noteTypography, text: entry.memo.body)
+              .lineLimit(expanded ? nil : 6).multilineTextAlignment(.leading)
               .foregroundStyle(NotebookTheme.ink)
               .frame(maxWidth: .infinity, alignment: .leading)
               .background {
@@ -241,8 +226,8 @@ struct LocalMemoCard: View {
                 }
               }
               .background(alignment: .topLeading) {
-                Text(entry.memo.body).font(NotebookTheme.reading(17, text: entry.memo.body))
-                  .lineSpacing(7).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                Text(entry.memo.body).noteReadingStyle(notebook.noteTypography, text: entry.memo.body)
+                  .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .background {
                     GeometryReader { geometry in
@@ -255,7 +240,7 @@ struct LocalMemoCard: View {
           } else {
             Label(entry.memo.type == .voice ? "Voice note" : "Attachment note",
                   systemImage: entry.memo.type == .voice ? "waveform" : "paperclip")
-              .font(NotebookTheme.reading(17)).foregroundStyle(NotebookTheme.secondary)
+              .noteReadingStyle(notebook.noteTypography).foregroundStyle(NotebookTheme.secondary)
           }
         }
         .frame(minHeight: 44, alignment: .leading)
@@ -282,6 +267,10 @@ struct LocalMemoCard: View {
       }
 
       if !entry.memo.attachments.isEmpty { NoteAttachmentStrip(entry: entry) }
+      if let location = entry.memo.location {
+        NoteLocationLabel(location: location)
+          .accessibilityIdentifier("card-location-" + entry.memo.id.uuidString)
+      }
       if !tags.isEmpty {
         HStack(spacing: 8) {
           ForEach(tags.prefix(4), id: \.self) { tag in
@@ -291,31 +280,31 @@ struct LocalMemoCard: View {
         }
       }
     }
-    .padding(17)
+    .padding(16)
     .background(NotebookTheme.card, in: RoundedRectangle(cornerRadius: 16))
     .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(NotebookTheme.line, lineWidth: 0.7) }
     .contextMenu {
       if interactionEnabled { actionButtons }
     }
-    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+    .swipeActions(edge: .leading, allowsFullSwipe: true) {
       if interactionEnabled {
+        Button { open(.chat) } label: {
+          Label("Chat about this note", systemImage: "sparkles")
+        }.tint(NotebookTheme.readingAccent).accessibilityIdentifier("swipe-chat-note")
         Button(action: pin) {
           Label(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note",
                 systemImage: entry.memo.pinnedAt == nil ? "pin" : "pin.slash")
         }.tint(NotebookTheme.accent).accessibilityIdentifier("swipe-pin-note")
-        Button { open(.chat) } label: {
-          Label("Chat about this note", systemImage: "sparkles")
-        }.tint(NotebookTheme.readingAccent).accessibilityIdentifier("swipe-chat-note")
       }
     }
-    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
       if interactionEnabled {
-        Button { requestTrash() } label: {
-          Label("Move to Trash", systemImage: "trash")
-        }.tint(.red).accessibilityIdentifier("swipe-trash-note")
         Button { open(.share) } label: {
           Label("Share note", systemImage: "square.and.arrow.up")
         }.tint(NotebookTheme.accent).accessibilityIdentifier("swipe-share-note")
+        Button { requestTrash() } label: {
+          Label("Move to Trash", systemImage: "trash")
+        }.tint(.red).accessibilityIdentifier("swipe-trash-note")
       }
     }
     .disabled(!interactionEnabled || working)

@@ -109,7 +109,7 @@ class CaptureDraftTransactions(unittest.TestCase):
             ])
             environment = dict(os.environ, DAYPAGE_DRAFT_TEST_ROOT=str(fixtures))
             result = self.run_command([str(binary)], env=environment)
-            self.assertIn("PASS: 13 draft transaction regression groups", result.stdout)
+            self.assertIn("PASS: 18 draft transaction regression groups", result.stdout)
             print(result.stdout, end="")
 
 

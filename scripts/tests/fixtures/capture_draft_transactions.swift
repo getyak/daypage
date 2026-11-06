@@ -40,6 +40,105 @@ struct DraftTests {
   static func settle() async throws { try await Task.sleep(for: .milliseconds(80)) }
 
   static func main() async throws {
+    try await withRoot("optional location survives the existing draft envelope") { _ in
+      let encoded = try JSONEncoder().encode(CaptureDraftSnapshot(body: "Place fixture"))
+      var object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] ?? [:]
+      object["location"] = ["name": "Synthetic place", "lat": 31.25, "lng": 121.5]
+      let decoded = try JSONDecoder().decode(
+        CaptureDraftSnapshot.self, from: JSONSerialization.data(withJSONObject: object))
+      let roundTrip = try JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded))
+        as? [String: Any]
+      let location = roundTrip?["location"] as? [String: Any]
+      try require(location?["lat"] as? Double == 31.25,
+                  "Draft envelope dropped the explicitly selected location")
+    }
+    try await withRoot("location follows autosave, attachments, restart and raw commit") { root in
+      let location = Memo.Location(name: "Synthetic place", lat: 31.25, lng: 121.5)
+      let model = NotebookModel(root: root)
+      await model.load()
+      try require(model.pendingLocation == nil, "New captures must start without location")
+      let id = model.captureDraftID
+      let selected = await model.setCaptureLocation(location, for: id)
+      try require(selected, "Explicit location did not persist")
+      model.draft = "A located note"
+      model.saveDraft()
+      try await settle()
+      let added = await model.addCaptureAsset(data: asset, filename: "fixture.txt", kind: "file")
+      try require(added, "Located draft rejected an attachment")
+      if let assetID = model.pendingAssets.first?.id { await model.removeCaptureAsset(assetID) }
+      let relaunch = NotebookModel(root: root)
+      await relaunch.load()
+      try require(relaunch.pendingLocation == location && relaunch.draft == model.draft,
+                  "Autosave/attachment change or restart lost location")
+      let saved = await relaunch.save(body: relaunch.draft, editing: nil)
+      try require(saved, "Located note could not commit")
+      let entries = try await relaunch.store.entries()
+      try require(entries.count == 1 && entries.first?.memo.location == location,
+                  "Location did not round-trip through actual raw Markdown")
+      try require(relaunch.pendingLocation == nil && relaunch.captureDraftID != id,
+                  "Next note inherited a saved location")
+      let stale = await relaunch.setCaptureLocation(location, for: id)
+      try require(!stale && relaunch.pendingLocation == nil, "Late result entered a new draft")
+      if let entry = entries.first {
+        let edited = await relaunch.save(body: "Edited body", editing: entry)
+        let updated = try await relaunch.store.entries()
+        try require(edited && updated.first?.memo.location == location,
+                    "Editing note text dropped its existing location")
+      }
+      let nextID = relaunch.captureDraftID
+      _ = await relaunch.setCaptureLocation(location, for: nextID)
+      await relaunch.discardDraft()
+      let final = NotebookModel(root: root)
+      await final.load()
+      try require(final.pendingLocation == nil && final.draft.isEmpty,
+                  "Discard resurrected a location-only draft")
+    }
+    try await withRoot("newer nil sidecar removes location and old drafts remain readable") { root in
+      let store = CaptureDraftStore(root: root)
+      let original = CaptureDraftSnapshot(body: "Original", location: Memo.Location(lat: 1, lng: 2))
+      try await store.save(original, revision: 1)
+      var removed = original
+      removed.body = "Removed location"
+      removed.location = nil
+      try await store.saveBody(removed, revision: 2)
+      let loaded = try await CaptureDraftStore(root: root).load()
+      try require(loaded.location == nil && loaded.body == removed.body,
+                  "New nil sidecar revived the envelope location")
+      let data = try JSONEncoder().encode(CaptureDraftSnapshot(body: "Old version one"))
+      var legacy = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+      legacy.removeValue(forKey: "location")
+      let decoded = try JSONDecoder().decode(CaptureDraftSnapshot.self,
+        from: JSONSerialization.data(withJSONObject: legacy))
+      try require(decoded.location == nil && decoded.body == "Old version one",
+                  "Old version-one envelope stopped decoding")
+    }
+    try await withRoot("failed location removal preserves the selected draft location") { root in
+      let model = NotebookModel(root: root)
+      await model.load()
+      let location = Memo.Location(lat: 31.25, lng: 121.5)
+      let selected = await model.setCaptureLocation(location, for: model.captureDraftID)
+      try require(selected, "Location fixture did not save")
+      try fm.setAttributes([.posixPermissions: 0o555],
+                           ofItemAtPath: root.appendingPathComponent(".daypage").path)
+      let removed = await model.setCaptureLocation(nil, for: model.captureDraftID)
+      try require(!removed && model.pendingLocation == location,
+                  "Failed removal cleared the in-memory selection")
+      let relaunched = NotebookModel(root: root)
+      await relaunched.load()
+      try require(relaunched.pendingLocation == location,
+                  "Failed removal destroyed the persisted location")
+    }
+    try await withRoot("invalid coordinates preserve the existing draft bytes") { root in
+      let store = CaptureDraftStore(root: root)
+      let original = CaptureDraftSnapshot(body: "Keep me", location: Memo.Location(lat: 1, lng: 2))
+      try await store.save(original, revision: 1)
+      let file = root.appendingPathComponent(".daypage/capture-draft.json")
+      let before = try Data(contentsOf: file)
+      var invalid = original
+      invalid.location = Memo.Location(lat: 95, lng: 2)
+      try await expectDraftError { try await store.save(invalid, revision: 2) }
+      try require(try Data(contentsOf: file) == before, "Invalid location overwrote the draft")
+    }
     try await withRoot("chmod cleanup failure + relaunch suppress committed text/assets") { root in
       let model = NotebookModel(root: root)
       await model.load()
@@ -383,6 +482,6 @@ struct DraftTests {
         !fullCount.canRecordVoice && !fullCount.canAddCaptureAsset,
         "The attachment count cap allowed recording")
     }
-    print("PASS: 13 draft transaction regression groups")
+    print("PASS: 18 draft transaction regression groups")
   }
 }

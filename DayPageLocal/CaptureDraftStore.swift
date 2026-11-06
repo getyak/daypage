@@ -1,3 +1,4 @@
+import DayPageCore
 import Foundation
 
 struct CaptureDraftSnapshot: Codable, Sendable {
@@ -6,14 +7,17 @@ struct CaptureDraftSnapshot: Codable, Sendable {
   var memoID: UUID
   var body: String
   var assets: [PendingNoteAsset]
+  var location: Memo.Location?
 
-  init(memoID: UUID = UUID(), body: String = "", assets: [PendingNoteAsset] = []) {
+  init(memoID: UUID = UUID(), body: String = "", assets: [PendingNoteAsset] = [],
+       location: Memo.Location? = nil) {
     self.memoID = memoID
     self.body = body
     self.assets = assets
+    self.location = location
   }
 
-  private enum CodingKeys: String, CodingKey { case version, revision, memoID, body, assets }
+  private enum CodingKeys: String, CodingKey { case version, revision, memoID, body, assets, location }
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     version = try values.decode(Int.self, forKey: .version)
@@ -21,6 +25,7 @@ struct CaptureDraftSnapshot: Codable, Sendable {
     memoID = try values.decode(UUID.self, forKey: .memoID)
     body = try values.decode(String.self, forKey: .body)
     assets = try values.decode([PendingNoteAsset].self, forKey: .assets)
+    location = try values.decodeIfPresent(Memo.Location.self, forKey: .location)
   }
 }
 
@@ -29,6 +34,7 @@ private struct CaptureDraftBody: Codable {
   let memoID: UUID
   let revision: UInt64
   let body: String
+  let location: Memo.Location?
 }
 
 /// A separate draft snapshot keeps photo/file/audio bytes across editor collapse
@@ -70,9 +76,12 @@ actor CaptureDraftStore {
       guard body.body.utf8.count <= 4 * 1024 * 1024 else { throw CaptureDraftError.tooLarge }
       if body.memoID == snapshot.memoID, body.revision > snapshot.revision {
         snapshot.body = body.body
+        // nil deliberately removes the envelope's old location.
+        snapshot.location = body.location
         snapshot.revision = body.revision
       }
     }
+    try validate(snapshot)
     persistedMemoID = hasEnvelope ? snapshot.memoID : nil
     revision = max(revision, snapshot.revision)
     // Raw publication is the commit point. A failed best-effort cleanup must
@@ -112,7 +121,8 @@ actor CaptureDraftStore {
     snapshot.revision = proposed
     try validate(snapshot)
     try validatePath()
-    let body = CaptureDraftBody(memoID: snapshot.memoID, revision: proposed, body: snapshot.body)
+    let body = CaptureDraftBody(memoID: snapshot.memoID, revision: proposed, body: snapshot.body,
+                                location: snapshot.location)
     try JSONEncoder().encode(body).write(
       to: bodyFile, options: [.atomic, .completeFileProtectionUnlessOpen])
     revision = proposed
@@ -121,6 +131,11 @@ actor CaptureDraftStore {
   private func validate(_ snapshot: CaptureDraftSnapshot) throws {
     guard snapshot.version == 1, snapshot.revision <= UInt64.max / 2 else {
       throw CaptureDraftError.invalidSnapshot
+    }
+    if let location = snapshot.location {
+      guard location.hasValidCoordinates, (location.name?.utf8.count ?? 0) <= 1000 else {
+        throw CaptureDraftError.invalidSnapshot
+      }
     }
     let assets = snapshot.assets
     guard snapshot.body.utf8.count <= 4 * 1024 * 1024,
