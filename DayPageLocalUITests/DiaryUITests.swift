@@ -139,9 +139,12 @@ final class DiaryUITests: XCTestCase {
     XCTAssertEqual(stepper.value as? String, "15")
     stepper.buttons["note-font-size-Increment"].tap()
     XCTAssertEqual(stepper.value as? String, "16")
-    element("note-font-style").tap()
+    app.buttons["note-font-style"].tap()
     app.buttons["Rounded"].tap()
-    XCTAssertEqual(element("note-font-style").value as? String, "Rounded")
+    captureDiagnostics("card-reading-font-selected")
+    let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Rounded"),
+                                              object: app.buttons["note-font-style"])
+    XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
     reveal(element("note-typography-preview"), in: app.collectionViews.firstMatch)
     capture("card-reading-font-preview")
     app.terminate()
@@ -150,7 +153,7 @@ final class DiaryUITests: XCTestCase {
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
     openReadingSettings()
     XCTAssertEqual(app.steppers["note-font-size"].value as? String, "16")
-    XCTAssertEqual(element("note-font-style").value as? String, "Rounded")
+    XCTAssertEqual(app.buttons["note-font-style"].value as? String, "Rounded")
   }
 
   func testOptionalLocationSurvivesDraftRelaunchAndClearsForNextNote() {
@@ -251,7 +254,7 @@ final class DiaryUITests: XCTestCase {
     let settings = app.buttons["sidebar-settings"]
     reveal(settings, in: element("notebook-sidebar"))
     settings.tap()
-    let font = element("note-font-style")
+    let font = app.buttons["note-font-style"]
     reveal(font, in: app.collectionViews.firstMatch)
     XCTAssertTrue(font.waitForExistence(timeout: 5))
     reveal(element("note-font-size"), in: app.collectionViews.firstMatch)
@@ -317,5 +320,13 @@ final class DiaryUITests: XCTestCase {
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
+  }
+
+  private func captureDiagnostics(_ name: String) {
+    capture(name)
+    let hierarchy = XCTAttachment(string: app.debugDescription)
+    hierarchy.name = name + "-accessibility"
+    hierarchy.lifetime = .keepAlways
+    add(hierarchy)
   }
 }

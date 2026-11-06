@@ -12,6 +12,14 @@ struct SettingsView: View {
   private var notePreviewText: String {
     String(localized: "A little space for a thought.\n留一点空间，记下此刻的想法。")
   }
+  private var noteFontStyleName: LocalizedStringKey {
+    switch notebook.noteTypography.style {
+    case .serif: return "Serif"
+    case .system: return "System"
+    case .rounded: return "Rounded"
+    case .monospaced: return "Monospaced"
+    }
+  }
 
   var body: some View {
     Form {
@@ -66,6 +74,8 @@ struct SettingsView: View {
           Text("Rounded").tag(NoteTypography.Style.rounded)
           Text("Monospaced").tag(NoteTypography.Style.monospaced)
         }
+        .accessibilityLabel("Font style")
+        .accessibilityValue(Text(noteFontStyleName))
         .accessibilityIdentifier("note-font-style")
         Stepper(value: $notebook.noteTypography.size, in: NoteTypography.sizeRange, step: 1) {
           HStack {
