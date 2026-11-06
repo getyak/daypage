@@ -8,6 +8,16 @@ The application stores notes as Markdown at `Documents/vault/raw/YYYY-MM-DD.md`,
 
 Choose an AI provider and enter its API key in Settings; the app supplies the address and defaults to automatic model updates where supported. Fixed models and custom/local servers remain available. See [personal AI setup](local-ai-setup.md) for provider, region, model, privacy and recovery behavior. Keys are device-only Keychain items scoped to service origin. Local HTTP requires explicit permission. Connection tests send no notes; note chat previews excerpts and sends them only after explicit Send.
 
+## Card reading and optional location
+
+The continuous diary shows cards without redundant external date/Today/count headings. Invisible day anchors retain calendar jumps and returning to today's captured record; each card still has its own timestamp. Settings → Reading controls the four card typefaces and size (13–24, default 15), with a live preview and Dynamic Type scaling. These device preferences use the notebook's injected defaults, separately from raw notes.
+
+Leading full swipe opens note-scoped Chat; trailing full swipe opens the Share preview. Pin and Trash remain secondary swipe/menu actions, and Trash still requires confirmation.
+
+Write a note starts without location. Add location alone requests When In Use permission and a one-shot fix; cancel, collapse or backgrounding cancels acquisition. Permission denial leaves text saving usable. Selected coordinates can be removed, survive draft reopening/relaunch and are saved using the existing Memo.location YAML. Draft envelope/body sidecars accept an optional location without changing their version or old-draft compatibility; a newer nil sidecar removes the old location. New draft identities reset location. No background location or reverse geocoding is used.
+
+QA-only `-qaLocationFixture` / `-qaLocationDelay` exercise synthetic location persistence and cancellation in the isolated Debug bundle. They do not establish real Core Location behavior. The native permission-denial journey separately uses the actual system prompt; physical-device acquisition remains separate evidence.
+
 ## Development
 
 ```sh
@@ -46,7 +56,7 @@ The unentitled build is also useful as an explicit negative test: opening AI set
 
 When the managed local device is occupied, the existing Local iOS notebook workflow has an optional `native_ui` manual input. It runs the same unsigned recovery and fully signed UI matrix on an isolated macOS runner using `scripts/qa/run_local_native_ci.sh`, a runner-owned loopback fixture and synthetic QA data. It is disabled for ordinary PR/push runs. Receipts and XCTest evidence are retained for seven days; build products, real credentials and distribution steps are excluded. Run it explicitly with `gh workflow run ios-local.yml --ref <branch> -f native_ui=true` and check the exact-source receipt before accepting the result.
 
-For sidebar/history changes, `native_ui_suite=diary_navigation` runs all Diary, Calendar and LocalNotebook tests plus seven explicit navigation/card integration journeys (currently 28 tests). It requires zero failures or skips and the native diary screenshots, using the same isolated QA signature and entitlement checks. Unsigned Keychain/Speech recovery and the dedicated Chat matrix are outside this suite and explicitly recorded as unrun; its receipt does not establish full iOS acceptance. The default `full` matrix and its recovery preconditions remain unchanged.
+For sidebar/history/card changes, `native_ui_suite=diary_navigation` runs all Diary, CardShare, Calendar and LocalNotebook tests plus seven explicit navigation/card integration journeys. It requires zero failures or skips and the native diary screenshots, using the same isolated QA signature and entitlement checks. Unsigned Keychain/Speech recovery and the dedicated Chat matrix are outside this suite and explicitly recorded as unrun; its receipt does not establish full iOS acceptance. The default `full` matrix and its recovery preconditions remain unchanged.
 
 ## Code merges without a TestFlight release
 

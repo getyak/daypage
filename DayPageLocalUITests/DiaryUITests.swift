@@ -129,6 +129,145 @@ final class DiaryUITests: XCTestCase {
     XCTAssertTrue(app.buttons["new-note"].isHittable)
   }
 
+  func testReadingPreferencesPersistAndExternalHeadingsAreHidden() {
+    launchDiary()
+    XCTAssertFalse(app.descendants(matching: .any).matching(
+      NSPredicate(format: "identifier BEGINSWITH 'diary-heading-'")).firstMatch.exists)
+    XCTAssertFalse(app.staticTexts["All saved on this device"].exists)
+    openReadingSettings()
+    let stepper = app.steppers["note-font-size"]
+    XCTAssertEqual(stepper.value as? String, "15")
+    stepper.buttons["note-font-size-Increment"].tap()
+    XCTAssertEqual(stepper.value as? String, "16")
+    app.buttons["note-font-style"].tap()
+    app.buttons["Rounded"].tap()
+    captureDiagnostics("card-reading-font-selected")
+    let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Rounded"),
+                                              object: app.buttons["note-font-style"])
+    XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+    reveal(element("note-typography-preview"), in: app.collectionViews.firstMatch)
+    capture("card-reading-font-preview")
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    openReadingSettings()
+    XCTAssertEqual(app.steppers["note-font-size"].value as? String, "16")
+    XCTAssertEqual(app.buttons["note-font-style"].value as? String, "Rounded")
+  }
+
+  func testOptionalLocationSurvivesDraftRelaunchAndClearsForNextNote() {
+    app.launchArguments += ["-qaLocationFixture"]
+    launchDiary()
+    openEditor("A place to remember.")
+    XCTAssertFalse(element("capture-selected-location").exists)
+    app.buttons["capture-location"].tap()
+    XCTAssertTrue(element("capture-selected-location").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("capture-selected-location").label.contains("Synthetic place"))
+    capture("card-location-selected")
+    app.buttons["collapse-note"].tap()
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.textViews["note-editor"].value as? String, "A place to remember.")
+    XCTAssertTrue(element("capture-selected-location").exists)
+    app.buttons["save-note"].tap()
+    let saved = note("A place to remember.")
+    XCTAssertTrue(saved.waitForExistence(timeout: 5))
+    saved.tap()
+    XCTAssertTrue(element("note-location").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("note-location").label.contains("Synthetic place"))
+    capture("card-location-saved-detail")
+    app.navigationBars.buttons.firstMatch.tap()
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertFalse(element("capture-selected-location").exists)
+  }
+
+  func testCancelledLocationCannotArriveLaterAndRemovalSurvivesRelaunch() {
+    app.launchArguments += ["-qaLocationFixture", "-qaLocationDelay"]
+    launchDiary()
+    openEditor("Keep writing without a place.")
+    app.buttons["capture-location"].tap()
+    XCTAssertTrue(app.buttons["cancel-capture-location"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["save-note"].isEnabled)
+    XCTAssertTrue(app.buttons["collapse-note"].isEnabled)
+    app.buttons["cancel-capture-location"].tap()
+    let stopped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: app.buttons["cancel-capture-location"])
+    XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 3), .completed,
+                   "Cancel must end the pending request before the ten-second fixture completes")
+    XCTAssertTrue(app.buttons["capture-location"].exists)
+    XCTAssertFalse(element("capture-selected-location").exists)
+    capture("card-location-cancelled")
+    let late = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"),
+                                         object: element("capture-selected-location"))
+    late.isInverted = true
+    XCTAssertEqual(XCTWaiter.wait(for: [late], timeout: 11), .completed)
+    XCTAssertTrue(app.buttons["save-note"].isEnabled)
+    app.buttons["capture-location"].tap()
+    XCTAssertTrue(element("capture-selected-location").waitForExistence(timeout: 14))
+    app.buttons["remove-capture-location"].tap()
+    let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                            object: element("capture-selected-location"))
+    XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
+    app.buttons["collapse-note"].tap()
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
+    app.launch()
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 10))
+    app.buttons["new-note"].tap()
+    XCTAssertTrue(app.textViews["note-editor"].waitForExistence(timeout: 5))
+    XCTAssertFalse(element("capture-selected-location").exists)
+    app.buttons["save-note"].tap()
+    XCTAssertTrue(note("Keep writing without a place.").waitForExistence(timeout: 5))
+    note("Keep writing without a place.").tap()
+    XCTAssertFalse(element("note-location").exists)
+  }
+
+  func testRealLocationPermissionDenialStillAllowsSavingWithoutLocation() {
+    app.resetAuthorizationStatus(for: .location)
+    launchDiary()
+    openEditor("No location is required to save this note.")
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    XCTAssertFalse(springboard.alerts.firstMatch.exists, "Opening Write a note must not request location")
+    app.buttons["capture-location"].tap()
+    let alert = springboard.alerts.firstMatch
+    XCTAssertTrue(alert.waitForExistence(timeout: 10))
+    let deny = alert.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", "Don.*Allow")).firstMatch
+    XCTAssertTrue(deny.waitForExistence(timeout: 5))
+    deny.tap()
+    XCTAssertTrue(app.staticTexts["Location access is off. You can enable it in Settings or save without a location."]
+      .waitForExistence(timeout: 5))
+    XCTAssertFalse(element("capture-selected-location").exists)
+    XCTAssertTrue(app.buttons["save-note"].isEnabled)
+    capture("card-location-real-permission-denied")
+    app.buttons["save-note"].tap()
+    XCTAssertTrue(note("No location is required to save this note.").waitForExistence(timeout: 5))
+  }
+
+  private func openReadingSettings() {
+    openSidebar()
+    let settings = app.buttons["sidebar-settings"]
+    reveal(settings, in: element("notebook-sidebar"))
+    settings.tap()
+    let font = app.buttons["note-font-style"]
+    reveal(font, in: app.collectionViews.firstMatch)
+    XCTAssertTrue(font.waitForExistence(timeout: 5))
+    reveal(element("note-font-size"), in: app.collectionViews.firstMatch)
+  }
+
+  private func openEditor(_ body: String) {
+    app.buttons["new-note"].tap()
+    let editor = app.textViews["note-editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 5))
+    editor.tap()
+    editor.typeText(body)
+  }
+
   private func launchDiary() {
     app.launch()
     let first = app.launchArguments.contains("-qaSeedDiaryPins") ? "Pinned diary" : "Diary history 0."
@@ -181,5 +320,13 @@ final class DiaryUITests: XCTestCase {
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
+  }
+
+  private func captureDiagnostics(_ name: String) {
+    capture(name)
+    let hierarchy = XCTAttachment(string: app.debugDescription)
+    hierarchy.name = name + "-accessibility"
+    hierarchy.lifetime = .keepAlways
+    add(hierarchy)
   }
 }

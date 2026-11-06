@@ -8,11 +8,14 @@ import UniformTypeIdentifiers
 struct NoteEditor: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.scenePhase) private var scenePhase
+  @StateObject private var locationCapture = NoteLocationCapture()
   let entry: NotebookEntry?
   @State private var text = ""
   @State private var loaded = false
   @State private var saving = false
   @State private var importing = false
+  @State private var applyingLocation = false
   @State private var mediaSheet: CaptureSheet?
   @State private var selectingFiles = false
   @State private var selectedPhotos: [PhotosPickerItem] = []
@@ -24,7 +27,6 @@ struct NoteEditor: View {
   @SceneStorage private var hasEditingDraft: Bool
   @SceneStorage private var editingDraftBody: String
   @SceneStorage private var editingDraftBase: String
-  private let opened = Date()
 
   init(entry: NotebookEntry? = nil) {
     self.entry = entry
@@ -38,20 +40,19 @@ struct NoteEditor: View {
     case camera, voice
     var id: String { rawValue }
   }
-  private var busy: Bool { saving || notebook.isSaving || importing }
+  private var busy: Bool { saving || notebook.isSaving || importing || applyingLocation }
   private var canSave: Bool {
     !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       || (entry.map { !$0.memo.attachments.isEmpty } ?? !notebook.pendingAssets.isEmpty)
   }
   private var hasChanges: Bool {
     if let entry { return text != entry.memo.body }
-    return !text.isEmpty || !notebook.pendingAssets.isEmpty
+    return !text.isEmpty || !notebook.pendingAssets.isEmpty || notebook.pendingLocation != nil
   }
 
   var body: some View {
     NavigationStack {
       VStack(alignment: .leading, spacing: 0) {
-        timestamp
         ZStack(alignment: .topLeading) {
           if text.isEmpty {
             Text("What would you like to remember?")
@@ -105,6 +106,20 @@ struct NoteEditor: View {
           }.padding(.vertical, 8)
         }
         if entry == nil {
+          if let location = notebook.pendingLocation {
+            HStack {
+              NoteLocationLabel(location: location).accessibilityIdentifier("capture-selected-location")
+              Spacer(minLength: 8)
+              Button {
+                updateLocation(nil, for: notebook.captureDraftID)
+              } label: {
+                Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
+              }
+              .disabled(busy || locationCapture.isRequesting)
+              .accessibilityLabel("Remove location").accessibilityIdentifier("remove-capture-location")
+            }
+            .foregroundStyle(NotebookTheme.muted)
+          }
           captureRail
           if !notebook.canRecordVoice {
             Text("Free some draft attachment space to record audio.")
@@ -134,7 +149,8 @@ struct NoteEditor: View {
             } else {
               Text("Save").fontWeight(.semibold)
             }
-          }.disabled(busy || !canSave || editConflict).accessibilityIdentifier("save-note")
+          }.disabled(busy || locationCapture.isRequesting || !canSave || editConflict)
+            .accessibilityIdentifier("save-note")
         }
         ToolbarItem(placement: .navigationBarTrailing) {
           Menu {
@@ -153,6 +169,11 @@ struct NoteEditor: View {
     .presentationDetents([.large]).presentationDragIndicator(.visible)
     .interactiveDismissDisabled(busy)
     .onAppear(perform: loadDraft)
+    .onDisappear { locationCapture.cancel() }
+    .onChange(of: scenePhase) { phase in
+      // The permission alert can make the app inactive; only backgrounding cancels.
+      if phase == .background { locationCapture.cancel() }
+    }
     .onChange(of: text) { value in
       guard loaded else { return }
       if let entry {
@@ -217,7 +238,8 @@ struct NoteEditor: View {
           defer { saving = false }
           if entry == nil {
             await notebook.discardDraft()
-            guard notebook.draft.isEmpty, notebook.pendingAssets.isEmpty else { return }
+            guard notebook.draft.isEmpty, notebook.pendingAssets.isEmpty,
+                  notebook.pendingLocation == nil else { return }
           } else {
             hasEditingDraft = false
             editingDraftBody = ""
@@ -232,19 +254,9 @@ struct NoteEditor: View {
     }
   }
 
-  private var timestamp: some View {
-    HStack(spacing: 6) {
-      Text((entry?.memo.created ?? opened).formatted(date: .abbreviated, time: .shortened))
-        .font(NotebookTheme.mono(11)).foregroundStyle(NotebookTheme.muted)
-      Spacer()
-      if entry == nil, hasChanges {
-        Text("Draft").font(.caption2).foregroundStyle(NotebookTheme.muted)
-      }
-    }.padding(.bottom, 12)
-  }
-
   private var captureRail: some View {
     HStack(spacing: 8) {
+      Group {
       PhotosPicker(
         selection: $selectedPhotos,
         maxSelectionCount: min(6, max(1, 10 - notebook.pendingAssets.count)), matching: .images,
@@ -266,12 +278,54 @@ struct NoteEditor: View {
       } label: {
         railIcon("mic", label: "Voice")
       }.disabled(!notebook.canRecordVoice).accessibilityIdentifier("capture-voice")
+      }.disabled(locationCapture.isRequesting)
+      if locationCapture.isRequesting {
+        Button { locationCapture.cancel() } label: {
+          VStack(spacing: 4) {
+            ProgressView()
+            Text("Cancel").font(.caption2)
+          }.frame(minWidth: 48, minHeight: 48).contentShape(Rectangle())
+        }.accessibilityLabel("Cancel location request")
+          .accessibilityIdentifier("cancel-capture-location")
+      } else {
+        Button(action: requestLocation) {
+          railIcon(notebook.pendingLocation == nil ? "location" : "location.fill", label: "Location")
+        }.accessibilityLabel(notebook.pendingLocation == nil ? "Add location" : "Update location")
+          .accessibilityIdentifier("capture-location")
+      }
       Spacer(minLength: 0)
     }
     .foregroundStyle(NotebookTheme.muted).buttonStyle(.plain).disabled(busy)
     .padding(.top, 8)
     .overlay(alignment: .top) { Rectangle().fill(NotebookTheme.line).frame(height: 1) }
     .accessibilityElement(children: .contain).accessibilityIdentifier("media-add")
+  }
+  private func requestLocation() {
+    guard entry == nil, !busy else { return }
+    focused = false
+    mediaError = nil
+    showSettingsRecovery = false
+    let draftID = notebook.captureDraftID
+    locationCapture.request { result in
+      switch result {
+      case .success(let location): updateLocation(location, for: draftID)
+      case .failure(let error):
+        mediaError = error.localizedDescription
+        if case .denied = error { showSettingsRecovery = true }
+      }
+    }
+  }
+
+  private func updateLocation(_ location: Memo.Location?, for draftID: UUID) {
+    guard entry == nil, !busy else { return }
+    applyingLocation = true
+    Task {
+      let saved = await notebook.setCaptureLocation(location, for: draftID)
+      if !saved {
+        mediaError = notebook.error ?? String(localized: "Couldn't save the location. Try again.")
+      }
+      applyingLocation = false
+    }
   }
   private func railIcon(_ symbol: String, label: LocalizedStringKey) -> some View {
     VStack(spacing: 4) {
@@ -373,6 +427,29 @@ struct NoteEditor: View {
   }
 }
 
+struct NoteLocationLabel: View {
+  let location: Memo.Location
+  private var coordinates: String? {
+    guard location.hasValidCoordinates, let lat = location.lat, let lng = location.lng else {
+      return nil
+    }
+    return String(format: "%.4f, %.4f", locale: Locale(identifier: "en_US_POSIX"), lat, lng)
+  }
+  private var title: String {
+    if let name = location.name, !name.isEmpty { return name }
+    return coordinates ?? String(localized: "Location")
+  }
+  var body: some View {
+    Label {
+      Text(title)
+    } icon: { Image(systemName: "mappin.and.ellipse") }
+    .font(.caption).foregroundStyle(NotebookTheme.muted)
+    .fixedSize(horizontal: false, vertical: true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Text(String(localized: "Location") + ": " + title))
+  }
+}
+
 struct NoteDetailView: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.dismiss) private var dismiss
@@ -397,6 +474,9 @@ struct NoteDetailView: View {
             Image(systemName: "pin.fill").accessibilityLabel("Pinned")
           }
         }.font(NotebookTheme.mono(11)).foregroundStyle(NotebookTheme.muted)
+        if let location = current.memo.location {
+          NoteLocationLabel(location: location).accessibilityIdentifier("note-location")
+        }
         if !current.memo.body.isEmpty {
           NoteMarkdownBody(text: current.memo.body).accessibilityIdentifier("note-original")
         }

@@ -325,6 +325,7 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
     ;;
   diary_navigation)
     daypage_test_selection=(-only-testing:DayPageLocalUITests/DiaryUITests
+      -only-testing:DayPageLocalUITests/CardShareUITests
       -only-testing:DayPageLocalUITests/CalendarUITests
       -only-testing:DayPageLocalUITests/LocalNotebookUITests
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testArchiveIsBrowseAndSearchReturnsToItsOrigin
@@ -364,7 +365,7 @@ files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
 if suite == 'diary_navigation':
-    files = [p for p in files if p.stem in {'DiaryUITests', 'CalendarUITests', 'LocalNotebookUITests'}]
+    files = [p for p in files if p.stem in {'DiaryUITests', 'CardShareUITests', 'CalendarUITests', 'LocalNotebookUITests'}]
     selected = {'testArchiveIsBrowseAndSearchReturnsToItsOrigin', 'testNoSearchMatchesHasClearRecovery',
                 'testLargeArchiveFindsOlderNotesWithoutLeakingItsSearchFilter',
                 'testChineseArchiveCalendarAndShareUseTheSameDesignLanguage',

@@ -22,6 +22,18 @@ final class CardShareUITests: XCTestCase {
     app.descendants(matching: .any).matching(identifier: id).firstMatch
   }
 
+  private func partialSwipe(_ row: XCUIElement, right: Bool) {
+    row.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.15 : 0.85, dy: 0.5))
+      .press(forDuration: 0.05, thenDragTo:
+        row.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.60 : 0.40, dy: 0.5)))
+  }
+
+  private func fullSwipe(_ row: XCUIElement, right: Bool) {
+    row.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.02 : 0.98, dy: 0.5))
+      .press(forDuration: 0.05, thenDragTo:
+        row.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.98 : 0.02, dy: 0.5)))
+  }
+
   private func closeSystemShare() {
     let close = app.buttons["header.closeButton"]
     XCTAssertTrue(close.waitForExistence(timeout: 5))
@@ -48,14 +60,13 @@ final class CardShareUITests: XCTestCase {
   func testLeadingSwipePinsAndOpensNoteScopedChat() {
     app.launch()
     write("A thought to pin and discuss.")
-    note.swipeRight()
+    partialSwipe(note, right: true)
     XCTAssertTrue(app.buttons["swipe-pin-note"].waitForExistence(timeout: 5))
     app.buttons["swipe-pin-note"].tap()
     cardMenu.tap()
     XCTAssertTrue(app.buttons["Unpin note"].waitForExistence(timeout: 5))
     app.buttons["Unpin note"].tap()
-    note.swipeRight()
-    app.buttons["swipe-chat-note"].tap()
+    fullSwipe(note, right: true)
     XCTAssertTrue(app.buttons["chat-setup-ai"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.buttons["send-chat"].isEnabled)
   }
@@ -64,14 +75,18 @@ final class CardShareUITests: XCTestCase {
   func testTrailingSwipeRequiresConfirmationAndKeepsUndo() {
     app.launch()
     write("Keep this note until I confirm Trash.")
-    note.swipeLeft(velocity: .fast)
+    fullSwipe(note, right: false)
+    XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
+    XCTAssertFalse(app.alerts["Move this note to Trash?"].exists)
+    app.buttons["Close"].tap()
     XCTAssertTrue(note.exists)
+    partialSwipe(note, right: false)
     XCTAssertTrue(app.buttons["swipe-trash-note"].waitForExistence(timeout: 5))
     app.buttons["swipe-trash-note"].tap()
     XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
     app.buttons["Cancel"].tap()
     XCTAssertTrue(note.exists)
-    note.swipeLeft()
+    partialSwipe(note, right: false)
     app.buttons["swipe-trash-note"].tap()
     app.buttons["Move to Trash"].firstMatch.tap()
     XCTAssertTrue(app.buttons["undo-trash"].waitForExistence(timeout: 5))
@@ -83,8 +98,7 @@ final class CardShareUITests: XCTestCase {
   func testCardSharePreviewChangesStyleDateAndFormat() {
     app.launch()
     write("A complete thought for a friend.")
-    note.swipeLeft()
-    app.buttons["swipe-share-note"].tap()
+    fullSwipe(note, right: false)
     XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
     XCTAssertTrue(element("share-card-preview").exists)
     app.buttons["share-style-ink"].tap()
@@ -147,7 +161,7 @@ final class CardShareUITests: XCTestCase {
     XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
     app.buttons["open-sidebar"].tap()
     app.buttons["sidebar-archive"].tap()
-    note.swipeRight()
+    partialSwipe(note, right: true)
     XCTAssertTrue(app.buttons["swipe-pin-note"].waitForExistence(timeout: 5))
     app.buttons["swipe-pin-note"].tap()
     app.buttons["select-notes"].tap()
@@ -160,7 +174,7 @@ final class CardShareUITests: XCTestCase {
     search.tap()
     search.typeText("headphones\n")
     let foundNote = element("search-list").buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
-    foundNote.swipeLeft()
+    partialSwipe(foundNote, right: false)
     XCTAssertTrue(app.buttons["swipe-share-note"].waitForExistence(timeout: 5))
     app.buttons["swipe-share-note"].tap()
     XCTAssertTrue(element("note-share-preview").waitForExistence(timeout: 5))
