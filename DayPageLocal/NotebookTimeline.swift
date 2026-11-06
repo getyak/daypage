@@ -1,5 +1,6 @@
 import DayPageCore
 import SwiftUI
+import UIKit.UIGestureRecognizerSubclass
 
 struct NotebookTimeline: View {
   @EnvironmentObject private var notebook: NotebookModel
@@ -246,7 +247,7 @@ struct LocalMemoCard: View {
         .frame(minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(NoteOpenButtonStyle())
       .accessibilityIdentifier("note-" + entry.memo.id.uuidString)
       .accessibilityHint("Open note")
       .accessibilityAction(named: Text(entry.memo.pinnedAt == nil ? "Pin note" : "Unpin note"), pin)
@@ -286,7 +287,7 @@ struct LocalMemoCard: View {
     .contextMenu {
       if interactionEnabled { actionButtons }
     }
-    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+    .swipeActions(edge: .leading, allowsFullSwipe: false) {
       if interactionEnabled {
         Button { open(.chat) } label: {
           Label("Chat about this note", systemImage: "sparkles")
@@ -297,7 +298,7 @@ struct LocalMemoCard: View {
         }.tint(NotebookTheme.accent).accessibilityIdentifier("swipe-pin-note")
       }
     }
-    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       if interactionEnabled {
         Button { open(.share) } label: {
           Label("Share note", systemImage: "square.and.arrow.up")
@@ -375,6 +376,98 @@ struct LocalMemoCard: View {
   private func requestTrash() {
     guard interactionEnabled, !working else { return }
     deleting = true
+  }
+}
+
+private struct NoteOpenButtonStyle: PrimitiveButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .overlay {
+        NoteTapSurface(isEnabled: isEnabled) {
+          if isEnabled { configuration.trigger() }
+        }
+        .accessibilityHidden(true)
+      }
+      .accessibilityAction {
+        if isEnabled { configuration.trigger() }
+      }
+  }
+}
+
+private struct NoteTapSurface: UIViewRepresentable {
+  let isEnabled: Bool
+  let action: () -> Void
+
+  func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+  func makeUIView(context: Context) -> UIView {
+    let view = UIView()
+    view.backgroundColor = .clear
+    view.isOpaque = false
+    let tap = StationaryNoteTap(target: context.coordinator, action: #selector(Coordinator.activate))
+    // Only a tap is registered here. Native List pans and the ancestor context
+    // menu keep their own recognizers; moving cancels this one immediately.
+    tap.cancelsTouchesInView = false
+    view.addGestureRecognizer(tap)
+    return view
+  }
+
+  func updateUIView(_ view: UIView, context: Context) {
+    view.isUserInteractionEnabled = isEnabled
+    context.coordinator.action = action
+  }
+
+  final class Coordinator: NSObject {
+    var action: () -> Void
+    init(action: @escaping () -> Void) { self.action = action }
+    @objc func activate() { action() }
+  }
+}
+
+private final class StationaryNoteTap: UITapGestureRecognizer {
+  private var origin: CGPoint?
+  private var started: TimeInterval?
+
+  override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+    super.touchesBegan(touches, with: event)
+    guard origin == nil, touches.count == 1, let touch = touches.first else {
+      state = .failed
+      return
+    }
+    origin = touch.location(in: view?.window)
+    started = touch.timestamp
+  }
+
+  override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+    guard state == .possible else { return }
+    if movedTooFar(touches, event: event) { state = .failed; return }
+    super.touchesMoved(touches, with: event)
+  }
+
+  override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+    guard state == .possible else { return }
+    // A held touch belongs to the context menu, even if that menu is cancelled.
+    guard let started, let touch = touches.first, touch.timestamp - started < 0.4,
+          !movedTooFar(touches, event: event) else { state = .failed; return }
+    super.touchesEnded(touches, with: event)
+  }
+
+  override func reset() {
+    super.reset()
+    origin = nil
+    started = nil
+  }
+
+  private func movedTooFar(_ touches: Set<UITouch>, event: UIEvent) -> Bool {
+    guard let origin else { return true }
+    return touches.contains { touch in
+      ((event.coalescedTouches(for: touch) ?? []) + [touch]).contains { sample in
+        let point = sample.location(in: view?.window)
+        return hypot(point.x - origin.x, point.y - origin.y) >= 8
+      }
+    }
   }
 }
 

@@ -10,11 +10,21 @@ AI/share navigation with a full swipe. Preserve accessibility activation and
 the existing sidebar recognizer. Do not change storage, dependencies or release
 configuration.
 
-Prefer a tap-specific primitive button interaction over a simultaneous drag
-guard: it avoids a stale cancellation flag or a new drag recognizer competing
-with List scrolling and the sidebar. Confirm the approach in actual Simulator
-journeys before keeping it. An enlarged sidebar zone is deferred because it
-does not address body-button activation and changes unrelated touch ownership.
+Use a primitive button style with a transparent UIKit tap surface over its
+label. The tap recognizer fails as soon as any sampled movement reaches 8pt;
+it does not register a pan or take native List gestures away. A held touch
+(0.4s or longer) cannot fall through to navigation, leaving long presses to the
+ancestor context menu. Per-touch origin/time reset with UIKit's lifecycle;
+there is no cooldown timer or suppression state carried to the next touch.
+
+A standard TapGesture alone still accepted the 18pt Archive drag. A SwiftUI
+exclusive drag-before-tap fixed that drag but prevented native List row swipes
+despite simultaneous composition. Those actual regressions justify the UIKit
+boundary; the legacy client's HorizontalPanGesture also documents the same
+SwiftUI pan arbitration limitation. Do not import that client's pan behavior.
+An enlarged sidebar zone is deferred because it changes unrelated ownership.
+The 8pt/0.4s bounds are implementation choices. Verify 18pt drags, 3pt natural
+tap movement and body long-press menu behavior in Simulator.
 
 Acceptance covers short horizontal/diagonal/out-and-back drags, full swipes,
 ordinary taps, vertical scrolling, sidebar opening/closing and the shared

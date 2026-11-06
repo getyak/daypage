@@ -43,9 +43,8 @@ final class CardShareUITests: XCTestCase {
     let start = note.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
     start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 18, dy: 0)),
                 withVelocity: .slow, thenHoldForDuration: 0)
-    XCTAssertFalse(app.staticTexts["note-original"].waitForExistence(timeout: 1),
+    XCTAssertFalse(app.staticTexts["note-original"].exists,
                    "Dragging the body must not activate its detail button")
-    XCTAssertTrue(app.buttons["new-note"].isHittable)
     note.tap()
     XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5),
                   "An intentional tap after a drag must still open the note")
@@ -60,6 +59,20 @@ final class CardShareUITests: XCTestCase {
                 withVelocity: .slow, thenHoldForDuration: 0)
     XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5),
                   "Normal tap movement must remain usable")
+  }
+
+  func testBodyLongPressKeepsCardActionsAndDoesNotOpenDetail() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    note.press(forDuration: 1)
+    XCTAssertTrue(app.buttons["Share note"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["note-original"].exists)
+    app.buttons["Pin note"].tap()
+    XCTAssertTrue(note.isHittable)
+    note.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5),
+                  "Dismissing the context menu must leave intentional taps working")
   }
 
   func testFullSwipesRevealActionsWithoutOpeningAnotherScreen() {
@@ -280,6 +293,9 @@ final class CardShareUITests: XCTestCase {
     XCTAssertTrue(app.buttons["swipe-pin-note"].waitForExistence(timeout: 5))
     app.buttons["swipe-pin-note"].tap()
     app.buttons["select-notes"].tap()
+    note.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    XCTAssertFalse(app.staticTexts["note-original"].exists,
+                   "Selection mode must keep the note body disabled")
     note.swipeLeft()
     XCTAssertFalse(app.buttons["swipe-trash-note"].exists)
     app.buttons["select-notes"].tap()

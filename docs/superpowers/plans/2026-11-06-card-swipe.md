@@ -4,7 +4,7 @@
 
 **Goal:** Prevent dragging a note from opening its detail while preserving taps, native swipe actions and the sidebar gesture.
 
-**Architecture:** Give the shared note body button a tap-specific interaction. Keep List swipe handling and the sidebar recognizer independent; disable automatic full-swipe navigation.
+**Architecture:** Give the shared note body button a UIKit tap surface which fails at 8pt movement or a 0.4s held touch, leaving native List pans and the context menu in control. Keep the sidebar unchanged; disable automatic full-swipe navigation. Both a plain TapGesture and a SwiftUI drag-before-tap were rejected by actual native regressions.
 
 **Tech Stack:** SwiftUI, iOS 16.1+, XCTest UI tests.
 
