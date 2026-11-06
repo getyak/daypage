@@ -34,6 +34,104 @@ final class CardShareUITests: XCTestCase {
         row.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.98 : 0.02, dy: 0.5)))
   }
 
+  // A short drag can stay inside the body button while the List has not yet
+  // committed a swipe. It must cancel opening the note, even on release.
+  func testShortRightDragDoesNotOpenNoteDetail() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    let start = note.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+    start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 18, dy: 0)),
+                withVelocity: .slow, thenHoldForDuration: 0)
+    XCTAssertFalse(app.staticTexts["note-original"].waitForExistence(timeout: 1),
+                   "Dragging the body must not activate its detail button")
+    XCTAssertTrue(app.buttons["new-note"].isHittable)
+    note.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5),
+                  "An intentional tap after a drag must still open the note")
+  }
+
+  func testFullSwipesRevealActionsWithoutOpeningAnotherScreen() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    fullSwipe(note, right: true)
+    XCTAssertTrue(app.buttons["swipe-chat-note"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["note-original"].exists)
+    XCTAssertFalse(app.buttons["chat-setup-ai"].exists)
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    fullSwipe(note, right: false)
+    XCTAssertTrue(app.buttons["swipe-share-note"].waitForExistence(timeout: 5))
+    XCTAssertFalse(element("note-share-preview").exists)
+    XCTAssertFalse(app.staticTexts["note-original"].exists)
+  }
+
+  func testDiagonalDragDoesNotOpenNoteDetail() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    let start = note.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+    start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 22, dy: 12)),
+                withVelocity: .slow, thenHoldForDuration: 0)
+    XCTAssertFalse(app.staticTexts["note-original"].waitForExistence(timeout: 1))
+    XCTAssertTrue(app.buttons["new-note"].isHittable)
+    note.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+  }
+
+  func testSidebarEdgeSwipesKeepNoteDetailsClosed() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
+    let y = note.frame.midY - app.frame.minY
+    let edge = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 3, dy: y))
+    edge.press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 180, dy: 0)))
+    let sidebar = element("notebook-sidebar")
+    XCTAssertTrue(sidebar.waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["note-original"].exists)
+    let closeStart = sidebar.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.15))
+    closeStart.press(forDuration: 0.05,
+                     thenDragTo: closeStart.withOffset(CGVector(dx: -180, dy: 0)))
+    XCTAssertTrue(app.buttons["new-note"].waitForExistence(timeout: 5))
+    XCTAssertFalse(sidebar.exists)
+    note.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+  }
+
+  func testArchiveAndSearchShortDragsKeepDetailsClosed() {
+    app.launchArguments += ["-qaSeedNotebook"]
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-archive"].tap()
+    XCTAssertTrue(note.waitForExistence(timeout: 5))
+    let archiveStart = note.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+    archiveStart.press(forDuration: 0.05,
+                       thenDragTo: archiveStart.withOffset(CGVector(dx: 18, dy: 0)),
+                       withVelocity: .slow, thenHoldForDuration: 0)
+    XCTAssertFalse(app.staticTexts["note-original"].waitForExistence(timeout: 1))
+    note.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons.firstMatch.tap()
+    app.buttons["search-notes"].tap()
+    let search = app.textFields["archive-search"]
+    XCTAssertTrue(search.waitForExistence(timeout: 5))
+    search.tap()
+    search.typeText("headphones\n")
+    let found = element("search-list").buttons.matching(
+      NSPredicate(format: "identifier BEGINSWITH 'note-'")).firstMatch
+    XCTAssertTrue(found.waitForExistence(timeout: 5))
+    let searchStart = found.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+    searchStart.press(forDuration: 0.05,
+                      thenDragTo: searchStart.withOffset(CGVector(dx: 18, dy: 0)),
+                      withVelocity: .slow, thenHoldForDuration: 0)
+    XCTAssertFalse(app.staticTexts["note-original"].waitForExistence(timeout: 1))
+    found.tap()
+    XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
+  }
+
   private func closeSystemShare() {
     let close = app.buttons["header.closeButton"]
     XCTAssertTrue(close.waitForExistence(timeout: 5))
