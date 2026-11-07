@@ -256,6 +256,43 @@ final class VaultExchangeTests: XCTestCase {
     let notes = try await NotebookStore(root: target).entries(); XCTAssertTrue(notes.isEmpty)
   }
 
+  func testPendingRootCreationPreservesPrivateTemporaryAliasContainment() async throws {
+    let source = folder()
+    let target = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+      .appendingPathComponent("exchange-alias-\(UUID())", isDirectory: true)
+    defer { for path in [source, target] { try? fm.removeItem(at: path) } }
+    _ = try await synthetic(source, withAsset: true)
+    // Construct while missing, then let prepare create the root/jobs. The
+    // following candidate retains /private/tmp after its owner becomes /tmp.
+    let coordinator = VaultExchangeImport(root: target)
+    let pending = try await coordinator.prepare(from: source)
+    XCTAssertEqual(pending.phase, .ready)
+    let preview = try await coordinator.preview(pending)
+    XCTAssertEqual(preview.notes.first?.attachments.count, 1)
+    let namespace = try await coordinator.confirm(pending)
+    let entries = try await NotebookStore(root: target).entries()
+    XCTAssertEqual(entries.map(\.namespace), [namespace])
+    XCTAssertEqual(entries.first?.memo.body, "Synthetic source")
+  }
+
+  func testCanonicalExchangeContainmentStillRejectsSiblingAndAllNotebookLinks() throws {
+    let container = folder(), root = container.appendingPathComponent("notebook")
+    let raw = root.appendingPathComponent("raw"), outside = container.appendingPathComponent("outside")
+    defer { try? fm.removeItem(at: container) }
+    try fm.createDirectory(at: raw, withIntermediateDirectories: true)
+    try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+    XCTAssertNoThrow(try ExchangeIO.safe(raw.appendingPathComponent("new.md"), within: root))
+    XCTAssertThrowsError(try ExchangeIO.safe(container.appendingPathComponent("notebook-sibling/new.md"), within: root))
+    for (name, destination) in [("inside-link", raw), ("outside-link", outside)] {
+      let link = root.appendingPathComponent(name)
+      try fm.createSymbolicLink(at: link, withDestinationURL: destination)
+      XCTAssertThrowsError(try ExchangeIO.safe(link.appendingPathComponent("new.md"), within: root))
+    }
+    let linkedRoot = container.appendingPathComponent("root-link")
+    try fm.createSymbolicLink(at: linkedRoot, withDestinationURL: root)
+    XCTAssertThrowsError(try ExchangeIO.safe(linkedRoot.appendingPathComponent("new.md"), within: linkedRoot))
+  }
+
   func testDuplicateMemoIdentityAcrossDaysIsNotSilentlyReassigned() async throws {
     let root = folder(); defer { try? fm.removeItem(at: root) }
     let store = try await synthetic(root), entries = try await store.entries()
