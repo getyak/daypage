@@ -212,13 +212,21 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
   let processes: ProcessIdentity[] = [], pid = 0, passed = false;
   let serverSnapshot: unknown = null;
   const markers: string[] = [];
+  let stage = "created", chooserAttempt = 0;
   async function proof(name: string, value: unknown) {
     const target = path.join(output, name); const bytes = Buffer.from(JSON.stringify(value, null, 2) + "\n"); await writeFile(target, bytes);
     const file: FileProof = { path: path.relative(ROOT, target), bytes: bytes.length, sha256: hash(bytes), kind: name.includes("network") ? "ledger" : "readback" };
     const existing = files.findIndex(value => value.path === file.path);
     if (existing === -1) files.push(file); else files[existing] = file;
   }
+  async function checkpoint(next: string) {
+    // Static phase names only: diagnose an interrupted native chooser without
+    // serializing selected content, cookies, headers or auth/session objects.
+    stage = next;
+    await proof("journey-progress.json", { stage, chooserAttempt });
+  }
   async function screenshot(label: string) {
+    await checkpoint("screenshot:" + label);
     const png = path.join(output, label + ".png"); await page.screenshot({ path: png, fullPage: true });
     const bytes = await readFile(png); files.push({ path: path.relative(ROOT, png), bytes: bytes.length, sha256: hash(bytes), kind: "screenshot" });
     const dom = await page.locator("body").innerText(); expect(/eyJ[\w-]+\.[\w-]+\.[\w-]+/.test(dom)).toBe(false);
@@ -294,11 +302,18 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
   }
   async function eventSeen(event: string) { await expect.poll(() => guard!.events.get(page)?.includes(event) ?? false).toBe(true); }
   async function choose(fixture: FixtureInfo) {
+    chooserAttempt++;
+    await checkpoint("chooser:input");
     const picker = page.getByLabel("选择交换文件夹", { exact: true }); await expect(picker).toHaveAttribute("webkitdirectory", "");
-    const selected = page.waitForEvent("filechooser"); await picker.click(); const chooser = await selected; await chooser.setFiles(fixture.directory);
+    await checkpoint("chooser:click");
+    const selected = page.waitForEvent("filechooser"); await picker.click();
+    await checkpoint("chooser:event"); const chooser = await selected;
+    await checkpoint("chooser:set-files"); await chooser.setFiles(fixture.directory);
+    await checkpoint("chooser:preview");
     await expect(page.getByRole("heading", { name: "导入预览：尚未保存", exact: true })).toBeVisible();
     const actual = await picker.evaluate(input => Array.from((input as HTMLInputElement).files ?? [], file => ({ name: file.name, relative: file.webkitRelativePath })));
     expect(actual).toHaveLength(fixture.files.length); expect(actual.every(file => file.relative.startsWith(path.basename(fixture.directory) + "/"))).toBe(true);
+    await checkpoint("chooser:complete");
   }
   async function confirm() { await page.getByRole("button", { name: "确认保存到此浏览器", exact: true }).click(); await expect(page.getByRole("heading", { name: "已保存的本地副本", exact: true })).toBeVisible(); }
   async function open(fixture: FixtureInfo) {
@@ -435,6 +450,9 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
     for (const boundary of boundaries) { expect(boundary.rows.length).toBeGreaterThan(0); expect(boundary.rows.every(row => row.outcome === "allowed")).toBe(true); expect(boundary.errors).toEqual([]); }
     assertions.networkBoundary = true;
     passed = true;
+  } catch (error) {
+    await proof("journey-failure.json", { stage, chooserAttempt, errorName: error instanceof Error ? error.name : "non-error" });
+    throw error;
   } finally {
     try {
       if (context) {
