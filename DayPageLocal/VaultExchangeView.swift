@@ -147,6 +147,22 @@ struct VaultExchangeView: View {
   var body: some View {
     NavigationStack {
       Form {
+        #if DEBUG
+          if notebook.isReviewExchangeQA {
+            Section("GET442 isolated QA") {
+              Text("Synthetic folder ingress only. The system Files picker and export destination are not exercised here.")
+              Button("Open synthetic QA exchange folder") {
+                do { exchange.receive(try notebook.reviewQAImportSource(), resuming: nil, notebook: notebook) }
+                catch { exchange.message = VaultExchangeModel.message(error) }
+              }.disabled(exchange.busy).accessibilityIdentifier("qa-exchange-source")
+              Text("pending=\(exchange.pending.count) phase=\(exchange.selected?.phase.rawValue ?? "none") previewNotes=\(exchange.records?.notes.count ?? 0) exportNotes=\(exchange.outgoing?.snapshot.records.notes.count ?? 0)")
+                .accessibilityIdentifier("qa-exchange-state")
+              Button("Read actual stored bytes") { Task { await notebook.refreshReviewQAProof() } }
+                .accessibilityIdentifier("qa-exchange-readback")
+              Text("readbacks=\(notebook.reviewQAReadbacks) " + notebook.reviewQAProof).accessibilityIdentifier("qa-exchange-proof")
+            }
+          }
+        #endif
         Section("Export scope") {
           Picker("Notes", selection: Binding(get: { scope }, set: { exchange.invalidateExport(); exporting = false; scope = $0 })) {
             Text("Entire notebook").tag("all"); Text("Day").tag("day"); Text("Week").tag("week")
@@ -200,18 +216,21 @@ struct VaultExchangeView: View {
               Text(ByteCountFormatter.string(fromByteCount: Int64(job.byteCount), countStyle: .file)).font(.caption)
               if job.phase == .ready || job.phase == .published {
                 Button("Review pending import") { exchange.choose(job) }.disabled(exchange.busy)
+                  .accessibilityIdentifier("review-pending-import-" + job.id.uuidString)
               } else if job.phase == .needsSource {
                 Button("Select the same source to resume") { resumeJob = job; importing = true }.disabled(exchange.busy)
               } else { Text("This interrupted copy needs a fresh source selection or explicit discard.").font(.caption) }
               Button("Discard pending copy", role: .destructive) { discardJob = job }.disabled(exchange.busy)
+                .accessibilityIdentifier("discard-pending-import-" + job.id.uuidString)
             }
           }
         }
         if exchange.busy { ProgressView("Checking files…") }
         if let message = exchange.message { Section { Text(message).foregroundStyle(.secondary) } }
       }
+      .accessibilityIdentifier("vault-exchange-form")
       .navigationTitle("Exchange notebook files").navigationBarTitleDisplayMode(.inline)
-      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { exchange.cancel(); dismiss() } } }
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { exchange.cancel(); dismiss() }.accessibilityIdentifier("close-vault-exchange") } }
       .task {
         await exchange.load(notebook: notebook)
         if openImporterOnArrival { importing = true }
@@ -232,6 +251,7 @@ struct VaultExchangeView: View {
       .confirmationDialog("Discard this pending copy? Source files and published notes stay untouched.", isPresented: Binding(
         get: { discardJob != nil }, set: { if !$0 { discardJob = nil } }), titleVisibility: .visible, presenting: discardJob) { job in
           Button("Discard pending copy", role: .destructive) { exchange.discard(job, notebook: notebook) }
+            .accessibilityIdentifier("confirm-discard-pending-import")
           Button("Cancel", role: .cancel) { }
         }
     }

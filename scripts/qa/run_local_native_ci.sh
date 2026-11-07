@@ -204,7 +204,7 @@ daypage_negative="$daypage_native_root/NegativeDerivedData"
 daypage_signed="$daypage_negative"
 daypage_ui_suite="${DAYPAGE_NATIVE_UI_SUITE:-full}"
 case "$daypage_ui_suite" in
-  full|card_tools_speech|diary_navigation) ;;
+  full|card_tools_speech|diary_navigation|manual_review_exchange) ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 daypage_negative_exit=0
@@ -214,7 +214,7 @@ daypage_negative_receipt_exit=0
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
-if [[ "$daypage_ui_suite" != diary_navigation ]]; then
+if [[ "$daypage_ui_suite" != diary_navigation && "$daypage_ui_suite" != manual_review_exchange ]]; then
 run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO
 fi
@@ -244,7 +244,7 @@ finally:
     (pathlib.Path(sys.argv[2]) / 'simulator-boot-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'event': 'boot-finish', **receipt}), flush=True)
 PY
-if [[ "$daypage_ui_suite" != diary_navigation ]]; then
+if [[ "$daypage_ui_suite" != diary_navigation && "$daypage_ui_suite" != manual_review_exchange ]]; then
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
@@ -336,6 +336,9 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testChineseCardHeaderAtLargeTextInDarkMode
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testCaptureFromHistoricalDateReturnsToTheSavedNoteToday)
     ;;
+  manual_review_exchange)
+    daypage_test_selection=(-only-testing:DayPageLocalUITests/ManualReviewExchangeUITests)
+    ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
@@ -364,7 +367,11 @@ suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
 files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
-if suite == 'diary_navigation':
+if suite == 'manual_review_exchange':
+    files = [p for p in files if p.stem == 'ManualReviewExchangeUITests']
+    expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
+    assert expected >= 5 and summary['totalTestCount'] == expected, 'Every selected manual review/exchange test must execute'
+elif suite == 'diary_navigation':
     files = [p for p in files if p.stem in {'DiaryUITests', 'CardShareUITests', 'CalendarUITests', 'LocalNotebookUITests'}]
     selected = {'testArchiveIsBrowseAndSearchReturnsToItsOrigin', 'testNoSearchMatchesHasClearRecovery',
                 'testLargeArchiveFindsOlderNotesWithoutLeakingItsSearchFilter',
@@ -385,16 +392,21 @@ records = json.loads((root / 'signed-attachments/manifest.json').read_text())
 names = [attachment.get('suggestedHumanReadableName', '') for record in records
          for attachment in record.get('attachments', [])]
 required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
-                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size'] if suite != 'diary_navigation' else []
+                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size'] if suite not in {'diary_navigation', 'manual_review_exchange'} else []
 assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
 required_diary = ['diary-home-today', 'diary-earlier-days', 'diary-sidebar-en',
                   'diary-sidebar-zh-normal', 'diary-sidebar-zh-dark-large-text',
                   'diary-month-position', 'diary-rediscovered-note'] if suite in {'full', 'diary_navigation'} else []
 assert all(any(required in name for name in names) for required in required_diary), 'A required diary journey did not produce its native evidence'
-negative = {'executed': False, 'reason': 'Outside diary_navigation scope; full retains unsigned recovery checks'} if suite == 'diary_navigation' else json.loads((root / 'negative-receipt.json').read_text())
+required_manual = ['GET442-day-relaunched-page', 'GET442-week-saved-independent-page',
+                   'GET442-cancelled-late-reply-fenced', 'GET442-import-preview-before-confirmation',
+                   'GET442-confirmed-new-namespace-readback', 'GET442-pending-copy-explicitly-discarded'] if suite in {'full', 'manual_review_exchange'} else []
+assert all(any(required in name for name in names) for required in required_manual), 'A required manual review/exchange journey did not produce its native evidence'
+negative = {'executed': False, 'reason': f'Outside {suite} scope; full retains unsigned recovery checks'} if suite in {'diary_navigation', 'manual_review_exchange'} else json.loads((root / 'negative-receipt.json').read_text())
 receipt = {'passed': True, 'suite': suite, 'expectedMinimumTests': expected, 'source': json.loads((root / 'provenance.json').read_text()),
            'negative': negative, 'positive': summary,
-           'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary}
+           'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary,
+           'requiredManualReviewExchangeAttachments': required_manual}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the selected signed native UI suite; see the receipt for its explicit recovery scope."

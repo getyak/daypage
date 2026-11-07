@@ -10,7 +10,7 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech, diary_navigation]
+        options: [full, card_tools_speech, diary_navigation, manual_review_exchange]
         default: full
       runner_architecture:
         description: Hosted pool (Intel options are manual capacity fallbacks)
@@ -101,7 +101,7 @@ jobs:
     name: Native iOS UI (manual)
     if: github.event_name == 'workflow_dispatch' && inputs.native_ui
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
-    # The complete matrix includes two signing builds and 58 serial journeys.
+    # The complete matrix includes two signing builds and serial UI journeys.
     # A measured cold run hit 60 minutes during its final notebook cases.
     timeout-minutes: 90
     permissions:
