@@ -199,6 +199,9 @@ jobs:
       - name: Run backend contracts and security regressions
         run: pnpm backend:check
 
+      - name: Verify explicit file exchange preview without network access
+        run: pnpm --filter daypage-web test:file-exchange
+
       - name: Lint Web product
         run: pnpm --filter daypage-web lint
 
