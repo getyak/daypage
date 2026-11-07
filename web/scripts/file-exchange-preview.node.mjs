@@ -4,6 +4,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { previewExchange, contentDigest, sha256, EXCHANGE_LIMITS } from "../src/lib/file-exchange/preview.ts";
+import { validateNoteProjection } from "../src/lib/file-exchange/note-projection.ts";
 
 const root = fileURLToPath(new URL("../tests/fixtures/file-exchange-v1/", import.meta.url));
 const encode = value => new TextEncoder().encode(JSON.stringify(value));
@@ -35,6 +36,13 @@ async function editRecords(files, change) {
   change(records);
   files.set("records.json", encode(records));
   await rewriteManifest(files);
+}
+async function editRaw(files, change) {
+  const records = JSON.parse(new TextDecoder().decode(files.get("records.json")));
+  const note = records.notes[0], path = `${note.namespace ? note.namespace + "/" : ""}raw/${note.day}.md`;
+  const bytes = new TextEncoder().encode(change(new TextDecoder().decode(files.get(path))));
+  files.set(path, bytes); note.revision = await sha256(bytes);
+  files.set("records.json", encode(records)); await rewriteManifest(files);
 }
 
 test("the frozen cross-language fixture preserves exact original bytes without a request", async () => {
@@ -113,6 +121,7 @@ test("owner fields, invalid calendar dates and dangling attachment descriptors f
 test("image-only empty-body notes remain visible in preview without invented prose", async () => {
   const files = await fixture();
   await editRecords(files, records => { records.notes[0].body = ""; records.notes[0].type = "photo"; });
+  await editRaw(files, text => text.replace("type: mixed", "type: photo").replace("Synthetic exchange note / 合成笔记", ""));
   const result = await previewExchange(input(files));
   assert.equal(result.records.notes.length, 1);
   assert.equal(result.records.notes[0].body, "");
@@ -164,6 +173,7 @@ async function renameAsset(files, path) {
   await editRecords(files, records => { records.notes[0].attachments[0].file = path; });
   await rewriteManifest(files, manifest => { manifest.files.find(file => file.path === old).path = path; });
   await rewriteManifest(files);
+  await editRaw(files, text => text.replace('"raw/assets/fixture.txt"', JSON.stringify(path)));
 }
 
 test("typed references cover every listed raw, asset and review without permitting orphans", async () => {
@@ -181,13 +191,18 @@ test("typed references cover every listed raw, asset and review without permitti
 
 test("several typed notes may share one raw day and an original asset", async () => {
   const files = await fixture();
-  await editRecords(files, records => { records.notes.push({ ...records.notes[0], original_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }); });
+  const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", path = "raw/2026-11-07.md";
+  const first = new TextDecoder().decode(files.get(path));
+  const second = first.replace("11111111-2222-4333-8444-555555555555", id);
+  files.set(path, new TextEncoder().encode(first + "\n\n<!-- daypage-memo-separator -->\n\n" + second));
+  const revision = await sha256(new TextEncoder().encode(second));
+  await editRecords(files, records => { records.notes.push({ ...records.notes[0], original_id: id, revision }); });
   await rewriteManifest(files, manifest => { manifest.notes_count = 2; });
   const result = await previewExchange(input(files));
   assert.equal(result.records.notes.length, 2);
   assert.equal(result.manifest.files.filter(file => file.kind === "raw").length, 1);
   assert.equal(result.manifest.files.filter(file => file.kind === "asset").length, 1);
-  // This checks reference topology only; raw/typed semantic parity is separate.
+  // Each block keeps its own exact revision, independently of the shared file.
 });
 
 test("path capacity counts UTF-8 bytes and preserves valid Unicode filenames", async () => {
@@ -205,8 +220,116 @@ test("location coordinates must be paired while named-only and zero coordinates 
   }
   for (const location of [{ name: "Synthetic place" }, { lat: 0, lng: 0 }]) {
     const files = await fixture(); await editRecords(files, records => { records.notes[0].location = location; });
+    const lines = Object.entries(location).map(([key, value]) => `  ${key}: ${typeof value === "string" ? JSON.stringify(value) : value}`).join("\n");
+    await editRaw(files, text => text.replace("entity_mentions: []", `location:\n${lines}\nentity_mentions: []`));
     assert.deepEqual((await previewExchange(input(files))).records.notes[0].location, location);
   }
+});
+
+test("self-consistent new hashes never authorize typed claims that contradict raw Markdown", async () => {
+  for (const change of [
+    note => { note.body = "Forged replacement"; },
+    note => { note.created_at = "2026-11-07T02:03:05Z"; },
+    note => { note.entity_mentions = ["Forged mention"]; },
+    note => { note.weather = "Forged metadata"; },
+    note => { note.attachments[0].kind = "photo"; },
+    note => { note.attachments[0].transcript = "Forged transcript"; },
+    note => { note.revision = "0".repeat(64); },
+  ]) {
+    const files = await fixture(); await editRecords(files, records => change(records.notes[0]));
+    await assert.rejects(previewExchange(input(files)), /contradicts/);
+  }
+});
+
+test("raw timestamps project decimal precision but typed wire claims cannot hide submilliseconds", async () => {
+  const files = await fixture();
+  await editRaw(files, text => text.replace("2026-11-07T02:03:04Z", "2026-11-07t10:03:04.1235000+08:00"));
+  await editRecords(files, records => { records.notes[0].created_at = "2026-11-07t02:03:04.124000z"; });
+  assert.equal((await previewExchange(input(files))).records.notes[0].created_at, "2026-11-07t02:03:04.124000z");
+  await editRecords(files, records => { records.notes[0].created_at = "2026-11-07T02:03:04.124001Z"; });
+  await assert.rejects(previewExchange(input(files)), /timestamp/);
+});
+
+test("unknown YAML is preserved while per-block hashes, duplicate IDs and raw UTF-8 stay authoritative", async () => {
+  const files = await fixture();
+  await editRaw(files, text => text.replace("type: mixed", "future_field: \"preserve exactly\"\ntype: mixed"));
+  const result = await previewExchange(input(files));
+  assert.deepEqual(result.files.get("raw/2026-11-07.md"), files.get("raw/2026-11-07.md"));
+  const path = "raw/2026-11-07.md", original = files.get(path);
+  files.set(path, new Uint8Array([...original, 255])); await rewriteManifest(files);
+  await assert.rejects(previewExchange(input(files)), /UTF-8/);
+  const duplicate = await fixture(), block = new TextDecoder().decode(duplicate.get(path));
+  duplicate.set(path, new TextEncoder().encode(block + "\n\n<!-- daypage-memo-separator -->\n\n" + block));
+  await rewriteManifest(duplicate);
+  await assert.rejects(previewExchange(input(duplicate)), /Duplicate/);
+});
+
+test("nonfinite raw decoder values cannot disappear into an otherwise valid typed projection", async () => {
+  for (const literal of ["nan", "inf", "1e999", "0x1p1024"]) {
+    const files = await fixture();
+    await editRaw(files, text => text.replace("entity_mentions: []", `location:\n  name: \"Synthetic place\"\n  lat: ${literal}\n  lng: 0\nentity_mentions: []`));
+    await editRecords(files, records => { records.notes[0].location = { name: "Synthetic place" }; });
+    await assert.rejects(previewExchange(input(files)), /canonical location number/);
+  }
+});
+
+test("the fixed asset prefix ends at a native Character boundary without rewriting filenames", async () => {
+  const files = await fixture();await renameAsset(files, "raw/assets/\u0301fixture.txt");
+  await assert.rejects(previewExchange(input(files)), /Unsafe|canonical attachment/);
+});
+
+test("derived text uses native canonical Unicode equality while original bytes and distinct text stay intact", async () => {
+  const files = await fixture();
+  await editRaw(files, text => text.replace("Synthetic exchange note / 合成笔记", "Synthetic café note"));
+  await editRecords(files, records => { records.notes[0].body = "Synthetic cafe\u0301 note"; });
+  const original = files.get("raw/2026-11-07.md");
+  const result = await previewExchange(input(files));
+  assert.deepEqual(result.files.get("raw/2026-11-07.md"), original);
+  assert.equal(result.records.notes[0].body, "Synthetic cafe\u0301 note");
+  await editRecords(files, records => { records.notes[0].body = "Synthetic CAFÉ note"; });
+  await assert.rejects(previewExchange(input(files)), /contradicts/);
+});
+
+test("raw attachment limits apply before hashing and shared assets are hashed only once per projection", async () => {
+  for (const count of [10, 11]) {
+    const files = await fixture(), asset = files.get("raw/assets/fixture.txt");
+    const records = JSON.parse(new TextDecoder().decode(files.get("records.json"))), item = records.notes[0].attachments[0];
+    const first = new TextDecoder().decode(files.get("raw/2026-11-07.md")).replace(/attachments:\n[\s\S]*?\n---/,
+      "attachments:\n" + Array.from({ length: count }, () => `  - file: "${item.file}"\n    kind: ${item.kind}`).join("\n") + "\n---");
+    const blocks = [first];
+    if (count === 10) {
+      const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+      records.notes[0].attachments = Array.from({ length: count }, () => ({ ...item }));
+      blocks.push(first.replace(records.notes[0].original_id, id));
+      records.notes.push({ ...records.notes[0], original_id: id });
+    }
+    for (let i = 0; i < records.notes.length; i++) records.notes[i].revision = await sha256(new TextEncoder().encode(blocks[i]));
+    files.set("raw/2026-11-07.md", new TextEncoder().encode(blocks.join("\n\n<!-- daypage-memo-separator -->\n\n")));
+    files.set("records.json", encode(records));await rewriteManifest(files, manifest => { manifest.notes_count = records.notes.length; });
+    const manifest = JSON.parse(new TextDecoder().decode(files.get("daypage-exchange.json")));
+    let assetHashes = 0;
+    const hash = async bytes => { if (bytes === asset) assetHashes++; return sha256(bytes); };
+    const validating = validateNoteProjection(manifest, records, files, hash);
+    if (count === 11) {
+      await assert.rejects(validating, /Excessive canonical/);assert.equal(assetHashes, 0);
+    } else {
+      await validating;assert.equal(assetHashes, 1);assert.equal((await previewExchange(input(files))).records.notes.length, 2);
+    }
+  }
+});
+
+test("cancellation after the last async block validation still refuses to return a preview", async () => {
+  const files = await fixture(), controller = new AbortController(), original = crypto.subtle.digest.bind(crypto.subtle);
+  let calls = 0;
+  crypto.subtle.digest = async (...args) => {
+    const result = await original(...args);
+    // This four-file golden has six digest boundaries through the final block.
+    if (++calls === 6) queueMicrotask(() => queueMicrotask(() => queueMicrotask(() => controller.abort())));
+    return result;
+  };
+  try { await assert.rejects(previewExchange(input(files), controller.signal), { name: "AbortError" }); }
+  finally { crypto.subtle.digest = original; }
+  assert.equal(controller.signal.aborted, true);
 });
 
 test("physical imports tokens are lowercase and UUID segments remain case-insensitive", async () => {

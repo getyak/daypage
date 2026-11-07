@@ -1,5 +1,7 @@
 import { parseManifest, parseRecords, reject, validDay } from "./contract.ts";
 import type { ExchangeFile, ExchangeManifest, ExchangeRecords } from "./contract.ts";
+import { validateNoteProjection } from "./note-projection.ts";
+import { hasPrefix } from "./memo-codec.ts";
 
 export const EXCHANGE_LIMITS = Object.freeze({
   manifest: 256 * 1024, records: 16 * 1024 * 1024,
@@ -13,6 +15,8 @@ export interface ExchangeInputFile {
 }
 export interface ExchangePreview {
   manifest: ExchangeManifest;
+  /** Exact selected manifest bytes, including metadata outside content_sha256. */
+  manifestBytes: Uint8Array;
   records: ExchangeRecords;
   bytes: number;
   /** Validated bytes only; nothing is uploaded or persisted by this module. */
@@ -57,7 +61,7 @@ function filePath(file: ExchangeFile): boolean {
     if (!uuid(parts[1] ?? "")) return false;
     parts.splice(0, 2);
   }
-  if (file.kind === "asset") return parts.length >= 3 && parts[0] === "raw" && parts[1] === "assets";
+  if (file.kind === "asset") return parts.length >= 3 && parts[0] === "raw" && parts[1] === "assets" && hasPrefix(parts.join("/"), "raw/assets/");
   if (file.kind === "raw") return parts.length === 2 && parts[0] === "raw" && /^\d{4}-\d{2}-\d{2}\.md$/.test(parts[1]) && validDay(parts[1].slice(0, -3));
   return file.kind === "review" && parts.length === 3 && parts[0] === "wiki" && parts[1] === "manual-reviews" && parts[2].endsWith(".md") && uuid(parts[2].slice(0, -3));
 }
@@ -93,7 +97,7 @@ function validateReferences(manifest: ExchangeManifest, records: ExchangeRecords
     for (const item of note.attachments) {
       if (item.transcript !== undefined && encoder.encode(item.transcript).length > 4 * 1024 * 1024) reject("Transcript text exceeds exchange limit");
       const file = listed.get(item.file);
-      if (!item.file.startsWith(`${prefix(note.namespace)}raw/assets/`) || !file || file.kind !== "asset" ||
+      if (!hasPrefix(item.file, `${prefix(note.namespace)}raw/assets/`) || !file || file.kind !== "asset" ||
           file.sha256 !== item.sha256 || file.bytes !== item.bytes) reject("Attachment does not match manifest");
       referenced.asset.add(item.file);
     }
@@ -134,7 +138,8 @@ export async function previewExchange(input: readonly ExchangeInputFile[], signa
   }
   const source = selected.get("daypage-exchange.json");
   if (!source) reject("Select a folder containing daypage-exchange.json");
-  const manifest = parseManifest(decode(await read(source, EXCHANGE_LIMITS.manifest, signal)));
+  const manifestBytes = await read(source, EXCHANGE_LIMITS.manifest, signal);
+  const manifest = parseManifest(decode(manifestBytes));
   const paths = new Set<string>();
   const foldedPaths = new Set<string>();
   let total = 0, recordsFiles = 0;
@@ -161,6 +166,8 @@ export async function previewExchange(input: readonly ExchangeInputFile[], signa
   }
   const records = parseRecords(decode(files.get("records.json")!));
   validateReferences(manifest, records);
+  await validateNoteProjection(manifest, records, files, sha256, signal);
+  current(signal);
   const notes = new Map(records.notes.map(note => [`${note.namespace.toLowerCase()}\0${note.original_id.toLowerCase()}`, note]));
   const reviewSources = records.reviews.map(review => {
     const status = { generationId: review.generation_id, current: 0, changed: 0, unavailable: 0 };
@@ -172,5 +179,6 @@ export async function previewExchange(input: readonly ExchangeInputFile[], signa
     }
     return status;
   });
-  return { manifest, records, bytes: total, files, reviewSources };
+  current(signal);
+  return { manifest, manifestBytes, records, bytes: total, files, reviewSources };
 }

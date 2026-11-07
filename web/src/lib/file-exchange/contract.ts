@@ -2,6 +2,7 @@
 // implements only its small JSON Schema vocabulary and fails on unknown fields.
 // It runs without Node APIs in the browser and independently again on the server.
 import schema from "./schema.json" with { type: "json" };
+import { parseWireTimestamp } from "./timestamp.ts";
 
 export class ExchangeValidationError extends Error {
   readonly code: string;
@@ -32,10 +33,7 @@ export function validDay(value: string): boolean {
 }
 
 function validTimestamp(value: string): boolean {
-  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
-  return !!match && validDay(match[1]) && +match[2] < 24 && +match[3] < 60 &&
-    +match[4] < 60 && (!match[5] || (+match[6] < 24 && +match[7] < 60)) &&
-    Number.isFinite(Date.parse(value));
+  return parseWireTimestamp(value) !== null;
 }
 
 function validate(value: unknown, initialRule: Rule): void {
