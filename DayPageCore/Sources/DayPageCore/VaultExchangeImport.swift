@@ -269,8 +269,13 @@ enum ExchangeIO {
     while true {
       if let attributes = try? FileManager.default.attributesOfItem(atPath: cursor.path),
         attributes[.type] as? FileAttributeType == .typeSymbolicLink { throw VaultExchangeError.invalid }
-      if cursor.path == base.path { break }
-      guard cursor.path.hasPrefix(base.path + "/") else { throw VaultExchangeError.invalid }
+      // Creation can make Foundation standardize an existing /private/tmp
+      // root to /tmp while a missing child keeps its original spelling.
+      // Inspect links on the original walk, using canonical identity only to
+      // determine containment and when that walk has reached the owner root.
+      let current = NotebookPath.canonicalPath(cursor)
+      if current == basePath { break }
+      guard current.hasPrefix(basePath + "/") else { throw VaultExchangeError.invalid }
       cursor.deleteLastPathComponent()
     }
   }
