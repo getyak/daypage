@@ -4,6 +4,7 @@ This is host-side orchestration evidence only. No Xcode, Simulator, audio,
 network listener, signing key or real native acceptance is used.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -19,7 +20,7 @@ UNSIGNED_BYTES = b"unsigned mock executable"
 SIGNED_BYTES = b"signed mock executable"
 
 TOOL_DOUBLE = r'''#!/usr/bin/env python3
-import json, os, pathlib, plistlib, sys
+import json, os, pathlib, plistlib, re, sys
 
 tool = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -84,6 +85,22 @@ elif tool == "xcodebuild":
         signed = "CODE_SIGNING_ALLOWED=YES" in args
         event("signed-tests" if signed else "negative-tests")
         pathlib.Path(option("-resultBundlePath")).mkdir()
+        selected = [arg.split(":", 1)[1] for arg in args if arg.startswith("-only-testing:")]
+        identifiers = []
+        for path in sorted(pathlib.Path("DayPageLocalUITests").glob("*.swift")):
+            for method in re.findall(r"^[ \t]+func (test\w+)\(", path.read_text(), re.M):
+                item = "DayPageLocalUITests/" + path.stem + "/" + method
+                if not selected or any(item == key or item.startswith(key + "/") for key in selected):
+                    identifiers.append(item)
+        if mode == "shard_extra":
+            identifiers.append("DayPageLocalUITests/UnknownUITests/testUnselected")
+        (state / ("signed-ids.json" if signed else "negative-ids.json")).write_text(json.dumps(identifiers))
+        for index, item in enumerate(identifiers):
+            _, suite, method = item.split("/")
+            name = "-[DayPageLocalUITests." + suite + " " + method + "]"
+            print("Test Case '" + name + "' started.")
+            failed = (signed_failed if signed else negative_failed) and index == 0
+            print("Test Case '" + name + "' " + ("failed" if failed else "passed") + " (0.100 seconds).")
         if signed and signed_failed:
             raise SystemExit(66)
         if not signed and negative_failed:
@@ -107,7 +124,7 @@ elif tool == "xcrun":
     elif args[:4] == ["xcresulttool", "get", "test-results", "summary"]:
         negative = "negative-keychain" in option("--path")
         failed = negative_failed if negative else signed_failed
-        total = 2 if negative else 16
+        total = len(json.loads((state / ("negative-ids.json" if negative else "signed-ids.json")).read_text()))
         print(json.dumps({
             "result": "Failed" if failed else "Passed",
             "failedTests": int(failed), "skippedTests": 0,
@@ -127,7 +144,10 @@ elif tool == "xcrun":
         else:
             names = ["chat-dedicated-model-page", "chat-compact-composer",
                      "chat-saved-history", "chat-character-library",
-                     "chat-streamed-markdown", "chat-accessibility-size"]
+                     "chat-streamed-markdown", "chat-accessibility-size",
+                     "diary-home-today", "diary-earlier-days", "diary-sidebar-en",
+                     "diary-sidebar-zh-normal", "diary-sidebar-zh-dark-large-text",
+                     "diary-month-position", "diary-rediscovered-note"]
         (output / "manifest.json").write_text(json.dumps([{
             "attachments": [{"suggestedHumanReadableName": name} for name in names]
         }]))
@@ -210,7 +230,8 @@ else:
 
 
 class NativeCIOrchestrationTests(unittest.TestCase):
-    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted"):
+    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted",
+                    suite="card_tools_speech", shard=None, wrong_plan=False):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -222,8 +243,17 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         shutil.copy2(ROOT / "scripts/ci/select_simulator.py", ci)
         sources = root / "DayPageLocalUITests"
         sources.mkdir()
-        for name in ("CardToolsSpeechUITests.swift", "ChatExperienceUITests.swift"):
+        for name in (path.name for path in (ROOT / "DayPageLocalUITests").glob("*.swift")):
             shutil.copy2(ROOT / "DayPageLocalUITests" / name, sources)
+        if shard:
+            shutil.copy2(ROOT / "scripts/qa/native_ui_matrix.py", qa)
+            project = Path("DayPageLocal/DayPageLocal.xcodeproj")
+            shutil.copytree(ROOT / project, root / project)
+            spec = importlib.util.spec_from_file_location("native_matrix_double", ROOT / "scripts/qa/native_ui_matrix.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            plan = module.make_plan(root, "c" * 40 if wrong_plan else "a" * 40, "12345", "1", "arm64")
+            (root / "plan.json").write_text(json.dumps(plan))
         state = root / "state"
         state.mkdir()
         # A task-owned, inert process satisfies the shell's PID ownership check.
@@ -248,9 +278,12 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             "CI": "true", "GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "host-mock",
             "RUNNER_ARCH": runner_arch, "RUNNER_ENVIRONMENT": runner_environment,
             "RUNNER_TEMP": str(runner), "DAYPAGE_NATIVE_CI_OUTPUT_DIR": str(evidence),
-            "DAYPAGE_NATIVE_UI_SUITE": "card_tools_speech",
+            "DAYPAGE_NATIVE_UI_SUITE": "full" if shard else suite,
             "NATIVE_CI_MOCK_MODE": mode, "NATIVE_CI_MOCK_STATE": str(state),
         }
+        if shard:
+            environment.update({"GITHUB_RUN_ID": "12345", "GITHUB_RUN_ATTEMPT": "1", "ImageVersion": "host-mock",
+                                "DAYPAGE_NATIVE_UI_SHARD": shard, "DAYPAGE_NATIVE_UI_PLAN": str(root / "plan.json")})
         process = subprocess.Popen(
             ["bash", str(qa / "run_local_native_ci.sh")], cwd=root, env=environment,
             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -441,6 +474,58 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertIn("unsigned-build", events)
         self.assertNotIn("signed-build", events)
         self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_original_full_and_diary_preset_still_run_their_complete_selected_scope(self):
+        for suite, count, negative in (("full", 78, True), ("diary_navigation", 51, False)):
+            with self.subTest(suite=suite):
+                code, output, evidence, events = self.run_fixture("success", suite=suite)
+                self.assertEqual(code, 0, output)
+                receipt = json.loads((evidence / "native-acceptance.json").read_text())
+                self.assertEqual(receipt["positive"]["passedTests"], count)
+                self.assertEqual("negative-tests" in events, negative)
+
+    def test_signed_shard_cold_builds_only_signed_and_runs_exact_methods(self):
+        code, output, evidence, events = self.run_fixture("success", shard="speech")
+        self.assertEqual(code, 0, output + (evidence / "shard-receipt.log").read_text())
+        self.assertEqual([event for event in events if event.endswith("-build")], ["signed-build"])
+        self.assertNotIn("negative-tests", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertTrue(receipt["passed"])
+        self.assertEqual(len(receipt["observed"]["passed"]), 4)
+        self.assertIn("DayPageLocalUITests/CardToolsSpeechUITests/testAnonymousSpeechWorksWithoutKeychain", receipt["observed"]["passed"])
+
+    def test_unsigned_shard_never_signs_and_proves_both_negative_branches(self):
+        code, output, evidence, events = self.run_fixture("success", shard="unsigned")
+        self.assertEqual(code, 0, output + (evidence / "shard-receipt.log").read_text())
+        self.assertNotIn("signed-build", events)
+        self.assertNotIn("signed-tests", events)
+        self.assertNotIn("mock-signature-check", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertTrue(receipt["passed"])
+        self.assertEqual(len(receipt["observed"]["passed"]), 2)
+        self.assertFalse((evidence / "signed-summary.log").exists())
+
+    def test_shard_wrong_source_denies_before_fixture_build_or_simulator(self):
+        code, output, evidence, events = self.run_fixture("success", shard="speech", wrong_plan=True)
+        self.assertNotEqual(code, 0, output)
+        self.assertEqual(events, [])
+        self.assertFalse(json.loads((evidence / "shard-receipt.json").read_text())["passed"])
+
+    def test_zero_xcode_exit_with_unselected_case_is_still_denied(self):
+        code, output, evidence, events = self.run_fixture("shard_extra", shard="speech")
+        self.assertNotEqual(code, 0, output)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertIn("DayPageLocalUITests/UnknownUITests/testUnselected", receipt["observed"]["passed"])
+
+    def test_failed_unsigned_shard_keeps_real_exit_and_failed_case_observation(self):
+        code, output, evidence, events = self.run_fixture("negative_failure", shard="unsigned")
+        self.assertEqual(code, 65, output)
+        self.assertNotIn("signed-build", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(receipt["exitCode"], 65)
+        self.assertEqual(len(receipt["observed"]["failed"]), 1)
 
 
 if __name__ == "__main__":

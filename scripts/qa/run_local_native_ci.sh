@@ -25,12 +25,24 @@ PY
 mkdir -p "$daypage_evidence"
 daypage_native_root="$(mktemp -d "$RUNNER_TEMP/daypage-native-ci.XXXXXX")"
 daypage_fixture_pid=""
+daypage_shard="${DAYPAGE_NATIVE_UI_SHARD:-}"
+daypage_plan="${DAYPAGE_NATIVE_UI_PLAN:-}"
+daypage_shard_mode=""
 cleanup() {
   local daypage_exit_code=$?
   trap - EXIT INT TERM
   if [[ -n "$daypage_fixture_pid" ]]; then
     if kill -0 "$daypage_fixture_pid" 2>/dev/null; then kill "$daypage_fixture_pid" 2>/dev/null || true; fi
     wait "$daypage_fixture_pid" 2>/dev/null || true
+  fi
+  # A failed/interrupted shard still records its actual partial observations.
+  # Missing evidence remains a failure; expected IDs never stand in for events.
+  if [[ -n "$daypage_shard" && -n "$daypage_plan" ]]; then
+    local daypage_receipt_exit=0
+    python3 scripts/qa/native_ui_matrix.py receipt --plan "$daypage_plan" --shard "$daypage_shard" \
+      --evidence "$daypage_evidence" --exit-code "$daypage_exit_code" \
+      --output "$daypage_evidence/shard-receipt.json" > "$daypage_evidence/shard-receipt.log" 2>&1 || daypage_receipt_exit=$?
+    if ((daypage_exit_code == 0 && daypage_receipt_exit != 0)); then daypage_exit_code=$daypage_receipt_exit; fi
   fi
   exit "$daypage_exit_code"
 }
@@ -51,6 +63,16 @@ run_logged() {
     return "$daypage_command_exit"
   fi
 }
+
+if [[ -n "$daypage_shard" || -n "$daypage_plan" ]]; then
+  if [[ -z "$daypage_shard" || -z "$daypage_plan" || "${DAYPAGE_NATIVE_UI_SUITE:-full}" != full ]]; then
+    echo "A shard requires the full compiled-source plan and its exact selection." >&2
+    exit 2
+  fi
+  run_logged "$daypage_evidence/shard-selection.log" python3 scripts/qa/native_ui_matrix.py select \
+    --plan "$daypage_plan" --shard "$daypage_shard" --repo "$daypage_repo_root"
+  daypage_shard_mode="$(head -n 1 "$daypage_evidence/shard-selection.log")"
+fi
 
 python3 - "$daypage_evidence/provenance.json" <<'PY'
 import json, os, pathlib, platform, subprocess, sys
@@ -211,10 +233,17 @@ daypage_negative_exit=0
 daypage_negative_export_exit=0
 daypage_negative_summary_exit=0
 daypage_negative_receipt_exit=0
+daypage_signed_exit=0
+daypage_signed_summary_exit=0
+daypage_signed_export_exit=0
+daypage_run_negative=true
+daypage_run_signed=true
+if [[ "$daypage_ui_suite" == diary_navigation || "$daypage_shard_mode" == signed ]]; then daypage_run_negative=false; fi
+if [[ "$daypage_shard_mode" == unsigned ]]; then daypage_run_signed=false; fi
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
-if [[ "$daypage_ui_suite" != diary_navigation ]]; then
+if [[ "$daypage_run_negative" == true ]]; then
 run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO
 fi
@@ -244,7 +273,18 @@ finally:
     (pathlib.Path(sys.argv[2]) / 'simulator-boot-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'event': 'boot-finish', **receipt}), flush=True)
 PY
-if [[ "$daypage_ui_suite" != diary_navigation ]]; then
+if [[ "$daypage_run_negative" == true ]]; then
+if [[ "$daypage_shard_mode" == unsigned ]]; then
+python3 - "$daypage_negative" <<'PY'
+import pathlib, plistlib, sys
+app = pathlib.Path(sys.argv[1]) / 'Build/Products/Debug-iphonesimulator/DayPage.app'
+for path, bundle in [(app / 'Info.plist', 'com.daypage.app.localqa'),
+                     (app / 'PlugIns/DayPageLocalShare.appex/Info.plist', 'com.daypage.app.localqa.sharecapture')]:
+    info = plistlib.loads(path.read_bytes())
+    assert info.get('CFBundleIdentifier') == bundle, 'Only the isolated QA app and share extension may run'
+    assert info.get('DayPageCaptureAppGroup') == 'group.com.daypage.app.localqa.capture', 'The unsigned QA capture group must stay isolated'
+PY
+fi
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
@@ -278,6 +318,7 @@ fi
 
 # Let Xcode generate simulated Mach-O entitlements and the local ad hoc
 # signature. This never accesses a Developer ID key or changes release signing.
+if [[ "$daypage_run_signed" == true ]]; then
 daypage_signing=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES)
 run_logged "$daypage_evidence/signed-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}"
@@ -325,6 +366,7 @@ if ! grep -q 'sectname __entitlements' "$daypage_evidence/macho.log"; then
   echo "The QA executable is missing its simulated Mach-O entitlements." >&2
   exit 1
 fi
+shasum -a 256 "$daypage_app/DayPage" > "$daypage_evidence/signed-executable.sha256"
 daypage_signed_exit=0
 daypage_test_selection=()
 case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
@@ -348,6 +390,12 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
     ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
+if [[ -n "$daypage_shard" ]]; then
+  daypage_test_selection=()
+  while IFS= read -r daypage_case; do
+    daypage_test_selection+=("-only-testing:$daypage_case")
+  done < <(tail -n +2 "$daypage_evidence/shard-selection.log")
+fi
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}" \
   ${daypage_test_selection[@]+"${daypage_test_selection[@]}"} \
@@ -358,6 +406,7 @@ run_logged "$daypage_evidence/signed-summary.log" xcrun xcresulttool get test-re
 daypage_signed_export_exit=0
 run_logged "$daypage_evidence/signed-export.log" xcrun xcresulttool export attachments \
   --path "$daypage_evidence/signed-full-ui.xcresult" --output-path "$daypage_evidence/signed-attachments" || daypage_signed_export_exit=$?
+fi
 if ((daypage_negative_exit != 0)); then exit "$daypage_negative_exit"; fi
 if ((daypage_negative_export_exit != 0)); then exit "$daypage_negative_export_exit"; fi
 if ((daypage_negative_summary_exit != 0)); then exit "$daypage_negative_summary_exit"; fi
@@ -365,6 +414,12 @@ if ((daypage_negative_receipt_exit != 0)); then exit "$daypage_negative_receipt_
 if ((daypage_signed_exit != 0)); then exit "$daypage_signed_exit"; fi
 if ((daypage_signed_summary_exit != 0)); then exit "$daypage_signed_summary_exit"; fi
 if ((daypage_signed_export_exit != 0)); then exit "$daypage_signed_export_exit"; fi
+if [[ -n "$daypage_shard" ]]; then
+  # The EXIT trap combines actual method events, xcresult counts, provenance,
+  # signing and branch evidence into a strict shard receipt, including failure.
+  echo "Selected shard commands finished; exact native acceptance is checked by its receipt."
+  exit 0
+fi
 python3 - "$daypage_evidence" <<'PY'
 import json, os, pathlib, re, sys
 root = pathlib.Path(sys.argv[1])
