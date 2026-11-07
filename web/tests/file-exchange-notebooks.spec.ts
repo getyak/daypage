@@ -303,6 +303,15 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
   async function eventSeen(event: string) { await expect.poll(() => guard!.events.get(page)?.includes(event) ?? false).toBe(true); }
   async function choose(fixture: FixtureInfo) {
     chooserAttempt++;
+    await checkpoint("chooser:foreground");
+    const before = await page.evaluate(() => ({ visibility: document.visibilityState, hasFocus: document.hasFocus() }));
+    // Chrome156 rejects directory enumeration from an inactive/hidden tab.
+    // The real SDK peer is a separate tab: activate the actual product tab
+    // before its native chooser, without bypassing filechooser/setFiles.
+    await guard!.foreground(page);
+    await ready();
+    await proof("chooser-state-" + chooserAttempt + ".json", { before,
+      after: await page.evaluate(() => ({ visibility: document.visibilityState, hasFocus: document.hasFocus() })) });
     await checkpoint("chooser:input");
     const picker = page.getByLabel("选择交换文件夹", { exact: true }); await expect(picker).toHaveAttribute("webkitdirectory", "");
     await checkpoint("chooser:click");
