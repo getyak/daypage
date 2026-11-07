@@ -18,6 +18,17 @@ enum NotebookPath {
   }
 }
 
+/// Exchange admission only. Ordinary notebook reads keep their existing policy.
+/// Internal overrides make limit regressions small without weakening production caps.
+struct ExchangeReadLimits: Sendable {
+  var rawFileBytes = VaultExchangeLimits.total
+  var rawBytes = VaultExchangeLimits.total
+  var notes = 500
+  var reviews = 100
+  var namespaces = 500
+  var directoryEntries = 4000
+}
+
 public struct NotebookEntry: Identifiable, Equatable, Sendable {
   public let memo: Memo
   public let day: String
@@ -834,6 +845,100 @@ public actor NotebookStore {
     }
   }
 
+  private func readExchangeEntries(in searchRoot: URL, limits: ExchangeReadLimits,
+    selectedIDs: Set<String>? = nil, period: ReviewPeriod? = nil) throws -> [NotebookEntry] {
+    guard limits.rawFileBytes >= 0, limits.rawBytes >= 0, limits.notes >= 0,
+      limits.namespaces > 0, limits.directoryEntries >= 0 else { throw VaultExchangeError.limit }
+    var locations: [(URL, String)] = [(searchRoot, "")]
+    var result: [NotebookEntry] = []
+    var cursor = 0, rawBytes = 0, directoryEntries = 0
+    func children(_ directory: URL) throws -> [URL] {
+      let values = try ExchangeIO.children(directory, within: searchRoot,
+        maximum: limits.directoryEntries - directoryEntries)
+      directoryEntries += values.count
+      return values
+    }
+    while cursor < locations.count {
+      try Task.checkCancellation()
+      let (vault, namespace) = locations[cursor]
+      cursor += 1
+      let imports = vault.appendingPathComponent("imports")
+      if fm.fileExists(atPath: imports.path) {
+        for folder in try children(imports) where UUID(uuidString: folder.lastPathComponent) != nil {
+          try ExchangeIO.safe(folder, within: searchRoot)
+          let values = try folder.resourceValues(forKeys: [.isDirectoryKey])
+          guard values.isDirectory == true, namespace.split(separator: "/").count < 16 else { throw NotebookError.invalidVault }
+          guard locations.count < limits.namespaces else { throw VaultExchangeError.limit }
+          locations.append((folder, namespace.isEmpty ? folder.lastPathComponent : namespace + "/" + folder.lastPathComponent))
+        }
+      }
+      let raw = vault.appendingPathComponent("raw")
+      guard fm.fileExists(atPath: raw.path) else { continue }
+      for url in try children(raw) {
+        try Task.checkCancellation()
+        guard url.pathExtension == "md", Self.validDay(url.deletingPathExtension().lastPathComponent) else { continue }
+        let data = try ExchangeIO.read(url, within: searchRoot,
+          maximum: min(limits.rawFileBytes, limits.rawBytes - rawBytes))
+        rawBytes += data.count
+        guard let text = String(data: data, encoding: .utf8) else { throw NotebookError.unreadableFile }
+        let day = url.deletingPathExtension().lastPathComponent
+        let blocks = try exchangeMemoBlocks(text, maximum: limits.notes - result.count) { memo in
+          (selectedIDs?.contains("\(namespace)/\(day)/\(memo.id.uuidString)") ?? true)
+            && (period?.contains(memo.created) ?? true)
+        }
+        for (block, memo) in blocks {
+          result.append(NotebookEntry(memo: memo, day: url.deletingPathExtension().lastPathComponent,
+            namespace: namespace, originalMarkdown: block, originRoot: root))
+        }
+      }
+    }
+    guard Set(result.map(\.id)).count == result.count else { throw NotebookError.ambiguousRecord }
+    return result.sorted {
+      $0.memo.created == $1.memo.created ? $0.id < $1.id : $0.memo.created > $1.memo.created
+    }
+  }
+
+  /// Match DayDocument's modern/legacy choice without first allocating an
+  /// unbounded array of blocks or parsed Memos. A legacy horizontal rule remains
+  /// part of one Memo unless every nonempty legacy candidate is a valid Memo.
+  private func exchangeMemoBlocks(_ text: String, maximum: Int,
+    includes: (Memo) -> Bool) throws -> [(String, Memo)] {
+    func split(_ separator: String, legacy: Bool) throws -> [(String, Memo)]? {
+      var start = text.startIndex, count = 0, hasCandidate = false
+      var blocks: [(String, Memo)] = []
+      while true {
+        try Task.checkCancellation()
+        let separatorRange = text.range(of: separator, range: start..<text.endIndex)
+        let block = String(text[start..<(separatorRange?.lowerBound ?? text.endIndex)])
+        if !block.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+          guard let memo = Memo.fromMarkdown(block) else {
+            if legacy { return nil }
+            throw NotebookError.unreadableFile
+          }
+          hasCandidate = true
+          if includes(memo) {
+            count += 1
+            if count <= maximum { blocks.append((block, memo)) }
+            else if !legacy { throw VaultExchangeError.limit }
+          }
+        }
+        guard let separatorRange else { break }
+        start = separatorRange.upperBound
+      }
+      if legacy && !hasCandidate { return nil }
+      guard count <= maximum else { throw VaultExchangeError.limit }
+      return blocks
+    }
+    if text.contains(DayDocument.modern) { return try split(DayDocument.modern, legacy: false) ?? [] }
+    if text.contains(DayDocument.legacy), let blocks = try split(DayDocument.legacy, legacy: true) { return blocks }
+    try Task.checkCancellation()
+    if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return [] }
+    guard let memo = Memo.fromMarkdown(text) else { throw NotebookError.unreadableFile }
+    guard includes(memo) else { return [] }
+    guard maximum > 0 else { throw VaultExchangeError.limit }
+    return [(text, memo)]
+  }
+
   private func readEntries(in searchRoot: URL) throws -> [NotebookEntry] {
     var locations: [(URL, String)] = [(searchRoot, "")]
     var result: [NotebookEntry] = []
@@ -1424,5 +1529,279 @@ public actor NotebookStore {
     formatter.isLenient = false
     guard let date = formatter.date(from: day) else { return false }
     return formatter.string(from: date) == day
+  }
+}
+
+extension NotebookStore {
+  public func manualReviews() throws -> [SavedManualReview] {
+    try readManualReviews(readLimits: nil)
+  }
+  private func readManualReviews(readLimits: ExchangeReadLimits?, selectedIDs: Set<String>? = nil) throws -> [SavedManualReview] {
+    let namespaces = try exchangeNamespaces(readLimits: readLimits)
+    var result: [SavedManualReview] = []
+    var directoryEntries = 0, reviewBytes = 0
+    for namespace in namespaces.sorted() {
+      let folder = try vaultURL(namespace: namespace).appendingPathComponent("wiki/manual-reviews")
+      try validateContained(folder)
+      guard fm.fileExists(atPath: folder.path) else { continue }
+      let paths: [URL]
+      if let readLimits {
+        paths = try ExchangeIO.children(folder, within: root, maximum: min(1000, readLimits.directoryEntries - directoryEntries))
+        directoryEntries += paths.count
+      } else { paths = try fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) }
+      guard paths.count <= 1000 else { throw ManualReviewError.page }
+      for path in paths where path.pathExtension == "md" {
+        try validateContained(path)
+        guard let id = UUID(uuidString: path.deletingPathExtension().lastPathComponent) else { throw ManualReviewError.page }
+        let bytes: Data
+        if let readLimits {
+          bytes = try ExchangeIO.read(path, within: root, maximum: min(96 * 1024, readLimits.rawBytes - reviewBytes))
+          reviewBytes += bytes.count
+        } else { bytes = try readReviewFile(path) }
+        let page = try ManualReviewPage.decode(bytes)
+        guard page.id == id else { throw ManualReviewError.page }
+        if let selectedIDs, !page.citations.allSatisfy({ source in
+          let sourceID = namespace.isEmpty ? source.id
+            : namespace + (source.id.hasPrefix("/") ? "" : "/") + source.id
+          return selectedIDs.contains(sourceID)
+        }) { continue }
+        if let readLimits, result.count >= readLimits.reviews { throw VaultExchangeError.limit }
+        result.append(SavedManualReview(namespace: namespace, page: page))
+      }
+    }
+    return result.sorted { $0.page.created == $1.page.created ? $0.id < $1.id : $0.page.created > $1.page.created }
+  }
+
+  /// Only selected canonical records, their referenced assets, and matching
+  /// manual pages. Runtime state, chats, drafts and arbitrary files are excluded.
+  public func exchangeSnapshot(selectedIDs: Set<String>? = nil, includeReviews: Bool = true) throws -> VaultExchangeSnapshot {
+    try exchangeSnapshot(selectedIDs: selectedIDs, includeReviews: includeReviews, readLimits: ExchangeReadLimits())
+  }
+
+  /// Bounded preselection for day/week exchange. Never use ordinary entries()
+  /// before exchange admission merely to derive selected IDs.
+  public func exchangeEntries(period: ReviewPeriod? = nil) throws -> [NotebookEntry] {
+    try exchangeEntries(period: period, readLimits: ExchangeReadLimits())
+  }
+  func exchangeEntries(period: ReviewPeriod? = nil, readLimits: ExchangeReadLimits) throws -> [NotebookEntry] {
+    try period?.validate()
+    return try readExchangeEntries(in: root, limits: readLimits, period: period)
+  }
+  func exchangeSnapshot(selectedIDs: Set<String>? = nil, includeReviews: Bool = true,
+    readLimits: ExchangeReadLimits) throws -> VaultExchangeSnapshot {
+    let all = try readExchangeEntries(in: root, limits: readLimits, selectedIDs: selectedIDs)
+    let selected = all.filter { selectedIDs == nil || selectedIDs?.contains($0.id) == true }
+    guard selected.count <= 500, selectedIDs.map({ $0.count == selected.count }) ?? true else { throw VaultExchangeError.limit }
+    try ReplicaNamespace.validateAliases(selected.map(\.namespace))
+    guard Set(selected.map { $0.namespace + "/" + $0.memo.id.uuidString }).count == selected.count else { throw VaultExchangeError.invalid }
+    let selectedRefs = Set(selected.map(\.id))
+    let reviews = try includeReviews ? readManualReviews(readLimits: readLimits,
+      selectedIDs: selectedIDs == nil ? nil : selectedRefs) : []
+    guard reviews.count <= 100, !selected.isEmpty || !reviews.isEmpty else { throw VaultExchangeError.invalid }
+    var sourceURLs: [URL] = []
+    for entry in selected {
+      sourceURLs.append(try vaultURL(namespace: entry.namespace).appendingPathComponent("raw/\(entry.day).md"))
+      for asset in entry.memo.attachments { sourceURLs.append(try assetURL(asset.file, for: entry)) }
+    }
+    for record in reviews {
+      sourceURLs.append(try vaultURL(namespace: record.namespace)
+        .appendingPathComponent("wiki/manual-reviews/\(record.page.id.uuidString).md"))
+    }
+    return try withReviewSourceLocks(Array(Set(sourceURLs)).sorted { $0.path < $1.path }, index: 0) {
+      let fresh = try self.readExchangeEntries(in: self.root, limits: readLimits, selectedIDs: Set(selected.map(\.id)))
+      let byID = Dictionary(grouping: fresh, by: \.id)
+      guard selected.allSatisfy({ byID[$0.id]?.count == 1 && byID[$0.id]?.first?.revision == $0.revision }) else { throw VaultExchangeError.changed }
+      var files: [String: Data] = [:]
+      var grouped: [String: [String]] = [:]
+      var notes: [ExchangeNote] = []
+      for entry in selected.sorted(by: { $0.id < $1.id }) {
+        let exportedNamespace = try ExchangeNamespace.path(entry.namespace)
+        let prefix = exportedNamespace.isEmpty ? "" : exportedNamespace + "/"
+        let rawPath = prefix + "raw/\(entry.day).md"
+        grouped[rawPath, default: []].append(entry.originalMarkdown ?? entry.memo.toMarkdown())
+        var assets: [ExchangeAttachment] = []
+        for attachment in entry.memo.attachments {
+          let relative = attachment.file.hasPrefix("raw/assets/") ? attachment.file : "raw/assets/" + attachment.file
+          let path = prefix + relative
+          guard try ExchangePath.kind(path) == .asset else { throw VaultExchangeError.invalid }
+          let data = try self.readExchangeAsset(self.assetURL(attachment.file, for: entry))
+          try self.addExchangeFile(data, path: path, files: &files)
+          assets.append(ExchangeAttachment(file: path, kind: attachment.kind, sha256: ReplicaDigest.hash(data), bytes: data.count,
+            duration: attachment.duration, transcript: attachment.transcript, transcriptionStatus: attachment.transcriptionStatus?.rawValue))
+        }
+        notes.append(try ExchangeNote(entry: entry, attachments: assets))
+      }
+      for (path, blocks) in grouped {
+        try self.addExchangeFile(Data(blocks.joined(separator: DayDocument.modern).utf8), path: path, files: &files)
+      }
+      var pages: [ExchangeReview] = []
+      for record in reviews {
+        let exportedNamespace = try ExchangeNamespace.path(record.namespace)
+        let prefix = exportedNamespace.isEmpty ? "" : exportedNamespace + "/"
+        let path = prefix + "wiki/manual-reviews/\(record.page.id.uuidString).md"
+        let url = try self.vaultURL(namespace: record.namespace).appendingPathComponent("wiki/manual-reviews/\(record.page.id.uuidString).md")
+        let data = try self.readReviewFile(url)
+        guard try ManualReviewPage.decode(data) == record.page else { throw VaultExchangeError.changed }
+        try self.addExchangeFile(data, path: path, files: &files)
+        pages.append(try ExchangeReview(record, file: path))
+      }
+      let records = ExchangeRecords(notes: notes, reviews: pages)
+      let recordBytes = try ReplicaDigest.encode(records)
+      guard recordBytes.count <= VaultExchangeLimits.records else { throw VaultExchangeError.limit }
+      try self.addExchangeFile(recordBytes, path: "records.json", files: &files)
+      let manifestFiles = try files.map { path, data in
+        ExchangeFile(path: path, bytes: data.count, sha256: ReplicaDigest.hash(data), kind: try ExchangePath.kind(path))
+      }
+      let snapshot = VaultExchangeSnapshot(manifest: VaultExchangeManifest(notes: notes.count, reviews: pages.count, files: manifestFiles),
+        records: records, files: files)
+      try snapshot.validated()
+      try Self.validateExchangeProjection(snapshot)
+      return snapshot
+    }
+  }
+
+  /// This is a codec parity check, not just trust in records.json. Every raw
+  /// block is parsed with the production Memo codec and compared to its typed
+  /// projection; unknown YAML and exact per-record revision remain intact.
+  public static func validateExchangeProjection(_ snapshot: VaultExchangeSnapshot) throws {
+    try snapshot.validated()
+    var actual: [String: ExchangeNote] = [:]
+    for file in snapshot.manifest.files where file.kind == .raw {
+      guard let bytes = snapshot.files[file.path], let text = String(data: bytes, encoding: .utf8) else { throw VaultExchangeError.invalid }
+      let pieces = file.path.split(separator: "/").map(String.init)
+      let physicalNamespace = pieces.dropLast(2).joined(separator: "/")
+      let namespace = try ExchangeNamespace.logical(physicalNamespace)
+      let day = String(pieces[pieces.count - 1].dropLast(3))
+      guard Self.validDay(day) else { throw VaultExchangeError.invalid }
+      let document = DayDocument(text)
+      guard document.valid else { throw VaultExchangeError.invalid }
+      for block in document.blocks where !block.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        guard let memo = Memo.fromMarkdown(block) else { throw VaultExchangeError.invalid }
+        let entry = NotebookEntry(memo: memo, day: day, namespace: namespace, originalMarkdown: block, originRoot: URL(fileURLWithPath: "/"))
+        var attachments: [ExchangeAttachment] = []
+        let prefix = physicalNamespace.isEmpty ? "" : physicalNamespace + "/"
+        for attachment in memo.attachments {
+          let relative = attachment.file.hasPrefix("raw/assets/") ? attachment.file : "raw/assets/" + attachment.file
+          let path = prefix + relative
+          guard try ExchangePath.kind(path) == .asset, let data = snapshot.files[path] else { throw VaultExchangeError.invalid }
+          attachments.append(ExchangeAttachment(file: path, kind: attachment.kind, sha256: ReplicaDigest.hash(data), bytes: data.count,
+            duration: attachment.duration, transcript: attachment.transcript, transcriptionStatus: attachment.transcriptionStatus?.rawValue))
+        }
+        let note = try ExchangeNote(entry: entry, attachments: attachments)
+        guard actual[note.identity] == nil else { throw VaultExchangeError.invalid }
+        actual[note.identity] = note
+      }
+    }
+    try ReplicaNamespace.validateAliases(actual.values.map(\.namespace))
+    guard actual.count == snapshot.records.notes.count,
+      snapshot.records.notes.allSatisfy({ note in actual[note.identity].map { $0.equivalent(to: note) } == true }) else { throw VaultExchangeError.invalid }
+  }
+
+  private func addExchangeFile(_ data: Data, path: String, files: inout [String: Data]) throws {
+    _ = try ExchangePath.kind(path)
+    if let existing = files[path] {
+      guard existing == data else { throw VaultExchangeError.changed }
+      return
+    }
+    guard files.count < 1000, files.values.reduce(data.count, { $0 + $1.count }) <= VaultExchangeLimits.total else { throw VaultExchangeError.limit }
+    files[path] = data
+  }
+
+  private func readExchangeAsset(_ url: URL) throws -> Data {
+    try validateContained(url)
+    let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey])
+    guard values.isRegularFile == true, !(values.isUbiquitousItem == true && values.ubiquitousItemDownloadingStatus == .notDownloaded),
+      (values.fileSize ?? 0) <= 25 * 1024 * 1024 else { throw VaultExchangeError.invalid }
+    let handle = try FileHandle(forReadingFrom: url)
+    defer { try? handle.close() }
+    let data = try handle.read(upToCount: 25 * 1024 * 1024 + 1) ?? Data()
+    guard !data.isEmpty, data.count <= 25 * 1024 * 1024 else { throw VaultExchangeError.limit }
+    return data
+  }
+
+  private func exchangeNamespaces(readLimits: ExchangeReadLimits? = nil) throws -> Set<String> {
+    var namespaces: Set<String> = [""]
+    var directoryEntries = 0
+    func scan(_ base: URL, namespace: String, depth: Int) throws {
+      let imports = base.appendingPathComponent("imports")
+      try self.validateContained(imports)
+      guard self.fm.fileExists(atPath: imports.path) else { return }
+      guard depth < 16 else { throw VaultExchangeError.limit }
+      let children: [URL]
+      if let readLimits {
+        children = try ExchangeIO.children(imports, within: self.root, maximum: readLimits.directoryEntries - directoryEntries)
+        directoryEntries += children.count
+      } else { children = try self.fm.contentsOfDirectory(at: imports, includingPropertiesForKeys: nil) }
+      guard children.count <= 500 else { throw VaultExchangeError.limit }
+      for child in children {
+        if child.lastPathComponent.hasPrefix(".") { continue }
+        guard UUID(uuidString: child.lastPathComponent) != nil else { throw VaultExchangeError.invalid }
+        try self.validateContained(child)
+        guard try child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { throw VaultExchangeError.invalid }
+        let next = namespace.isEmpty ? child.lastPathComponent : namespace + "/" + child.lastPathComponent
+        guard namespaces.insert(next).inserted, namespaces.count <= (readLimits?.namespaces ?? 500) else { throw VaultExchangeError.limit }
+        try scan(child, namespace: next, depth: depth + 1)
+      }
+    }
+    try scan(root, namespace: "", depth: 0)
+    try ReplicaNamespace.validateAliases(Array(namespaces))
+    return namespaces
+  }
+
+  func saveManualReview(_ page: ManualReviewPage, snapshot: ManualReviewSnapshot, permit: ManualReviewPermit) throws {
+    try permit.authority.check(permit.id)
+    guard page.sourceDigest == snapshot.digest, page.period == snapshot.period,
+      page.citations == snapshot.citations else { throw ManualReviewError.changed }
+    let encoded = try page.encoded()
+    let folder = root.appendingPathComponent("wiki/manual-reviews")
+    let file = folder.appendingPathComponent(page.id.uuidString + ".md")
+    try validateContained(file)
+    try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+    let sources = try snapshot.citations.map { citation in
+      try vaultURL(namespace: citation.namespace).appendingPathComponent("raw/\(citation.day).md")
+    }
+    let ordered = Array(Set(sources)).sorted { $0.path < $1.path }
+    try withReviewSourceLocks(ordered, index: 0) {
+      try self.coordinatedWrite(at: file) { destination in
+        try self.validateContained(destination)
+        if self.fm.fileExists(atPath: destination.path) {
+          guard try self.readReviewFile(destination) == encoded else { throw ManualReviewError.conflict }
+          return
+        }
+        try snapshot.validate(against: self.readEntries(in: self.root))
+        let temporary = folder.appendingPathComponent(".review-" + UUID().uuidString)
+        defer { try? self.fm.removeItem(at: temporary) }
+        try encoded.write(to: temporary, options: [.atomic, .completeFileProtectionUnlessOpen])
+        // Atomic no-overwrite publication, including independent store writers.
+        try permit.authority.publish(permit.id) {
+          try self.fm.linkItem(at: temporary, to: destination)
+        }
+      }
+    }
+  }
+
+  private func readReviewFile(_ url: URL) throws -> Data {
+    try validateContained(url)
+    let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+    guard values.isRegularFile == true, (values.fileSize ?? 0) <= 96 * 1024 else { throw ManualReviewError.page }
+    let handle = try FileHandle(forReadingFrom: url)
+    defer { try? handle.close() }
+    let data = try handle.read(upToCount: 96 * 1024 + 1) ?? Data()
+    guard data.count <= 96 * 1024 else { throw ManualReviewError.page }
+    return data
+  }
+
+  private func withReviewSourceLocks<T>(_ paths: [URL], index: Int, body: () throws -> T) throws -> T {
+    guard index < paths.count else { return try body() }
+    let path = paths[index]
+    try validateContained(path)
+    var coordinationError: NSError?
+    var result: Result<T, Error>?
+    NSFileCoordinator().coordinate(readingItemAt: path, options: .withoutChanges, error: &coordinationError) { _ in
+      result = Result { try self.withReviewSourceLocks(paths, index: index + 1, body: body) }
+    }
+    if let coordinationError { throw coordinationError }
+    guard let result else { throw ManualReviewError.changed }
+    return try result.get()
   }
 }
