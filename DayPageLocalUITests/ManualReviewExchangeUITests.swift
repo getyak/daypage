@@ -65,10 +65,11 @@ final class ManualReviewExchangeUITests: XCTestCase {
   private func waitLabel(_ id: String, contains parts: [String], timeout: TimeInterval = 10) {
     let target = element(id)
     reveal(target)
-    let check = NSPredicate { _, _ in
-      target.exists && parts.allSatisfy { target.label.contains($0) }
-    }
-    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: check, object: nil)], timeout: timeout), .completed,
+    let check = NSCompoundPredicate(andPredicateWithSubpredicates:
+      [NSPredicate(format: "identifier == %@", id)]
+        + parts.map { NSPredicate(format: "label CONTAINS %@", $0) })
+    let ready = app.staticTexts.matching(check).firstMatch
+    XCTAssertTrue(ready.waitForExistence(timeout: timeout),
       "Expected \(parts) in \(id); actual \(target.exists ? target.label : "absent")")
   }
   private func assertStored(_ kind: String, contains parts: [String]) {
