@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:file-exchange": "node --experimental-strip-types --test scripts/file-exchange-preview.node.mjs scripts/file-exchange-memo.node.mjs scripts/file-exchange-timestamp.node.mjs",
+    "test:file-exchange": "node --experimental-strip-types --test --test-concurrency=1 scripts/file-exchange-preview.node.mjs scripts/file-exchange-memo.node.mjs scripts/file-exchange-timestamp.node.mjs scripts/file-exchange-review.node.mjs scripts/file-exchange-local.node.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

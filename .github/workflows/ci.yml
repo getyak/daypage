@@ -215,6 +215,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-build-public-key-not-a-credential
         run: pnpm --filter daypage-web exec next build --webpack
 
+      - name: Verify browser-local exchange durability and recovery
+        timeout-minutes: 5
+        env:
+          GET443_BROWSER_RUN: "1"
+          GET443_BROWSER_CHANNEL: chrome
+          GET443_ARTIFACT_DIR: ${{ runner.temp }}/daypage-exchange-idb
+        run: pnpm --filter daypage-web exec node scripts/file-exchange-local-idb.browser.mjs
+
+      - name: Preserve browser-local exchange evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-exchange-idb-${{ github.sha }}
+          path: ${{ runner.temp }}/daypage-exchange-idb
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Verify landing pages on desktop and mobile
         env:
           NEXT_TELEMETRY_DISABLED: "1"

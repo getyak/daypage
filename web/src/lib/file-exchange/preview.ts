@@ -1,6 +1,7 @@
 import { parseManifest, parseRecords, reject, validDay } from "./contract.ts";
 import type { ExchangeFile, ExchangeManifest, ExchangeRecords } from "./contract.ts";
 import { validateNoteProjection } from "./note-projection.ts";
+import { validateReviewProjection } from "./review-projection.ts";
 import { hasPrefix } from "./memo-codec.ts";
 
 export const EXCHANGE_LIMITS = Object.freeze({
@@ -103,14 +104,15 @@ function validateReferences(manifest: ExchangeManifest, records: ExchangeRecords
     }
   }
   for (const review of records.reviews) {
-    if (!namespace(review.namespace) || review.file !== `${prefix(review.namespace)}wiki/manual-reviews/${review.generation_id}.md` ||
-        listed.get(review.file)?.kind !== "review" || Date.parse(review.start) >= Date.parse(review.end) ||
-        encoder.encode(review.body).length > 64 * 1024) reject("Invalid review source");
+    const folder = `${prefix(review.namespace)}wiki/manual-reviews/`;
+    const fileID = review.file.startsWith(folder) && review.file.endsWith(".md") ? review.file.slice(folder.length, -3) : "";
+    if (!namespace(review.namespace) || !uuid(fileID) || fileID.toLowerCase() !== review.generation_id.toLowerCase() ||
+        listed.get(review.file)?.kind !== "review" || Date.parse(review.start) >= Date.parse(review.end)) reject("Invalid review source");
     const identity = `review:${review.namespace.toLowerCase()}:${review.generation_id.toLowerCase()}`;
     if (identities.has(identity)) reject("Duplicate source identity");
     identities.add(identity);
     referenced.review.add(review.file);
-    try { new Intl.DateTimeFormat("en", { timeZone: review.time_zone }); }
+    try { new Intl.DateTimeFormat("en", { timeZone: review.time_zone.normalize("NFC") }); }
     catch { reject("Invalid review time zone"); }
     for (const citation of review.sources) {
       if (!namespace(citation.namespace) || !validDay(citation.day) ||
@@ -167,6 +169,8 @@ export async function previewExchange(input: readonly ExchangeInputFile[], signa
   const records = parseRecords(decode(files.get("records.json")!));
   validateReferences(manifest, records);
   await validateNoteProjection(manifest, records, files, sha256, signal);
+  current(signal);
+  await validateReviewProjection(manifest, records, files, sha256, signal);
   current(signal);
   const notes = new Map(records.notes.map(note => [`${note.namespace.toLowerCase()}\0${note.original_id.toLowerCase()}`, note]));
   const reviewSources = records.reviews.map(review => {

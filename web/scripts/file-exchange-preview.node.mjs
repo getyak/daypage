@@ -8,7 +8,12 @@ import { validateNoteProjection } from "../src/lib/file-exchange/note-projection
 
 const root = fileURLToPath(new URL("../tests/fixtures/file-exchange-v1/", import.meta.url));
 const encode = value => new TextEncoder().encode(JSON.stringify(value));
-async function fixture() {
+// Frozen native examples use ordinary fixed decimal clocks; fixture editing
+// stays independent of the production Swift-number formatter.
+const nativeFixtureJSON = value => Array.isArray(value) ? "[" + value.map(nativeFixtureJSON).join(",") + "]" :
+  value && typeof value === "object" ? "{" + Object.keys(value).sort().map(key => nativeFixtureJSON(key) + ":" + nativeFixtureJSON(value[key])).join(",") + "}" :
+  JSON.stringify(value).replaceAll("/", "\\/");
+async function fixture(directory = root) {
   const files = new Map();
   async function visit(path, prefix = "") {
     for (const entry of await readdir(path, { withFileTypes: true })) {
@@ -16,7 +21,7 @@ async function fixture() {
       else files.set(prefix + entry.name, new Uint8Array(await readFile(join(path, entry.name))));
     }
   }
-  await visit(root);
+  await visit(directory);
   return files;
 }
 function input(files) {
@@ -134,28 +139,89 @@ test("multibyte attachment transcripts obey the native UTF-8 budget", async () =
 });
 
 test("historical review citations retain changed and unavailable sources", async () => {
-  const files = await fixture();
-  const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-  const path = `wiki/manual-reviews/${id}.md`;
-  files.set(path, new TextEncoder().encode("Synthetic historical review\n"));
-  await editRecords(files, records => {
-    const note = records.notes[0];
-    records.reviews.push({ generation_id: id, namespace: "", file: path, period_kind: "day",
-      start: "2026-11-07T00:00:00Z", end: "2026-11-08T00:00:00Z", time_zone: "Asia/Shanghai",
-      created_at: "2026-11-07T03:00:00Z", source_digest: "0".repeat(64), body: "Synthetic historical review",
-      sources: [
-        { id: `/${note.day}/${note.original_id}`, namespace: "", memo_id: note.original_id, day: note.day, revision: "f".repeat(64) },
-        { id: `/${note.day}/${id}`, namespace: "", memo_id: id, day: note.day, revision: "f".repeat(64) },
-      ] });
-  });
-  await rewriteManifest(files, manifest => {
-    manifest.reviews_count = 1;
-    manifest.files.push({ path, kind: "review", bytes: files.get(path).length, sha256: "0".repeat(64) });
-  });
-  await rewriteManifest(files);
+  const files = await fixture(fileURLToPath(new URL("../tests/fixtures/file-exchange-reviews-v1/manual-review-fractional-root/", import.meta.url)));
+  const records = JSON.parse(new TextDecoder().decode(files.get("records.json")));
+  const note = records.notes[0], raw = `raw/${note.day}.md`, review = records.reviews[0];
+  const originalReview = Uint8Array.from(files.get(review.file));
+  const originalSources = structuredClone(review.sources);
+  const block = new TextDecoder().decode(files.get(raw)).split("\n\n<!-- daypage-memo-separator -->\n\n")[0];
+  const body = note.body + " Explicitly edited after the saved review.";
+  const changed = new TextEncoder().encode(block.replace(note.body, body));
+  files.set(raw, changed); note.body = body; note.revision = await sha256(changed);
+  records.notes = [note]; // The second historical source is no longer in this export.
+  files.set("records.json", encode(records));
+  await rewriteManifest(files, manifest => { manifest.notes_count = 1; });
   const result = await previewExchange(input(files));
-  assert.deepEqual(result.reviewSources, [{ generationId: id, current: 0, changed: 1, unavailable: 1 }]);
-  assert.equal(result.records.reviews[0].sources[0].revision, "f".repeat(64));
+  assert.deepEqual(result.reviewSources, [{ generationId: review.generation_id, current: 0, changed: 1, unavailable: 1 }]);
+  assert.deepEqual(result.records.reviews[0].sources, originalSources);
+  assert.deepEqual(result.files.get(review.file), originalReview);
+});
+
+test("the public preview validates both actual Core review exports before any persistence", async () => {
+  for (const name of ["manual-review-fractional-root", "manual-review-nested-citations"]) {
+    const files = await fixture(fileURLToPath(new URL(`../tests/fixtures/file-exchange-reviews-v1/${name}/`, import.meta.url)));
+    const result = await previewExchange(input(files));
+    assert.equal(result.records.reviews.length, 1);
+    for (const [path, bytes] of result.files) assert.deepEqual(bytes, files.get(path));
+    assert.deepEqual(result.reviewSources, [{ generationId: result.records.reviews[0].generation_id, current: 2, changed: 0, unavailable: 0 }]);
+  }
+});
+
+test("rehashing the public manifest cannot authorize a typed review that contradicts its raw page", async () => {
+  const files = await fixture(fileURLToPath(new URL("../tests/fixtures/file-exchange-reviews-v1/manual-review-fractional-root/", import.meta.url)));
+  await editRecords(files, records => { records.reviews[0].body = "Forged typed replacement after rehashing."; });
+  await assert.rejects(previewExchange(input(files)), /Typed review contradicts/);
+});
+
+test("public preview preserves native UUID filename spelling and Swift-equivalent review text", async () => {
+  const files = await fixture(fileURLToPath(new URL("../tests/fixtures/file-exchange-reviews-v1/manual-review-fractional-root/", import.meta.url)));
+  const records = JSON.parse(new TextDecoder().decode(files.get("records.json"))), review = records.reviews[0];
+  const old = review.file, path = `wiki/manual-reviews/${review.generation_id.toLowerCase()}.md`;
+  const raw = Uint8Array.from(files.get(old));
+  files.set(path, raw); files.delete(old); review.file = path;
+  const body = review.body.replace("成", "\u{2F8B2}");
+  assert.notEqual(body, review.body); assert.equal(body.normalize("NFC"), review.body.normalize("NFC"));
+  review.body = body; files.set("records.json", encode(records));
+  await rewriteManifest(files, manifest => { manifest.files.find(file => file.path === old).path = path; });
+  const result = await previewExchange(input(files));
+  assert.equal(result.records.reviews[0].file, path); assert.equal(result.records.reviews[0].body, body);
+  assert.deepEqual(result.files.get(path), raw);
+});
+
+test("the native raw review byte limit allows a longer canonical-equivalent typed spelling", async () => {
+  const files = await fixture(fileURLToPath(new URL("../tests/fixtures/file-exchange-reviews-v1/manual-review-fractional-root/", import.meta.url)));
+  const records = JSON.parse(new TextDecoder().decode(files.get("records.json"))), review = records.reviews[0];
+  const raw = new TextDecoder().decode(files.get(review.file));
+  const encodedMetadata = raw.split("daypage_review: ")[1].split("\n")[0];
+  const metadata = JSON.parse(Buffer.from(encodedMetadata, "base64").toString("utf8"));
+  const offset = new TextEncoder().encode(raw.slice(0, raw.indexOf("\n---\n\n") + 6)).length;
+  const footer = new TextDecoder().decode(files.get(review.file).slice(offset + metadata.bodyBytes));
+  const body = "成".repeat(21845), typed = "\u{2F8B2}".repeat(21845);
+  assert.equal(new TextEncoder().encode(body).length, 65535);
+  assert.equal(new TextEncoder().encode(typed).length, 87380);
+  assert.equal(body.normalize("NFC"), typed.normalize("NFC"));
+  metadata.bodyBytes = 65535; metadata.bodyDigest = await sha256(new TextEncoder().encode(body));
+  const header = raw.slice(0, raw.indexOf("\n---\n\n") + 6).replace(encodedMetadata, Buffer.from(nativeFixtureJSON(metadata)).toString("base64"));
+  files.set(review.file, new TextEncoder().encode(header + body + footer));
+  review.body = typed; files.set("records.json", encode(records)); await rewriteManifest(files);
+  const result = await previewExchange(input(files));
+  assert.equal(result.records.reviews[0].body, typed);
+  assert.deepEqual(result.files.get(review.file), files.get(review.file));
+});
+
+test("native-equivalent typed timezone spelling is checked without rewriting it", async () => {
+  const files = await fixture(fileURLToPath(new URL("../tests/fixtures/file-exchange-reviews-v1/manual-review-fractional-root/", import.meta.url)));
+  const records = JSON.parse(new TextDecoder().decode(files.get("records.json"))), review = records.reviews[0];
+  const raw = new TextDecoder().decode(files.get(review.file)), encodedMetadata = raw.split("daypage_review: ")[1].split("\n")[0];
+  const metadata = JSON.parse(Buffer.from(encodedMetadata, "base64").toString("utf8"));
+  metadata.period.timeZoneID = "Pacific/Kwajalein"; metadata.period.start -= 43200; metadata.period.end -= 43200;
+  files.set(review.file, new TextEncoder().encode(raw.replace(encodedMetadata, Buffer.from(nativeFixtureJSON(metadata)).toString("base64"))));
+  review.time_zone = "Pacific/\u212Awajalein"; review.start = "2026-11-06T12:00:00Z"; review.end = "2026-11-07T12:00:00Z";
+  assert.equal(review.time_zone.normalize("NFC"), metadata.period.timeZoneID);
+  files.set("records.json", encode(records)); await rewriteManifest(files);
+  const result = await previewExchange(input(files));
+  assert.equal(result.records.reviews[0].time_zone, review.time_zone);
+  assert.deepEqual(result.files.get(review.file), files.get(review.file));
 });
 
 test("cancellation before selection or during an async read cannot publish a preview", async () => {
