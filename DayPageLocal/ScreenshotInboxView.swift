@@ -101,6 +101,9 @@ struct ScreenshotInboxView<Content: View>: View {
   @EnvironmentObject private var notebook: NotebookModel
   @Environment(\.scenePhase) private var phase
   @StateObject private var review = ScreenshotReviewModel()
+  #if DEBUG
+    @State private var seededSyntheticInbox = false
+  #endif
   let content: Content
   init(@ViewBuilder content: () -> Content) { self.content = content() }
 
@@ -132,7 +135,16 @@ struct ScreenshotInboxView<Content: View>: View {
       }
       content
     }
-    .task { await review.refresh() }
+    .task {
+      #if DEBUG
+        if !seededSyntheticInbox {
+          seededSyntheticInbox = true
+          do { try await ScreenshotInboxLocation.seedSyntheticUIInboxIfRequested() }
+          catch { review.error = ScreenshotReviewModel.message(error) }
+        }
+      #endif
+      await review.refresh()
+    }
     .onChange(of: phase) { if $0 == .active { Task { await review.refresh() } } }
     .onReceive(NotificationCenter.default.publisher(for: ScreenshotInboxLocation.changed)) { _ in
       Task { await review.refresh() }
@@ -217,7 +229,8 @@ private struct ScreenshotReviewView: View {
           } else if let loadError { Text(loadError) }
           else { ProgressView("Loading image…") }
         }
-        Section("Note") { TextEditor(text: $caption).frame(minHeight: 90) }
+        Section("Note") { TextEditor(text: $caption).frame(minHeight: 90)
+          .accessibilityIdentifier("shared-image-caption") }
         Section("On-device text") {
           if extracting {
             ProgressView("Extracting text on this device…")
@@ -229,6 +242,7 @@ private struct ScreenshotReviewView: View {
           }
           if let extractedText {
             Text(extractedText).textSelection(.enabled)
+              .accessibilityIdentifier("shared-image-extracted-text")
             Button("Add to note text") {
               let proposed = caption.isEmpty ? extractedText : caption + "\n\n" + extractedText
               guard proposed.utf8.count <= 4 * 1024 * 1024 else {
@@ -238,6 +252,7 @@ private struct ScreenshotReviewView: View {
               caption = proposed
               extractedAdded = true
             }.disabled(extractedAdded || review.busy)
+              .accessibilityIdentifier("add-shared-image-text")
           }
           if let extractionIssue { Text(extractionIssue).foregroundStyle(.secondary) }
           Text("Text recognition runs only on this device. Review it before adding it to your note.")
@@ -258,6 +273,7 @@ private struct ScreenshotReviewView: View {
       } }
       .confirmationDialog("Discard this pending image?", isPresented: $confirmDiscard, titleVisibility: .visible) {
         Button("Discard image", role: .destructive) { Task { await review.discard(capture) } }
+          .accessibilityIdentifier("confirm-discard-shared-image")
         Button("Cancel", role: .cancel) { }
       }
       .interactiveDismissDisabled(review.busy)

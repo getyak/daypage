@@ -286,26 +286,36 @@ python3 - "$daypage_signed" "$daypage_evidence" <<'PY'
 import json, pathlib, plistlib, sys
 derived, output = map(pathlib.Path, sys.argv[1:])
 app = derived / 'Build/Products/Debug-iphonesimulator/DayPage.app'
-bundle = plistlib.loads((app / 'Info.plist').read_bytes())['CFBundleIdentifier']
+info = plistlib.loads((app / 'Info.plist').read_bytes())
+bundle = info['CFBundleIdentifier']
 assert bundle == 'com.daypage.app.localqa', 'Only the isolated Debug QA app may run'
-folder = derived / 'Build/Intermediates.noindex/DayPageLocal.build/Debug-iphonesimulator/DayPage.build'
+capture_group = 'group.com.daypage.app.localqa.capture'
+assert info.get('DayPageCaptureAppGroup') == capture_group, 'The QA capture location must stay isolated'
+share = plistlib.loads((app / 'PlugIns/DayPageLocalShare.appex/Info.plist').read_bytes())
+assert share.get('CFBundleIdentifier') == bundle + '.sharecapture', 'Only the isolated QA share extension may run'
+assert share.get('DayPageCaptureAppGroup') == capture_group, 'The QA share extension must use the same isolated group'
+build_root = derived / 'Build/Intermediates.noindex/DayPageLocal.build/Debug-iphonesimulator'
 receipts = []
-for path in folder.rglob('*.xcent*'):
-    try: value = plistlib.loads(path.read_bytes())
-    except (OSError, ValueError, plistlib.InvalidFileException): continue
-    app_id = value.get('application-identifier')
-    if not isinstance(app_id, str) or not (app_id == bundle or app_id.endswith('.' + bundle)): continue
-    # Apple uses the application identifier as the private default when there
-    # are no explicit Keychain groups. Xcode's simulated variant may therefore
-    # contain only application-identifier; that is not a shared-group grant.
-    # https://developer.apple.com/documentation/security/ksecattraccessgroup
-    groups = value.get('keychain-access-groups', [])
-    assert isinstance(groups, list) and all(group == app_id for group in groups), 'Unexpected production or foreign Keychain group'
-    assert value.get('com.apple.security.application-groups', []) == [], 'Shared app groups are not allowed in this QA identity'
-    effective_groups = list(dict.fromkeys([*groups, app_id]))
-    receipts.append({'generatedFile': str(path.relative_to(derived)), 'applicationIdentifier': app_id,
-                     'explicitKeychainAccessGroups': groups, 'keychainAccessGroups': effective_groups})
-assert receipts, 'Xcode did not generate the QA Simulator Keychain entitlements'
+for target, identity in [('DayPage', bundle), ('DayPageLocalShare', bundle + '.sharecapture')]:
+    matched = False
+    for path in (build_root / (target + '.build')).rglob('*.xcent*'):
+        try: value = plistlib.loads(path.read_bytes())
+        except (OSError, ValueError, plistlib.InvalidFileException): continue
+        app_id = value.get('application-identifier')
+        if not isinstance(app_id, str) or not (app_id == identity or app_id.endswith('.' + identity)): continue
+        # Apple uses the application identifier as the private default when there
+        # are no explicit Keychain groups. A simulated variant may contain only
+        # application-identifier; that is not a shared-group grant.
+        # https://developer.apple.com/documentation/security/ksecattraccessgroup
+        groups = value.get('keychain-access-groups', [])
+        assert isinstance(groups, list) and all(group == app_id for group in groups), 'Unexpected production or foreign Keychain group'
+        assert value.get('com.apple.security.application-groups') == [capture_group], 'Unexpected production or foreign capture App Group'
+        effective_groups = list(dict.fromkeys([*groups, app_id]))
+        receipts.append({'target': target, 'generatedFile': str(path.relative_to(derived)), 'applicationIdentifier': app_id,
+                         'explicitKeychainAccessGroups': groups, 'keychainAccessGroups': effective_groups,
+                         'captureAppGroups': [capture_group]})
+        matched = True
+    assert matched, 'Xcode did not generate the QA Simulator entitlements for ' + target
 (output / 'simulator-entitlements.json').write_text(json.dumps(receipts, indent=2) + '\n')
 PY
 run_logged "$daypage_evidence/signature.log" codesign -dv --verbose=2 "$daypage_app"

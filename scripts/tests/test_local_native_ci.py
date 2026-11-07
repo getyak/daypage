@@ -48,7 +48,14 @@ elif tool == "xcodebuild":
         app = derived / "Build/Products/Debug-iphonesimulator/DayPage.app"
         app.mkdir(parents=True, exist_ok=True)
         (app / "Info.plist").write_bytes(plistlib.dumps({
-            "CFBundleIdentifier": "com.daypage.app.localqa"
+            "CFBundleIdentifier": "com.daypage.app.localqa",
+            "DayPageCaptureAppGroup": "group.com.daypage.app.localqa.capture",
+        }))
+        share = app / "PlugIns/DayPageLocalShare.appex"
+        share.mkdir(parents=True, exist_ok=True)
+        (share / "Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleIdentifier": "com.daypage.app.localqa.sharecapture",
+            "DayPageCaptureAppGroup": "group.com.daypage.app.localqa.capture",
         }))
         if signed or mode != "missing_unsigned_binary":
             (app / "DayPage").write_bytes(
@@ -58,6 +65,20 @@ elif tool == "xcodebuild":
         (folder / "mock.xcent").write_bytes(plistlib.dumps({
             "application-identifier": "MOCK.com.daypage.app.localqa",
             "keychain-access-groups": ["MOCK.com.daypage.app.localqa"],
+            "com.apple.security.application-groups": [
+                "group.com.daypage.app.capture" if mode == "production_capture_group"
+                else "group.foreign.capture" if mode == "foreign_capture_group"
+                else "group.com.daypage.app.localqa.capture"
+            ],
+        }))
+        share_folder = folder.with_name("DayPageLocalShare.build")
+        share_folder.mkdir(parents=True, exist_ok=True)
+        (share_folder / "mock.xcent").write_bytes(plistlib.dumps({
+            "application-identifier": "MOCK.com.daypage.app.localqa.sharecapture",
+            "com.apple.security.application-groups": [
+                "group.foreign.capture" if mode == "foreign_share_capture_group"
+                else "group.com.daypage.app.localqa.capture"
+            ],
         }))
     elif args[0] == "test-without-building":
         signed = "CODE_SIGNING_ALLOWED=YES" in args
@@ -369,6 +390,15 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertEqual(len(executables), 1)
         self.assertEqual(executables[0].read_bytes(), SIGNED_BYTES)
         self.assertLess(events.index("negative-tests"), events.index("signed-build"))
+
+    def test_production_and_foreign_capture_groups_cannot_authorize_native_tests(self):
+        for mode in ("production_capture_group", "foreign_capture_group", "foreign_share_capture_group"):
+            with self.subTest(mode=mode):
+                code, output, evidence, events = self.run_fixture(mode)
+                self.assertNotEqual(code, 0, output)
+                self.assertIn("Unexpected production or foreign capture App Group", output)
+                self.assertNotIn("signed-tests", events)
+                self.assertFalse((evidence / "native-acceptance.json").exists())
 
     def test_unsigned_command_failure_collects_signed_results_and_keeps_original_failure(self):
         code, output, evidence, events = self.run_fixture("negative_failure")

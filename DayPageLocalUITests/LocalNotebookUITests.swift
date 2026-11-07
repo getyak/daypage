@@ -34,6 +34,75 @@ final class LocalNotebookUITests: XCTestCase {
     add(attachment)
   }
 
+  func testSharedScreenshotRequiresReviewAndExplicitOCRBeforeSave() {
+    app.launchArguments += ["-qaScreenshotInbox", "-qaSeedScreenshotInbox"]
+    app.launch()
+    let review = app.buttons["review-shared-images"]
+    XCTAssertTrue(review.waitForExistence(timeout: 15))
+    review.tap()
+    let caption = app.textViews["shared-image-caption"]
+    XCTAssertTrue(caption.waitForExistence(timeout: 5))
+    XCTAssertEqual(caption.value as? String, "")
+    XCTAssertFalse(element("shared-image-extracted-text").exists)
+    let extract = app.buttons["extract-shared-image-text"]
+    XCTAssertTrue(extract.waitForExistence(timeout: 10))
+    let enabled = NSPredicate(format: "enabled == true")
+    expectation(for: enabled, evaluatedWith: extract)
+    waitForExpectations(timeout: 10)
+    extract.tap()
+    let extracted = element("shared-image-extracted-text")
+    XCTAssertTrue(extracted.waitForExistence(timeout: 20))
+    XCTAssertTrue(extracted.label.contains("LOCAL OCR FIXTURE"))
+    XCTAssertEqual(caption.value as? String, "")
+    app.buttons["add-shared-image-text"].tap()
+    XCTAssertTrue((caption.value as? String)?.contains("LOCAL OCR FIXTURE") == true)
+    screenshot("local-screenshot-explicit-ocr")
+    let save = app.buttons["save-shared-image"]
+    for _ in 0..<3 {
+      if save.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertTrue(save.isHittable)
+    save.tap()
+    let saved = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: review)
+    wait(for: [saved], timeout: 10)
+    XCTAssertTrue(visibleText("LOCAL OCR FIXTURE").waitForExistence(timeout: 10))
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" || $0 == "-qaSeedScreenshotInbox" }
+    app.launch()
+    XCTAssertTrue(visibleText("LOCAL OCR FIXTURE").waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["review-shared-images"].exists)
+    screenshot("local-screenshot-saved-after-relaunch")
+  }
+
+  func testPendingScreenshotSurvivesLaterAndCanBeExplicitlyDiscarded() {
+    app.launchArguments += ["-qaScreenshotInbox", "-qaSeedScreenshotInbox"]
+    app.launch()
+    XCTAssertTrue(app.buttons["review-shared-images"].waitForExistence(timeout: 15))
+    app.buttons["review-shared-images"].tap()
+    XCTAssertTrue(app.buttons["Later"].waitForExistence(timeout: 5))
+    app.buttons["Later"].tap()
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" || $0 == "-qaSeedScreenshotInbox" }
+    app.launch()
+    XCTAssertTrue(app.buttons["review-shared-images"].waitForExistence(timeout: 10))
+    app.buttons["review-shared-images"].tap()
+    let discard = app.buttons["Discard image"]
+    XCTAssertTrue(discard.waitForExistence(timeout: 5))
+    for _ in 0..<3 {
+      if discard.isHittable { break }
+      app.swipeUp()
+    }
+    discard.tap()
+    let confirm = app.buttons["confirm-discard-shared-image"]
+    XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+    XCTAssertTrue(confirm.isHittable)
+    confirm.tap()
+    let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.buttons["review-shared-images"])
+    wait(for: [gone], timeout: 10)
+    screenshot("local-screenshot-explicit-discard")
+  }
+
   func testAppStoreScreenshotsUseTheLocalNotebookAndExposeItsPrivacyPolicy() {
     app.launchArguments = [
       "-qaNotebookSession", "-qaResetNotebook", "-qaSeedNotebook",
