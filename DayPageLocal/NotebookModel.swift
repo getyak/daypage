@@ -311,6 +311,14 @@ final class NotebookModel: ObservableObject {
     pendingCaptureRevealID = nil
   }
 
+  /// External capture confirmation uses its own stable identity and never
+  /// consumes or replaces the ordinary editor's pending draft.
+  func revealIncomingCapture(_ id: UUID) {
+    guard entries.contains(where: { $0.namespace.isEmpty && $0.memo.id == id }) else { return }
+    pendingCaptureRevealID = id
+    lastCapturedNoteID = id
+  }
+
   @discardableResult
   func addCaptureAsset(data: Data, filename: String, kind: String, duration: Double? = nil) async
     -> Bool

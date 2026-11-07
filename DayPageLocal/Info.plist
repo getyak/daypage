@@ -8,6 +8,7 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>DayPageCaptureAppGroup</key><string>group.com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).capture</string>
   <key>LSRequiresIPhoneOS</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>Record voice notes in your local notebook. Recordings stay on this device unless you enable iCloud sync or choose to send them.</string>
   <key>NSCameraUsageDescription</key><string>Take a photo to keep with a note in your local notebook.</string>

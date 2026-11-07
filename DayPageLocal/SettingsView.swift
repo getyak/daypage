@@ -40,6 +40,9 @@ struct SettingsView: View {
         }.accessibilityIdentifier("settings-speech")
       }.listRowBackground(NotebookTheme.card)
       Section("On this device") {
+        Button { NotificationCenter.default.post(name: ScreenshotInboxLocation.reviewRequested, object: nil) } label: {
+          Label("Review shared images", systemImage: "tray")
+        }.accessibilityIdentifier("settings-shared-images")
         NavigationLink {
           ContinuitySettingsView()
         } label: {

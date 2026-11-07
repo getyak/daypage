@@ -16,8 +16,24 @@ public enum AttachmentTextError: LocalizedError {
   }
 }
 
-/// Reads only a URL resolved by NotebookStore after the host checked card scope.
+/// File reads require a URL resolved by NotebookStore after a card-scope check.
+/// The image-data entry point is also used by explicit local screenshot review.
 public enum AttachmentTextReader {
+  public static func readImage(data: Data) async throws -> String {
+    try Task.checkCancellation()
+    guard data.count <= 25 * 1_024 * 1_024 else { throw AttachmentTextError.tooLarge }
+    let task = Task.detached(priority: .utility) {
+      try Task.checkCancellation()
+      let result = try recognizeImage(data)
+      try Task.checkCancellation()
+      guard !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AttachmentTextError.noText }
+      return bounded(result)
+    }
+    let text = try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
+    try Task.checkCancellation()
+    return text
+  }
+
   public static func read(url: URL, kind: String, transcript: String? = nil) async throws -> String {
     try Task.checkCancellation()
     if kind == "audio" {
@@ -35,18 +51,7 @@ public enum AttachmentTextReader {
       try Task.checkCancellation()
       let result: String
       if kind == "photo" {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-          let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 2_048,
-          ] as CFDictionary) else { throw AttachmentTextError.unreadable }
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["zh-Hans", "en-US"]
-        request.usesLanguageCorrection = true
-        try VNImageRequestHandler(cgImage: image).perform([request])
-        result = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+        result = try recognizeImage(data)
       } else if url.pathExtension.lowercased() == "pdf" {
         guard let document = PDFDocument(data: data) else { throw AttachmentTextError.unreadable }
         var pages: [String] = []
@@ -71,6 +76,21 @@ public enum AttachmentTextReader {
     let text = try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
     try Task.checkCancellation()
     return text
+  }
+
+  private static func recognizeImage(_ data: Data) throws -> String {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: 2_048,
+      ] as CFDictionary) else { throw AttachmentTextError.unreadable }
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.recognitionLanguages = ["zh-Hans", "en-US"]
+    request.usesLanguageCorrection = true
+    try VNImageRequestHandler(cgImage: image).perform([request])
+    return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
   }
 
   private static func bounded(_ text: String) -> String {
