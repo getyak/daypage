@@ -2,6 +2,7 @@ import SwiftUI
 import DayPageModels
 import DayPageServices
 import DayPageStorage
+import DayPageMacExchange
 
 // MARK: - MacRootView
 
@@ -17,6 +18,7 @@ struct MacRootView: View {
     enum Section: String, CaseIterable, Identifiable {
         case today
         case archive
+        case notebookFiles
 
         var id: String { rawValue }
 
@@ -24,6 +26,7 @@ struct MacRootView: View {
             switch self {
             case .today:   return "今天"
             case .archive: return "归档"
+            case .notebookFiles: return "笔记文件"
             }
         }
 
@@ -31,6 +34,7 @@ struct MacRootView: View {
             switch self {
             case .today:   return "sun.max"
             case .archive: return "calendar"
+            case .notebookFiles: return "folder"
             }
         }
     }
@@ -57,6 +61,8 @@ struct MacRootView: View {
                 MacTodayView()
             case .archive:
                 MacArchiveView()
+            case .notebookFiles:
+                MacNotebookExchangeView(legacyVault: { VaultInitializer.vaultURL })
             }
         }
         .toolbar {
