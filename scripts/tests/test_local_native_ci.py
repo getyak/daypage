@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import signal
 import subprocess
@@ -231,7 +232,7 @@ else:
 
 class NativeCIOrchestrationTests(unittest.TestCase):
     def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted",
-                    suite="card_tools_speech", shard=None, wrong_plan=False):
+                    suite="card_tools_speech", shard=None, wrong_plan=False, wrong_arch_plan=False):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -252,7 +253,15 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location("native_matrix_double", ROOT / "scripts/qa/native_ui_matrix.py")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            plan = module.make_plan(root, "c" * 40 if wrong_plan else "a" * 40, "12345", "1", "arm64")
+            # The production shell records the real Python host architecture,
+            # independently of the simulated RUNNER_ARCH boot-budget input.
+            profiles = {"arm64": "arm64", "x86_64": "intel"}
+            host_arch = platform.machine()
+            self.assertIn(host_arch, profiles, "Unsupported host architecture for native CI command doubles")
+            profile = profiles[host_arch]
+            if wrong_arch_plan:
+                profile = "intel" if profile == "arm64" else "arm64"
+            plan = module.make_plan(root, "c" * 40 if wrong_plan else "a" * 40, "12345", "1", profile)
             (root / "plan.json").write_text(json.dumps(plan))
         state = root / "state"
         state.mkdir()
@@ -504,6 +513,16 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertTrue(receipt["passed"])
         self.assertEqual(len(receipt["observed"]["passed"]), 2)
         self.assertFalse((evidence / "signed-summary.log").exists())
+
+    def test_wrong_host_architecture_still_denies_a_complete_shard(self):
+        code, output, evidence, events = self.run_fixture("success", shard="speech", wrong_arch_plan=True)
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("signed-tests", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(len(receipt["observed"]["passed"]), 4)
+        self.assertEqual(receipt["summary"]["passedTests"], 4)
+        self.assertIn("wrong runner architecture", receipt["errors"])
 
     def test_shard_wrong_source_denies_before_fixture_build_or_simulator(self):
         code, output, evidence, events = self.run_fixture("success", shard="speech", wrong_plan=True)
