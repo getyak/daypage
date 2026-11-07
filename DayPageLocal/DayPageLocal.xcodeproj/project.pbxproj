@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E37700000000000000000001 /* AppInformationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37700000000000000000011 /* AppInformationService.swift */; };
+		E37700000000000000000002 /* AppInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37700000000000000000012 /* AppInformationView.swift */; };
+		E37700000000000000000003 /* app-info.json in Resources */ = {isa = PBXBuildFile; fileRef = E37700000000000000000013 /* app-info.json */; };
 		E41800000000000000000002 /* NoteLocationCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41800000000000000000001 /* NoteLocationCapture.swift */; };
 		0205CF27058895692D8E25D5 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 599C854163773DF1181ACB07 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		03EC0081F585651CCB158851 /* NoteActionCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D23DB1E615AB05808521FDE /* NoteActionCards.swift */; };
@@ -91,6 +94,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E37700000000000000000011 /* AppInformationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInformationService.swift; sourceTree = "<group>"; };
+		E37700000000000000000012 /* AppInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInformationView.swift; sourceTree = "<group>"; };
+		E37700000000000000000013 /* app-info.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "app-info.json"; sourceTree = "<group>"; };
 		E41800000000000000000001 /* NoteLocationCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteLocationCapture.swift; sourceTree = "<group>"; };
 		099023364FADB7679C63FBA2 /* CardShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardShareUITests.swift; sourceTree = "<group>"; };
 		0BC9CBD3F76A9A268DB6D030 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -179,6 +185,8 @@
 		08828294AAD1DE5269F6F45E = {
 			isa = PBXGroup;
 			children = (
+				E37700000000000000000011 /* AppInformationService.swift */,
+				E37700000000000000000012 /* AppInformationView.swift */,
 				80743B6F3E33F0CDFD639BB2 /* AIConnectionSettings.swift */,
 				8196EE745EEF63F4963F3EB9 /* CaptureDraftStore.swift */,
 				6DF630BC1F17AE495C262D47 /* CaptureMedia.swift */,
@@ -232,6 +240,7 @@
 		1431AF285754327246817EF0 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				E37700000000000000000013 /* app-info.json */,
 				B221DD921B96956690BA7B4A /* NotebookAssets.xcassets */,
 				7731A1FB89B885E80833E407 /* InfoPlist.strings */,
 				5E0ACFB1792DD48A60620E25 /* Localizable.strings */,
@@ -428,6 +437,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E37700000000000000000003 /* app-info.json in Resources */,
 				DEE0CF6DBA6D376113D42885 /* Assets.xcassets in Resources */,
 				A94E1E6D4B7E0681B56268A0 /* InfoPlist.strings in Resources */,
 				E1263D7528EDB3BA73ACD23E /* Localizable.strings in Resources */,
@@ -445,6 +455,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E37700000000000000000001 /* AppInformationService.swift in Sources */,
+				E37700000000000000000002 /* AppInformationView.swift in Sources */,
 				D55690A043E98FF67577A3A7 /* AIConnectionSettings.swift in Sources */,
 				807B0171361C166229E5A0B4 /* CaptureDraftStore.swift in Sources */,
 				E7DE6BD62F34193F86DEA4C1 /* CaptureMedia.swift in Sources */,

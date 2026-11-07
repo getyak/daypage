@@ -1,0 +1,44 @@
+name: Private App information HTTP
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'deploy/app-information/**'
+      - 'DayPageLocal/Resources/app-info.json'
+      - 'scripts/tests/test_app_information_service.py'
+      - '.github/workflows/app-information-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/app-information/**'
+      - 'DayPageLocal/Resources/app-info.json'
+      - 'scripts/tests/test_app_information_service.py'
+      - '.github/workflows/app-information-service.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-information-http-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  private-http:
+    name: Actual Nginx loopback contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Nginx from Ubuntu package repositories
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y nginx
+          apt-cache policy nginx
+          nginx -v
+      - name: Exercise actual private configuration on a temporary loopback port
+        env:
+          APP_INFORMATION_REQUIRE_NGINX: '1'
+        run: python3 scripts/tests/test_app_information_service.py

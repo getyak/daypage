@@ -1,0 +1,15 @@
+# ADR-0033: Public App information with offline reading
+
+Status: Accepted scope for GET-377 on 2026-11-07. The owner chose a minimal real domestic App service and a matching App update. Production access remains subject to filing, deployment verification and release gates.
+
+DayPageLocal will read public application, privacy and support text from `https://daypage-api.cubxxw.com/daypage/v1/app-info.json` only when the person taps “Check latest information”. Opening the App, recording, searching and ordinary settings do not make this request. Both Simplified Chinese and English content are bundled and immediately readable offline. The page retains bundled content after failures, allows a manual retry and cancels work when dismissed. Bundle version remains the source of the installed version.
+
+This is a UI-layer public-content service, not a cloud notebook. It never receives notes, transcripts, attachments, feedback drafts, AI configuration, credentials or persistent device identifiers. DayPageCore, capture, Vault formats, account requirements, personal iCloud and Watch behavior are unchanged. No new external dependencies are introduced.
+
+The client uses an ephemeral URLSession without cookies or credential storage. It sends a bodyless GET to the compiled HTTPS origin/path, rejects every redirect, requires HTTP 200 and JSON MIME, limits the transfer to 128 KiB and eight seconds, and checks schema version 1, `com.daypage.app`, dates and bounded bilingual plain-text sections. It renders no remote HTML, links, configuration or executable instructions. A malformed or unavailable response cannot replace the bundled policy or change product permissions.
+
+The service is a static Nginx JSON endpoint on the owner's Shanghai ECS. The domain is owned and registered at Alibaba; Cloudflare controls its authoritative DNS. The exact new subdomain was absent from the current DNS records. Existing `daypage.cubxxw.com` and other services are preserved. Root and unlisted paths return 404; no website is introduced under this App-only domain. Access logs for the endpoint must be disabled and the deployed configuration verified before public access; this is a deployment requirement, not an existing deployment receipt. Cloud infrastructure necessarily handles network metadata and this is disclosed. Do not claim that this prevents all infrastructure-level logging.
+
+While filing is pending, install and test over loopback/Tailnet only; do not expose the unfiled service publicly. File its planned use accurately, with the matching iOS integration prepared. Publish DNS/HTTPS access only after provider requirements and filing allow it. A draft application is not an issued filing number. Add only the true issued App number after verification.
+
+Rollback removes the online action or restores prior static content; bundled policy remains readable and no user-data migration is needed. Acceptance distinguishes host fixtures, unsigned/signed native builds, UI/device tests, server health, Apple distribution and government filing.

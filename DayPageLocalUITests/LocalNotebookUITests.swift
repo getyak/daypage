@@ -62,6 +62,88 @@ final class LocalNotebookUITests: XCTestCase {
     screenshot("appstore-settings-privacy")
   }
 
+  private func openInformation(_ id: String) {
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+    app.buttons["open-sidebar"].tap()
+    app.buttons["sidebar-settings"].tap()
+    let destination = element(id)
+    for _ in 0..<6 {
+      if destination.isHittable { break }
+      app.swipeUp()
+    }
+    XCTAssertTrue(destination.isHittable)
+    XCTAssertGreaterThanOrEqual(destination.frame.height, 44 - 0.000_001)
+    destination.tap()
+    XCTAssertTrue(element("app-information-page").waitForExistence(timeout: 5))
+  }
+
+  private func informationFooter() {
+    for _ in 0..<24 {
+      if element("app-information-check-latest").isHittable { return }
+      app.swipeUp()
+    }
+    XCTFail("The public-information footer is not reachable")
+  }
+
+  func testBundledPrivacyInformationIsReadableInEnglishAfterRelaunch() {
+    app.launch()
+    openInformation("settings-privacy-policy")
+    XCTAssertTrue(visibleText("This policy covers the local iOS edition").waitForExistence(timeout: 5))
+    screenshot("app-information-privacy-en")
+    informationFooter()
+    XCTAssertEqual(element("app-information-source").label, "Information included with this app")
+    XCTAssertFalse(element("app-information-failure").exists)
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
+    app.launch()
+    openInformation("settings-privacy-policy")
+    XCTAssertTrue(visibleText("This policy covers the local iOS edition").waitForExistence(timeout: 5))
+  }
+
+  func testBundledAboutAndSupportUseChineseAtAccessibilitySize() {
+    app.launchArguments = ["-qaNotebookSession", "-qaResetNotebook", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN",
+                           "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    app.launch()
+    openInformation("settings-about-support")
+    XCTAssertTrue(visibleText("无需账户的本地笔记应用").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("app-information-installed-version").exists)
+    screenshot("app-information-about-zh")
+    informationFooter()
+    XCTAssertEqual(element("app-information-source").label, "随 App 提供的说明")
+  }
+
+  func testManualInformationCheckKeepsReadableContentAndRecordsItsActualOutcome() {
+    app.launch()
+    openInformation("settings-about-support")
+    informationFooter()
+    element("app-information-check-latest").tap()
+    XCTAssertTrue(element("app-information-check-latest").waitForExistence(timeout: 12))
+    let done = NSPredicate(format: "enabled == true")
+    expectation(for: done, evaluatedWith: element("app-information-check-latest"))
+    waitForExpectations(timeout: 12)
+    let source = element("app-information-source").label
+    if element("app-information-failure").exists {
+      XCTAssertEqual(source, "Information included with this app")
+      XCTAssertTrue(element("app-information-check-latest").isEnabled, "Failed refresh must permit retry")
+      let bundledAbout = "An account-free local notebook. Write, read, search, import and export offline. The installed version is read from this device."
+      for _ in 0..<12 {
+        if visibleText(bundledAbout).isHittable { break }
+        app.swipeDown()
+      }
+      XCTAssertTrue(visibleText(bundledAbout).isHittable, "Failed refresh must retain actual bundled content")
+      screenshot("app-information-failure-retained-bundle")
+    } else {
+      XCTAssertEqual(source, "Latest information from DayPage")
+    }
+    let outcome = XCTAttachment(string: "Observed source: " + source + "; no network override or offline simulation used.")
+    outcome.name = "app-information-network-outcome"
+    outcome.lifetime = .keepAlways
+    add(outcome)
+    screenshot("app-information-after-manual-check")
+    app.swipeDown()
+    XCTAssertTrue(element("app-information-page").exists)
+  }
+
   func testOfflineWritingSurvivesRelaunchAndCanBeEdited() {
     app.launch()
     write("A small thought saved entirely on this device.")

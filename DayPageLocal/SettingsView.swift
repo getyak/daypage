@@ -99,13 +99,12 @@ struct SettingsView: View {
       }
       .listRowBackground(NotebookTheme.card)
       Section {
-        if let policyURL = URL(string: "https://github.com/getyak/daypage/blob/main/docs/legal/ios-privacy.md") {
-          Link(destination: policyURL) {
-            Label("Privacy policy", systemImage: "hand.raised")
-              .frame(minHeight: 44)
-          }
-          .accessibilityIdentifier("settings-privacy-policy")
-        }
+        NavigationLink { AppInformationView(page: .privacy) } label: {
+          Label("Privacy policy", systemImage: "hand.raised").frame(minHeight: 44)
+        }.accessibilityIdentifier("settings-privacy-policy")
+        NavigationLink { AppInformationView(page: .about) } label: {
+          Label("About & support", systemImage: "info.circle").frame(minHeight: 44)
+        }.accessibilityIdentifier("settings-about-support")
       }
       .listRowBackground(NotebookTheme.card)
       Section {

@@ -1,0 +1,26 @@
+[Unit]
+Description=DayPage private public-information preparation
+After=network.target
+
+[Service]
+Type=simple
+User=nginx
+Group=nginx
+RuntimeDirectory=daypage-app-information
+RuntimeDirectoryMode=0750
+ExecStartPre=/usr/sbin/nginx -t -c /etc/daypage-app-information/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/daypage-app-information/nginx.conf -g "daemon off;"
+Restart=on-failure
+RestartSec=3s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=64M
+TasksMax=16
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
