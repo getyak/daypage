@@ -18,6 +18,11 @@ final class CardToolsSpeechUITests: XCTestCase {
       previous = nil
     }
 
+    func matches(row: CGRect, target: CGRect) -> Bool {
+      lock.lock(); defer { lock.unlock() }
+      return previous?.row == row && previous?.target == target
+    }
+
     func isSettled(row: CGRect, target: CGRect) -> Bool {
       lock.lock(); defer { lock.unlock() }
       let now = ProcessInfo.processInfo.systemUptime
@@ -158,6 +163,36 @@ final class CardToolsSpeechUITests: XCTestCase {
     target.tap()
   }
 
+  /// Reuse one returned AX tree for viewport, row and physical-switch geometry.
+  /// Hittability belongs to live elements and is checked before the real tap.
+  private func switchSnapshot(_ id: String, native: Bool) -> (viewport: CGRect, row: CGRect, target: CGRect)? {
+    guard let root = try? app.snapshot() else { return nil }
+    func descendants(_ parent: any XCUIElementSnapshot) -> [any XCUIElementSnapshot]? {
+      var pending = parent.children, result: [any XCUIElementSnapshot] = []
+      while let node = pending.popLast() {
+        guard result.count < 10_000 else { return nil }
+        result.append(node); pending.append(contentsOf: node.children)
+      }
+      return result
+    }
+    guard let nodes = descendants(root) else { return nil }
+    let rows = nodes.filter { $0.elementType == .switch && $0.identifier == id }
+    guard rows.count == 1, let row = rows.first,
+      let children = descendants(row) else { return nil }
+    let switches = children.filter { $0.elementType == .switch }
+    guard switches.count <= 1, (switches.count == 1) == native else { return nil }
+    let target = native ? switches[0] : row
+    let viewport = root.frame, rowFrame = row.frame, targetFrame = target.frame
+    guard row.isEnabled, target.isEnabled, !viewport.isEmpty,
+      !rowFrame.isEmpty, !targetFrame.isEmpty else { return nil }
+    let centre = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
+    let tap = CGPoint(x: targetFrame.minX + targetFrame.width * (native ? 0.5 : 0.95), y: targetFrame.midY)
+    let bounds = rowFrame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
+    guard bounds.contains(centre), viewport.contains(centre),
+      bounds.contains(tap), viewport.contains(tap) else { return nil }
+    return (viewport, rowFrame, targetFrame)
+  }
+
   private func setChatSwitch(_ id: String, on: Bool) {
     let control = app.switches[id]
     XCTAssertTrue(control.waitForExistence(timeout: 5))
@@ -173,23 +208,25 @@ final class CardToolsSpeechUITests: XCTestCase {
       let target = hasNative ? nativeSwitches.firstMatch : control
       let stability = SwitchGeometry()
       let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-        guard control.exists, control.isEnabled, control.isHittable,
-          target.exists, target.isEnabled, target.isHittable else {
+        guard let sample = self.switchSnapshot(id, native: hasNative) else {
           stability.reset(); return false
         }
-        let row = control.frame, physical = target.frame
-        let centre = CGPoint(x: physical.midX, y: physical.midY)
-        guard row.insetBy(dx: -self.geometryEpsilon, dy: -self.geometryEpsilon).contains(centre),
-          self.app.frame.contains(centre) else {
-          stability.reset(); return false
-        }
-        return stability.isSettled(row: row, target: physical)
+        return stability.isSettled(row: sample.row, target: sample.target)
       }, object: nil)
-      XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed,
+      let settlement = XCTWaiter.wait(for: [settled], timeout: 5)
+      XCTAssertEqual(settlement, .completed,
         "The enabled switch must settle before its single physical tap")
+      guard settlement == .completed else { return }
       XCTAssertTrue(control.isHittable)
       XCTAssertTrue(control.isEnabled)
-      let rowFrame = control.frame, targetFrame = target.frame
+      XCTAssertTrue(target.isHittable)
+      XCTAssertTrue(target.isEnabled)
+      guard let final = switchSnapshot(id, native: hasNative),
+        stability.matches(row: final.row, target: final.target) else {
+        XCTFail("The physical switch geometry changed after settling")
+        return
+      }
+      let rowFrame = final.row, targetFrame = final.target
       XCTAssertGreaterThanOrEqual(targetFrame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(targetFrame.height + geometryEpsilon, 28)
       let geometry = XCTAttachment(string:
@@ -820,7 +857,11 @@ final class CardToolsSpeechUITests: XCTestCase {
     reveal(app.buttons["speech-save-channel"])
     XCTAssertTrue(app.buttons["speech-save-channel"].isEnabled)
     tap44(app.buttons["speech-save-channel"])
-    XCTAssertTrue(element("speech-save-status").waitForExistence(timeout: 5))
+    let savedStatus = app.staticTexts.matching(NSPredicate(
+      format: "identifier == %@ AND label == %@", "speech-save-status", "Speech channel saved")).firstMatch
+    let didSave = savedStatus.waitForExistence(timeout: 5)
+    if !didSave { captureLookupFailure(element("speech-save-status"), scroller: form) }
+    XCTAssertTrue(didSave, "The real saved status must precede lookup of the saved channel")
     XCTAssertFalse(element("speech-status").exists)
     let elevenLabs = savedChannel(named: "ElevenLabs fixture")
     reveal(elevenLabs, down: true)
