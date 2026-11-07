@@ -1,0 +1,29 @@
+{
+  "content_sha256": "89d0622ad0956166629ee3a13c2c86a7755f0fde85267176891aee1d4ccb862d",
+  "created_at": "2026-11-07T02:03:04Z",
+  "export_id": "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+  "files": [
+    {
+      "bytes": 213,
+      "kind": "raw",
+      "path": "raw/2026-11-07.md",
+      "sha256": "0111563f6e9f1994365b05ea4da9fcbea06ed0479dbe57de0b8cdf817069663b"
+    },
+    {
+      "bytes": 48,
+      "kind": "asset",
+      "path": "raw/assets/fixture.txt",
+      "sha256": "057fca7b681963567fd1f4857a0bcf8bcbd77f1b223be13f3007801d6f07f4b9"
+    },
+    {
+      "bytes": 474,
+      "kind": "records",
+      "path": "records.json",
+      "sha256": "66d73654330efd83c157eb6154ebdf954eac8f2c2542772bff4d1919eb43c24a"
+    }
+  ],
+  "format": "daypage-file-exchange-v1",
+  "notes_count": 1,
+  "reviews_count": 0,
+  "version": 1
+}

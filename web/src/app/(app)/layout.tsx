@@ -27,6 +27,7 @@ const NAV_ITEMS: ReadonlyArray<NavSpec> = [
   { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
   { href: "/inbox", label: "Inbox", iconName: "inbox" },
   { href: "/memos", label: "History", iconName: "history" },
+  { href: "/notebooks", label: "本地笔记本", iconName: "book" },
   { href: "/insights", label: "Insights", iconName: "chart" },
 ];
 

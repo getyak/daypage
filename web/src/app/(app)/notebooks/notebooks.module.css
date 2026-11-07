@@ -1,0 +1,18 @@
+.page { max-width: 1100px; width: 100%; margin: 0 auto; padding: 28px 24px 72px; color: var(--fg-primary); }
+.page h1 { font-size: 1.7rem; margin: 0 0 10px; }
+.page h2 { font-size: 1.2rem; margin: 0 0 12px; }
+.page p { line-height: 1.7; }
+.muted { color: var(--fg-muted); font-size: .9rem; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+.card { padding: 20px; margin-top: 20px; border: 1px solid var(--border-default, #d9d9d9); border-radius: 12px; min-width: 0; overflow-wrap: anywhere; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+.status { min-height: 1.6em; margin-top: 16px; line-height: 1.6; }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font: inherit; line-height: 1.8; margin: 12px 0; max-width: 100%; }
+.metadata { white-space: pre-wrap; overflow-wrap: anywhere; font: .8rem ui-monospace, monospace; }
+.list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.media { display: block; max-width: 100%; max-height: 60vh; margin-top: 12px; }
+.file { border-top: 1px solid var(--border-default, #d9d9d9); padding: 10px 0; }
+.file button { margin: 8px 8px 0 0; }
+.warning { border-left: 3px solid var(--fg-muted); padding-left: 12px; }
+.page button:focus-visible, .page input:focus-visible, .page summary:focus-visible { outline: 2px solid var(--fg-primary); outline-offset: 4px; }
+@media (max-width: 640px) { .page { padding: 20px 16px 48px; } .card { padding: 16px; } }
