@@ -32,7 +32,7 @@ private final class ManualReviewModel: ObservableObject {
       candidates = entries.filter { period.contains($0.memo.created) }
         .sorted { $0.memo.created < $1.memo.created }
       selected = candidates.count <= 12 ? Set(candidates.map(\.id)) : []
-      self.pages = pages; session = ManualReviewSession(store: notebook.store); error = nil
+      self.pages = pages; session = try notebook.makeManualReviewSession(); error = nil
     } catch { if epoch == current { self.error = Self.message(error) } }
   }
   func toggle(_ id: String) {
@@ -51,9 +51,12 @@ private final class ManualReviewModel: ObservableObject {
       let snapshot = try ManualReviewSnapshot.make(period: period, entries: candidates, selectedIDs: selected)
       let config = notebook.configuration
       _ = try config.endpoint
-      let key = config.usesAPIKey ? try KeychainSecretStore.read(origin: config.origin) : ""
+      let key = try notebook.manualReviewAPIKey(configuration: config)
       let current = UUID(); epoch = current; generating = true; error = nil; result = nil
       task = Task {
+        #if DEBUG
+          defer { notebook.reviewQARequestFinished() }
+        #endif
         defer { if epoch == current { generating = false; task = nil } }
         do {
           let draft = try await session.generate(snapshot: snapshot, configuration: config, apiKey: key, enabled: true)
@@ -95,10 +98,15 @@ struct ManualReviewsView: View {
   var body: some View {
     NavigationStack {
       Form {
+        #if DEBUG
+          if notebook.isReviewExchangeQA { reviewQAControls }
+        #endif
         Section("Review range") {
           Picker("Period", selection: $kind) { Text("Day").tag(ReviewPeriod.Kind.day); Text("Week").tag(ReviewPeriod.Kind.week) }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier("manual-review-period")
           DatePicker("Date", selection: $date, displayedComponents: .date)
+            .accessibilityIdentifier("manual-review-date")
           if let period = review.period {
             Text(period.title).font(.headline)
             Text(period.timeZoneID).font(.caption).foregroundStyle(.secondary)
@@ -122,6 +130,7 @@ struct ManualReviewsView: View {
                 }
               }.frame(minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain).disabled(review.generating || review.saving)
+              .accessibilityIdentifier("manual-review-source-" + entry.memo.id.uuidString)
               DisclosureGroup("Read source text") { Text(entry.memo.body).textSelection(.enabled) }
                 .disabled(review.generating || review.saving)
             }
@@ -131,11 +140,13 @@ struct ManualReviewsView: View {
         }
         Section {
           Toggle("Allow this AI request", isOn: Binding(get: { review.allowsAI }, set: { review.setConsent($0) }))
+            .accessibilityIdentifier("manual-review-consent")
           Text("Generate sends the selected text to the AI service you configured. No background generation is enabled.")
             .font(.footnote).foregroundStyle(.secondary)
           if review.generating {
             ProgressView("Generating review…")
             Button("Cancel generation") { review.invalidate() }
+              .accessibilityIdentifier("cancel-manual-review")
           } else {
             Button("Generate review") { review.generate(notebook: notebook) }
               .disabled(!review.allowsAI || review.selected.isEmpty || review.loading || review.saving)
@@ -146,6 +157,7 @@ struct ManualReviewsView: View {
         if review.result != nil {
           Section("Review before saving") {
             TextEditor(text: $review.body).frame(minHeight: 240)
+              .accessibilityIdentifier("manual-review-editor")
             Text("AI output may be incomplete. Check it against the selected sources before saving.")
               .font(.footnote).foregroundStyle(.secondary)
             Button("Save review page") { review.save() }.disabled(review.saving || !review.allowsAI)
@@ -161,19 +173,44 @@ struct ManualReviewsView: View {
                 Text(record.page.created, style: .date).font(.caption).foregroundStyle(.secondary)
               }
             }
+            .accessibilityIdentifier("saved-manual-review-" + record.page.period.kind.rawValue + "-" + record.page.id.uuidString)
           }
           Text("Review pages are local files. Export them explicitly to share them with another app or device.")
             .font(.footnote).foregroundStyle(.secondary)
         }
       }
+      .accessibilityIdentifier("manual-review-form")
       .navigationTitle("Day and week reviews").navigationBarTitleDisplayMode(.inline)
-      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { review.invalidate(); dismiss() }.disabled(review.saving) } }
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { review.invalidate(); dismiss() }.disabled(review.saving).accessibilityIdentifier("close-manual-reviews") } }
       .task(id: "\(kind.rawValue)-\(date.timeIntervalSince1970)") { await reload() }
       .onChange(of: notebook.configuration) { _ in review.invalidate() }
-      .onDisappear { review.invalidate() }
+      .onDisappear {
+        review.invalidate()
+        #if DEBUG
+          notebook.releaseReviewQALateReply()
+        #endif
+      }
     }
   }
   private func reload() async { await review.load(notebook: notebook, kind: kind, date: date) }
+  #if DEBUG
+    private var reviewQAControls: some View {
+      Section("GET442 isolated QA") {
+        Text("Local injected generator; counts are review-view requests. The imported review is seeded separately. No network or provider acceptance.")
+        Text("calls=\(notebook.reviewQACalls) completed=\(notebook.reviewQACompletions) settled=\(notebook.reviewQASettled)")
+          .accessibilityIdentifier("qa-review-counts")
+        Text("period=\(review.period?.kind.rawValue ?? "none") loading=\(review.loading) sources=\(review.candidates.count) selected=\(review.selected.count) consent=\(review.allowsAI) result=\(review.result != nil)")
+          .accessibilityIdentifier("qa-review-state")
+        Toggle("Hold next injected reply", isOn: $notebook.reviewQAHoldNext)
+          .accessibilityIdentifier("qa-review-hold")
+        Button("Release late injected reply") { notebook.releaseReviewQALateReply() }
+          .accessibilityIdentifier("qa-review-release")
+        Button("Read actual stored bytes") { Task { await notebook.refreshReviewQAProof() } }
+          .accessibilityIdentifier("qa-review-readback")
+        Text("readbacks=\(notebook.reviewQAReadbacks) " + notebook.reviewQAProof).accessibilityIdentifier("qa-review-proof")
+      }
+    }
+  #endif
 }
 
 private struct ManualReviewPageView: View {
@@ -185,6 +222,7 @@ private struct ManualReviewPageView: View {
     List {
       Section {
         Text(record.page.body).textSelection(.enabled).font(NotebookTheme.reading(17))
+          .accessibilityIdentifier("saved-manual-review-body")
         Text(record.page.period.timeZoneID).font(.caption).foregroundStyle(.secondary)
       }
       Section("Sources") {

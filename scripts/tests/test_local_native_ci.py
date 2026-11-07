@@ -24,6 +24,7 @@ import json, os, pathlib, plistlib, sys
 tool = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
 mode = os.environ["NATIVE_CI_MOCK_MODE"]
+suite = os.environ.get("DAYPAGE_NATIVE_UI_SUITE", "card_tools_speech")
 state = pathlib.Path(os.environ["NATIVE_CI_MOCK_STATE"])
 
 def event(name):
@@ -86,7 +87,9 @@ elif tool == "xcrun":
     elif args[:4] == ["xcresulttool", "get", "test-results", "summary"]:
         negative = "negative-keychain" in option("--path")
         failed = negative_failed if negative else signed_failed
-        total = 2 if negative else 16
+        total = 2 if negative else (5 if suite == "manual_review_exchange" else 16)
+        if not negative and mode == "manual_partial_summary":
+            total = 4
         print(json.dumps({
             "result": "Failed" if failed else "Passed",
             "failedTests": int(failed), "skippedTests": 0,
@@ -107,6 +110,12 @@ elif tool == "xcrun":
             names = ["chat-dedicated-model-page", "chat-compact-composer",
                      "chat-saved-history", "chat-character-library",
                      "chat-streamed-markdown", "chat-accessibility-size"]
+            if suite == "manual_review_exchange":
+                names = ["GET442-day-relaunched-page", "GET442-week-saved-independent-page",
+                         "GET442-cancelled-late-reply-fenced", "GET442-import-preview-before-confirmation",
+                         "GET442-confirmed-new-namespace-readback", "GET442-pending-copy-explicitly-discarded"]
+                if mode == "missing_manual_attachment":
+                    names.pop()
         (output / "manifest.json").write_text(json.dumps([{
             "attachments": [{"suggestedHumanReadableName": name} for name in names]
         }]))
@@ -189,7 +198,7 @@ else:
 
 
 class NativeCIOrchestrationTests(unittest.TestCase):
-    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted"):
+    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted", suite="card_tools_speech"):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -201,7 +210,8 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         shutil.copy2(ROOT / "scripts/ci/select_simulator.py", ci)
         sources = root / "DayPageLocalUITests"
         sources.mkdir()
-        for name in ("CardToolsSpeechUITests.swift", "ChatExperienceUITests.swift"):
+        selected_sources = ("ManualReviewExchangeUITests.swift",) if suite == "manual_review_exchange" else ("CardToolsSpeechUITests.swift", "ChatExperienceUITests.swift")
+        for name in selected_sources:
             shutil.copy2(ROOT / "DayPageLocalUITests" / name, sources)
         state = root / "state"
         state.mkdir()
@@ -227,7 +237,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             "CI": "true", "GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "host-mock",
             "RUNNER_ARCH": runner_arch, "RUNNER_ENVIRONMENT": runner_environment,
             "RUNNER_TEMP": str(runner), "DAYPAGE_NATIVE_CI_OUTPUT_DIR": str(evidence),
-            "DAYPAGE_NATIVE_UI_SUITE": "card_tools_speech",
+            "DAYPAGE_NATIVE_UI_SUITE": suite,
             "NATIVE_CI_MOCK_MODE": mode, "NATIVE_CI_MOCK_STATE": str(state),
         }
         process = subprocess.Popen(
@@ -411,6 +421,38 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertIn("unsigned-build", events)
         self.assertNotIn("signed-build", events)
         self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_manual_scope_requires_every_declared_case_and_all_synthetic_readback_attachments(self):
+        code, output, evidence, events = self.run_fixture("success", suite="manual_review_exchange")
+        self.assertEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        receipt = json.loads((evidence / "native-acceptance.json").read_text())
+        self.assertEqual(receipt["suite"], "manual_review_exchange")
+        self.assertEqual(receipt["positive"]["totalTestCount"], 5)
+        self.assertEqual(receipt["expectedMinimumTests"], 5)
+        self.assertFalse(receipt["negative"]["executed"])
+        self.assertEqual(len(receipt["requiredManualReviewExchangeAttachments"]), 6)
+        self.assertNotIn("unsigned-build", events)
+        self.assertNotIn("negative-tests", events)
+
+    def test_manual_partial_suite_cannot_claim_acceptance(self):
+        code, output, evidence, events = self.run_fixture("manual_partial_summary", suite="manual_review_exchange")
+        self.assertNotEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_manual_missing_discard_evidence_cannot_claim_acceptance(self):
+        code, output, evidence, events = self.run_fixture("missing_manual_attachment", suite="manual_review_exchange")
+        self.assertNotEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_manual_xctest_failure_is_preserved_without_unsigned_scope(self):
+        code, output, evidence, events = self.run_fixture("signed_failure", suite="manual_review_exchange")
+        self.assertEqual(code, 66, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+        self.assertNotIn("negative-tests", events)
 
 
 if __name__ == "__main__":
