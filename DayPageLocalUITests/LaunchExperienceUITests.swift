@@ -107,7 +107,7 @@ final class LaunchExperienceUITests: XCTestCase {
     app.buttons["sidebar-archive"].tap()
     let summary = app.staticTexts["archive-summary"]
     XCTAssertTrue(summary.waitForExistence(timeout: 20))
-    // Creating 360 actual files is fixture preparation, not notebook read
+    // Preparing 360 real notes in 120 canonical day files is fixture setup, not notebook read
     // latency. Keep the count contract, then verify a fresh read separately.
     let seeded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS '360 notes'"), object: summary)
     let seedResult = XCTWaiter.wait(for: [seeded], timeout: 120)

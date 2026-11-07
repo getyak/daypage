@@ -143,8 +143,11 @@ final class NotebookModel: ObservableObject {
           let calendar = Calendar(identifier: .gregorian)
           for (index, offset) in [0, 1, 2, 7, 35, 70, 100, 140].enumerated() {
             let date = calendar.date(byAdding: .day, value: -offset, to: Date()) ?? Date()
+            let extra = ProcessInfo.processInfo.arguments.contains("-qaLongDiaryHistory")
+              ? "\n\n" + String(repeating: "A synthetic memory with room to read and revisit. ", count: 24)
+              : ""
             try await store.append(Memo(created: date,
-              body: "Diary history \(index). A small moment from this day. #history"))
+              body: "Diary history \(index). A small moment from this day. #history" + extra))
           }
           if ProcessInfo.processInfo.arguments.contains("-qaSeedDiaryPins") {
             for index in 0..<4 {
@@ -158,12 +161,7 @@ final class NotebookModel: ObservableObject {
           ProcessInfo.processInfo.arguments.contains("-qaSeedLargeNotebook"),
           try await store.entries().isEmpty
         {
-          let calendar = Calendar(identifier: .gregorian)
-          for index in 0..<360 {
-            let day = calendar.date(byAdding: .day, value: -(index / 3), to: Date()) ?? Date()
-            let time = calendar.date(bySettingHour: 9 + (index % 3) * 4, minute: 10, second: 0, of: day) ?? day
-            try await store.append(Memo(created: time, body: "Synthetic history \(index). A moment to revisit. #history"))
-          }
+          try await seedLargeQANotebook()
         }
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedNotebook"),
           try await store.entries().isEmpty
@@ -200,6 +198,71 @@ final class NotebookModel: ObservableObject {
     await refresh()
     isLoading = false
   }
+
+  #if DEBUG
+    /// Fixture preparation only. The real app keeps using NotebookStore.append.
+    private func seedLargeQANotebook() async throws {
+      let expectedRoot = URL.documentsDirectory.resolvingSymlinksInPath()
+        .appendingPathComponent("qa-GET-326", isDirectory: true)
+        .appendingPathComponent("vault", isDirectory: true)
+      let args = ProcessInfo.processInfo.arguments
+      guard Self.isQA, args.contains("-qaSeedNotebook"), args.contains("-qaSeedLargeNotebook"),
+        root.resolvingSymlinksInPath().standardizedFileURL == expectedRoot.standardizedFileURL,
+        try await store.entries().isEmpty
+      else { throw NotebookError.invalidPath }
+
+      let calendar = Calendar(identifier: .gregorian)
+      let anchor = Date()
+      var days: [String: [String]] = [:]
+      var identities = Set<UUID>()
+      for index in 0..<360 {
+        guard let day = calendar.date(byAdding: .day, value: -(index / 3), to: anchor),
+          let time = calendar.date(bySettingHour: 9 + (index % 3) * 4, minute: 10, second: 0, of: day)
+        else { throw NotebookError.conflict }
+        let memo = Memo(created: time,
+          body: "Synthetic history \(index). A moment to revisit. #history")
+        identities.insert(memo.id)
+        days[NotebookDate.day(time), default: []].append(memo.toMarkdown())
+      }
+      guard days.count == 120, identities.count == 360 else { throw NotebookError.conflict }
+
+      let fm = FileManager.default
+      let raw = root.appendingPathComponent("raw", isDirectory: true)
+      if fm.fileExists(atPath: raw.path) {
+        let values = try raw.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true
+        else { throw NotebookError.invalidPath }
+      }
+      let staging = root.appendingPathComponent(".qa-large-seed-" + UUID().uuidString,
+        isDirectory: true)
+      try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+      // This helper owns only this unique staging folder. On failure, keep any
+      // published QA files as evidence; the explicit QA reset owns their removal.
+      defer { try? fm.removeItem(at: staging) }
+      for day in days.keys.sorted() {
+        try Task.checkCancellation()
+        guard let blocks = days[day], blocks.count == 3 else { throw NotebookError.conflict }
+        let target = raw.appendingPathComponent(day + ".md")
+        guard !fm.fileExists(atPath: target.path) else { throw NotebookError.conflict }
+        let content = blocks.joined(separator: "\n\n<!-- daypage-memo-separator -->\n\n")
+        try Data(content.utf8).write(to: staging.appendingPathComponent(day + ".md"), options: .atomic)
+      }
+      try fm.createDirectory(at: raw, withIntermediateDirectories: true)
+      for day in days.keys.sorted() {
+        try Task.checkCancellation()
+        // moveItem rejects an existing destination, including one created after
+        // the preflight. No ordinary Vault writer or existing file is replaced.
+        try fm.moveItem(at: staging.appendingPathComponent(day + ".md"),
+          to: raw.appendingPathComponent(day + ".md"))
+      }
+      let verified = try await store.entries()
+      try Task.checkCancellation()
+      guard verified.count == 360, Set(verified.map(\.day)).count == 120,
+        verified.allSatisfy({ $0.namespace.isEmpty }),
+        Set(verified.map { $0.memo.id }) == identities
+      else { throw NotebookError.conflict }
+    }
+  #endif
 
   func refresh() async {
     do {

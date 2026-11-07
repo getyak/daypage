@@ -95,7 +95,18 @@ final class LocalNotebookUITests: XCTestCase {
     }
     discard.tap()
     let confirm = app.buttons["confirm-discard-shared-image"]
-    XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+    let ready = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == true AND hittable == true"), object: confirm)
+    let result = XCTWaiter.wait(for: [ready], timeout: 5)
+    if result != .completed {
+      screenshot("local-screenshot-discard-not-ready")
+      let hierarchy = XCTAttachment(string: app.debugDescription)
+      hierarchy.name = "local-screenshot-discard-not-ready-accessibility"
+      hierarchy.lifetime = .keepAlways
+      add(hierarchy)
+    }
+    XCTAssertEqual(result, .completed)
+    XCTAssertTrue(confirm.exists)
     XCTAssertTrue(confirm.isHittable)
     confirm.tap()
     let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.buttons["review-shared-images"])

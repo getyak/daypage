@@ -10,22 +10,38 @@ final class DiaryUITests: XCTestCase {
   }
 
   func testHomeScrollsAcrossDaysAndReturnsToToday() {
+    app.launchArguments += ["-qaLongDiaryHistory"]
     launchDiary()
+    let today = note("Diary history 0.")
+    let todayStart = today.frame
     let earlier = note("Diary history 4.")
     let feed = element("today-timeline")
-    reveal(earlier, in: feed)
+    XCTAssertTrue(today.isHittable)
+    XCTAssertTrue(feed.frame.intersection(app.frame).intersects(todayStart))
+    reveal(earlier, in: feed, minimumScrolls: 1)
     XCTAssertTrue(earlier.isHittable, "Previous days must be reachable directly on Home")
+    let backToday = app.buttons["diary-back-today"]
+    requireReady("diary-left-today") {
+      let viewport = feed.frame.intersection(self.app.frame)
+      let leftToday = !today.exists
+        || (today.frame.minY < todayStart.minY - 48 && !today.frame.intersects(viewport))
+      return leftToday && backToday.exists && backToday.isHittable
+    }
     let todayHeading = element("diary-heading-" + day(0))
     XCTAssertFalse(todayHeading.exists && todayHeading.frame.intersects(feed.frame))
-    XCTAssertTrue(app.buttons["diary-back-today"].waitForExistence(timeout: 5))
-    XCTAssertTrue(app.buttons["diary-back-today"].isHittable)
+    XCTAssertTrue(backToday.exists)
+    XCTAssertTrue(backToday.isHittable)
     capture("diary-earlier-days")
     earlier.tap()
     XCTAssertTrue(app.staticTexts["note-original"].waitForExistence(timeout: 5))
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertTrue(earlier.isHittable, "Back must retain the historical reading position")
-    app.buttons["diary-back-today"].tap()
-    XCTAssertTrue(note("Diary history 0.").isHittable)
+    backToday.tap()
+    requireReady("diary-returned-to-today") {
+      today.exists && today.isHittable
+        && today.frame.intersects(feed.frame.intersection(self.app.frame))
+    }
+    XCTAssertTrue(today.isHittable)
     XCTAssertTrue(app.buttons["new-note"].isHittable)
     capture("diary-home-today")
   }
@@ -90,9 +106,15 @@ final class DiaryUITests: XCTestCase {
     editor.tap()
     editor.typeText("A fresh thought while revisiting yesterday.")
     app.buttons["save-note"].tap()
+    let saved = note("A fresh thought while revisiting yesterday.")
+    let today = day(0)
+    requireReady("diary-capture-returned-to-today") {
+      self.app.buttons["choose-date"].value as? String == today
+        && saved.exists && saved.isHittable
+    }
     XCTAssertEqual(app.buttons["choose-date"].value as? String, day(0))
-    XCTAssertTrue(note("A fresh thought while revisiting yesterday.").waitForExistence(timeout: 5))
-    XCTAssertTrue(note("A fresh thought while revisiting yesterday.").isHittable)
+    XCTAssertTrue(saved.exists)
+    XCTAssertTrue(saved.isHittable)
     reveal(note("Diary history 1."), in: element("today-timeline"))
     XCTAssertTrue(note("Diary history 1.").isHittable)
   }
@@ -287,10 +309,12 @@ final class DiaryUITests: XCTestCase {
     app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-' AND label CONTAINS %@", text)).firstMatch
   }
 
-  private func reveal(_ control: XCUIElement, in container: XCUIElement, newer: Bool = false) {
-    for _ in 0..<16 {
+  private func reveal(_ control: XCUIElement, in container: XCUIElement, newer: Bool = false,
+                      minimumScrolls: Int = 0) {
+    for scrolls in 0..<16 {
       let visible = container.frame.intersection(app.frame)
-      if control.exists && control.isHittable && visible.contains(control.frame) { return }
+      if scrolls >= minimumScrolls, control.exists && control.isHittable,
+        visible.contains(control.frame) { return }
       // A full-screen flick can skip a nearby dated section. Move a bounded
       // portion of the actual container, then inspect the target again.
       let origin = container.coordinate(withNormalizedOffset: .zero)
@@ -299,6 +323,9 @@ final class DiaryUITests: XCTestCase {
       let low = visible.minY + visible.height * 0.65 - container.frame.minY
       origin.withOffset(CGVector(dx: x, dy: newer ? high : low))
         .press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: x, dy: newer ? low : high)))
+    }
+    if !control.isHittable || !container.frame.intersection(app.frame).contains(control.frame) {
+      captureDiagnostics("diary-reveal-not-ready")
     }
     XCTAssertTrue(control.isHittable)
     XCTAssertTrue(container.frame.intersection(app.frame).contains(control.frame))
@@ -328,5 +355,13 @@ final class DiaryUITests: XCTestCase {
     hierarchy.name = name + "-accessibility"
     hierarchy.lifetime = .keepAlways
     add(hierarchy)
+  }
+
+  private func requireReady(_ name: String, condition: @escaping () -> Bool) {
+    let ready = XCTNSPredicateExpectation(
+      predicate: NSPredicate { _, _ in condition() }, object: nil)
+    let result = XCTWaiter.wait(for: [ready], timeout: 5)
+    if result != .completed { captureDiagnostics(name) }
+    XCTAssertEqual(result, .completed, name)
   }
 }
