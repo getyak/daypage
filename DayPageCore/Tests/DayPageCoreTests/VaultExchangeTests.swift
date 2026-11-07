@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 @testable import DayPageCore
 
 final class VaultExchangeTests: XCTestCase {
@@ -243,5 +244,139 @@ final class VaultExchangeTests: XCTestCase {
     try duplicate.toMarkdown().write(to: root.appendingPathComponent("raw/2026-11-08.md"), atomically: true, encoding: .utf8)
     do { _ = try await store.exchangeSnapshot(); XCTFail() } catch VaultExchangeError.invalid { }
     XCTAssertThrowsError(try ReplicaNamespace.validateAliases(["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]))
+  }
+
+  func testExchangeRejectsRawFileBeforeParsingWithoutChangingOrdinaryReads() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let store = NotebookStore(root: root)
+    try await store.append(Memo(created: date(), body: String(repeating: "Synthetic bounded source. ", count: 32)))
+    do {
+      _ = try await store.exchangeEntries(readLimits: ExchangeReadLimits(rawFileBytes: 64))
+      XCTFail("An oversized legacy raw file must be rejected before decoding")
+    } catch VaultExchangeError.limit { }
+    let original = try await store.entries()
+    XCTAssertEqual(original.count, 1, "Ordinary notebook reading retains its existing policy")
+  }
+
+  func testExchangeRawBudgetIsCumulativeAcrossDateFiles() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let store = NotebookStore(root: root)
+    try await store.append(Memo(created: date(), body: "First synthetic day"))
+    try await store.append(Memo(created: date().addingTimeInterval(86400), body: "Second synthetic day"))
+    let raw = root.appendingPathComponent("raw")
+    let sizes = try fm.contentsOfDirectory(at: raw, includingPropertiesForKeys: [.fileSizeKey])
+      .map { try $0.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0 }
+    let budget = try XCTUnwrap(sizes.max())
+    XCTAssertGreaterThan(sizes.reduce(0, +), budget)
+    do {
+      _ = try await store.exchangeSnapshot(readLimits: ExchangeReadLimits(rawBytes: budget))
+      XCTFail("Individually small files cannot exceed the combined raw budget")
+    } catch VaultExchangeError.limit { }
+  }
+
+  func testExchangeCountsModernAndLegacyRecordsIncrementally() async throws {
+    for separator in ["\n\n<!-- daypage-memo-separator -->\n\n", "\n\n---\n\n"] {
+      let root = folder(); defer { try? fm.removeItem(at: root) }
+      let raw = root.appendingPathComponent("raw")
+      try fm.createDirectory(at: raw, withIntermediateDirectories: true)
+      let notes = [Memo(created: try date(), body: "One"), Memo(created: try date(), body: "Two")]
+      try notes.map { $0.toMarkdown() }.joined(separator: separator)
+        .write(to: raw.appendingPathComponent("2026-11-07.md"), atomically: true, encoding: .utf8)
+      let store = NotebookStore(root: root)
+      do {
+        _ = try await store.exchangeEntries(readLimits: ExchangeReadLimits(notes: 1))
+        XCTFail("Both canonical separators must enforce the record budget")
+      } catch VaultExchangeError.limit { }
+      let entries = try await store.exchangeEntries()
+      XCTAssertEqual(entries.count, 2)
+      XCTAssertEqual(Set(entries.map(\.revision)), Set(notes.map { NoteActionIdentity.digest($0.toMarkdown()) }))
+    }
+  }
+
+  func testExchangeKeepsLegacyHorizontalRuleInsideASingleMemo() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let store = NotebookStore(root: root)
+    try await store.append(Memo(created: date(), body: "Before a rule\n\n---\n\nAfter a rule"))
+    let ordinary = try await store.entries(), bounded = try await store.exchangeEntries()
+    XCTAssertEqual(bounded, ordinary)
+    XCTAssertEqual(bounded.map(\.revision), ordinary.map(\.revision))
+    _ = try await store.exchangeSnapshot()
+  }
+
+  func testOneDayExchangeDoesNotCountOtherInventoryAgainstSelectedNoteLimit() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let raw = root.appendingPathComponent("raw")
+    try fm.createDirectory(at: raw, withIntermediateDirectories: true)
+    let selected = Memo(created: try date(), body: "Selected synthetic day")
+    try selected.toMarkdown().write(to: raw.appendingPathComponent("2026-11-07.md"), atomically: true, encoding: .utf8)
+    let otherDay = try date().addingTimeInterval(86400)
+    let inventory = (0..<501).map { Memo(created: otherDay, body: "Other synthetic day \($0)").toMarkdown() }
+    try inventory.joined(separator: "\n\n<!-- daypage-memo-separator -->\n\n")
+      .write(to: raw.appendingPathComponent("2026-11-08.md"), atomically: true, encoding: .utf8)
+    let store = NotebookStore(root: root)
+    let period = try ReviewPeriod(kind: .day, anchor: date(), timeZone: .gmt)
+    let entries = try await store.exchangeEntries(period: period)
+    XCTAssertEqual(entries.map(\.memo.id), [selected.id])
+    let snapshot = try await store.exchangeSnapshot(selectedIDs: Set(entries.map(\.id)))
+    XCTAssertEqual(snapshot.records.notes.count, 1)
+    XCTAssertEqual(Set(snapshot.files.keys), ["raw/2026-11-07.md", "records.json"])
+  }
+
+  func testLegacyImportRejectsFIFOWithoutReadingOrPublishingIt() async throws {
+    let source = folder(), target = folder()
+    defer { for path in [source, target] { try? fm.removeItem(at: path) } }
+    let raw = source.appendingPathComponent("raw")
+    try fm.createDirectory(at: raw, withIntermediateDirectories: true)
+    XCTAssertEqual(mkfifo(raw.appendingPathComponent("2026-11-07.md").path, mode_t(0o600)), 0)
+    let coordinator = VaultExchangeImport(root: target)
+    do { _ = try await coordinator.prepare(from: source); XCTFail("A FIFO is never a canonical raw file") }
+    catch VaultExchangeError.limit { }
+    let jobs = try await coordinator.pendingImports()
+    XCTAssertTrue(jobs.isEmpty)
+    XCTAssertFalse(fm.fileExists(atPath: target.appendingPathComponent("imports").path))
+  }
+
+  func testExchangeDirectoryEnumerationHasABoundedEntryBudget() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let store = try await synthetic(root)
+    try Data().write(to: root.appendingPathComponent("raw/ignored-one.txt"))
+    try Data().write(to: root.appendingPathComponent("raw/ignored-two.txt"))
+    do {
+      _ = try await store.exchangeEntries(readLimits: ExchangeReadLimits(directoryEntries: 2))
+      XCTFail("Ignored entries must not make folder enumeration unbounded")
+    } catch VaultExchangeError.limit { }
+  }
+
+  func testCancelledExchangeRefusesLegacyReadBeforeAnyPendingCopy() async throws {
+    let source = folder(), target = folder()
+    defer { for path in [source, target] { try? fm.removeItem(at: path) } }
+    _ = try await synthetic(source)
+    let coordinator = VaultExchangeImport(root: target)
+    let operation = Task {
+      withUnsafeCurrentTask { $0?.cancel() }
+      return try await coordinator.prepare(from: source)
+    }
+    do { _ = try await operation.value; XCTFail("Cancellation must be checked before source reading") }
+    catch is CancellationError { }
+    XCTAssertFalse(fm.fileExists(atPath: target.appendingPathComponent(".daypage/exchange-imports-v1").path))
+  }
+
+  func testExchangeReviewBudgetRejectsBeforeCollectingAllSavedPages() async throws {
+    let root = folder(); defer { try? fm.removeItem(at: root) }
+    let store = try await synthetic(root), entries = try await store.entries()
+    let period = try ReviewPeriod(kind: .day, anchor: date(), timeZone: .gmt)
+    let snapshot = try ManualReviewSnapshot.make(period: period, entries: entries, selectedIDs: Set(entries.map(\.id)))
+    let session = ManualReviewSession(store: store) { _, _, _ in "Synthetic review" }
+    for _ in 0..<2 {
+      let draft = try await session.generate(snapshot: snapshot,
+        configuration: AIConfiguration(baseURL: "https://ai.example.invalid", model: "synthetic"), apiKey: "", enabled: true)
+      _ = try await session.save(draft, editedBody: draft.body)
+    }
+    do {
+      _ = try await store.exchangeSnapshot(readLimits: ExchangeReadLimits(reviews: 1))
+      XCTFail("The exchange review budget applies before loading every page")
+    } catch VaultExchangeError.limit { }
+    let pages = try await store.manualReviews()
+    XCTAssertEqual(pages.count, 2)
   }
 }

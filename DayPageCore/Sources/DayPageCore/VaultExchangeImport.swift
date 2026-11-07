@@ -30,6 +30,7 @@ public actor VaultExchangeImport {
   private func destination(_ id: UUID) -> URL { root.appendingPathComponent("imports/" + id.uuidString) }
 
   public func prepare(from source: URL) async throws -> PendingVaultImport {
+    try Task.checkCancellation()
     try ExchangeIO.safe(source, within: source)
     let sourcePath = NotebookPath.canonicalPath(source), target = NotebookPath.canonicalPath(root)
     guard sourcePath != target, !sourcePath.hasPrefix(target + "/") else { throw VaultExchangeError.invalid }
@@ -72,6 +73,7 @@ public actor VaultExchangeImport {
   }
 
   public func resume(_ pending: PendingVaultImport, from source: URL) async throws -> PendingVaultImport {
+    try Task.checkCancellation()
     let scoped = source.startAccessingSecurityScopedResource()
     defer { if scoped { source.stopAccessingSecurityScopedResource() } }
     let sourcePath = NotebookPath.canonicalPath(source), target = NotebookPath.canonicalPath(root)
@@ -268,6 +270,8 @@ enum ExchangeIO {
     }
   }
   static func read(_ url: URL, within root: URL, maximum: Int) throws -> Data {
+    try Task.checkCancellation()
+    guard maximum >= 0 else { throw VaultExchangeError.limit }
     try safe(url, within: root)
     let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
     guard descriptor >= 0 else { throw VaultExchangeError.invalid }
@@ -276,9 +280,35 @@ enum ExchangeIO {
     var info = stat()
     guard fstat(descriptor, &info) == 0, (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
       info.st_size <= maximum else { throw VaultExchangeError.limit }
-    let data = try handle.read(upToCount: maximum + 1) ?? Data()
-    guard data.count <= maximum else { throw VaultExchangeError.limit }
+    var data = Data()
+    while true {
+      try Task.checkCancellation()
+      let chunk = try handle.read(upToCount: min(64 * 1024, maximum - data.count + 1)) ?? Data()
+      if chunk.isEmpty { break }
+      guard chunk.count <= maximum - data.count else { throw VaultExchangeError.limit }
+      data.append(chunk)
+    }
     return data
+  }
+  /// Enumerate one level incrementally; contentsOfDirectory would first allocate
+  /// an arbitrarily large URL array even when almost all entries are ignored.
+  static func children(_ directory: URL, within root: URL, maximum: Int) throws -> [URL] {
+    try Task.checkCancellation()
+    guard maximum >= 0 else { throw VaultExchangeError.limit }
+    try safe(directory, within: root)
+    guard try directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { throw VaultExchangeError.invalid }
+    var failure: Error?
+    guard let enumerator = FileManager.default.enumerator(at: directory,
+      includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey], options: [.skipsSubdirectoryDescendants],
+      errorHandler: { _, error in failure = error; return false }) else { throw VaultExchangeError.invalid }
+    var children: [URL] = []
+    for case let child as URL in enumerator {
+      try Task.checkCancellation()
+      guard children.count < maximum else { throw VaultExchangeError.limit }
+      children.append(child)
+    }
+    if let failure { throw failure }
+    return children
   }
   static func loadV1(_ source: URL) throws -> VaultExchangeSnapshot {
     try safe(source, within: source)

@@ -7,36 +7,54 @@ private final class VaultExchangeModel: ObservableObject {
   @Published var pending: [PendingVaultImport] = []
   @Published var selected: PendingVaultImport?
   @Published var records: ExchangeRecords?
-  @Published var outgoing: VaultExchangeSnapshot?
+  @Published private(set) var outgoing: VaultExchangeExportPreview?
   @Published var busy = false
   @Published var message: String?
   private var coordinator: VaultExchangeImport?
   private var task: Task<Void, Never>?
   private var epoch = UUID()
+  private var exportEpoch = UUID()
+  private var exportTask: Task<Void, Never>?
+  private var exportSession: VaultExchangeExportSession?
+  private var exportingSnapshot = false
+  private var exportSelection: VaultExchangeExportSelection?
 
   func load(notebook: NotebookModel) async {
     if coordinator == nil { coordinator = VaultExchangeImport(root: notebook.root) }
+    if exportSession == nil { exportSession = VaultExchangeExportSession(store: notebook.store) }
     do { pending = try await coordinator?.pendingImports() ?? [] }
     catch { message = Self.message(error) }
   }
   func prepareExport(notebook: NotebookModel, scope: String, date: Date) {
     guard !busy else { return }
-    busy = true; message = nil; outgoing = nil
-    let current = UUID(); epoch = current
-    task = Task {
-      defer { if epoch == current { busy = false; task = nil } }
+    invalidateExport()
+    if exportSession == nil { exportSession = VaultExchangeExportSession(store: notebook.store) }
+    guard let exportSession, let selection = try? VaultExchangeExportSelection(scope: scope, date: date, timeZone: .current) else { return }
+    let ticket = exportSession.begin(selection), current = UUID()
+    exportEpoch = current; exportSelection = selection
+    busy = true; exportingSnapshot = true; message = nil
+    exportTask = Task {
+      defer { if exportEpoch == current { busy = false; exportingSnapshot = false; exportTask = nil } }
       do {
-        let ids: Set<String>?
-        if scope == "all" { ids = nil }
-        else {
-          let period = try ReviewPeriod(kind: scope == "day" ? .day : .week, anchor: date, timeZone: .current)
-          ids = Set(try await notebook.store.entries().filter { period.contains($0.memo.created) }.map(\.id))
-        }
-        let snapshot = try await notebook.store.exchangeSnapshot(selectedIDs: ids)
+        let preview = try await exportSession.prepare(ticket)
         try Task.checkCancellation()
-        guard epoch == current else { return }
-        outgoing = snapshot
-      } catch { if epoch == current { message = Self.message(error) } }
+        guard exportEpoch == current, exportSelection == selection,
+          exportSession.canExport(preview, selection: selection) else { return }
+        outgoing = preview
+      } catch { if exportEpoch == current { message = Self.message(error) } }
+    }
+  }
+  func invalidateExport() {
+    exportEpoch = UUID(); exportTask?.cancel(); exportTask = nil
+    exportSession?.invalidate(); exportSelection = nil; outgoing = nil
+    if exportingSnapshot { busy = false; exportingSnapshot = false }
+  }
+  func exportDocument(scope: String, date: Date) -> VaultExchangeDocument? {
+    guard let outgoing, let exportSession,
+      let selection = try? VaultExchangeExportSelection(scope: scope, date: date, timeZone: .current),
+      exportSession.canExport(outgoing, selection: selection) else { return nil }
+    return VaultExchangeDocument(outgoing.snapshot) {
+      guard exportSession.isCurrent(outgoing) else { throw VaultExchangeError.changed }
     }
   }
   func choose(_ job: PendingVaultImport) {
@@ -106,7 +124,7 @@ private final class VaultExchangeModel: ObservableObject {
       } catch { if epoch == current { message = Self.message(error) } }
     }
   }
-  func cancel() { epoch = UUID(); task?.cancel(); task = nil; busy = false }
+  func cancel() { invalidateExport(); epoch = UUID(); task?.cancel(); task = nil; busy = false }
   static func message(_ error: Error) -> String {
     if let error = error as? VaultExchangeError { return NSLocalizedString(error.localizedDescription, comment: "") }
     if error is CancellationError { return String(localized: "Exchange stopped. Pending copies remain available to review.") }
@@ -130,20 +148,26 @@ struct VaultExchangeView: View {
     NavigationStack {
       Form {
         Section("Export scope") {
-          Picker("Notes", selection: $scope) {
+          Picker("Notes", selection: Binding(get: { scope }, set: { exchange.invalidateExport(); exporting = false; scope = $0 })) {
             Text("Entire notebook").tag("all"); Text("Day").tag("day"); Text("Week").tag("week")
+          }.disabled(exchange.busy)
+          if scope != "all" {
+            DatePicker("Date", selection: Binding(get: { date }, set: { exchange.invalidateExport(); exporting = false; date = $0 }), displayedComponents: .date)
+              .disabled(exchange.busy)
           }
-          if scope != "all" { DatePicker("Date", selection: $date, displayedComponents: .date) }
           Text("Only selected raw notes, referenced attachments and matching saved review pages are included. Private chat and draft sidecars are excluded.")
             .font(.footnote).foregroundStyle(.secondary)
           Button("Preview export") { exchange.prepareExport(notebook: notebook, scope: scope, date: date) }.disabled(exchange.busy)
             .accessibilityIdentifier("preview-vault-exchange-export")
         }
-        if let outgoing = exchange.outgoing {
+        if let outgoing = exchange.outgoing, exchange.exportDocument(scope: scope, date: date) != nil {
           Section("Export preview") {
-            summary(outgoing.manifest)
-            recordPreview(outgoing.records)
-            Button("Choose export destination") { exporting = true }.disabled(exchange.busy)
+            summary(outgoing.snapshot.manifest)
+            recordPreview(outgoing.snapshot.records)
+            Button("Choose export destination") {
+              guard exchange.exportDocument(scope: scope, date: date) != nil else { return }
+              exporting = true
+            }.disabled(exchange.busy)
               .accessibilityIdentifier("confirm-vault-exchange-export")
           }
         }
@@ -192,14 +216,16 @@ struct VaultExchangeView: View {
         await exchange.load(notebook: notebook)
         if openImporterOnArrival { importing = true }
       }
-      .onChange(of: scope) { _ in exchange.outgoing = nil }
-      .onChange(of: date) { _ in exchange.outgoing = nil }
-      .onDisappear { exchange.cancel() }
+      .onChange(of: scope) { _ in exchange.invalidateExport(); exporting = false }
+      .onChange(of: date) { _ in exchange.invalidateExport(); exporting = false }
+      // A destination chooser can cover this view. Its already-confirmed
+      // preview remains valid until selection changes or the exchange closes.
+      .onDisappear { if !exporting { exchange.cancel() } }
       .fileImporter(isPresented: $importing, allowedContentTypes: [.folder]) { result in
         if case .success(let url) = result { exchange.receive(url, resuming: resumeJob, notebook: notebook) }
         resumeJob = nil
       }
-      .fileExporter(isPresented: $exporting, document: exchange.outgoing.map(VaultExchangeDocument.init), contentType: .folder,
+      .fileExporter(isPresented: $exporting, document: exchange.exportDocument(scope: scope, date: date), contentType: .folder,
         defaultFilename: "DayPage exchange") { result in
         if case .failure = result { exchange.message = String(localized: "The export was not completed. Your notebook is unchanged.") }
       }
@@ -235,9 +261,13 @@ struct VaultExchangeView: View {
 private struct VaultExchangeDocument: FileDocument {
   static var readableContentTypes: [UTType] { [.folder] }
   let snapshot: VaultExchangeSnapshot
-  init(_ snapshot: VaultExchangeSnapshot) { self.snapshot = snapshot }
+  let validateAuthority: @Sendable () throws -> Void
+  init(_ snapshot: VaultExchangeSnapshot, validateAuthority: @escaping @Sendable () throws -> Void) {
+    self.snapshot = snapshot; self.validateAuthority = validateAuthority
+  }
   init(configuration: ReadConfiguration) throws { throw VaultExchangeError.invalid }
   func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+    try validateAuthority()
     try snapshot.validated()
     let root = FileWrapper(directoryWithFileWrappers: [:])
     var files = snapshot.files
@@ -256,6 +286,7 @@ private struct VaultExchangeDocument: FileDocument {
       let file = FileWrapper(regularFileWithContents: bytes); file.preferredFilename = parts.last
       folder.addFileWrapper(file)
     }
+    try validateAuthority()
     return root
   }
 }

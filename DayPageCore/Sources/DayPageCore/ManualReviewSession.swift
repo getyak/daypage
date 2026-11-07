@@ -37,11 +37,14 @@ public actor ManualReviewSession {
   private let generator: Generator
   private let authority = ManualReviewAuthority()
   private var pending: ManualReviewDraft?
-  public init(store: NotebookStore, generator: @escaping Generator = { config, key, snapshot in
-    let prompt = "Create a \(snapshot.period.kind.rawValue) review for \(snapshot.period.title), time zone \(snapshot.period.timeZoneID). Use ONLY the selected quoted sources. Attachments were not sent. Do not claim complete coverage of the day or week. Clearly separate facts, interpretation and missing evidence. Cite source labels S1, S2 and their dates. Return readable Markdown with highlights, open loops and a few reflection questions; omit sections without evidence."
-    return try await AIClient().complete(configuration: config, apiKey: key,
-      messages: [ChatMessage(role: .user, content: prompt)], context: snapshot.context)
-  }) { self.store = store; self.generator = generator }
+  public init(store: NotebookStore, generator: Generator? = nil) {
+    self.store = store
+    self.generator = generator ?? { config, key, snapshot in
+      let prompt = "Create a \(snapshot.period.kind.rawValue) review for \(snapshot.period.title), time zone \(snapshot.period.timeZoneID). Use ONLY the selected quoted sources. Attachments were not sent. Do not claim complete coverage of the day or week. Clearly separate facts, interpretation and missing evidence. Cite source labels S1, S2 and their dates. Return readable Markdown with highlights, open loops and a few reflection questions; omit sections without evidence."
+      return try await AIClient().complete(configuration: config, apiKey: key,
+        messages: [ChatMessage(role: .user, content: prompt)], context: snapshot.context)
+    }
+  }
 
   public nonisolated func cancel() { authority.cancel() }
 
