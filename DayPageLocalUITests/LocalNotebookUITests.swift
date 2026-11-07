@@ -89,10 +89,10 @@ final class LocalNotebookUITests: XCTestCase {
     app.launch()
     openInformation("settings-privacy-policy")
     XCTAssertTrue(visibleText("This policy covers the local iOS edition").waitForExistence(timeout: 5))
+    screenshot("app-information-privacy-en")
     informationFooter()
     XCTAssertEqual(element("app-information-source").label, "Information included with this app")
     XCTAssertFalse(element("app-information-failure").exists)
-    screenshot("app-information-privacy-en")
     app.terminate()
     app.launchArguments.removeAll { $0 == "-qaResetNotebook" }
     app.launch()
@@ -107,9 +107,9 @@ final class LocalNotebookUITests: XCTestCase {
     openInformation("settings-about-support")
     XCTAssertTrue(visibleText("无需账户的本地笔记应用").waitForExistence(timeout: 5))
     XCTAssertTrue(element("app-information-installed-version").exists)
+    screenshot("app-information-about-zh")
     informationFooter()
     XCTAssertEqual(element("app-information-source").label, "随 App 提供的说明")
-    screenshot("app-information-about-zh")
   }
 
   func testManualInformationCheckKeepsReadableContentAndRecordsItsActualOutcome() {
