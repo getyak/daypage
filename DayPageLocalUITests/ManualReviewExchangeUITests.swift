@@ -43,28 +43,52 @@ final class ManualReviewExchangeUITests: XCTestCase {
     if kind == "review" { waitLabel("qa-review-state", contains: ["sources=1", "selected=1"]) }
     else { waitLabel("qa-exchange-state", contains: ["phase=none"]) }
   }
-  private func reveal(_ target: XCUIElement) {
+  private func reveal(_ target: XCUIElement, towardTop: Bool = false) {
     let form = element(formID)
     XCTAssertTrue(form.waitForExistence(timeout: 5))
-    for attempt in 0..<24 {
+    for _ in 0..<24 {
+      guard form.exists else { capture("owning-form-closed"); XCTFail("The owning Form disappeared while revealing a control"); return }
       var visible = form.frame.intersection(app.frame).insetBy(dx: 0, dy: 12)
+      for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+        let top = max(visible.minY, bar.frame.maxY)
+        visible = CGRect(x: visible.minX, y: top, width: visible.width, height: max(0, visible.maxY - top))
+      }
       let keyboard = app.keyboards.firstMatch
       if keyboard.exists { visible.size.height = max(0, min(visible.maxY, keyboard.frame.minY) - visible.minY) }
       if target.exists, target.isHittable, visible.contains(target.frame) { return }
+      var moveDown = towardTop
       if target.exists, target.frame.height > 0 {
-        if target.frame.minY < visible.minY { form.swipeDown() } else { form.swipeUp() }
-      } else if attempt < 8 { form.swipeDown() }
-      else { form.swipeUp() }
+        if target.frame.minY < visible.minY { moveDown = true }
+        else if target.frame.maxY > visible.maxY { moveDown = false }
+      }
+      // A lazy row below the QA section may be absent from AX. Its explicit
+      // direction is toward later content, never a blind pull on the sheet.
+      let gesture = visible
+      guard gesture.height >= 80 else { capture("obscured-form"); XCTFail("The owning Form needs an unobscured gesture area"); return }
+      let origin = form.coordinate(withNormalizedOffset: .zero)
+      let top = gesture.minY + gesture.height * 0.25
+      let bottom = gesture.minY + gesture.height * 0.75
+      let start = origin.withOffset(CGVector(dx: gesture.midX - form.frame.minX, dy: (moveDown ? top : bottom) - form.frame.minY))
+      let end = origin.withOffset(CGVector(dx: gesture.midX - form.frame.minX, dy: (moveDown ? bottom : top) - form.frame.minY))
+      start.press(forDuration: 0.05, thenDragTo: end)
     }
     capture("unreachable-control")
     XCTFail("The complete control must be reachable in its owning Form: \(target.identifier)")
   }
   private func tap(_ id: String) {
-    let target = element(id); reveal(target); target.tap()
+    if id == "close-vault-exchange" {
+      // Close belongs to the modal navigation bar, outside its Form content.
+      let target = app.navigationBars.descendants(matching: .any).matching(identifier: id).firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      XCTAssertTrue(target.isHittable && app.frame.contains(target.frame))
+      XCTAssertTrue(app.navigationBars.allElementsBoundByIndex.contains { $0.isHittable && $0.frame.contains(target.frame) })
+      target.tap(); return
+    }
+    let target = element(id); reveal(target, towardTop: id.hasPrefix("qa-")); target.tap()
   }
   private func waitLabel(_ id: String, contains parts: [String], timeout: TimeInterval = 10) {
     let target = element(id)
-    reveal(target)
+    reveal(target, towardTop: true)
     let check = NSCompoundPredicate(andPredicateWithSubpredicates:
       [NSPredicate(format: "identifier == %@", id)]
         + parts.map { NSPredicate(format: "label CONTAINS %@", $0) })
@@ -75,7 +99,7 @@ final class ManualReviewExchangeUITests: XCTestCase {
   private func assertStored(_ kind: String, contains parts: [String]) {
     let prefix = kind == "review" ? "qa-review" : "qa-exchange"
     let proof = element(prefix + "-proof")
-    reveal(proof)
+    reveal(proof, towardTop: true)
     let old = proof.label.split(separator: " ").first.flatMap { Int($0.dropFirst("readbacks=".count)) } ?? -1
     XCTAssertGreaterThanOrEqual(old, 0)
     tap(prefix + "-readback")
@@ -84,9 +108,27 @@ final class ManualReviewExchangeUITests: XCTestCase {
   }
   private func setSwitch(_ id: String, on: Bool) {
     let target = app.switches[id]
-    reveal(target)
+    reveal(target, towardTop: id.hasPrefix("qa-"))
     XCTAssertTrue(target.exists)
-    if (target.value as? String == "1") != on { target.tap() }
+    if (target.value as? String == "1") != on {
+      let children = target.descendants(matching: .switch)
+      let count = children.count
+      XCTAssertLessThanOrEqual(count, 1, "The identified row must contain at most one native switch")
+      guard count <= 1 else { return }
+      let physical = count == 1 ? children.firstMatch : target
+      XCTAssertTrue(target.isEnabled && target.isHittable && physical.isEnabled && physical.isHittable)
+      let rowFrame = target.frame, physicalFrame = physical.frame
+      let point = count == 1 ? CGPoint(x: physicalFrame.midX, y: physicalFrame.midY)
+        : CGPoint(x: rowFrame.maxX - min(28, rowFrame.width / 2), y: rowFrame.midY)
+      XCTAssertGreaterThanOrEqual(physicalFrame.width, 44)
+      XCTAssertGreaterThanOrEqual(physicalFrame.height, 28)
+      XCTAssertTrue(rowFrame.contains(point) && app.frame.contains(point))
+      let diagnostic = XCTAttachment(string: "id=\(id) native=\(count) row=\(rowFrame) physical=\(physicalFrame) point=\(point) rowValue=\(String(describing: target.value)) nativeValue=\(String(describing: physical.value))")
+      diagnostic.name = "GET442-switch-physical-target"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+      let origin = target.coordinate(withNormalizedOffset: .zero)
+      origin.withOffset(CGVector(dx: point.x - rowFrame.minX, dy: point.y - rowFrame.minY)).tap()
+      if count == 1 { XCTAssertEqual(physical.value as? String, on ? "1" : "0") }
+    }
     XCTAssertEqual(target.value as? String, on ? "1" : "0")
   }
   private func capture(_ name: String) {
