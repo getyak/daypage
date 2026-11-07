@@ -8,6 +8,7 @@ import { readFile, writeFile, mkdir, readdir, lstat, realpath } from "node:fs/pr
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn, execFileSync } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 
 export const ORIGIN = "http://127.0.0.1:13143";
 export const AUTH = "/__get443_supabase";
@@ -222,7 +223,54 @@ function containsSelectedData(text, markers) { return markers.some(marker => mar
 function acceptedNextExit(result, requestedSignal) {
   if (![null, "SIGTERM"].includes(requestedSignal) || !exactKeys(result, ["code", "signal"]) || Object.keys(result).length !== 2) return false;
   return (result.code === 0 && result.signal === null) ||
+    // Pinned Next16.2.6 start-server.ts graceful SIGTERM cleanup exits143.
+    // Accept it only when our successful child.kill recorded that request;
+    // this never overrides startup-failure or unexpected-exit flags.
+    (result.code === 143 && result.signal === null && requestedSignal === "SIGTERM") ||
     (result.code === null && result.signal === "SIGTERM" && requestedSignal === "SIGTERM");
+}
+function safeStartupLine(line) {
+  const plain = line.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+  if (/authorization|cookie|token|password|secret|session|credential|NEXT_PUBLIC_|SUPABASE_|eyJ[\w-]+\.[\w-]+\.[\w-]+|(?:sk-proj-|ghp_|github_pat_|lin_api_)/i.test(plain)) return "[redacted-sensitive-startup-line]";
+  return plain.replace(/https?:\/\/[^\s<>"']+/g, value => {
+    try { const url = new URL(value); return url.origin === "http://127.0.0.1:13144" ? url.origin + url.pathname : "[redacted-url]"; } catch { return "[redacted-url]"; }
+  }).replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]").slice(0, 360);
+}
+function startupOutput() {
+  const lines = [], streams = new Map(); let dropped = 0, closed = false;
+  function save(stream, value) { if (lines.length < 48) lines.push({ stream, text: safeStartupLine(value) }); else dropped++; }
+  return {
+    push(stream, bytes) {
+      if (closed) return;
+      let state = streams.get(stream);
+      if (!state) { state = { decoder: new StringDecoder("utf8"), partial: "", oversized: false }; streams.set(stream, state); }
+      for (const part of state.decoder.write(bytes).split(/(\n)/)) {
+        if (part === "\n") {
+          if (state.oversized) dropped++; else if (state.partial) save(stream, state.partial);
+          state.partial = ""; state.oversized = false;
+        } else if (!state.oversized) {
+          state.partial += part;
+          if (state.partial.length > 4096) { state.partial = ""; state.oversized = true; }
+        }
+      }
+    },
+    finish() {
+      if (!closed) for (const [stream, state] of streams) {
+        state.partial += state.decoder.end();
+        if (state.oversized) dropped++; else if (state.partial) save(stream, state.partial);
+      }
+      closed = true; streams.clear(); return { lines, dropped, captureBoundary: "before-private-readiness-only" };
+    },
+  };
+}
+function listenerEvidence(output, childPID) {
+  const records = output.trim().split("\n");
+  const valid = records.every(line => /^(?:p[1-9][0-9]*|f[0-9]+)$/.test(line));
+  const pids = [...new Set(records.filter(line => /^p[1-9][0-9]*$/.test(line)))];
+  return { owned: valid && pids.join() === "p" + childPID, valid,
+    // Only the requested PID/FD fields may be retained, never arbitrary lsof
+    // errors/file paths. Preserve suffixes to diagnose dialect differences.
+    fields: records.slice(0, 20).map(line => /^[pf][0-9]+[A-Za-z]*$/.test(line) ? line.slice(0, 40) : "[unrecognized-field]") };
 }
 function markersFor(values) {
   const markers = new Set();
@@ -290,8 +338,10 @@ export async function serve() {
   const env = Object.fromEntries(["PATH", "HOME", "LANG", "LC_ALL", "SYSTEMROOT", "CI"].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
   Object.assign(env, { NEXT_TELEMETRY_DISABLED: "1", DAYPAGE_PRIVATE_PREVIEW: "1", NEXT_PUBLIC_SUPABASE_URL: ORIGIN + AUTH,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: PUBLIC_KEY, TMPDIR: artifact });
+  const output = startupOutput(), readiness = { attempts: [], ready: false, failure: null };
   try {
-    child = spawn(process.execPath, [nextEntry, "start", "--hostname", "127.0.0.1", "--port", "13144"], { cwd: WEB, env, stdio: ["ignore", "ignore", "ignore"] });
+    child = spawn(process.execPath, [nextEntry, "start", "--hostname", "127.0.0.1", "--port", "13144"], { cwd: WEB, env, stdio: ["ignore", "pipe", "pipe"] });
+    child.stdout.on("data", bytes => output.push("stdout", bytes)); child.stderr.on("data", bytes => output.push("stderr", bytes));
   } catch (error) { server.close(); throw error; }
   let unexpectedChildExit = false, spawnFailed = false;
   const exit = new Promise(resolve => {
@@ -304,6 +354,7 @@ export async function serve() {
     if (child.exitCode === null && child.signalCode === null && child.kill("SIGTERM")) requestedNextSignal = "SIGTERM";
     const result = await Promise.race([exit, sleep(10_000).then(() => null)]);
     const clean = acceptedNextExit(result, requestedNextSignal) && !unexpectedChildExit && !spawnFailed && !failure;
+    await writeFile(path.join(artifact, "server-startup.json"), JSON.stringify({ childPID: child.pid ?? null, ...readiness, output: output.finish() }, null, 2) + "\n");
     await writeFile(path.join(artifact, "server-exit.json"), JSON.stringify({ signal, requestedNextSignal, nextPID: child.pid ?? null, nextExit: result,
       verifiedExit: Boolean(result), unexpectedChildExit, passed: clean, authLedger: auth.ledger, network }, null, 2) + "\n");
     process.exit(clean ? 0 : 1);
@@ -312,24 +363,30 @@ export async function serve() {
   function ownsPrivateListener() {
     try {
       const output = execFileSync("lsof", ["-nP", "-iTCP:13144", "-sTCP:LISTEN", "-Fp"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-      const records = output.trim().split("\n");
-      if (records.some(line => !/^(?:p[1-9][0-9]*|f[0-9]+)$/.test(line))) return false;
-      return [...new Set(records.filter(line => line.startsWith("p")))].join() === "p" + child.pid;
-    } catch { return false; }
+      return listenerEvidence(output, child.pid);
+    } catch (error) { return { owned: false, commandError: /^[A-Z0-9_]+$/.test(error.code ?? "") ? error.code : null, exitCode: Number.isInteger(error.status) ? error.status : null }; }
   }
   try {
     for (let attempt = 0; attempt < 120; attempt++) {
       assert.ok(!spawnFailed && !unexpectedChildExit && child.exitCode === null && child.signalCode === null, "Private Next exited before readiness");
-      if (ownsPrivateListener()) {
-        try { const value = await fetch("http://127.0.0.1:13144/notebooks", { redirect: "manual", signal: AbortSignal.timeout(1000) }); if ([200, 307, 308].includes(value.status)) { ready = true; break; } } catch { /* The owned listener may still be starting. */ }
+      const lookup = ownsPrivateListener(), record = { attempt, lookup, status: null, fetchError: null };
+      readiness.attempts.push(record);
+      if (lookup.owned) {
+        try {
+          const value = await fetch("http://127.0.0.1:13144/notebooks", { redirect: "manual", signal: AbortSignal.timeout(1000) });
+          record.status = value.status; if ([200, 307, 308].includes(value.status)) { ready = true; break; }
+        } catch (error) { record.fetchError = ["AbortError", "TimeoutError", "TypeError"].includes(error.name) ? error.name : "other"; }
       }
       await sleep(250);
     }
     assert.ok(ready, "Private actual Next did not become ready");
+    readiness.ready = true;
+    await writeFile(path.join(artifact, "server-startup.json"), JSON.stringify({ childPID: child.pid, ...readiness, output: output.finish() }, null, 2) + "\n");
     await writeFile(path.join(artifact, "server-provenance.json"), JSON.stringify({ sourceSHA, listenerOwnedByNextPID: true,
       origin: ORIGIN, nextPID: child.pid, publicRealm: ORIGIN + AUTH, fixtureMode: "synthetic-auth-only", actualNext: true,
       buildID: (await readFile(path.join(WEB, ".next/BUILD_ID"), "utf8")).trim() }, null, 2) + "\n");
-  } catch {
+  } catch (error) {
+    readiness.failure = safeStartupLine(error.message ?? "Private readiness failed");
     await shutdown("startup-failure", true);
   }
 }
@@ -348,7 +405,7 @@ export async function verifyEvidence() {
   assert.equal(source.publicRealm, ORIGIN + AUTH); assert.ok(source.buildID);
   assert.equal(source.sourceSHA, execFileSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).trim());
   assert.equal(exit.nextPID, source.nextPID); assert.equal(exit.verifiedExit, true); assert.equal(exit.passed, true); assert.equal(exit.unexpectedChildExit, false);
-  assert.equal(acceptedNextExit(exit.nextExit, exit.requestedNextSignal), true, "Next must exit0 or exit from this task's requested SIGTERM");
+  assert.equal(acceptedNextExit(exit.nextExit, exit.requestedNextSignal), true, "Next must exit0 or use a supported result of this task's requested SIGTERM");
   assert.ok(exit.network.every(row => row.outcome === "next"));
   assert.ok(exit.authLedger.every(row => ["allowed", "released", "synthetic-denied"].includes(row.outcome)));
   assert.ok(exit.authLedger.some(row => row.client === "server" && row.path === AUTH + "/rest/v1/domains"));
@@ -405,6 +462,7 @@ async function selfTest() {
   assert.equal(acceptedNextExit({ code: 0, signal: null }, null), true);
   assert.equal(acceptedNextExit({ code: 0, signal: null }, "SIGTERM"), true);
   assert.equal(acceptedNextExit({ code: null, signal: "SIGTERM" }, "SIGTERM"), true);
+  assert.equal(acceptedNextExit({ code: 143, signal: null }, "SIGTERM"), true);
   for (const value of [null, {}, { code: 1, signal: null }, { code: null, signal: null }, { code: null, signal: "SIGKILL" },
     { code: 0, signal: "SIGTERM" }, { code: "0", signal: null }, { code: 0 }, { code: 0, signal: null, spawnFailed: true }]) {
     assert.equal(acceptedNextExit(value, "SIGTERM"), false);
@@ -412,7 +470,30 @@ async function selfTest() {
   assert.equal(acceptedNextExit({ code: null, signal: "SIGTERM" }, null), false);
   assert.equal(acceptedNextExit({ code: null, signal: "SIGTERM" }, undefined), false);
   assert.equal(acceptedNextExit({ code: 0, signal: null }, "unknown"), false);
-  console.log("Fixture pure checks passed: issued-owner/stale/denied/write/historical-byte checks; both-phase network omission/rejection/error denial; accepted exit0 and task-requested SIGTERM, rejected nonzero/unknown/unrequested exit evidence. No listener/Next/bundler/browser started.");
+  assert.equal(acceptedNextExit({ code: 143, signal: null }, null), false);
+  assert.equal(acceptedNextExit({ code: 143, signal: null }, undefined), false);
+  assert.equal(acceptedNextExit({ code: 143, signal: null }, "SIGINT"), false);
+  assert.equal(acceptedNextExit({ code: 143, signal: "SIGTERM" }, "SIGTERM"), false);
+  assert.deepEqual(listenerEvidence("p3007\nf18\nf22\n", 3007), { owned: true, valid: true, fields: ["p3007", "f18", "f22"] });
+  assert.equal(listenerEvidence("p3007\nf18\np4000\nf20\n", 3007).owned, false);
+  assert.equal(listenerEvidence("p4000\nf18\n", 3007).owned, false);
+  assert.equal(listenerEvidence("p3007\nf18u\n", 3007).owned, false);
+  assert.equal(listenerEvidence("", 3007).owned, false);
+  assert.deepEqual(listenerEvidence("p3007\nprivate path\n", 3007).fields, ["p3007", "[unrecognized-field]"]);
+  const startup = startupOutput();
+  startup.push("stderr", Buffer.from("Authorization: Bearer synthetic-partial"));
+  startup.push("stderr", Buffer.from("-value\nFailed to handle request for http://127.0.0.1:13144/notebooks?private=synthetic\n"));
+  startup.push("stdout", Buffer.from("Ready in 500ms\n"));
+  startup.push("stderr", Buffer.from("x".repeat(5000) + "\n"));
+  const captured = startup.finish();
+  assert.deepEqual(captured.lines, [{ stream: "stderr", text: "[redacted-sensitive-startup-line]" },
+    { stream: "stderr", text: "Failed to handle request for http://127.0.0.1:13144/notebooks" }, { stream: "stdout", text: "Ready in 500ms" }]);
+  assert.equal(captured.dropped, 1); startup.push("stderr", Buffer.from("after-ready-session\n")); assert.deepEqual(startup.finish(), captured);
+  const capped = startupOutput(); capped.push("stdout", Buffer.from("Ready\n".repeat(60))); assert.equal(capped.finish().lines.length, 48); assert.equal(capped.finish().dropped, 12);
+  for (const input of ["cookie=value", "access_token=value", "user@example.invalid", "https://untrusted.invalid/path?private=value"]) {
+    assert.equal(safeStartupLine(input).includes(input), false);
+  }
+  console.log("Fixture pure checks passed: prior Auth/bytes/network guards; exit0 and explicitly requested pinned-Next SIGTERM/143; unrequested/unknown exits denied; strict listener owner parser; bounded redacted pre-readiness output with split-line, query, oversized, line-cap and post-ready protections. No listener/Next/bundler/browser started.");
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === "--self-test") await selfTest();
