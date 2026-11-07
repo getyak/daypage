@@ -45,14 +45,17 @@ export function NotebooksClient({ initialUID, realm }: { initialUID: string; rea
   const active = useRef<OwnerLease | null>(null), operation = useRef(0), authGeneration = useRef(0), inFlight = useRef(false);
   const urls = useRef(new Set<string>()), channel = useRef<BroadcastChannel | null>(null);
   const clearURLs = useCallback(() => { for (const url of urls.current) URL.revokeObjectURL(url); urls.current.clear(); setDownloadReady(null); }, []);
+  const revokeWork = useCallback(() => {
+    epoch.revoke(); authGeneration.current++; operation.current++; active.current = null; inFlight.current = false;
+  }, [epoch]);
   const lock = useCallback(() => {
     // Hide synchronously, before React scheduling or any asynchronous auth request.
     if (content.current) content.current.hidden = true;
-    epoch.revoke(); authGeneration.current++; operation.current++; active.current = null; inFlight.current = false;
+    revokeWork();
     clearURLs(); setReady(false); setBusy(false); setJobs([]); setPreview(null); setNotebook(null); setAsset(null);
     setResume(undefined); setDiscard(null); setProgress(""); setMessage("");
     if (picker.current) picker.current.value = "";
-  }, [clearURLs, epoch]);
+  }, [clearURLs, revokeWork]);
   const refresh = useCallback(async () => {
     if (!epoch.owner) return;
     const lease = epoch.lease(); setListStatus("loading");
@@ -91,7 +94,10 @@ export function NotebooksClient({ initialUID, realm }: { initialUID: string; rea
   useEffect(() => {
     let mounted = true;
     picker.current?.setAttribute("webkitdirectory", "");
+    // Each SDK subscription emits INITIAL_SESSION, including a null session.
+    // That event starts getUser verification; session itself grants no authority.
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
       // Same-owner refresh/focus events grant no new ownership. Each action
       // still verifies getUser; do not cancel an import merely for token refresh.
       if (event !== "SIGNED_OUT" && epoch.owner && session?.user.id === epoch.owner.uid) return;
@@ -108,18 +114,17 @@ export function NotebooksClient({ initialUID, realm }: { initialUID: string; rea
     // Same-owner verification preserves selected bytes and in-flight local work.
     window.addEventListener("focus", focus); window.addEventListener("pageshow", focus);
     window.addEventListener("pagehide", hide); document.addEventListener("visibilitychange", focus);
-    void verify();
     if (typeof BroadcastChannel !== "undefined") {
       const local = new BroadcastChannel("daypage-local-notebooks-changed-v1"); channel.current = local;
       local.onmessage = () => { if (!inFlight.current) void refresh(); };
     }
     return () => {
-      mounted = false; authGeneration.current++; epoch.revoke(); operation.current++; clearURLs(); store.close(); subscription.unsubscribe();
+      mounted = false; revokeWork(); clearURLs(); store.close(); subscription.unsubscribe();
       window.removeEventListener("focus", focus); window.removeEventListener("pageshow", focus);
       window.removeEventListener("pagehide", hide); document.removeEventListener("visibilitychange", focus);
       channel.current?.close(); channel.current = null;
     };
-  }, [client, clearURLs, epoch, lock, refresh, store, verify, verifyCurrent]);
+  }, [client, clearURLs, epoch, lock, refresh, revokeWork, store, verify, verifyCurrent]);
 
   async function run(action: (lease: OwnerLease) => Promise<void>, recheckIdentity = true) {
     if (!epoch.owner || inFlight.current) return;
