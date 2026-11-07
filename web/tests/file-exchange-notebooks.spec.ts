@@ -326,7 +326,7 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
   }
   async function confirm() { await page.getByRole("button", { name: "确认保存到此浏览器", exact: true }).click(); await expect(page.getByRole("heading", { name: "已保存的本地副本", exact: true })).toBeVisible(); }
   async function open(fixture: FixtureInfo) {
-    await ready(); const row = page.getByRole("article").filter({ hasText: "导出 " + fixture.exportID }); await expect(row).toHaveCount(1);
+    await ready(); const row = page.getByRole("article").filter({ hasText: "导出 " + fixture.exportID.toLowerCase() }); await expect(row).toHaveCount(1);
     await row.getByRole("button", { name: "打开全文与原文件", exact: true }).click(); await expect(page.getByRole("heading", { name: "已保存的本地副本", exact: true })).toBeVisible();
   }
   async function renderedBody(expected: string) {
@@ -334,7 +334,7 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
     await expect(body).toBeVisible(); expect(await body.textContent()).toBe(expected);
   }
   async function assertStoredOriginals(fixture: FixtureInfo, snapshot: Readback) {
-    const receipt = snapshot.receipts.find(row => row.uid === OWNER_A && row.exportID === fixture.exportID); expect(receipt).toBeDefined();
+    const receipt = snapshot.receipts.find(row => row.uid === OWNER_A && row.exportID === fixture.exportID.toLowerCase()); expect(receipt).toBeDefined();
     const saved = snapshot.files.filter(row => row.uid === OWNER_A && row.namespace === receipt!.namespace);
     expect(saved.map(row => row.path).sort()).toEqual(fixture.files.map(row => row.path).sort());
     for (const expected of fixture.files) { const row = saved.find(value => value.path === expected.path); expect(row?.bytes).toBe(expected.bytes); expect(row?.sha256).toBe(expected.sha256); }
@@ -379,7 +379,7 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
     await expect(page.getByRole("region", { name: "仅本机的附件预览", exact: true })).toContainText(sources.asset.get(assetPath)!.toString("utf8"));
     await page.getByRole("button", { name: "关闭预览", exact: true }).click();
     await detail.getByRole("button", { name: "下载全部原文件 ZIP", exact: true }).click();
-    const zipLink = page.getByRole("link", { name: "保存 daypage-originals-" + service.fixtures.asset.exportID + ".zip", exact: true });
+    const zipLink = page.getByRole("link", { name: "保存 daypage-originals-" + service.fixtures.asset.exportID.toLowerCase() + ".zip", exact: true });
     const zipEvent = page.waitForEvent("download"); await zipLink.click(); const zipDownload = await zipEvent; expect(await zipDownload.failure()).toBeNull();
     const zipPath = path.join(output, "originals.zip"); await zipDownload.saveAs(zipPath); const zip = await readFile(zipPath), unzipped = readOriginalZip(zip);
     expect([...unzipped.keys()].sort()).toEqual([...sources.asset.keys()].sort());
