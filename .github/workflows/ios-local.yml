@@ -20,6 +20,7 @@ on:
   pull_request:
     paths:
       - 'DayPageLocal/**'
+      - 'DayPageLocalShare/**'
       - 'DayPageCore/**'
       - 'DayPageLocalWatch/**'
       - 'DayPageLocalUITests/**'
@@ -43,6 +44,7 @@ on:
     branches: [main]
     paths:
       - 'DayPageLocal/**'
+      - 'DayPageLocalShare/**'
       - 'DayPageCore/**'
       - 'DayPageLocalWatch/**'
       - 'DayPageLocalUITests/**'

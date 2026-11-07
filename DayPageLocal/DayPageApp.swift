@@ -21,7 +21,7 @@ struct DayPageApp: App {
 
   var body: some Scene {
     WindowGroup {
-      NotebookView()
+      ScreenshotInboxView { NotebookView() }
         .environmentObject(notebook)
         .environmentObject(cloud)
         .environmentObject(watch)

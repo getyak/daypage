@@ -19,7 +19,10 @@ class LocalIOSContract(unittest.TestCase):
         products = [objects[key]["productName"] for key in app.get("packageProductDependencies", [])]
         self.assertEqual(set(products), {"DayPageCore", "SwiftStreamingMarkdown"})
         dependencies = [objects[objects[key]["target"]]["name"] for key in app.get("dependencies", [])]
-        self.assertEqual(dependencies, ["DayPageWatch"])
+        self.assertEqual(set(dependencies), {"DayPageWatch", "DayPageLocalShare"})
+        share = next(o for o in objects.values() if o.get("isa") == "PBXNativeTarget" and o.get("name") == "DayPageLocalShare")
+        self.assertEqual([objects[key]["productName"] for key in share.get("packageProductDependencies", [])], ["DayPageCapture"])
+        self.assertEqual(share.get("dependencies", []), [])
         watch = next(o for o in objects.values() if o.get("isa") == "PBXNativeTarget" and o.get("name") == "DayPageWatch")
         watch_products = [objects[key]["productName"] for key in watch.get("packageProductDependencies", [])]
         self.assertEqual(watch_products, ["DayPageCapture"])
@@ -35,6 +38,7 @@ class LocalIOSContract(unittest.TestCase):
         self.assertNotIn("UIBackgroundModes", info)
         with (ROOT / "DayPageLocal/DayPage.entitlements").open("rb") as f:
             self.assertEqual(plistlib.load(f), {
+                "com.apple.security.application-groups": ["group.com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).capture"],
                 "com.apple.developer.icloud-container-identifiers": ["iCloud.com.daypage.app"],
                 "com.apple.developer.ubiquity-container-identifiers": ["iCloud.com.daypage.app"],
                 "com.apple.developer.icloud-services": ["CloudDocuments"],
@@ -43,6 +47,14 @@ class LocalIOSContract(unittest.TestCase):
             watch_info = plistlib.load(f)
         self.assertEqual(watch_info["WKCompanionAppBundleIdentifier"], "com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX)")
         self.assertTrue(watch_info["WKApplication"])
+        with (ROOT / "DayPageLocalShare/Info.plist").open("rb") as f:
+            share_info = plistlib.load(f)
+        self.assertEqual(share_info["NSExtension"]["NSExtensionPointIdentifier"], "com.apple.share-services")
+        self.assertEqual(share_info["NSExtension"]["NSExtensionAttributes"]["NSExtensionActivationRule"], {"NSExtensionActivationSupportsImageWithMaxCount": 1})
+        with (ROOT / "DayPageLocalShare/DayPageShare.entitlements").open("rb") as f:
+            self.assertEqual(plistlib.load(f), {"com.apple.security.application-groups": ["group.com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).capture"]})
+        self.assertEqual(share_info["DayPageCaptureAppGroup"], info["DayPageCaptureAppGroup"])
+        self.assertNotIn("CFBundleURLTypes", share_info)
         self.assertIn("NSSpeechRecognitionUsageDescription", info)
         capture_sources = list((ROOT / "DayPageCore/Sources/DayPageCapture").glob("*.swift"))
         self.assertTrue(capture_sources)

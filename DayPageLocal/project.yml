@@ -47,6 +47,9 @@ targets:
       - path: CloudContinuity.swift
       - path: WatchPhoneBridge.swift
       - path: ContinuitySettingsView.swift
+      - path: ScreenshotInboxLocation.swift
+      - path: ScreenshotInboxView.swift
+      - path: ReceiveScreenshotIntent.swift
       - path: Resources
       - path: PrivacyInfo.xcprivacy
       - path: ../DayPage/App/Fonts/SourceSerif4-Regular.ttf
@@ -56,6 +59,8 @@ targets:
       - package: DayPageCore
       - package: SwiftStreamingMarkdown
       - target: DayPageWatch
+        embed: true
+      - target: DayPageLocalShare
         embed: true
     settings:
       base:
@@ -67,6 +72,31 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          DAYPAGE_QA_BUNDLE_SUFFIX: .localqa
+        Release:
+          DAYPAGE_QA_BUNDLE_SUFFIX: ""
+  DayPageLocalShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ../DayPageLocalShare
+        excludes: [Info.plist, DayPageShare.entitlements]
+      - path: ScreenshotInboxLocation.swift
+    dependencies:
+      - package: DayPageCore
+        product: DayPageCapture
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.daypage.app$(DAYPAGE_QA_BUNDLE_SUFFIX).sharecapture
+        PRODUCT_NAME: DayPageLocalShare
+        INFOPLIST_FILE: ../DayPageLocalShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ../DayPageLocalShare/DayPageShare.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
       configs:
         Debug:
           DAYPAGE_QA_BUNDLE_SUFFIX: .localqa

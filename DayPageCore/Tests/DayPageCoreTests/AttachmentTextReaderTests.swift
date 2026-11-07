@@ -26,6 +26,9 @@ final class AttachmentTextReaderTests: XCTestCase {
     let recognized = try await AttachmentTextReader.read(url: url, kind: "photo")
     XCTAssertTrue(recognized.uppercased().contains("DAYPAGE"), recognized)
     XCTAssertTrue(recognized.contains("369"), recognized)
+    let fromData = try await AttachmentTextReader.readImage(data: Data(contentsOf: url))
+    XCTAssertTrue(fromData.uppercased().contains("DAYPAGE"), fromData)
+    XCTAssertTrue(fromData.contains("369"), fromData)
   }
   func testLongImageOnlyPDFDoesNotReturnTruncationAsRecognizedText() async throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
@@ -72,5 +75,21 @@ final class AttachmentTextReaderTests: XCTestCase {
     task.cancel()
     do { _ = try await task.value; XCTFail("A cancelled read must not produce content") }
     catch is CancellationError { }
+  }
+
+  func testCancelledImageDataReadReturnsNoMaterial() async throws {
+    let task = Task {
+      withUnsafeCurrentTask { $0?.cancel() }
+      return try await AttachmentTextReader.readImage(data: Data())
+    }
+    do { _ = try await task.value; XCTFail("A cancelled extraction must not produce content") }
+    catch is CancellationError { }
+  }
+
+  func testImageDataRejectsNonImagesAndOversizedInput() async throws {
+    do { _ = try await AttachmentTextReader.readImage(data: Data("not an image".utf8)); XCTFail("Invalid image read") }
+    catch AttachmentTextError.unreadable { }
+    do { _ = try await AttachmentTextReader.readImage(data: Data(repeating: 0, count: 25 * 1024 * 1024 + 1)); XCTFail("Oversized image read") }
+    catch AttachmentTextError.tooLarge { }
   }
 }
