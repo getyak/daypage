@@ -50,12 +50,26 @@ final class LocalNotebookUITests: XCTestCase {
     expectation(for: enabled, evaluatedWith: extract)
     waitForExpectations(timeout: 10)
     extract.tap()
-    let extracted = element("shared-image-extracted-text")
-    XCTAssertTrue(extracted.waitForExistence(timeout: 20))
+    // The previous Any/firstMatch lookup did not resolve this dynamic Form row
+    // in Hosted iOS 26, while its full accessibility snapshot contained it.
+    // Ask for the concrete text node in the full query, without a coordinate tap.
+    let extracted = app.staticTexts.matching(identifier: "shared-image-extracted-text")
+      .element(boundBy: 0)
+    if !extracted.waitForExistence(timeout: 20) {
+      screenshot("local-screenshot-ocr-result-not-found")
+      let hierarchy = XCTAttachment(string: app.debugDescription)
+      hierarchy.name = "local-screenshot-ocr-result-not-found-accessibility"
+      hierarchy.lifetime = .keepAlways
+      add(hierarchy)
+      XCTFail("The explicit on-device recognition result did not become accessible.")
+      return
+    }
     XCTAssertTrue(extracted.label.contains("LOCAL OCR FIXTURE"))
     XCTAssertEqual(caption.value as? String, "")
     app.buttons["add-shared-image-text"].tap()
-    XCTAssertTrue((caption.value as? String)?.contains("LOCAL OCR FIXTURE") == true)
+    let added = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "value CONTAINS %@", "LOCAL OCR FIXTURE"), object: caption)
+    XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 5), .completed)
     screenshot("local-screenshot-explicit-ocr")
     let save = app.buttons["save-shared-image"]
     for _ in 0..<3 {
@@ -94,7 +108,12 @@ final class LocalNotebookUITests: XCTestCase {
       app.swipeUp()
     }
     discard.tap()
-    let confirm = app.buttons["confirm-discard-shared-image"]
+    // The native confirmation exposes nested buttons with the same identifier.
+    // Restrict to its exact sheet and resolve a full indexed query.
+    let dialog = app.sheets["Discard this pending image?"]
+    XCTAssertTrue(dialog.waitForExistence(timeout: 5))
+    let confirm = dialog.buttons.matching(identifier: "confirm-discard-shared-image")
+      .element(boundBy: 0)
     let ready = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "exists == true AND hittable == true"), object: confirm)
     let result = XCTWaiter.wait(for: [ready], timeout: 5)
