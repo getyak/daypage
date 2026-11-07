@@ -229,7 +229,9 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
     processes = []; pid = 0;
     context = await chromium.launchPersistentContext(profile, { channel: "chrome", chromiumSandbox: true, headless: true,
       viewport, serviceWorkers: "block", acceptDownloads: true, downloadsPath: path.join(output, "download-temp"),
-      args: ["--disable-background-networking"] });
+      // CDP getBrowserCommandLine requires this explicit automation switch;
+      // pinned Playwright1.60 does not include it in the default switches.
+      args: ["--disable-background-networking", "--enable-automation"] });
     const browser = context.browser(); expect(browser).not.toBeNull();
     const cdp = await browser!.newBrowserCDPSession();
     const data = await cdp.send("SystemInfo.getProcessInfo") as { processInfo: { id: number; type: string }[] };
