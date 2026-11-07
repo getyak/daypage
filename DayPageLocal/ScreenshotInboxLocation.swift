@@ -39,11 +39,12 @@ enum ScreenshotInboxLocation {
       guard usesSyntheticUIInbox,
         ProcessInfo.processInfo.arguments.contains("-qaSeedScreenshotInbox") else { return }
       let inbox = try make()
+      let inboxRoot = await inbox.root
       if ProcessInfo.processInfo.arguments.contains("-qaResetNotebook"),
-        FileManager.default.fileExists(atPath: inbox.root.path) {
+        FileManager.default.fileExists(atPath: inboxRoot.path) {
         // This exact folder belongs only to these synthetic tests. Neither the
         // real inbox nor the ordinary QA share inbox can reach this branch.
-        try FileManager.default.removeItem(at: inbox.root)
+        try FileManager.default.removeItem(at: inboxRoot)
       }
       let renderer = UIGraphicsImageRenderer(size: CGSize(width: 900, height: 240))
       let bytes = renderer.pngData { context in
