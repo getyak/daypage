@@ -141,6 +141,19 @@ xcrun simctl list devices available --json \
 
 ## Evidence rules
 
+The local public-information client has a standalone macOS Foundation fixture:
+`python3 scripts/tests/test_app_information.py`. It compiles only the app-layer
+client and a synthetic URLProtocol transport into a temporary directory, with no
+packages, Simulator, notebook, credentials or real endpoint. The local-iOS hosted
+workflow runs it before the package/app builds. It covers response validation,
+streaming admission, redirect refusal, deadline and cancellation; it does not prove
+DNS, TLS at the real server, signing or accessibility. Respect the host build pause.
+The manual local-iOS workflow accepts `native_ui_suite=app_information` for the
+three reader journeys in English and Chinese, including accessibility text size.
+It keeps signed QA-bundle checks and reports unsigned Keychain recovery as outside
+that suite. Its manual refresh journey records success or failure from the real
+fixed endpoint; an available bundled page alone is not proof of network access.
+
 - Capture the exact command, working directory, environment identity, result, and
   non-sensitive artifact paths.
 - Do not claim a skipped or blocked command passed.

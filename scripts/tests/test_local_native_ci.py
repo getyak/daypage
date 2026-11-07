@@ -86,7 +86,7 @@ elif tool == "xcrun":
     elif args[:4] == ["xcresulttool", "get", "test-results", "summary"]:
         negative = "negative-keychain" in option("--path")
         failed = negative_failed if negative else signed_failed
-        total = 2 if negative else 16
+        total = 2 if negative else (3 if os.environ.get('DAYPAGE_NATIVE_UI_SUITE') == 'app_information' else 16)
         print(json.dumps({
             "result": "Failed" if failed else "Passed",
             "failedTests": int(failed), "skippedTests": 0,
@@ -107,6 +107,8 @@ elif tool == "xcrun":
             names = ["chat-dedicated-model-page", "chat-compact-composer",
                      "chat-saved-history", "chat-character-library",
                      "chat-streamed-markdown", "chat-accessibility-size"]
+            if os.environ.get('DAYPAGE_NATIVE_UI_SUITE') == 'app_information':
+                names = ['app-information-privacy-en', 'app-information-about-zh', 'app-information-after-manual-check']
         (output / "manifest.json").write_text(json.dumps([{
             "attachments": [{"suggestedHumanReadableName": name} for name in names]
         }]))
@@ -189,7 +191,7 @@ else:
 
 
 class NativeCIOrchestrationTests(unittest.TestCase):
-    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted"):
+    def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted", suite="card_tools_speech"):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -201,7 +203,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         shutil.copy2(ROOT / "scripts/ci/select_simulator.py", ci)
         sources = root / "DayPageLocalUITests"
         sources.mkdir()
-        for name in ("CardToolsSpeechUITests.swift", "ChatExperienceUITests.swift"):
+        for name in ("CardToolsSpeechUITests.swift", "ChatExperienceUITests.swift", "LocalNotebookUITests.swift"):
             shutil.copy2(ROOT / "DayPageLocalUITests" / name, sources)
         state = root / "state"
         state.mkdir()
@@ -227,7 +229,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             "CI": "true", "GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "host-mock",
             "RUNNER_ARCH": runner_arch, "RUNNER_ENVIRONMENT": runner_environment,
             "RUNNER_TEMP": str(runner), "DAYPAGE_NATIVE_CI_OUTPUT_DIR": str(evidence),
-            "DAYPAGE_NATIVE_UI_SUITE": "card_tools_speech",
+            "DAYPAGE_NATIVE_UI_SUITE": suite,
             "NATIVE_CI_MOCK_MODE": mode, "NATIVE_CI_MOCK_STATE": str(state),
         }
         process = subprocess.Popen(
@@ -252,6 +254,17 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         events_path = state / "events"
         events = events_path.read_text().splitlines() if events_path.exists() else []
         return process.returncode, output, evidence, events
+
+    def test_app_information_suite_keeps_real_signed_checks_and_distinct_scope(self):
+        code, output, evidence, events = self.run_fixture("success", suite="app_information")
+        self.assertEqual(code, 0, output)
+        self.assertIn("signed-tests", events)
+        self.assertNotIn("negative-tests", events)
+        receipt = json.loads((evidence / "native-acceptance.json").read_text())
+        self.assertEqual(receipt['suite'], 'app_information')
+        self.assertEqual(receipt['positive']['totalTestCount'], 3)
+        self.assertFalse(receipt['negative']['executed'])
+        self.assertEqual(len(receipt['requiredInformationAttachments']), 3)
 
     def test_only_hosted_intel_gets_the_fixed_cold_boot_budget(self):
         for arch, environment, budget in (("X64", "github-hosted", 360),

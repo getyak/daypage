@@ -459,3 +459,9 @@
 "Location access is off. You can enable it in Settings or save without a location." = "Location access is off. You can enable it in Settings or save without a location.";
 "Couldn't find your location. Try again or save without a location." = "Couldn't find your location. Try again or save without a location.";
 "Couldn't save the location. Try again." = "Couldn't save the location. Try again.";
+"About & support" = "About & support";
+"Latest information from DayPage" = "Latest information from DayPage";
+"Information included with this app" = "Information included with this app";
+"Updated: %@" = "Updated: %@";
+"Could not check for updates. The included information is still available." = "Could not check for updates. The included information is still available.";
+"Check latest information" = "Check latest information";

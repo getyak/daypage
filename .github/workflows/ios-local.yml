@@ -10,7 +10,7 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech, diary_navigation]
+        options: [full, card_tools_speech, diary_navigation, app_information]
         default: full
       runner_architecture:
         description: Hosted pool (Intel options are manual capacity fallbacks)

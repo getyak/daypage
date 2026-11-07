@@ -1,6 +1,8 @@
 # DayPage iOS 隐私政策 / Privacy Policy
 
-生效日期 / Effective date: 2026-11-06
+候选更新日期 / Candidate revision date: 2026-11-07
+
+本次公开说明服务为待发布版本准备，备案与公开部署仍需独立完成；本文不表示服务已上线或新版本已发布。
 
 本政策适用于由 Xiong Xinwei 提供的 DayPage 本地版 iOS 应用。旧版云端客户端和第三方服务有各自的数据处理范围。
 
@@ -10,13 +12,15 @@
 
 相机和麦克风仅用于你主动发起的拍照和录音；拒绝权限后仍可使用文字笔记。通过“文件”导入时，应用读取你选择的文件夹并保存副本。系统备份、设备管理和你主动导出或分享的文件由对应的系统设置和接收方管理。
 
+个人 iCloud 默认关闭。开启后，笔记和附件通过你当前 Apple 账户的 iCloud Drive 在设备间交换，由 Apple 的服务处理；这不是开发者运营的笔记云服务。对话、模型密钥、笔记关系和操作记录不在此同步范围内。配对 Apple Watch 可通过 Apple 的设备连接把文字和原始录音交给 iPhone；原始音频保留以便恢复。可选设备端转写需系统语音权限和可用语言模型，不会自动转用网络转写。后台传递和同步时间受系统控制。
+
 位置默认不添加。只有你在写笔记时主动选择“添加位置”，应用才会请求使用期间定位权限，并获取一次当前位置。所选位置随草稿和笔记保存在现有文件中，可在保存前移除；新笔记不会自动继承位置。应用不进行后台定位，也不把位置发送给开发者或用于反向地理编码。主动导出笔记或开启个人 iCloud 同步时，位置会作为笔记元数据随文件一起传输。
 
 ## 可选 AI
 
 AI 需要你选择服务商、地址和模型；部分服务需要你自己的 API 密钥，并可能另行收费。测试连接会联系你设置的服务，不附带笔记。获取模型列表也会联系所选服务。
 
-点击发送后，应用会把你的问题、必要的对话历史和界面显示的笔记上下文发送到你配置的服务。开启卡片工具时，AI 还可以在这次对话授权的笔记范围内搜索、读取笔记和受支持附件中提取的文字。工具只能读取，不能修改笔记。请在发送前检查选择范围，不要向不信任的服务发送私密信息。
+点击发送后，应用会把你的问题、必要的对话历史和界面显示的笔记上下文发送到你配置的服务。开启卡片工具时，AI 还可以在这次对话授权的笔记范围内搜索、读取笔记和受支持附件中提取的文字，并提出新建、追加、修改或关系建议。修改和关系只有在原生预览中经你确认后才保存；建议本身不会自动改写笔记。请在发送前检查选择范围，不要向不信任的服务发送私密信息。
 
 ## 朗读
 
@@ -34,13 +38,21 @@ AI 需要你选择服务商、地址和模型；部分服务需要你自己的 A
 
 反馈草稿在本地编辑。主动分享时，内容会交给你选择的接收方；点击打开 GitHub 反馈页面时，草稿会通过页面地址传给 GitHub，即使尚未正式提交。正式提交的 GitHub issue 通常公开可见，请不要附上密钥、私密笔记或个人资料。
 
+## 公开应用说明
+
+此候选版本的隐私政策和关于与支持页面自带中英文内容，可离线阅读。只有点击“查看最新说明”才会向固定地址 https://daypage-api.cubxxw.com/daypage/v1/app-info.json 发送无正文的 GET 请求；启动、记录、搜索和打开设置不会触发此请求。失败时仍显示内置说明，可手动重试。
+
+此服务拟由中国上海的阿里云基础设施托管，只提供公开纯文本，不接收笔记、录音、附件、反馈草稿、AI 配置、密钥、账户或持久设备标识。客户端不使用 Cookie 或登录凭据，不跟随重定向。连接必然涉及 IP 地址、请求时间和 TLS 等网络元数据，云基础设施仍会处理这些信息。接口拟关闭访问日志，正式开放前必须核验部署配置；这不代表云平台没有任何基础设施日志。此说明不承诺第三方日志的保存期限。备案允许并验证公开访问后才开放服务。
+
 ## 联系与更新
 
-隐私问题可通过 [DayPage 支持页面](ios-support.md) 联系开发者。请只提供解决问题所必需的信息。主动打开隐私、支持或反馈网页时，浏览器会连接 GitHub，该网站的数据处理适用 [GitHub 隐私声明](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)。政策更新会发布在本页；如数据处理方式发生变化，政策会相应更新。
+隐私问题可通过 [DayPage 支持页面](ios-support.md) 联系开发者。请只提供解决问题所必需的信息。主动打开 GitHub 支持或反馈网页时，浏览器会连接 GitHub，该网站的数据处理适用 [GitHub 隐私声明](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)。政策更新会发布在本页；如数据处理方式发生变化，政策会相应更新。
 
 ---
 
 This policy covers the local iOS edition of DayPage, provided by Xiong Xinwei. Legacy cloud clients and third-party services have separate data-processing boundaries.
+
+This candidate prepares a public information service for a future app version. Filing and public deployment remain separate gates; this document does not claim the service is live or that version has shipped.
 
 ## Local notebook
 
@@ -48,13 +60,15 @@ You can write, read, search, import and export without a DayPage account. Notes,
 
 Camera and microphone access is used only when you choose to take a photo or record audio. Text notes remain available if you decline. Import reads the folder you select and saves a copy. System backups, device management and files you explicitly export or share are governed by your system settings and the recipient.
 
+Personal iCloud is off by default. Enabling it exchanges notes and attachments through your current Apple account's iCloud Drive, using Apple's services rather than a developer-operated notebook cloud. Chats, model keys, note relationships and operation history are excluded. A paired Apple Watch can send text and original recordings to iPhone through Apple's device connectivity. Original audio is retained for recovery. Optional on-device transcription requires system Speech permission and an available language model; it never automatically falls back to network transcription. Background delivery and sync timing are controlled by the system.
+
 Location is off by default. Only choosing Add location while writing a note requests When In Use permission and a single current fix. The selected location is stored with the draft and note in existing files and can be removed before saving. A new note does not inherit it. The app does not collect background location, send it to the developer, or perform reverse geocoding. Explicit notebook export or personal iCloud sync includes this metadata with the note files.
 
 ## Optional AI
 
 You choose the provider, address and model. Some services require your own API key and may charge separately. Connection tests contact the configured service without notes. Fetching available models also contacts the selected service.
 
-When you tap Send, your question, relevant conversation history and the note context shown in the interface are sent to the service you configured. If you enable card tools, the AI can also search and read notes and extracted text from supported attachments within that conversation's authorized note selection. These tools cannot modify notes. Check the selection before sending and choose services you trust.
+When you tap Send, your question, relevant conversation history and the note context shown in the interface are sent to the service you configured. If you enable card tools, the AI can search and read notes and extracted text from supported attachments within that conversation's authorized note selection, and propose creating, appending, editing or linking notes. Changes and relationships are saved only after your confirmation in a native preview; a suggestion does not automatically rewrite notes. Check the selection before sending and choose services you trust.
 
 ## Read aloud
 
@@ -72,6 +86,12 @@ You can export your notebook and move records you no longer need to Trash. Trash
 
 Feedback is drafted locally. Sharing sends it to the recipient you choose. Opening the GitHub feedback page sends the draft to GitHub in the page address, even before you submit an issue. Submitted GitHub issues are generally public. Do not include keys, private notes or personal information.
 
+## Public app information
+
+This candidate's Privacy policy and About & support pages include Chinese and English content for offline reading. Only Check latest information sends a bodyless GET to https://daypage-api.cubxxw.com/daypage/v1/app-info.json. Launching, recording, searching and opening settings never trigger it. A failure leaves the bundled information readable, with manual retry available.
+
+The planned service uses Alibaba Cloud infrastructure in Shanghai, China and serves public plain text only. It receives no notes, recordings, attachments, feedback drafts, AI configuration, keys, accounts or persistent device identifiers. The client uses no cookies or sign-in credentials and rejects redirects. Connections necessarily involve IP addresses, request times, TLS and other network metadata processed by cloud infrastructure. Endpoint access logs are intended to be disabled and deployment must be verified before public access; this does not mean infrastructure-level logging is absent. No third-party log-retention period is promised here. Public access requires filing permission and deployment verification.
+
 ## Contact and updates
 
-Contact the developer through [DayPage support](ios-support.md) with privacy questions. Share only the information needed to resolve the issue. Opening privacy, support or feedback web pages connects your browser to GitHub, whose processing is governed by the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). Policy updates will be published here and will reflect changes in data handling.
+Contact the developer through [DayPage support](ios-support.md) with privacy questions. Share only the information needed to resolve the issue. Opening GitHub support or feedback pages connects your browser to GitHub, whose processing is governed by the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). Policy updates will be published here and will reflect changes in data handling.

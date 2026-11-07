@@ -68,11 +68,12 @@ final class InformationProtocol: URLProtocol {
     try require(decoded.revisionDate == "2026-11-07", "Valid content must decode")
     let bundled = try AppInformation.decode(Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
     try require(!bundled.languages["zh-Hans"]!.privacy.isEmpty, "Bundled Chinese policy must be readable")
-    for change: (inout [String: Any]) -> Void in [
+    let invalidPayloads: [(inout [String: Any]) -> Void] = [
       { $0["schemaVersion"] = 2 }, { $0["appID"] = "other.app" },
       { $0["revisionDate"] = "2026-02-30" }, { $0["languages"] = [:] },
       { $0["languages"] = ["en": ["about": [], "privacy": [], "support": []]] },
-    ] {
+    ]
+    for change in invalidPayloads {
       let data = try payload(change)
       try await reject { _ = try AppInformation.decode(data) }
     }
@@ -128,6 +129,11 @@ final class InformationProtocol: URLProtocol {
     try await reject { _ = try await cancelled.value }
     try await Task.sleep(nanoseconds: 50_000_000)
     try require(InformationProtocol.snapshot().1, "Caller cancellation must stop transport")
+    InformationProtocol.prepare { _ in }
+    let began = Date()
+    try await reject { _ = try await service().fetch() }
+    let elapsed = Date().timeIntervalSince(began)
+    try require(elapsed >= 7 && elapsed < 11, "Silent transport must terminate at the eight-second budget")
     print("PASS: public information boundaries")
   }
 }

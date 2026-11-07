@@ -6,6 +6,8 @@ to drive a change.
 
 ## Current
 
+- [Public App information](architecture/decisions/ADR-0033-public-app-information.md) — prepared offline reader and explicit bounded public-text request; filing, public deployment and binary release remain gated
+
 - [Local Watch and personal iCloud continuity](engineering/local-watch-icloud.md) — GET-392 implementation and pending native/device acceptance; [ADR-0032](architecture/decisions/ADR-0032-local-watch-and-personal-replication.md)
 
 - [Local card tools and read aloud](engineering/local-agent-tools-and-speech.md) — scoped discovery, reviewed note changes, confirmed relationships and speech channels (GET-369/GET-388, ADR-0030/ADR-0031)

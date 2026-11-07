@@ -13,13 +13,18 @@ Keep credentials, personal notes and private runtime evidence out of Git.
 
 The active project is `DayPageLocal/DayPageLocal.xcodeproj`, scheme `DayPage`.
 Both Fastlane `beta` and `release` archive that project. Local iOS signing covers
-`DayPage` / `com.daypage.app` only; the repository retains other legacy Apple targets.
+`DayPage` / `com.daypage.app` and its `com.daypage.app.watchkitapp` companion;
+verify both exact provisioning profiles and the personal CloudDocuments entitlement.
 The beta lane uploads to TestFlight; the release lane
 submits to App Store review only when separately authorized.
 
-The local app has no backend, database, account, telemetry or legacy extension
-dependency. Its release does not write `ENV_FILE`, generate provider secrets, apply
-a Supabase overlay, or provision Widget/Watch/Share profiles. Legacy source and
+The local notebook requires no developer backend, database, account or telemetry.
+Its optional personal iCloud and Watch paths are documented in
+[local Watch and iCloud continuity](local-watch-icloud.md). The prepared
+[public information service](../architecture/decisions/ADR-0033-public-app-information.md)
+adds only an explicit public-text GET with bundled offline policy. Its release does
+not write `ENV_FILE`, generate provider secrets, apply a Supabase overlay, or
+provision legacy Widget/Share profiles. Legacy source and
 backend-validation tools remain available for the archived clients; those cloud
 gates must not be reintroduced as local-app prerequisites.
 
@@ -47,12 +52,21 @@ refuses publication instead of carrying an old success into signing.
 The existing signing secrets belong to the existing App Store Connect app and
 match repository. Match's exact generated profile name is applied to the local
 Release target with manual `Apple Distribution` signing and used in export
-options. Missing main-app provisioning fails before archive/upload.
+options. Missing main-app or companion provisioning fails before archive/upload.
 
 Before merging, verify all applicable checks on the final PR head, including
 Maestro. Maestro runs for PR/schedule events; a main-push success does not imply
 that UI job ran. The local-iOS workflow tests DayPageCore, checks the active
-project boundary and builds the unsigned Release simulator app.
+project boundary, runs the standalone bounded-information transport fixture and
+builds the unsigned Release simulator app and Watch companion. Native UI, signing,
+physical devices, live service reachability and filing approval need separate proof.
+
+The domestic-information candidate remains a draft while filing/public HTTPS is
+pending. Verify the fixed endpoint and exact bundled JSON bytes before enabling
+public access or releasing this version. Do not merge an unavailable endpoint or
+claim a filing number without an issued, verified receipt. TestFlight is automatic
+for matching main changes unless `[skip testflight]` reaches the actual main commit;
+preserve that marker for code-only merges and verify publication was skipped.
 
 Host-side assembly and failure regressions:
 
