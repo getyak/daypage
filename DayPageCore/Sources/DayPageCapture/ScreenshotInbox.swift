@@ -9,7 +9,7 @@ public enum ScreenshotInboxError: LocalizedError {
     case .invalidImage: return String(localized: "Choose a complete PNG, JPEG or HEIC image.")
     case .tooLarge: return String(localized: "Use an image up to 25 MB and 40 million pixels.")
     case .full: return String(localized: "Open DayPage to review pending images before sharing more.")
-    case .invalidPath, .changed: return String(localized: "This capture needs attention. Its original has been preserved.")
+    case .invalidPath, .changed: return String(localized: "This capture could not be read. Reopen it or share the image again.")
     case .unavailable: return String(localized: "Local sharing is unavailable. Open DayPage and try again.")
     }
   }

@@ -477,7 +477,7 @@
 "Choose a complete PNG, JPEG or HEIC image." = "Choose a complete PNG, JPEG or HEIC image.";
 "Use an image up to 25 MB and 40 million pixels." = "Use an image up to 25 MB and 40 million pixels.";
 "Open DayPage to review pending images before sharing more." = "Open DayPage to review pending images before sharing more.";
-"This capture needs attention. Its original has been preserved." = "This capture needs attention. Its original has been preserved.";
+"This capture could not be read. Reopen it or share the image again." = "This capture could not be read. Reopen it or share the image again.";
 "Local sharing is unavailable. Open DayPage and try again." = "Local sharing is unavailable. Open DayPage and try again.";
 "Add image to DayPage" = "Add image to DayPage";
 "Open DayPage afterwards to review the image and choose Save note. Nothing is sent to AI." = "Open DayPage afterwards to review the image and choose Save note. Nothing is sent to AI.";
