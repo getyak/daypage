@@ -350,8 +350,9 @@ final class NotebookModel: ObservableObject {
       try requireReviewExchangeQA()
       let baseline = reviewQAContainer.appendingPathComponent("baseline.json")
       if FileManager.default.fileExists(atPath: baseline.path) { return }
+      let importSource = try reviewQAImportSource()
       guard !FileManager.default.fileExists(atPath: reviewQAContainer.appendingPathComponent("synthetic-source").path),
-        !FileManager.default.fileExists(atPath: reviewQAImportSource().path) else { throw ManualReviewError.conflict }
+        !FileManager.default.fileExists(atPath: importSource.path) else { throw ManualReviewError.conflict }
       let existing = try await store.entries()
       guard existing.isEmpty, draft.isEmpty, pendingAssets.isEmpty else { throw ManualReviewError.conflict }
       let created = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600 + 0.123)
@@ -379,7 +380,7 @@ final class NotebookModel: ObservableObject {
       let sourcePage = try await sourceSession.save(sourceDraft, editedBody: sourceDraft.body)
       let snapshot = try await sourceStore.exchangeSnapshot()
       try snapshot.validated()
-      let source = try reviewQAImportSource()
+      let source = importSource
       try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
       var files = snapshot.files
       files["daypage-exchange.json"] = try Self.reviewQAEncode(snapshot.manifest)
@@ -388,13 +389,13 @@ final class NotebookModel: ObservableObject {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try bytes.write(to: url, options: .atomic)
       }
-      guard let sourceEntry = try await sourceStore.entries().first, let markdown = sourceEntry.originalMarkdown,
+      guard let sourceEntry = try await sourceStore.entries().first,
         let attachment = sourceEntry.memo.attachments.first else { throw ManualReviewError.page }
       let sourceAsset = try Data(contentsOf: await sourceStore.assetURL(attachment.file, for: sourceEntry))
       let saved = try await captureDrafts.load()
       let record = ReviewQABaseline(protectedFiles: try reviewQAFiles(root.appendingPathComponent("raw")),
         draft: try Self.reviewQADraftDigest(saved), sourceFiles: try reviewQAFiles(source),
-        sourceMarkdown: Self.reviewQAHash(Data(markdown.utf8)), sourceAsset: Self.reviewQAHash(sourceAsset),
+        sourceMarkdown: sourceEntry.revision, sourceAsset: Self.reviewQAHash(sourceAsset),
         sourceRaw: try reviewQAFiles(sourceRoot.appendingPathComponent("raw")),
         sourceReviewID: sourcePage.id, sourceReview: Self.reviewQAHash(try sourcePage.encoded()))
       try Self.reviewQAEncode(record).write(to: baseline, options: .atomic)
@@ -433,8 +434,7 @@ final class NotebookModel: ObservableObject {
         var importedBytes = true
         for entry in imported {
           guard UUID(uuidString: entry.namespace) != nil, entry.memo.id == Self.reviewQAMemoID,
-            let markdown = entry.originalMarkdown,
-            Self.reviewQAHash(Data(markdown.utf8)) == baseline.sourceMarkdown,
+            entry.revision == baseline.sourceMarkdown,
             entry.memo.attachments.count == 1 else { importedBytes = false; continue }
           let url = try await store.assetURL(entry.memo.attachments[0].file, for: entry)
           if Self.reviewQAHash(try Data(contentsOf: url)) != baseline.sourceAsset { importedBytes = false }
