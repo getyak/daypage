@@ -4,11 +4,12 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { createServer, request as httpRequest } from "node:http";
-import { readFile, writeFile, mkdir, readdir, lstat, realpath } from "node:fs/promises";
+import { readFile, writeFile, mkdir, lstat, realpath, open, opendir, readlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn, execFileSync } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
+import { endianness } from "node:os";
 
 export const ORIGIN = "http://127.0.0.1:13143";
 export const AUTH = "/__get443_supabase";
@@ -272,6 +273,103 @@ function listenerEvidence(output, childPID) {
     // errors/file paths. Preserve suffixes to diagnose dialect differences.
     fields: records.slice(0, 20).map(line => /^[pf][0-9]+[A-Za-z]*$/.test(line) ? line.slice(0, 40) : "[unrecognized-field]") };
 }
+class ProcOwnerError extends Error {
+  constructor(kind) { super(kind); this.kind = kind; }
+}
+async function boundedProcText(file, maximum = 256 * 1024) {
+  const handle = await open(file, "r"), bytes = Buffer.alloc(maximum + 1); let count = 0;
+  try {
+    while (count < bytes.length) {
+      const value = await handle.read(bytes, count, bytes.length - count, null); if (!value.bytesRead) break; count += value.bytesRead;
+    }
+    if (count > maximum) throw new ProcOwnerError("proc-size-limit"); return bytes.subarray(0, count).toString("utf8");
+  } finally { await handle.close(); }
+}
+const procIO = {
+  readText: boundedProcText,
+  readlink,
+  async namespace(file) { const value = await stat(file, { bigint: true }); return { dev: String(value.dev), ino: String(value.ino) }; },
+  async fds(file) {
+    const directory = await opendir(file), names = [];
+    for await (const entry of directory) {
+      if (names.length >= 512) throw new ProcOwnerError("fd-limit");
+      if (!/^\d+$/.test(entry.name)) throw new ProcOwnerError("malformed-fd"); names.push(entry.name);
+    }
+    return names;
+  },
+};
+function procStatIdentity(text, pid, parentPID) {
+  if (!Number.isSafeInteger(pid) || pid <= 1 || !text.startsWith(pid + " (") || text.length > 8192) throw new ProcOwnerError("malformed-stat");
+  const close = text.lastIndexOf(")"), fields = text.slice(close + 2).trim().split(/\s+/);
+  if (close < 0 || text[close + 1] !== " " || !/^[RSDTtWKPI]$/.test(fields[0] ?? "") || fields[1] !== String(parentPID) || !/^[1-9]\d{0,19}$/.test(fields[19] ?? "")) throw new ProcOwnerError("malformed-stat");
+  return { pid, parentPID, startTicks: fields[19] };
+}
+function namespaceKey(value) {
+  if (!exactKeys(value, ["dev", "ino"]) || Object.keys(value).length !== 2 || !/^\d{1,20}$/.test(value.dev) || !/^[1-9]\d{0,19}$/.test(value.ino)) throw new ProcOwnerError("malformed-namespace");
+  return value.dev + ":" + value.ino;
+}
+async function procIdentity(pid, parentPID, io) {
+  const identity = procStatIdentity(await io.readText(`/proc/${pid}/stat`, 8192), pid, parentPID);
+  const childNS = namespaceKey(await io.namespace(`/proc/${pid}/ns/net`)), parentNS = namespaceKey(await io.namespace(`/proc/${parentPID}/ns/net`));
+  if (childNS !== parentNS) throw new ProcOwnerError("namespace-mismatch");
+  return { ...identity, namespace: childNS };
+}
+function sameIdentity(a, b) { return a.pid === b.pid && a.parentPID === b.parentPID && a.startTicks === b.startTicks && a.namespace === b.namespace; }
+async function captureProcIdentity(pid, parentPID, io = procIO) {
+  const initial = await procIdentity(pid, parentPID, io), after = await procIdentity(pid, parentPID, io);
+  if (!sameIdentity(initial, after)) throw new ProcOwnerError("pid-changed"); return Object.freeze(initial);
+}
+function procTargetListeners(text, family, byteOrder) {
+  // /proc/pid/net is a namespace table, not proof of that PID's ownership.
+  // Kernel proc_net_tcp + proc_pid_fd(5): match the listener's inode to the
+  // exact spawned child's socket FD and fence its starttime before/after.
+  if (![4, 6].includes(family) || !["LE", "BE"].includes(byteOrder) || text.length > 256 * 1024) throw new ProcOwnerError("malformed-tcp");
+  const lines = text.trim().split("\n");
+  if (!/\bsl\s+local_address\s+(?:rem|remote)_address\s+st\b/.test(lines.shift() ?? "")) throw new ProcOwnerError("malformed-tcp");
+  const target = [], length = family === 4 ? 8 : 32, port = (13144).toString(16).toUpperCase();
+  for (const line of lines) {
+    const fields = line.trim().split(/\s+/), local = fields[1]?.split(":");
+    if (!/^\d+:$/.test(fields[0] ?? "") || local?.length !== 2 || !new RegExp(`^[0-9A-Fa-f]{${length}}$`).test(local[0]) || !/^[0-9A-Fa-f]{4}$/.test(local[1]) || !/^[0-9A-Fa-f]{2}$/.test(fields[3] ?? "")) throw new ProcOwnerError("malformed-tcp");
+    if (local[1].toUpperCase() !== port || fields[3].toUpperCase() !== "0A") continue;
+    if (fields.length < 10 || !new RegExp(`^0{${length}}:0000$`).test(fields[2]) ||
+      !/^[0-9A-Fa-f]{8}:[0-9A-Fa-f]{8}$/.test(fields[4]) || !/^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{8}$/.test(fields[5]) ||
+      !/^[0-9A-Fa-f]{8}$/.test(fields[6]) || !/^\d{1,10}$/.test(fields[7]) || !/^\d{1,20}$/.test(fields[8]) || !/^[1-9]\d{0,19}$/.test(fields[9] ?? "")) throw new ProcOwnerError("malformed-tcp");
+    const expected = byteOrder === "LE" ? "0100007F" : "7F000001";
+    target.push({ exactLoopback: family === 4 && local[0].toUpperCase() === expected, inode: fields[9] });
+  }
+  return target;
+}
+function procErrorKind(error) {
+  if (error instanceof ProcOwnerError) return error.kind;
+  if (["EACCES", "EPERM"].includes(error.code)) return "permission-denied";
+  if (["ENOENT", "ESRCH"].includes(error.code)) return "proc-unavailable";
+  return "proc-read-error";
+}
+async function procListener(initial, io = procIO, byteOrder = endianness()) {
+  const base = { method: "linux-proc", childPID: initial.pid, startTicks: initial.startTicks, namespace: initial.namespace };
+  try {
+    if (!sameIdentity(initial, await procIdentity(initial.pid, initial.parentPID, io))) throw new ProcOwnerError("pid-changed");
+    const listeners = [...procTargetListeners(await io.readText(`/proc/${initial.pid}/net/tcp`), 4, byteOrder),
+      ...procTargetListeners(await io.readText(`/proc/${initial.pid}/net/tcp6`), 6, byteOrder)];
+    if (!listeners.length) throw new ProcOwnerError("no-listener");
+    if (listeners.length !== 1) throw new ProcOwnerError("ambiguous-listener");
+    if (!listeners[0].exactLoopback) throw new ProcOwnerError("non-loopback-listener");
+    const names = await io.fds(`/proc/${initial.pid}/fd`); if (names.length > 512) throw new ProcOwnerError("fd-limit");
+    let owned = false;
+    for (const name of names) {
+      if (!/^\d+$/.test(name)) throw new ProcOwnerError("malformed-fd");
+      let link; try { link = await io.readlink(`/proc/${initial.pid}/fd/${name}`); } catch (error) { if (error.code === "ENOENT") continue; throw error; }
+      if (link.startsWith("socket:") && !/^socket:\[[1-9]\d{0,19}\]$/.test(link)) throw new ProcOwnerError("malformed-socket");
+      if (link === `socket:[${listeners[0].inode}]`) owned = true;
+    }
+    if (!owned) throw new ProcOwnerError("listener-not-owned");
+    if (!sameIdentity(initial, await procIdentity(initial.pid, initial.parentPID, io))) throw new ProcOwnerError("pid-changed");
+    return { ...base, owned: true, inode: listeners[0].inode, category: "owned" };
+  } catch (error) { return { ...base, owned: false, category: procErrorKind(error) }; }
+}
+function sameProcListener(before, after) {
+  return before.owned === true && after.owned === true && before.childPID === after.childPID && before.startTicks === after.startTicks && before.namespace === after.namespace && before.inode === after.inode;
+}
 function markersFor(values) {
   const markers = new Set();
   for (const files of Object.values(values)) for (const [name, bytes] of files) {
@@ -338,7 +436,7 @@ export async function serve() {
   const env = Object.fromEntries(["PATH", "HOME", "LANG", "LC_ALL", "SYSTEMROOT", "CI"].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
   Object.assign(env, { NEXT_TELEMETRY_DISABLED: "1", DAYPAGE_PRIVATE_PREVIEW: "1", NEXT_PUBLIC_SUPABASE_URL: ORIGIN + AUTH,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: PUBLIC_KEY, TMPDIR: artifact });
-  const output = startupOutput(), readiness = { attempts: [], ready: false, failure: null };
+  const output = startupOutput(), readiness = { attempts: [], initialIdentity: null, ready: false, failure: null };
   try {
     child = spawn(process.execPath, [nextEntry, "start", "--hostname", "127.0.0.1", "--port", "13144"], { cwd: WEB, env, stdio: ["ignore", "pipe", "pipe"] });
     child.stdout.on("data", bytes => output.push("stdout", bytes)); child.stderr.on("data", bytes => output.push("stderr", bytes));
@@ -367,14 +465,22 @@ export async function serve() {
     } catch (error) { return { owned: false, commandError: /^[A-Z0-9_]+$/.test(error.code ?? "") ? error.code : null, exitCode: Number.isInteger(error.status) ? error.status : null }; }
   }
   try {
+    let initial;
+    if (process.platform === "linux") {
+      initial = await captureProcIdentity(child.pid, process.pid); readiness.initialIdentity = initial;
+      assert.ok(!spawnFailed && !unexpectedChildExit && child.exitCode === null && child.signalCode === null, "Spawned Next exited during initial identity capture");
+    }
     for (let attempt = 0; attempt < 120; attempt++) {
       assert.ok(!spawnFailed && !unexpectedChildExit && child.exitCode === null && child.signalCode === null, "Private Next exited before readiness");
-      const lookup = ownsPrivateListener(), record = { attempt, lookup, status: null, fetchError: null };
+      const lookup = initial ? await procListener(initial) : ownsPrivateListener(), record = { attempt, lookup, afterLookup: null, status: null, fetchError: null };
       readiness.attempts.push(record);
       if (lookup.owned) {
         try {
           const value = await fetch("http://127.0.0.1:13144/notebooks", { redirect: "manual", signal: AbortSignal.timeout(1000) });
-          record.status = value.status; if ([200, 307, 308].includes(value.status)) { ready = true; break; }
+          record.status = value.status;
+          record.afterLookup = initial ? await procListener(initial) : ownsPrivateListener();
+          const sameOwner = initial ? sameProcListener(lookup, record.afterLookup) : record.afterLookup.owned;
+          if (sameOwner && !spawnFailed && !unexpectedChildExit && child.exitCode === null && child.signalCode === null && [200, 307, 308].includes(value.status)) { ready = true; break; }
         } catch (error) { record.fetchError = ["AbortError", "TimeoutError", "TypeError"].includes(error.name) ? error.name : "other"; }
       }
       await sleep(250);
@@ -386,7 +492,7 @@ export async function serve() {
       origin: ORIGIN, nextPID: child.pid, publicRealm: ORIGIN + AUTH, fixtureMode: "synthetic-auth-only", actualNext: true,
       buildID: (await readFile(path.join(WEB, ".next/BUILD_ID"), "utf8")).trim() }, null, 2) + "\n");
   } catch (error) {
-    readiness.failure = safeStartupLine(error.message ?? "Private readiness failed");
+    readiness.failure = error instanceof ProcOwnerError || error.code ? procErrorKind(error) : safeStartupLine(error.message ?? "Private readiness failed");
     await shutdown("startup-failure", true);
   }
 }
@@ -437,7 +543,78 @@ export async function verifyEvidence() {
   console.log("Verified both actual Next UI suites, original downloads, safe network ledger and owned process cleanup. Synthetic Auth only; development StrictMode and real Auth remain unverified.");
 }
 
+async function selfTestProcOwner() {
+  const header = "  sl  local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n";
+  const listen = " 0: 0100007F:3358 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1001 0 424242 1 0 100 0 0 10 0\n";
+  const statText = (ticks = "12345", pid = 3007) => `${pid} (next-server (v1) ` + ["S", "2000", ...Array(17).fill("0"), ticks, ...Array(30).fill("0")].join(" ");
+  function fake(options = {}) {
+    let reads = 0;
+    return {
+      async readText(file) {
+        if (file === "/proc/3007/stat") return options.stat?.(++reads) ?? statText();
+        if (file === "/proc/3007/net/tcp") { if (options.readError) throw options.readError; return options.tcp ?? header + listen; }
+        if (file === "/proc/3007/net/tcp6") { if (options.noTCP6) throw { code: "ENOENT" }; return options.tcp6 ?? header; }
+        throw new Error("Unexpected synthetic read");
+      },
+      async namespace(file) {
+        assert.ok(["/proc/3007/ns/net", "/proc/2000/ns/net"].includes(file));
+        return options.namespace?.(file) ?? { dev: "4", ino: "900" };
+      },
+      async fds(file) { assert.equal(file, "/proc/3007/fd"); return options.fds ?? ["0", "18"]; },
+      async readlink(file) {
+        if (options.linkError) throw options.linkError;
+        assert.ok(/^\/proc\/3007\/fd\/\d+$/.test(file)); return file.endsWith("/18") ? options.link ?? "socket:[424242]" : "pipe:[987]";
+      },
+    };
+  }
+  const initial = await captureProcIdentity(3007, 2000, fake());
+  assert.deepEqual(initial, { pid: 3007, parentPID: 2000, startTicks: "12345", namespace: "4:900" }); assert.equal(Object.isFrozen(initial), true);
+  const before = await procListener(initial, fake(), "LE"), after = await procListener(initial, fake(), "LE");
+  assert.deepEqual(before, { method: "linux-proc", childPID: 3007, startTicks: "12345", namespace: "4:900", owned: true, inode: "424242", category: "owned" });
+  assert.equal(sameProcListener(before, after), true);
+  assert.equal((await procListener(initial, fake({ tcp: header + listen.replace("0100007F", "7F000001") }), "BE")).owned, true);
+  let negative = 0;
+  for (const [options, category] of [
+    [{ tcp: header }, "no-listener"],
+    [{ tcp: header + listen + listen.replace("424242", "424243") }, "ambiguous-listener"],
+    [{ tcp6: header + listen.replace("0100007F", "00000000000000000000000001000000").replace("00000000:0000", "00000000000000000000000000000000:0000") }, "ambiguous-listener"],
+    [{ tcp: header + listen.replace("0100007F", "00000000") }, "non-loopback-listener"],
+    [{ tcp: header, tcp6: header + listen.replace("0100007F", "00000000000000000000000001000000").replace("00000000:0000", "00000000000000000000000000000000:0000") }, "non-loopback-listener"],
+    [{ link: "socket:[424243]" }, "listener-not-owned"],
+    [{ fds: [] }, "listener-not-owned"],
+    [{ fds: ["not-a-number"] }, "malformed-fd"],
+    [{ fds: Array(513).fill("18") }, "fd-limit"],
+    [{ link: "socket:[bad]" }, "malformed-socket"],
+    [{ stat: () => statText("12346") }, "pid-changed"],
+    [{ stat: n => statText(n === 1 ? "12345" : "12346") }, "pid-changed"],
+    [{ stat: () => statText("12345", 4000) }, "malformed-stat"],
+    [{ stat: () => statText().replace(" S 2000 ", " Z 2000 ") }, "malformed-stat"],
+    [{ namespace: file => ({ dev: file.includes("/3007/") ? "5" : "4", ino: "900" }) }, "namespace-mismatch"],
+    [{ tcp: "private malformed table" }, "malformed-tcp"],
+    [{ tcp: header + listen.replace("424242", "not-an-inode") }, "malformed-tcp"],
+    [{ tcp: header + "0: 0100007F:3358 invalid 0A\n" }, "malformed-tcp"],
+    [{ tcp: "x".repeat(256 * 1024 + 1) }, "malformed-tcp"],
+    [{ noTCP6: true }, "proc-unavailable"],
+    [{ readError: { code: "EACCES" } }, "permission-denied"],
+    [{ linkError: { code: "EPERM" } }, "permission-denied"],
+    [{ readError: new Error("synthetic-private-content") }, "proc-read-error"],
+  ]) {
+    const result = await procListener(initial, fake(options), "LE"); assert.equal(result.owned, false); assert.equal(result.category, category);
+    assert.equal(JSON.stringify(result).includes("synthetic-private-content"), false); assert.equal("inode" in result, false); negative++;
+  }
+  await assert.rejects(captureProcIdentity(3007, 2000, fake({ stat: n => statText(n === 1 ? "12345" : "12346") })), error => error.kind === "pid-changed");
+  await assert.rejects(captureProcIdentity(3007, 2000, fake({ namespace: () => ({ dev: "invalid", ino: "900" }) })), error => error.kind === "malformed-namespace");
+  for (const field of ["childPID", "startTicks", "namespace", "inode"]) assert.equal(sameProcListener(before, { ...after, [field]: "different" }), false);
+  const driftIO = fake({ stat: n => statText(n <= 2 ? "12345" : "12346") });
+  assert.equal(sameProcListener(await procListener(initial, driftIO, "LE"), await procListener(initial, driftIO, "LE")), false);
+  // Unrelated connections (including short TIME_WAIT records) cannot grant
+  // ownership and their other service addresses never reach returned evidence.
+  const unrelated = " 1: 0200007F:9999 00000000:0000 06\n";
+  assert.equal((await procListener(initial, fake({ tcp: header + unrelated + listen }), "LE")).owned, true);
+  return { negativeProbeCases: negative, realProcReads: false };
+}
 async function selfTest() {
+  const procChecks = await selfTestProcOwner();
   const a = new SyntheticAuth(), headers = { "x-client-info": "supabase-ssr/0.12.0 createBrowserClient", apikey: PUBLIC_KEY };
   const token = await a.handle("POST", new URL(AUTH + "/auth/v1/token?grant_type=password", ORIGIN), headers,
     encode({ email: "synthetic-a@get443.invalid", password: "get443-synthetic-fixture-input", gotrue_meta_security: {} }));
@@ -493,7 +670,7 @@ async function selfTest() {
   for (const input of ["cookie=value", "access_token=value", "user@example.invalid", "https://untrusted.invalid/path?private=value"]) {
     assert.equal(safeStartupLine(input).includes(input), false);
   }
-  console.log("Fixture pure checks passed: prior Auth/bytes/network guards; exit0 and explicitly requested pinned-Next SIGTERM/143; unrequested/unknown exits denied; strict listener owner parser; bounded redacted pre-readiness output with split-line, query, oversized, line-cap and post-ready protections. No listener/Next/bundler/browser started.");
+  console.log("Fixture pure checks passed:", JSON.stringify(procChecks), "prior Auth/bytes/network/exit143/redacted-output guards retained. No real proc/listener/Next/bundler/browser started.");
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === "--self-test") await selfTest();
