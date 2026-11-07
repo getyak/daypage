@@ -38,6 +38,20 @@ public struct NotebookEntry: Identifiable, Equatable, Sendable {
   public var id: String { "\(namespace)/\(day)/\(memo.id.uuidString)" }
   /// Hash the exact original Markdown, including unknown YAML and spacing.
   public var revision: String { NoteActionIdentity.digest(originalMarkdown ?? memo.toMarkdown()) }
+  /// Exchange projects decimal raw timestamps before any formatter can discard
+  /// sub-millisecond digits. The original block remains fileprivate and exact.
+  var exchangeTimestampLiterals: (created: String?, pinned: String?) {
+    guard let originalMarkdown else { return (nil, nil) }
+    return Self.timestampLiterals(in: originalMarkdown)
+  }
+  static func timestampLiterals(in markdown: String) -> (created: String?, pinned: String?) {
+    let text = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard text.hasPrefix("---") else { return (nil, nil) }
+    let lines = text.components(separatedBy: "\n")
+    guard let closing = lines.indices.dropFirst().first(where: { lines[$0].trimmingCharacters(in: .whitespaces) == "---" }) else { return (nil, nil) }
+    let metadata = YAMLParser(lines: Array(lines[1..<closing]))
+    return (metadata.scalar("created"), metadata.scalar("pinned_at"))
+  }
   public init(memo: Memo, day: String, namespace: String = "") {
     self.memo = memo
     self.day = day
@@ -903,8 +917,13 @@ public actor NotebookStore {
   /// part of one Memo unless every nonempty legacy candidate is a valid Memo.
   private func exchangeMemoBlocks(_ text: String, maximum: Int,
     includes: (Memo) -> Bool) throws -> [(String, Memo)] {
+    func requireTimestamps(_ block: String) throws {
+      let values = NotebookEntry.timestampLiterals(in: block)
+      guard let created = values.created, ExchangeTimestamp.projectRaw(created) != nil,
+        values.pinned.map({ ExchangeTimestamp.projectRaw($0) != nil }) ?? true else { throw VaultExchangeError.invalid }
+    }
     func split(_ separator: String, legacy: Bool) throws -> [(String, Memo)]? {
-      var start = text.startIndex, count = 0, hasCandidate = false
+      var start = text.startIndex, count = 0, hasCandidate = false, invalidTimestamp = false
       var blocks: [(String, Memo)] = []
       while true {
         try Task.checkCancellation()
@@ -915,6 +934,12 @@ public actor NotebookStore {
             if legacy { return nil }
             throw NotebookError.unreadableFile
           }
+          if legacy {
+            // Shape decides whether these are records at all. A later non-Memo
+            // makes the whole text one Memo body, including earlier fake headers.
+            do { try requireTimestamps(block) }
+            catch VaultExchangeError.invalid { invalidTimestamp = true }
+          } else { try requireTimestamps(block) }
           hasCandidate = true
           if includes(memo) {
             count += 1
@@ -926,6 +951,7 @@ public actor NotebookStore {
         start = separatorRange.upperBound
       }
       if legacy && !hasCandidate { return nil }
+      if invalidTimestamp { throw VaultExchangeError.invalid }
       guard count <= maximum else { throw VaultExchangeError.limit }
       return blocks
     }
@@ -934,6 +960,7 @@ public actor NotebookStore {
     try Task.checkCancellation()
     if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return [] }
     guard let memo = Memo.fromMarkdown(text) else { throw NotebookError.unreadableFile }
+    try requireTimestamps(text)
     guard includes(memo) else { return [] }
     guard maximum > 0 else { throw VaultExchangeError.limit }
     return [(text, memo)]

@@ -122,10 +122,19 @@ public struct ExchangeNote: Codable, Equatable, Sendable {
   var identity: String { namespace + "/" + originalID.uuidString }
   init(entry: NotebookEntry, attachments: [ExchangeAttachment]) throws {
     let memo = entry.memo
+    let timestamps = entry.exchangeTimestampLiterals
+    guard let originalCreated = timestamps.created, let projectedCreated = ExchangeTimestamp.projectRaw(originalCreated) else { throw VaultExchangeError.invalid }
+    let projectedPinned: String?
+    if let originalPinned = timestamps.pinned {
+      guard let projected = ExchangeTimestamp.projectRaw(originalPinned) else { throw VaultExchangeError.invalid }
+      projectedPinned = projected
+    } else { projectedPinned = nil }
     originalID = memo.id; namespace = try ExchangeNamespace.path(entry.namespace); day = entry.day; revision = entry.revision
-    type = memo.type.rawValue; body = memo.body; createdAt = ExchangeTimestamp.string(memo.created)
+    type = memo.type.rawValue; body = memo.body
+    createdAt = projectedCreated
     location = memo.location; weather = memo.weather; device = memo.device; mood = memo.mood
-    marginNote = memo.marginNote; pinnedAt = memo.pinnedAt.map(ExchangeTimestamp.string)
+    marginNote = memo.marginNote
+    pinnedAt = projectedPinned
     entityMentions = memo.entityMentions; self.attachments = attachments
   }
   func equivalent(to other: Self) -> Bool {
@@ -233,7 +242,9 @@ public struct VaultExchangeSnapshot: Sendable {
       }
     }
     for review in records.reviews {
-      guard byPath[review.file]?.kind == .review, let data = files[review.file] else { throw VaultExchangeError.invalid }
+      guard byPath[review.file]?.kind == .review, let data = files[review.file],
+        ExchangeTimestamp.date(review.createdAt) != nil, ExchangeTimestamp.date(review.start) != nil,
+        ExchangeTimestamp.date(review.end) != nil else { throw VaultExchangeError.invalid }
       guard review.file.split(separator: "/").dropLast(3).joined(separator: "/") == review.namespace else { throw VaultExchangeError.invalid }
       let page = try ManualReviewPage.decode(data)
       guard try ExchangeReview(SavedManualReview(namespace: ExchangeNamespace.logical(review.namespace), page: page), file: review.file) == review else { throw VaultExchangeError.invalid }
@@ -242,13 +253,48 @@ public struct VaultExchangeSnapshot: Sendable {
 }
 
 enum ExchangeTimestamp {
-  static func string(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+  private static let minimum: Int64 = -62_135_596_800_000 // 0001-01-01 UTC
+  private static let maximum: Int64 = 253_402_300_799_999 // 9999-12-31 UTC
+  /// Typed wire time is an explicit nearest-millisecond projection, not a
+  /// lossless representation of review Metadata's JSON Date. Raw bytes retain
+  /// that higher precision. Match IEEE-754 reference-seconds -> Unix arithmetic.
+  static func string(_ date: Date) -> String {
+    let milliseconds = (date.timeIntervalSince1970 * 1000).rounded(.toNearestOrAwayFromZero)
+    guard milliseconds.isFinite, milliseconds > Double(Int64.min), milliseconds < Double(Int64.max) else { return "" }
+    return format(Int64(milliseconds))
+  }
+  static func projectRaw(_ text: String) -> String? { parseMilliseconds(text, allowSubmilliseconds: true).map(Self.format) }
   static func date(_ text: String) -> Date? {
-    guard text.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$", options: .regularExpression) != nil else { return nil }
-    let formatter = ISO8601DateFormatter()
-    if let date = formatter.date(from: text) { return date }
-    formatter.formatOptions.insert(.withFractionalSeconds)
-    return formatter.date(from: text)
+    guard let milliseconds = parseMilliseconds(text, allowSubmilliseconds: false) else { return nil }
+    return Date(timeIntervalSince1970: Double(milliseconds) / 1000)
+  }
+  private static func parseMilliseconds(_ text: String, allowSubmilliseconds: Bool) -> Int64? {
+    guard let components = ISO8601DateFormatter.memoComponents(from: text) else { return nil }
+    let fraction = components.fraction
+    let discarded = fraction.dropFirst(3)
+    if !allowSubmilliseconds && discarded.contains(where: { $0 != "0" }) { return nil }
+    let whole = components.whole.timeIntervalSince1970
+    guard
+      whole.isFinite, whole.rounded() == whole, abs(whole) < Double(Int64.max / 1000 - 2) else { return nil }
+    let digits = String(fraction.prefix(3))
+    let subsecond = Int64(digits + String(repeating: "0", count: 3 - digits.count)) ?? 0
+    var result = Int64(whole) * 1000 + subsecond
+    if let next = discarded.first {
+      let aboveHalf = next > "5" || (next == "5" && discarded.dropFirst().contains(where: { $0 != "0" }))
+      let exactlyHalf = next == "5" && !discarded.dropFirst().contains(where: { $0 != "0" })
+      if aboveHalf || (exactlyHalf && result >= 0) { result += 1 }
+    }
+    return (minimum...maximum).contains(result) ? result : nil
+  }
+  private static func format(_ milliseconds: Int64) -> String {
+    guard (minimum...maximum).contains(milliseconds) else { return "" }
+    var second = milliseconds / 1000, remainder = milliseconds % 1000
+    if remainder < 0 { second -= 1; remainder += 1000 }
+    let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime]
+    let whole = formatter.string(from: Date(timeIntervalSince1970: Double(second)))
+    guard remainder != 0, whole.hasSuffix("Z") else { return whole }
+    let digits = String(remainder)
+    return String(whole.dropLast()) + "." + String(repeating: "0", count: 3 - digits.count) + digits + "Z"
   }
 }
 

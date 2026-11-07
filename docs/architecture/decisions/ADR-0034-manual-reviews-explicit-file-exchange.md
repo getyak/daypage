@@ -34,6 +34,15 @@ a typed `records.json` projection. The manifest lists exact paths, byte counts a
 SHA-256 values. Its stable `content_sha256` permits resuming an unchanged legacy
 Vault without relying on a newly generated export ID/time.
 
+Typed timestamps explicitly project to nearest milliseconds, with ties away
+from zero; whole seconds remain whole and other producer values have three
+fractional digits. Notes use original decimal raw scalars before parser clipping.
+Review JSON Date metadata keeps its full original precision/bytes; only its
+typed clock uses the declared reference-seconds-to-Unix projection in the wire
+contract. Do not call that wire clock lossless, or let Date.parse clipping make
+contradictory typed sub-millisecond digits look equal. This clarifies the draft
+contract without changing the frozen fixture or any stored source format.
+
 Every typed raw-note field is checked against the production Memo decoder and
 the **individual exact raw memo block** SHA, not just the whole day-file hash.
 External namespaces use physical `imports/<UUID>/...` paths; Core's logical UUID

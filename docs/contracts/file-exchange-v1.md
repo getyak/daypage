@@ -5,6 +5,51 @@ Frozen interface for parallel Local/Mac and Web implementation. Schema definitio
 daypage-exchange.json (manifest), records.json (version/notes/reviews), canonical
 raw records and referenced original assets; optional wiki/manual-reviews Markdown.
 
+## Timestamp projection and comparison
+
+Typed timestamp fields are an explicit **nearest-millisecond projection**, with
+ties away from zero on the UTC Unix timeline. Producers emit UTC RFC3339: whole
+seconds have no fractional suffix; other values have exactly three digits.
+Preserve existing Memo milliseconds, normalize offsets and carry into the next
+second when rounding requires it. For note created/pinned fields, derive the
+projection from the original decimal raw scalar, before a date parser can clip
+sub-millisecond digits. Raw memo bytes/revisions are never rewritten.
+
+Accepted scalar spelling uses `T`/`Z` case-insensitively or a signed `HH:MM`
+offset; producers use uppercase.
+Offset hours are 00–23 and minutes 00–59; apply that offset before rounding.
+There is no separate fraction-length cap inside the existing payload budgets.
+Validate the whole Gregorian civil time rather than normalizing invalid dates;
+this codec does not represent leap seconds. The resulting UTC clock must fit
+years 0001–9999. Unsupported/absent raw created/pinned timestamps fail exchange
+admission instead of inventing the current time; ordinary legacy read policy
+remains separate. The raw filename's owning day is not recomputed after rounding.
+
+Review Markdown metadata uses Foundation JSON Date: an IEEE-754 binary64 number
+of seconds since 2001-01-01 UTC. The corresponding typed clock is computed in
+this order: `(reference_seconds + 978307200) * 1000`, then round to the nearest
+integer with ties away from zero. Its higher original precision stays intact in
+the unchanged raw review metadata. Wire timestamps are **not lossless clocks**;
+the manifest's exact bytes/hash preserve the higher precision for recovery.
+
+A consumer must compare against that declared projection, not call Date.parse
+on both values and accept its silent clipping. Nonzero digits after the third
+fractional place in a typed timestamp are a contradiction, even when Date.parse
+would yield the same millisecond. Exact-zero padding/offset aliases can be
+normalized when supported; producers still use the canonical UTC whole/three-digit
+form. Historical source revisions are not recomputed from projected timestamps.
+
+The synthetic fixture below remains byte-for-byte unchanged; new timestamp
+regressions use separate isolated raw/review fixtures, including `.123Z`, decimal
+carry/offsets, pre-epoch ties, review microseconds and contradictory typed digits.
+Shared independent expected values are in
+`DayPageCore/Tests/DayPageCoreTests/Fixtures/exchange-timestamp-projection-v1.json`.
+The negative review JSON example deliberately rounds differently from an exact
+decimal raw `...59.9995Z`: JSON Date is first a binary64 reference-seconds number,
+whereas the raw RFC3339 fraction is rounded as original decimal digits.
+
+## Payload limits and authority
+
 Caps: manifest 256 KiB; records.json 16 MiB; total listed payload 50 MiB; 1,000
 files; 500 notes; 100 reviews; per attachment 25 MiB; per review body 64 KiB. No
 silent truncation. At least one note or review. Manifest counts must equal records.
