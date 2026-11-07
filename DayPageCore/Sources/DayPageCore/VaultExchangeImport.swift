@@ -190,12 +190,17 @@ public actor VaultExchangeImport {
     guard let enumerator = fm.enumerator(at: vault, includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey]) else {
       throw VaultExchangeError.invalid
     }
+    let basePath = NotebookPath.canonicalPath(vault)
     var count = 0
     for case let file as URL in enumerator {
       count += 1
       guard count <= 4000 else { throw VaultExchangeError.limit }
       try ExchangeIO.safe(file, within: vault)
-      let relative = String(file.path.dropFirst(vault.path.count + 1))
+      // Foundation may enumerate a /var URL as /private/var (or the reverse).
+      // Reject notebook links first, then compare the same canonical identity.
+      let path = NotebookPath.canonicalPath(file)
+      guard path.hasPrefix(basePath + "/") else { throw VaultExchangeError.invalid }
+      let relative = String(path.dropFirst(basePath.count + 1))
       let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
       guard (values.isRegularFile == true && allowed.contains(relative))
         || (values.isDirectory == true && folders.contains(relative)) else { throw VaultExchangeError.invalid }
