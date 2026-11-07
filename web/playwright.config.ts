@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  // This new fixture suite has its own mandatory CI job and explicit config.
+  testIgnore: "**/file-exchange-notebooks.spec.ts",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,

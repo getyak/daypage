@@ -7,6 +7,7 @@
 - [Release safety](release.md)
 - [Security and privacy](security.md)
 - [DeepSeek Harness Agentic testing](dsh-agentic-testing.md)
+- [Browser-local file exchange and its verification gates](../architecture/decisions/ADR-0038-browser-local-file-exchange.md)
 
 Use the Makefile as the stable engineering facade. Scripts may evolve behind it; current
 docs should prefer `make` targets over duplicating long CI commands.
