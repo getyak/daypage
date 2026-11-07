@@ -135,6 +135,8 @@ class PrivateAppInformationHTTP(unittest.TestCase):
 
     def test_hostless_http10_cannot_use_server_name_fallback(self):
         self.assertEqual(self.request(host=None, version="HTTP/1.0")[0], 404)
+        # A syntactically empty Host may be rejected by Nginx's parser first.
+        self.assertIn(self.request(host="", version="HTTP/1.0")[0], (400, 404))
 
     def test_conflicting_absolute_target_does_not_override_host_restriction(self):
         self.assertEqual(self.request(target="http://other.invalid" + ROUTE)[0], 404)
