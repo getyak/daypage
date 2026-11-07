@@ -124,6 +124,13 @@ final class LocalNotebookUITests: XCTestCase {
     let source = element("app-information-source").label
     if element("app-information-failure").exists {
       XCTAssertEqual(source, "Information included with this app")
+      XCTAssertTrue(element("app-information-check-latest").isEnabled, "Failed refresh must permit retry")
+      let bundledAbout = "An account-free local notebook. Write, read, search, import and export offline. The installed version is read from this device."
+      for _ in 0..<12 {
+        if visibleText(bundledAbout).isHittable { break }
+        app.swipeDown()
+      }
+      XCTAssertTrue(visibleText(bundledAbout).isHittable, "Failed refresh must retain actual bundled content")
       screenshot("app-information-failure-retained-bundle")
     } else {
       XCTAssertEqual(source, "Latest information from DayPage")

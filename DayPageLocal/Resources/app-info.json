@@ -67,7 +67,7 @@
         {
           "title": "联系与更新",
           "paragraphs": [
-            "隐私问题可通过 DayPage 支持页面 (ios-support.md) 联系开发者。请只提供解决问题所必需的信息。主动打开 GitHub 支持或反馈网页时，浏览器会连接 GitHub，该网站的数据处理适用 GitHub 隐私声明 (https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)。政策更新会发布在本页；如数据处理方式发生变化，政策会相应更新。"
+            "隐私问题可在“设置 → 关于与支持”查看帮助，再从侧栏“反馈”联系开发者。请只提供解决问题所必需的信息。主动打开 GitHub 支持或反馈网页时，浏览器会连接 GitHub，该网站的数据处理适用 GitHub 隐私声明 (https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)。政策更新会发布在此说明中；如数据处理方式发生变化，政策会相应更新。"
           ]
         }
       ],
@@ -79,7 +79,7 @@
             "设置中的“隐私政策”和“关于与支持”提供离线说明。候选更新中的“查看最新说明”仅请求公开应用说明，失败不影响内置内容；国内服务须在备案允许并核验部署后开放，这不是已上线声明。此入口不上传反馈或笔记。",
             "可选个人 iCloud 使用你的 Apple 账户交换笔记和附件；配对 Watch 可传递文字与原始录音。同步状态不保证 Apple 已完成云端上传。AI 提出的笔记和关系变更需你在原生预览中确认。",
             "如需反馈问题，请在应用侧栏打开“反馈”，或前往 DayPage GitHub Issues (https://github.com/getyak/daypage/issues)。请提供应用版本、iOS 版本、复现步骤和预期结果。问题通常公开可见，请勿附上私密笔记、API 密钥、登录资料或未经处理的个人截图。",
-            "隐私问题请参考 iOS 隐私政策 (ios-privacy.md)，并在反馈中说明具体疑问。请先导出备份，再进行卸载等可能删除本地数据的操作。"
+            "隐私问题请打开“设置 → 隐私政策”，并在反馈中说明具体疑问。请先导出备份，再进行卸载等可能删除本地数据的操作。"
           ]
         }
       ]
@@ -147,7 +147,7 @@
         {
           "title": "Contact and updates",
           "paragraphs": [
-            "Contact the developer through DayPage support (ios-support.md) with privacy questions. Share only the information needed to resolve the issue. Opening GitHub support or feedback pages connects your browser to GitHub, whose processing is governed by the GitHub Privacy Statement (https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). Policy updates will be published here and will reflect changes in data handling."
+            "For privacy questions, read Settings → About & support, then contact the developer through Feedback in the sidebar. Share only the information needed to resolve the issue. Opening GitHub support or feedback pages connects your browser to GitHub, whose processing is governed by the GitHub Privacy Statement (https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). Policy updates will be published in this information and will reflect changes in data handling."
           ]
         }
       ],
@@ -159,7 +159,7 @@
             "Settings → Privacy policy and About & support provide offline information. In the candidate update, Check latest information requests public app text only; failures leave the included text available. The domestic service requires filing permission and deployment verification before public access; this is not a launch announcement. This action uploads no feedback or notes.",
             "Optional personal iCloud exchanges notes and attachments through your Apple account; a paired Watch can transfer text and original recordings. Local exchange status does not guarantee Apple's cloud upload has completed. AI-proposed note and relationship changes need your confirmation in a native preview.",
             "For help, open Feedback in the app sidebar or visit DayPage GitHub Issues (https://github.com/getyak/daypage/issues). Include the app version, iOS version, steps to reproduce and expected result. Issues are generally public. Do not include private notes, API keys, sign-in details or screenshots containing personal information.",
-            "For privacy questions, read the iOS privacy policy (ios-privacy.md) and describe the specific concern in your feedback. Export a backup before uninstalling or taking other actions that may remove local data."
+            "For privacy questions, open Settings → Privacy policy and describe the specific concern in your feedback. Export a backup before uninstalling or taking other actions that may remove local data."
           ]
         }
       ]

@@ -4,6 +4,7 @@ No packages, Xcode project, Simulator, real endpoint or notebook are used.
 Run on a macOS host with available build capacity (or hosted CI).
 """
 from pathlib import Path
+import platform
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,7 @@ class AppInformationTests(unittest.TestCase):
             binary = work / "app-information-tests"
             result = subprocess.run([
                 "xcrun", "swiftc", "-swift-version", "5", "-parse-as-library",
+                "-target", f"{platform.machine()}-apple-macosx13.0",
                 "-j", "1", "-module-cache-path", str(work / "module-cache"),
                 str(source), str(ROOT / "scripts/tests/fixtures/app_information.swift"),
                 "-o", str(binary),

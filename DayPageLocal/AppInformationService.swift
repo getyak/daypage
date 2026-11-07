@@ -75,11 +75,13 @@ struct AppInformation: Decodable {
   }
 }
 
-enum AppInformationError: Error { case invalidContent, invalidResponse, tooLarge, redirected }
+enum AppInformationError: Error, Equatable { case invalidContent, invalidResponse, tooLarge, redirected }
 
 struct AppInformationService {
   private let configuration: URLSessionConfiguration
-  init(configuration: URLSessionConfiguration = .ephemeral) {
+  private let now: @Sendable () -> ContinuousClock.Instant
+  init(configuration: URLSessionConfiguration = .ephemeral,
+       now: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock().now }) {
     // Copy only the transport adapter; never inherit another feature's headers/storage.
     let clean = URLSessionConfiguration.ephemeral
     clean.protocolClasses = configuration.protocolClasses
@@ -92,10 +94,11 @@ struct AppInformationService {
     clean.timeoutIntervalForResource = 8
     clean.httpAdditionalHeaders = [:]
     self.configuration = clean
+    self.now = now
   }
 
   func fetch() async throws -> AppInformation {
-    let transfer = AppInformationTransfer(configuration: configuration)
+    let transfer = AppInformationTransfer(configuration: configuration, now: now)
     return try await withTaskCancellationHandler {
       try Task.checkCancellation()
       return try await withCheckedThrowingContinuation { transfer.start($0) }
@@ -105,22 +108,28 @@ struct AppInformationService {
 
 private final class AppInformationTransfer: NSObject, URLSessionDataDelegate, @unchecked Sendable {
   private let configuration: URLSessionConfiguration
+  private let now: @Sendable () -> ContinuousClock.Instant
   private let lock = NSLock()
   private var continuation: CheckedContinuation<AppInformation, Error>?
   private var terminal: Result<AppInformation, Error>?
   private var session: URLSession?
   private var task: URLSessionDataTask?
   private var deadline: DispatchWorkItem?
+  private var expiresAt: ContinuousClock.Instant?
   // These fields are touched only by the session's serial delegate queue.
   private var data = Data()
   private var acceptedResponse = false
 
-  init(configuration: URLSessionConfiguration) { self.configuration = configuration }
+  init(configuration: URLSessionConfiguration, now: @escaping @Sendable () -> ContinuousClock.Instant) {
+    self.configuration = configuration
+    self.now = now
+  }
 
   func start(_ continuation: CheckedContinuation<AppInformation, Error>) {
     lock.lock()
     if let terminal { lock.unlock(); continuation.resume(with: terminal); return }
     self.continuation = continuation
+    expiresAt = now().advanced(by: .seconds(8))
     guard let url = URL(string: "https://daypage-api.cubxxw.com/daypage/v1/app-info.json") else {
       lock.unlock(); finish(.failure(AppInformationError.invalidResponse)); return
     }
@@ -144,7 +153,13 @@ private final class AppInformationTransfer: NSObject, URLSessionDataDelegate, @u
   private func finish(_ result: Result<AppInformation, Error>) {
     lock.lock()
     guard terminal == nil else { lock.unlock(); return }
-    terminal = result
+    // The watchdog releases silent transports; this independent monotonic check
+    // also rejects a decode/completion finishing late while that queue is delayed.
+    let admitted: Result<AppInformation, Error>
+    if case .success = result, let expiresAt, now() >= expiresAt {
+      admitted = .failure(URLError(.timedOut))
+    } else { admitted = result }
+    terminal = admitted
     let continuation = self.continuation
     self.continuation = nil
     let session = self.session
@@ -154,7 +169,7 @@ private final class AppInformationTransfer: NSObject, URLSessionDataDelegate, @u
     deadline = nil
     lock.unlock()
     session?.invalidateAndCancel()
-    continuation?.resume(with: result)
+    continuation?.resume(with: admitted)
   }
 
   func urlSession(_ session: URLSession, dataTask: URLSessionDataTask,
