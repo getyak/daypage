@@ -61,7 +61,7 @@ private final class ManualReviewModel: ObservableObject {
           result = draft; body = draft.body
         } catch { if epoch == current { self.error = Self.message(error) } }
       }
-    } catch { error = Self.message(error) }
+    } catch { self.error = Self.message(error) }
   }
   func save() {
     guard !generating, !saving, allowsAI, let result, let session else { return }
