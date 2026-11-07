@@ -222,6 +222,26 @@ final class VaultExchangeTests: XCTestCase {
     XCTAssertEqual(try String(contentsOf: source.appendingPathComponent("runtime.json")), "Synthetic legacy runtime")
   }
 
+  func testPreparedCopyIsReadyThroughTemporaryDirectoryPathAliases() async throws {
+    let source = folder(), target = folder()
+    defer { for path in [source, target] { try? fm.removeItem(at: path) } }
+    _ = try await synthetic(source)
+    let coordinator = VaultExchangeImport(root: target)
+    let pending = try await coordinator.prepare(from: source)
+    XCTAssertEqual(pending.phase, .ready)
+    // Reopen the same pending copy using the system's canonical spelling.
+    let reopened = VaultExchangeImport(root: target.resolvingSymlinksInPath())
+    let jobs = try await reopened.pendingImports()
+    XCTAssertEqual(jobs.map(\.id), [pending.id])
+    XCTAssertEqual(jobs.map(\.phase), [.ready])
+    let preview = try await reopened.preview(XCTUnwrap(jobs.first))
+    XCTAssertEqual(preview.notes.first?.body, "Synthetic source")
+    let namespace = try await reopened.confirm(XCTUnwrap(jobs.first))
+    let entries = try await NotebookStore(root: target).entries()
+    XCTAssertEqual(entries.map(\.namespace), [namespace])
+    XCTAssertEqual(entries.first?.memo.body, "Synthetic source")
+  }
+
   func testPendingQuotaHasAnExplicitDiscardRecoveryPath() async throws {
     let source = folder(), target = folder()
     defer { for path in [source, target] { try? fm.removeItem(at: path) } }

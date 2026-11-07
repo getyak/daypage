@@ -43,7 +43,8 @@ final class ManualReviewTests: XCTestCase {
 
   func testOverLimitAndMissingSourcesFailWithoutTruncation() throws {
     let period = try ReviewPeriod(kind: .day, anchor: date(), timeZone: .gmt)
-    let entries = try (0..<13).map { NotebookEntry(memo: Memo(created: date(), body: "Source \($0)"), day: "2026-11-07") }
+    let created = try date()
+    let entries = (0..<13).map { NotebookEntry(memo: Memo(created: created, body: "Source \($0)"), day: "2026-11-07") }
     XCTAssertThrowsError(try ManualReviewSnapshot.make(period: period, entries: entries, selectedIDs: Set(entries.map(\.id))))
     XCTAssertThrowsError(try ManualReviewSnapshot.make(period: period, entries: entries, selectedIDs: ["missing"]))
     let long = NotebookEntry(memo: Memo(created: try date(), body: String(repeating: "字", count: 18_001)), day: "2026-11-07")
