@@ -20,14 +20,14 @@ public enum AttachmentTextError: LocalizedError {
 /// The image-data entry point is also used by explicit local screenshot review.
 public enum AttachmentTextReader {
   public static func readImage(data: Data) async throws -> String {
-    try await readImageData(data, diagnostic: nil)
+    try await readImageData(data: data, diagnostic: nil)
   }
 
   #if DEBUG
   /// Static synthetic-QA phases only. The caller owns the exact QA scope;
   /// no image, recognized text, file location or error payload is observed.
   public static func readImage(data: Data, diagnostic: @escaping @Sendable (String) -> Void) async throws -> String {
-    try await readImageData(data, diagnostic: diagnostic)
+    try await readImageData(data: data, diagnostic: diagnostic)
   }
   #endif
 
