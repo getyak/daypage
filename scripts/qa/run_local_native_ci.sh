@@ -40,7 +40,7 @@ cleanup() {
   if [[ -n "$daypage_shard" && -n "$daypage_plan" ]]; then
     local daypage_receipt_exit=0
     python3 scripts/qa/native_ui_matrix.py receipt --plan "$daypage_plan" --shard "$daypage_shard" \
-      --evidence "$daypage_evidence" --exit-code "$daypage_exit_code" \
+      --suite "${DAYPAGE_NATIVE_UI_SUITE:-full}" --evidence "$daypage_evidence" --exit-code "$daypage_exit_code" \
       --output "$daypage_evidence/shard-receipt.json" > "$daypage_evidence/shard-receipt.log" 2>&1 || daypage_receipt_exit=$?
     if ((daypage_exit_code == 0 && daypage_receipt_exit != 0)); then daypage_exit_code=$daypage_receipt_exit; fi
   fi
@@ -65,12 +65,15 @@ run_logged() {
 }
 
 if [[ -n "$daypage_shard" || -n "$daypage_plan" ]]; then
-  if [[ -z "$daypage_shard" || -z "$daypage_plan" || "${DAYPAGE_NATIVE_UI_SUITE:-full}" != full ]]; then
-    echo "A shard requires the full compiled-source plan and its exact selection." >&2
-    exit 2
+  case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
+    full|manual_review_exchange) ;;
+    *) echo "This preset has no reviewed shard plan." >&2; exit 2 ;;
+  esac
+  if [[ -z "$daypage_shard" || -z "$daypage_plan" ]]; then
+    echo "A shard requires its exact selected-scope plan." >&2; exit 2
   fi
   run_logged "$daypage_evidence/shard-selection.log" python3 scripts/qa/native_ui_matrix.py select \
-    --plan "$daypage_plan" --shard "$daypage_shard" --repo "$daypage_repo_root"
+    --plan "$daypage_plan" --shard "$daypage_shard" --suite "${DAYPAGE_NATIVE_UI_SUITE:-full}" --repo "$daypage_repo_root"
   daypage_shard_mode="$(head -n 1 "$daypage_evidence/shard-selection.log")"
 fi
 
@@ -226,7 +229,7 @@ daypage_negative="$daypage_native_root/NegativeDerivedData"
 daypage_signed="$daypage_negative"
 daypage_ui_suite="${DAYPAGE_NATIVE_UI_SUITE:-full}"
 case "$daypage_ui_suite" in
-  full|card_tools_speech|diary_navigation) ;;
+  full|card_tools_speech|diary_navigation|manual_review_exchange) ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 daypage_negative_exit=0
@@ -238,7 +241,7 @@ daypage_signed_summary_exit=0
 daypage_signed_export_exit=0
 daypage_run_negative=true
 daypage_run_signed=true
-if [[ "$daypage_ui_suite" == diary_navigation || "$daypage_shard_mode" == signed ]]; then daypage_run_negative=false; fi
+if [[ "$daypage_ui_suite" == diary_navigation || "$daypage_ui_suite" == manual_review_exchange || "$daypage_shard_mode" == signed ]]; then daypage_run_negative=false; fi
 if [[ "$daypage_shard_mode" == unsigned ]]; then daypage_run_signed=false; fi
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
@@ -388,6 +391,9 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testChineseCardHeaderAtLargeTextInDarkMode
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testCaptureFromHistoricalDateReturnsToTheSavedNoteToday)
     ;;
+  manual_review_exchange)
+    daypage_test_selection=(-only-testing:DayPageLocalUITests/ManualReviewExchangeUITests)
+    ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 if [[ -n "$daypage_shard" ]]; then
@@ -429,7 +435,11 @@ suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
 files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
-if suite == 'diary_navigation':
+if suite == 'manual_review_exchange':
+    files = [p for p in files if p.stem == 'ManualReviewExchangeUITests']
+    expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
+    assert expected >= 5 and summary['totalTestCount'] == expected, 'Every selected manual review/exchange test must execute'
+elif suite == 'diary_navigation':
     files = [p for p in files if p.stem in {'DiaryUITests', 'CardShareUITests', 'CalendarUITests', 'LocalNotebookUITests'}]
     selected = {'testArchiveIsBrowseAndSearchReturnsToItsOrigin', 'testNoSearchMatchesHasClearRecovery',
                 'testLargeArchiveFindsOlderNotesWithoutLeakingItsSearchFilter',
@@ -450,16 +460,21 @@ records = json.loads((root / 'signed-attachments/manifest.json').read_text())
 names = [attachment.get('suggestedHumanReadableName', '') for record in records
          for attachment in record.get('attachments', [])]
 required_chat = ['chat-dedicated-model-page', 'chat-compact-composer', 'chat-saved-history',
-                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size'] if suite != 'diary_navigation' else []
+                 'chat-character-library', 'chat-streamed-markdown', 'chat-accessibility-size'] if suite not in {'diary_navigation', 'manual_review_exchange'} else []
 assert all(any(required in name for name in names) for required in required_chat), 'A required chat journey did not produce its native evidence'
 required_diary = ['diary-home-today', 'diary-earlier-days', 'diary-sidebar-en',
                   'diary-sidebar-zh-normal', 'diary-sidebar-zh-dark-large-text',
                   'diary-month-position', 'diary-rediscovered-note'] if suite in {'full', 'diary_navigation'} else []
 assert all(any(required in name for name in names) for required in required_diary), 'A required diary journey did not produce its native evidence'
-negative = {'executed': False, 'reason': 'Outside diary_navigation scope; full retains unsigned recovery checks'} if suite == 'diary_navigation' else json.loads((root / 'negative-receipt.json').read_text())
+required_manual = ['GET442-day-relaunched-page', 'GET442-week-saved-independent-page',
+                   'GET442-cancelled-late-reply-fenced', 'GET442-import-preview-before-confirmation',
+                   'GET442-confirmed-new-namespace-readback', 'GET442-pending-copy-explicitly-discarded'] if suite in {'full', 'manual_review_exchange'} else []
+assert all(any(required in name for name in names) for required in required_manual), 'A required manual review/exchange journey did not produce its native evidence'
+negative = {'executed': False, 'reason': f'Outside {suite} scope; full retains unsigned recovery checks'} if suite in {'diary_navigation', 'manual_review_exchange'} else json.loads((root / 'negative-receipt.json').read_text())
 receipt = {'passed': True, 'suite': suite, 'expectedMinimumTests': expected, 'source': json.loads((root / 'provenance.json').read_text()),
            'negative': negative, 'positive': summary,
-           'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary}
+           'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary,
+           'requiredManualReviewExchangeAttachments': required_manual}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the selected signed native UI suite; see the receipt for its explicit recovery scope."

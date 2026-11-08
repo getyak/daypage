@@ -42,6 +42,8 @@ targets:
       - path: SpeechPlayback.swift
       - path: SpeechSettingsView.swift
       - path: SettingsView.swift
+      - path: ManualReviewsView.swift
+      - path: VaultExchangeView.swift
       - path: AIConnectionSettings.swift
       - path: FeedbackView.swift
       - path: CloudContinuity.swift

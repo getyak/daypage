@@ -10,10 +10,10 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech, diary_navigation]
+        options: [full, card_tools_speech, diary_navigation, manual_review_exchange]
         default: full
       native_ui_partitioned:
-        description: Split the full matrix into exact, independently verified groups (false retains the original single job)
+        description: Split full or manual review/exchange into exact independently verified groups (false retains the original single job)
         type: boolean
         required: false
         default: true
@@ -112,10 +112,10 @@ jobs:
 
   native-ui:
     name: Native iOS UI (manual)
-    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite != 'full' || !inputs.native_ui_partitioned)
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && ((inputs.native_ui_suite != 'full' && inputs.native_ui_suite != 'manual_review_exchange') || !inputs.native_ui_partitioned)
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
     # Retain the original unpartitioned full/preset runner for explicit use.
-    # Full has 78 signed journeys plus two unsigned configuration cells.
+    # Full uses the reviewed compiled inventory plus two unsigned cells; manual has exactly five signed cases.
     timeout-minutes: 90
     permissions:
       contents: read
@@ -165,8 +165,8 @@ jobs:
           if-no-files-found: warn
 
   native-ui-plan:
-    name: Plan the full compiled native UI matrix
-    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && inputs.native_ui_suite == 'full' && inputs.native_ui_partitioned
+    name: Plan the selected compiled native UI scope
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -182,7 +182,7 @@ jobs:
         run: |
           python3 scripts/qa/native_ui_matrix.py plan --repo "$GITHUB_WORKSPACE" \
             --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
-            --profile '${{ inputs.runner_architecture }}' \
+            --profile '${{ inputs.runner_architecture }}' --suite '${{ inputs.native_ui_suite }}' \
             --output "$RUNNER_TEMP/native-ui-plan.json" --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -193,8 +193,8 @@ jobs:
 
   native-ui-shard:
     name: Native iOS UI (${{ matrix.shard }})
-    # Evaluate scope before expanding a matrix that only the full plan emits.
-    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && inputs.native_ui_suite == 'full' && inputs.native_ui_partitioned
+    # Evaluate scope before expanding a matrix that only a selected-scope plan emits.
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
     needs: native-ui-plan
     strategy:
       fail-fast: false
@@ -222,7 +222,7 @@ jobs:
       - name: Build and verify only this signing configuration and exact method group
         env:
           DAYPAGE_NATIVE_CI_OUTPUT_DIR: ${{ runner.temp }}/daypage-native-ui/evidence
-          DAYPAGE_NATIVE_UI_SUITE: full
+          DAYPAGE_NATIVE_UI_SUITE: ${{ inputs.native_ui_suite }}
           DAYPAGE_NATIVE_UI_SHARD: ${{ matrix.shard }}
           DAYPAGE_NATIVE_UI_PLAN: ${{ runner.temp }}/native-ui-plan/native-ui-plan.json
         run: bash scripts/qa/run_local_native_ci.sh
@@ -259,9 +259,9 @@ jobs:
           if-no-files-found: warn
 
   native-ui-aggregate:
-    name: Verify the complete native UI matrix
+    name: Verify the complete selected native UI scope
     needs: [native-ui-plan, native-ui-shard]
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.native_ui && inputs.native_ui_suite == 'full' && inputs.native_ui_partitioned
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -283,7 +283,7 @@ jobs:
           MATRIX_JOB_RESULT: ${{ needs.native-ui-shard.result }}
         run: |
           python3 scripts/qa/native_ui_matrix.py aggregate \
-            --plan "$RUNNER_TEMP/native-ui-plan/native-ui-plan.json" \
+            --plan "$RUNNER_TEMP/native-ui-plan/native-ui-plan.json" --suite '${{ inputs.native_ui_suite }}' \
             --receipts "$RUNNER_TEMP/native-ui-receipts" --matrix-result "$MATRIX_JOB_RESULT" \
             --output "$RUNNER_TEMP/native-ui-aggregate.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

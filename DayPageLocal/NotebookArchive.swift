@@ -26,6 +26,7 @@ struct ArchiveView: View {
   @State private var selecting = false
   @State private var selectedIDs: Set<String> = []
   @State private var chattingWithSelection = false
+  @State private var showingManualReviews = false
   @FocusState private var searchFocused: Bool
   @State private var focusedOnArrival = false
   private var filtered: Bool { filter != .all || selectedTag != nil || selectedDay != nil || !search.isEmpty }
@@ -47,6 +48,11 @@ struct ArchiveView: View {
         Group {
           if !searching { summary }
           archiveTools
+          if !searching {
+            Button { showingManualReviews = true } label: {
+              Label("Day and week reviews", systemImage: "book.closed").frame(minHeight: 44)
+            }.accessibilityIdentifier("open-manual-reviews")
+          }
           if !notebook.catalog.tags.isEmpty { tagRow }
           if filtered { activeFilters(count: result.count) }
           if notebook.isLoading {
@@ -104,6 +110,7 @@ struct ArchiveView: View {
     }
     .sheet(isPresented: $showingTrash) { RecentlyDeletedView() }
     .sheet(isPresented: $chattingWithSelection) { NoteChatView(selectedIDs: selectedIDs) }
+    .sheet(isPresented: $showingManualReviews) { ManualReviewsView() }
     .onChange(of: notebook.entries.map(\.id)) { selectedIDs.formIntersection(Set($0)) }
     .task {
       if searching && !focusedOnArrival {

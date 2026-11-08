@@ -14,7 +14,7 @@ SCRIPT = ROOT / "scripts/qa/native_ui_matrix.py"
 
 
 class MatrixCLITests(unittest.TestCase):
-    def test_full_plan_covers_all_compiled_cases_in_eight_disjoint_configuration_groups(self):
+    def test_full_plan_covers_this_targets_compiled_cases_and_both_unsigned_cells(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "plan.json"
             result = subprocess.run(["python3", str(SCRIPT), "plan", "--repo", str(ROOT),
@@ -24,11 +24,35 @@ class MatrixCLITests(unittest.TestCase):
             plan = json.loads(output.read_text())
             self.assertEqual({s["id"]: len(s["expectedIDs"]) for s in plan["shards"]}, {
                 "calendar_card_share": 17, "card_tools": 7, "speech": 4, "chat": 5,
-                "diary": 10, "launch": 18, "local_notebook": 17, "unsigned": 2})
+                "diary": 10, "launch": 18, "local_notebook": 17,
+                "manual_reviews": 2, "manual_cancel": 1, "manual_exchange": 2, "unsigned": 2})
             cells = [(s["signingMode"], item) for s in plan["shards"] for item in s["expectedIDs"]]
-            self.assertEqual(len(cells), 80)
-            self.assertEqual(len(set(cells)), 80)
-            self.assertEqual(len(plan["compiledSources"]), 7)
+            self.assertEqual(len(cells), 85)
+            self.assertEqual(len(set(cells)), 85)
+            self.assertEqual(len(plan["compiledSources"]), 8)
+            self.assertEqual(plan["suite"], "full")
+
+    def test_manual_plan_has_five_exact_cases_in_three_small_signed_shards(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "plan.json"
+            result = subprocess.run(["python3", str(SCRIPT), "plan", "--repo", str(ROOT),
+                "--run-id", "12345", "--attempt", "2", "--profile", "arm64",
+                "--suite", "manual_review_exchange", "--output", str(output)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            plan = json.loads(output.read_text())
+            self.assertEqual(plan["suite"], "manual_review_exchange")
+            self.assertEqual({s["id"]: len(s["expectedIDs"]) for s in plan["shards"]},
+                {"manual_reviews": 2, "manual_cancel": 1, "manual_exchange": 2})
+            ids = [item for s in plan["shards"] for item in s["expectedIDs"]]
+            self.assertEqual(len(ids), 5)
+            self.assertEqual(len(set(ids)), 5)
+            self.assertTrue(all(s["signingMode"] == "signed" for s in plan["shards"]))
+            self.assertTrue(all("/ManualReviewExchangeUITests/" in item for item in ids))
+            self.assertEqual(len(plan["compiledSources"]), 8)
+            self.assertEqual({name for s in plan["shards"] for name in s["requiredAttachments"]}, {
+                "GET442-day-relaunched-page", "GET442-week-saved-independent-page",
+                "GET442-cancelled-late-reply-fenced", "GET442-import-preview-before-confirmation",
+                "GET442-confirmed-new-namespace-readback", "GET442-pending-copy-explicitly-discarded"})
 
 
 class EvidenceTests(unittest.TestCase):
@@ -72,7 +96,13 @@ class EvidenceTests(unittest.TestCase):
         if negative:
             (root / "negative-receipt.json").write_text(json.dumps({"verified": True}))
         else:
-            (root / "simulator-entitlements.json").write_text(json.dumps([{"target": "DayPage"}, {"target": "DayPageLocalShare"}]))
+            (root / "simulator-entitlements.json").write_text(json.dumps([{
+                "target": target, "applicationIdentifier": "QA." + identity,
+                "explicitKeychainAccessGroups": ["QA." + identity],
+                "keychainAccessGroups": ["QA." + identity],
+                "captureAppGroups": ["group.com.daypage.app.localqa.capture"]}
+                for target, identity in (("DayPage", "com.daypage.app.localqa"),
+                    ("DayPageLocalShare", "com.daypage.app.localqa.sharecapture"))]))
             for name in ("signature.log", "signature-verification.log"):
                 (root / name).write_text("QA signature verified\n")
             (root / "macho.log").write_text("sectname __entitlements\n")
@@ -158,7 +188,9 @@ class EvidenceTests(unittest.TestCase):
         receipts = [self.receipt(shard) for shard in self.plan["shards"]]
         result = self.matrix.aggregate(self.plan, receipts, "success")
         self.assertTrue(result["passed"], result["errors"])
-        self.assertEqual(result["configurationCells"], 80)
+        self.assertEqual(result["configurationCells"], 85)
+        self.assertEqual(result["expectedConfigurationCells"], 85)
+        self.assertEqual(result["suite"], "full")
         variants = [receipts[:-1], receipts + [receipts[0]]]
         for key, value in (("sourceSHA", "c" * 40), ("runId", "9"), ("runAttempt", "3"),
                            ("signingMode", "unsigned"), ("passed", False)):
@@ -183,30 +215,102 @@ class EvidenceTests(unittest.TestCase):
         (repo / "DayPageLocalUITests/NotCompiledUITests.swift").write_text(
             "import XCTest\nfinal class NotCompiledUITests: XCTestCase {\n func testNotCompiled() {}\n}\n")
         plan = self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
-        self.assertEqual(len(plan["compiledSources"]), 7)
+        self.assertEqual(len(plan["compiledSources"]), 8)
         self.assertNotIn("DayPageLocalUITests/NotCompiledUITests.swift", plan["compiledSources"])
         source = repo / "DayPageLocalUITests/CalendarUITests.swift"
         source.write_text(source.read_text().replace("final class CalendarUITests", "final class UnknownUITests"))
-        with self.assertRaises(ValueError):
-            self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
+        for scope in ("full", "manual_review_exchange"):
+            with self.assertRaises(ValueError):
+                self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64", scope)
+
         shutil.copy2(ROOT / "DayPageLocalUITests/CalendarUITests.swift", source)
         source.write_text(source.read_text() + "\nfinal class InheritedUITests: CalendarUITests {}\n")
-        with self.assertRaises(ValueError):
-            self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
+        for scope in ("full", "manual_review_exchange"):
+            with self.assertRaises(ValueError):
+                self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64", scope)
         shutil.copy2(ROOT / "DayPageLocalUITests/CalendarUITests.swift", source)
         source.write_text(source.read_text() + "\n@Test func futureSwiftTesting() {}\n")
-        with self.assertRaises(ValueError):
-            self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
+        for scope in ("full", "manual_review_exchange"):
+            with self.assertRaises(ValueError):
+                self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64", scope)
         shutil.copy2(ROOT / "DayPageLocalUITests/CalendarUITests.swift", source)
         source.write_text(source.read_text().replace("private let app", "func testFutureUnmapped() {}\n    private let app", 1))
-        with self.assertRaises(ValueError):
-            self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
+        for scope in ("full", "manual_review_exchange"):
+            with self.assertRaises(ValueError):
+                self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64", scope)
         shutil.copy2(ROOT / "DayPageLocalUITests/CalendarUITests.swift", source)
         pbx = repo / project / "project.pbxproj"
         pbx.write_text(pbx.read_text().replace("9911C6781D7F333EBB42353F /* CalendarUITests.swift in Sources */,", "", 1))
-        with self.assertRaises(ValueError):
-            self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64")
+        for scope in ("full", "manual_review_exchange"):
+            with self.assertRaises(ValueError):
+                self.matrix.make_plan(repo, "a" * 40, "12345", "2", "arm64", scope)
 
+    def test_manual_aggregate_cannot_claim_full_or_ignore_failed_or_missing_shards(self):
+        full = self.plan
+        self.plan = self.matrix.make_plan(ROOT, "a" * 40, "12345", "2", "arm64", "manual_review_exchange")
+        receipts = [self.receipt(shard) for shard in self.plan["shards"]]
+        result = self.matrix.aggregate(self.plan, receipts, "success")
+        self.assertTrue(result["passed"], result["errors"])
+        self.assertEqual((result["suite"], result["configurationCells"], result["expectedConfigurationCells"]),
+                         ("manual_review_exchange", 5, 5))
+        self.assertFalse(self.matrix.aggregate(full, receipts, "success")["passed"])
+        for records in (receipts[:-1], receipts + [receipts[0]]):
+            self.assertFalse(self.matrix.aggregate(self.plan, records, "success")["passed"])
+        for key, value in (("suite", "full"), ("sourceSHA", "c" * 40), ("runId", "9"),
+                           ("runAttempt", "3"), ("passed", False), ("signingMode", "unsigned")):
+            changed = copy.deepcopy(receipts); changed[0][key] = value
+            self.assertFalse(self.matrix.aggregate(self.plan, changed, "success")["passed"])
+        for status in ("failure", "cancelled", "skipped", ""):
+            self.assertFalse(self.matrix.aggregate(self.plan, receipts, status)["passed"])
+
+    def test_each_of_the_six_manual_attachments_is_required_in_its_own_shard(self):
+        self.plan = self.matrix.make_plan(ROOT, "a" * 40, "12345", "2", "arm64", "manual_review_exchange")
+        for shard in self.plan["shards"]:
+            for name in shard["requiredAttachments"]:
+                def missing(root, prefix):
+                    path = root / (prefix + "-attachments/manifest.json")
+                    rows = json.loads(path.read_text())
+                    rows[0]["attachments"] = [a for a in rows[0]["attachments"] if a["suggestedHumanReadableName"] != name]
+                    path.write_text(json.dumps(rows))
+                with self.subTest(shard=shard["id"], attachment=name):
+                    self.assertFalse(self.receipt(shard, mutation=missing)["passed"])
+
+    def test_current_private_qa_signing_contract_rejects_foreign_identity_or_keychain(self):
+        for index in (0, 1):
+            for key, value in (("applicationIdentifier", "QA.com.daypage.app"),
+                               ("explicitKeychainAccessGroups", ["foreign"]),
+                               ("keychainAccessGroups", ["foreign"]),
+                               ("captureAppGroups", ["group.com.daypage.app.capture"])):
+                def mutate(root, prefix):
+                    path = root / "simulator-entitlements.json"
+                    entries = json.loads(path.read_text()); entries[index][key] = value
+                    path.write_text(json.dumps(entries))
+                with self.subTest(target=index, field=key):
+                    self.assertFalse(self.receipt(mutation=mutate)["passed"])
+        for targets in (["DayPage"], ["DayPage", "foreign"]):
+            def mutate(root, prefix):
+                path = root / "simulator-entitlements.json"
+                entries = json.loads(path.read_text())[:len(targets)]
+                for entry, target in zip(entries, targets): entry["target"] = target
+                path.write_text(json.dumps(entries))
+            with self.subTest(targets=targets):
+                self.assertFalse(self.receipt(mutation=mutate)["passed"])
+
+    def test_manual_select_cli_binds_explicit_scope_and_current_run_before_returning_cases(self):
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        plan = self.matrix.make_plan(ROOT, sha, "12345", "2", "arm64", "manual_review_exchange")
+        path = self.directory / "manual-plan.json"; path.write_text(json.dumps(plan))
+        command = ["python3", str(SCRIPT), "select", "--repo", str(ROOT), "--plan", str(path), "--shard", "manual_reviews"]
+        env = {**os.environ, "GITHUB_RUN_ID": "12345", "GITHUB_RUN_ATTEMPT": "2"}
+        right = subprocess.run(command + ["--suite", "manual_review_exchange"], cwd=ROOT,
+                               env=env, capture_output=True, text=True)
+        self.assertEqual(right.returncode, 0, right.stderr)
+        expected = next(s for s in plan["shards"] if s["id"] == "manual_reviews")
+        self.assertEqual(right.stdout.splitlines(), ["signed", *expected["expectedIDs"]])
+        wrong = subprocess.run(command + ["--suite", "full"], cwd=ROOT, env=env, capture_output=True, text=True)
+        self.assertNotEqual(wrong.returncode, 0)
+        self.assertIn("plan is not the selected native scope", wrong.stderr)
+        self.assertEqual(wrong.stdout, "")
     def test_aggregate_cli_cannot_accept_a_complete_receipt_set_from_another_run(self):
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         self.plan = self.matrix.make_plan(ROOT, sha, "12345", "2", "arm64")

@@ -91,8 +91,6 @@ GROUPS = {
         "DayPageLocalUITests/LaunchExperienceUITests/testCaptureFromHistoricalDateReturnsToTheSavedNoteToday"
     ],
     "local_notebook": [
-        "DayPageLocalUITests/LocalNotebookUITests/testSharedScreenshotRequiresReviewAndExplicitOCRBeforeSave",
-        "DayPageLocalUITests/LocalNotebookUITests/testPendingScreenshotSurvivesLaterAndCanBeExplicitlyDiscarded",
         "DayPageLocalUITests/LocalNotebookUITests/testAppStoreScreenshotsUseTheLocalNotebookAndExposeItsPrivacyPolicy",
         "DayPageLocalUITests/LocalNotebookUITests/testOfflineWritingSurvivesRelaunchAndCanBeEdited",
         "DayPageLocalUITests/LocalNotebookUITests/testDevicesAndICloudStartsLocalAndExplainsTheBackupScope",
@@ -107,7 +105,20 @@ GROUPS = {
         "DayPageLocalUITests/LocalNotebookUITests/testArchiveSelectionOpensExplicitScopedChat",
         "DayPageLocalUITests/LocalNotebookUITests/testDayRolloverTracksTodayAndPreservesChosenHistoricalDay",
         "DayPageLocalUITests/LocalNotebookUITests/testLongMemoExpandsInPlaceAndCollapsesWithoutLosingCaptureDock",
-        "DayPageLocalUITests/LocalNotebookUITests/testExplicitChatWithIsolatedLoopbackFixtureAndReopenPersistence"
+        "DayPageLocalUITests/LocalNotebookUITests/testExplicitChatWithIsolatedLoopbackFixtureAndReopenPersistence",
+        "DayPageLocalUITests/LocalNotebookUITests/testPendingScreenshotSurvivesLaterAndCanBeExplicitlyDiscarded",
+        "DayPageLocalUITests/LocalNotebookUITests/testSharedScreenshotRequiresReviewAndExplicitOCRBeforeSave",
+    ],
+    "manual_reviews": [
+        "DayPageLocalUITests/ManualReviewExchangeUITests/testDayPreviewRequiresSendAndSaveThenSurvivesRelaunchWithoutChangingOriginals",
+        "DayPageLocalUITests/ManualReviewExchangeUITests/testWeekReviewUsesExplicitSelectionAndSavesASeparatePage"
+    ],
+    "manual_cancel": [
+        "DayPageLocalUITests/ManualReviewExchangeUITests/testCancelledNoncooperativeLateReplyCannotReappearOrSave"
+    ],
+    "manual_exchange": [
+        "DayPageLocalUITests/ManualReviewExchangeUITests/testExportAndImportPreviewsDoNotPublishUntilConfirmThenUseANewNamespace",
+        "DayPageLocalUITests/ManualReviewExchangeUITests/testPendingCopySurvivesRelaunchAndRequiresExplicitDiscard"
     ],
     "unsigned": [
         "DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope",
@@ -122,7 +133,18 @@ ATTACHMENTS = {
               "diary-sidebar-zh-normal", "diary-sidebar-zh-dark-large-text",
               "diary-month-position", "diary-rediscovered-note"],
     "unsigned": ["ai-key-unavailable-inline", "speech-anonymous-no-keychain"],
+    "manual_reviews": ["GET442-day-relaunched-page", "GET442-week-saved-independent-page"],
+    "manual_cancel": ["GET442-cancelled-late-reply-fenced"],
+    "manual_exchange": ["GET442-import-preview-before-confirmation", "GET442-confirmed-new-namespace-readback",
+                        "GET442-pending-copy-explicitly-discarded"],
 }
+SUITES = ("full", "manual_review_exchange")
+MANUAL_GROUPS = ("manual_reviews", "manual_cancel", "manual_exchange")
+
+
+def scoped_groups(suite):
+    require(suite in SUITES, "unknown native plan scope")
+    return GROUPS if suite == "full" else {key: GROUPS[key] for key in MANUAL_GROUPS}
 
 
 def require(condition, reason):
@@ -270,7 +292,7 @@ def discover_ids(repo, paths):
     return sorted(result)
 
 
-def make_plan(repo, sha, run_id, attempt, profile):
+def make_plan(repo, sha, run_id, attempt, profile, suite="full"):
     repo = repo.resolve()
     require(re.fullmatch(r"[0-9a-f]{40}", sha) is not None, "invalid source SHA")
     require(re.fullmatch(r"[1-9][0-9]*", run_id) is not None
@@ -282,13 +304,14 @@ def make_plan(repo, sha, run_id, attempt, profile):
     require(len(signed) == len(set(signed)) and sorted(signed) == actual,
             "compiled tests differ from reviewed full shard map")
     require(set(GROUPS["unsigned"]) <= set(actual), "unsigned methods not compiled")
+    groups = scoped_groups(suite)
     files = paths + [PROJECT, SCHEME, "scripts/qa/run_local_native_ci.sh", "scripts/qa/native_ui_matrix.py"]
-    plan = {"schemaVersion": 1, "sourceSHA": sha, "runId": run_id, "runAttempt": attempt, "runnerProfile": profile,
+    plan = {"schemaVersion": 1, "suite": suite, "sourceSHA": sha, "runId": run_id, "runAttempt": attempt, "runnerProfile": profile,
             "compiledSources": paths,
             "sourceFiles": {path: hashlib.sha256((repo / path).read_bytes()).hexdigest() for path in sorted(files)},
             "shards": [{"id": key, "signingMode": "unsigned" if key == "unsigned" else "signed",
                         "expectedIDs": sorted(items), "requiredAttachments": ATTACHMENTS.get(key, [])}
-                       for key, items in GROUPS.items()]}
+                       for key, items in groups.items()]}
     plan["planDigest"] = digest(plan)
     return plan
 
@@ -296,11 +319,12 @@ def make_plan(repo, sha, run_id, attempt, profile):
 def validate_plan(plan, repo=None):
     require(plan.get("schemaVersion") == 1, "unknown plan version")
     require(plan.get("planDigest") == digest({k: v for k, v in plan.items() if k != "planDigest"}), "plan digest mismatch")
+    groups = scoped_groups(plan.get("suite"))
     expected = [{"id": key, "signingMode": "unsigned" if key == "unsigned" else "signed",
-                 "expectedIDs": sorted(items), "requiredAttachments": ATTACHMENTS.get(key, [])} for key, items in GROUPS.items()]
+                 "expectedIDs": sorted(items), "requiredAttachments": ATTACHMENTS.get(key, [])} for key, items in groups.items()]
     require(plan.get("shards") == expected, "unknown shard configuration")
     if repo is not None:
-        require(plan == make_plan(repo, plan["sourceSHA"], plan["runId"], plan["runAttempt"], plan["runnerProfile"]),
+        require(plan == make_plan(repo, plan["sourceSHA"], plan["runId"], plan["runAttempt"], plan["runnerProfile"], plan["suite"]),
                 "compiled source manifest changed")
 
 
@@ -333,7 +357,7 @@ def make_receipt(plan, shard_id, root, exit_code):
     require(len(shards) == 1, "unknown shard")
     shard = shards[0]
     prefix = "negative" if shard["signingMode"] == "unsigned" else "signed"
-    receipt = {key: plan[key] for key in ("schemaVersion", "sourceSHA", "runId", "runAttempt", "planDigest", "runnerProfile")}
+    receipt = {key: plan[key] for key in ("schemaVersion", "suite", "sourceSHA", "runId", "runAttempt", "planDigest", "runnerProfile")}
     receipt.update({"shard": shard_id, "signingMode": shard["signingMode"], "expectedIDs": shard["expectedIDs"],
                     "passed": False, "exitCode": exit_code, "errors": [],
                     "observed": {key: [] for key in ("started", "passed", "failed", "skipped")},
@@ -392,7 +416,25 @@ def make_receipt(plan, shard_id, root, exit_code):
             proof_files.append("negative-receipt.json")
         else:
             entitlements = read_json(root / "simulator-entitlements.json")
-            require({x.get("target") for x in entitlements} == {"DayPage", "DayPageLocalShare"}, "missing signed entitlement verification")
+            # Both compiled QA targets retain private Keychain identities and
+            # share only their isolated capture App Group.
+            identities = {"DayPage": "com.daypage.app.localqa",
+                          "DayPageLocalShare": "com.daypage.app.localqa.sharecapture"}
+            require(isinstance(entitlements, list) and entitlements
+                    and all(isinstance(entry, dict) for entry in entitlements)
+                    and {entry.get("target") for entry in entitlements} == set(identities),
+                    "missing signed entitlement verification")
+            for entry in entitlements:
+                expected = identities[entry["target"]]
+                identity = entry.get("applicationIdentifier")
+                require(isinstance(identity, str) and (identity == expected
+                        or identity.endswith("." + expected)), "foreign signed identity")
+                explicit = entry.get("explicitKeychainAccessGroups")
+                require(isinstance(explicit, list) and all(group == identity for group in explicit)
+                        and entry.get("keychainAccessGroups") == list(dict.fromkeys([*explicit, identity])),
+                        "foreign signed Keychain group")
+                require(entry.get("captureAppGroups") == ["group.com.daypage.app.localqa.capture"],
+                        "foreign signed capture App Group")
             require("sectname __entitlements" in (root / "macho.log").read_text(), "missing Mach-O entitlements")
             # A successful codesign --verify may legitimately write zero bytes.
             proof_files += ["simulator-entitlements.json", "signature.log", "signature-verification.log", "macho.log"]
@@ -417,7 +459,7 @@ def aggregate(plan, receipts, matrix_result):
     for record in receipts:
         try:
             require(all(record.get(key) == plan[key] for key in
-                        ("schemaVersion", "sourceSHA", "runId", "runAttempt", "planDigest", "runnerProfile")), "receipt context differs")
+                        ("schemaVersion", "suite", "sourceSHA", "runId", "runAttempt", "planDigest", "runnerProfile")), "receipt context differs")
             shard = next(s for s in plan["shards"] if s["id"] == record.get("shard"))
             require(record.get("signingMode") == shard["signingMode"] and record.get("expectedIDs") == shard["expectedIDs"]
                     and record.get("requiredAttachments") == shard["requiredAttachments"], "receipt mode/selection differs")
@@ -442,12 +484,12 @@ def aggregate(plan, receipts, matrix_result):
             errors.append("invalid/failed shard receipt")
     expected = [(s["signingMode"], item) for s in plan["shards"] for item in s["expectedIDs"]]
     if Counter(cells) != Counter(expected):
-        errors.append("configuration union is not the full exact matrix")
+        errors.append("configuration union is not the complete selected scope")
     if toolchains and any(value != toolchains[0] for value in toolchains):
         errors.append("shard toolchains differ")
-    return {"schemaVersion": 1, "sourceSHA": plan["sourceSHA"], "runId": plan["runId"], "runAttempt": plan["runAttempt"],
+    return {"schemaVersion": 1, "suite": plan["suite"], "sourceSHA": plan["sourceSHA"], "runId": plan["runId"], "runAttempt": plan["runAttempt"],
             "planDigest": plan["planDigest"], "passed": not errors, "errors": errors,
-            "configurationCells": len(cells), "shards": ids, "matrixJobResult": matrix_result}
+            "configurationCells": len(cells), "expectedConfigurationCells": len(expected), "shards": ids, "matrixJobResult": matrix_result}
 
 
 def main():
@@ -458,11 +500,13 @@ def main():
     plan_cmd.add_argument("--run-id", required=True)
     plan_cmd.add_argument("--attempt", required=True)
     plan_cmd.add_argument("--profile", required=True)
+    plan_cmd.add_argument("--suite", choices=SUITES, default="full")
     plan_cmd.add_argument("--output", type=Path, required=True)
     plan_cmd.add_argument("--github-output", type=Path)
     for name in ("select", "receipt", "aggregate"):
         command = commands.add_parser(name)
         command.add_argument("--plan", type=Path, required=True)
+        command.add_argument("--suite", choices=SUITES, default="full")
         if name != "aggregate":
             command.add_argument("--shard", required=True)
         if name == "select":
@@ -478,7 +522,7 @@ def main():
     args = parser.parse_args()
     if args.command == "plan":
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=args.repo, text=True).strip()
-        plan = make_plan(args.repo, sha, args.run_id, args.attempt, args.profile)
+        plan = make_plan(args.repo, sha, args.run_id, args.attempt, args.profile, args.suite)
         write_json(args.output, plan)
         if args.github_output:
             with args.github_output.open("a") as output:
@@ -486,6 +530,7 @@ def main():
         return 0
     plan = read_json(args.plan)
     validate_plan(plan)
+    require(plan["suite"] == args.suite, "plan is not the selected native scope")
     if args.command == "select":
         import os
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=args.repo, text=True).strip()
@@ -520,4 +565,3 @@ if __name__ == "__main__":
     except (OSError, ValueError, KeyError, IndexError, TypeError) as error:
         print("Native matrix denied: " + str(error), file=sys.stderr)
         sys.exit(1)
-

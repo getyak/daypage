@@ -26,6 +26,7 @@ import json, os, pathlib, plistlib, re, sys
 tool = pathlib.Path(sys.argv[0]).name
 args = sys.argv[1:]
 mode = os.environ["NATIVE_CI_MOCK_MODE"]
+suite = os.environ.get("DAYPAGE_NATIVE_UI_SUITE", "card_tools_speech")
 state = pathlib.Path(os.environ["NATIVE_CI_MOCK_STATE"])
 
 def event(name):
@@ -126,6 +127,8 @@ elif tool == "xcrun":
         negative = "negative-keychain" in option("--path")
         failed = negative_failed if negative else signed_failed
         total = len(json.loads((state / ("negative-ids.json" if negative else "signed-ids.json")).read_text()))
+        if not negative and mode == "manual_partial_summary":
+            total = 4
         print(json.dumps({
             "result": "Failed" if failed else "Passed",
             "failedTests": int(failed), "skippedTests": 0,
@@ -149,6 +152,16 @@ elif tool == "xcrun":
                      "diary-home-today", "diary-earlier-days", "diary-sidebar-en",
                      "diary-sidebar-zh-normal", "diary-sidebar-zh-dark-large-text",
                      "diary-month-position", "diary-rediscovered-note"]
+            if suite == "full":
+                names += ["GET442-day-relaunched-page", "GET442-week-saved-independent-page",
+                          "GET442-cancelled-late-reply-fenced", "GET442-import-preview-before-confirmation",
+                          "GET442-confirmed-new-namespace-readback", "GET442-pending-copy-explicitly-discarded"]
+            if suite == "manual_review_exchange":
+                names = ["GET442-day-relaunched-page", "GET442-week-saved-independent-page",
+                         "GET442-cancelled-late-reply-fenced", "GET442-import-preview-before-confirmation",
+                         "GET442-confirmed-new-namespace-readback", "GET442-pending-copy-explicitly-discarded"]
+                if mode == "missing_manual_attachment":
+                    names.pop()
         (output / "manifest.json").write_text(json.dumps([{
             "attachments": [{"suggestedHumanReadableName": name} for name in names]
         }]))
@@ -232,7 +245,7 @@ else:
 
 class NativeCIOrchestrationTests(unittest.TestCase):
     def run_fixture(self, mode, *, runner_arch="ARM64", runner_environment="github-hosted",
-                    suite="card_tools_speech", shard=None, wrong_plan=False, wrong_arch_plan=False):
+                    suite="card_tools_speech", shard=None, scope="full", plan_scope=None, wrong_plan=False, wrong_arch_plan=False):
         temporary = tempfile.TemporaryDirectory(prefix="native-ci-command-doubles-")
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -261,7 +274,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             profile = profiles[host_arch]
             if wrong_arch_plan:
                 profile = "intel" if profile == "arm64" else "arm64"
-            plan = module.make_plan(root, "c" * 40 if wrong_plan else "a" * 40, "12345", "1", profile)
+            plan = module.make_plan(root, "c" * 40 if wrong_plan else "a" * 40, "12345", "1", profile, plan_scope or scope)
             (root / "plan.json").write_text(json.dumps(plan))
         state = root / "state"
         state.mkdir()
@@ -287,7 +300,7 @@ class NativeCIOrchestrationTests(unittest.TestCase):
             "CI": "true", "GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "host-mock",
             "RUNNER_ARCH": runner_arch, "RUNNER_ENVIRONMENT": runner_environment,
             "RUNNER_TEMP": str(runner), "DAYPAGE_NATIVE_CI_OUTPUT_DIR": str(evidence),
-            "DAYPAGE_NATIVE_UI_SUITE": "full" if shard else suite,
+            "DAYPAGE_NATIVE_UI_SUITE": scope if shard else suite,
             "NATIVE_CI_MOCK_MODE": mode, "NATIVE_CI_MOCK_STATE": str(state),
         }
         if shard:
@@ -484,8 +497,40 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertNotIn("signed-build", events)
         self.assertFalse((evidence / "native-acceptance.json").exists())
 
+    def test_manual_scope_requires_every_declared_case_and_all_synthetic_readback_attachments(self):
+        code, output, evidence, events = self.run_fixture("success", suite="manual_review_exchange")
+        self.assertEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        receipt = json.loads((evidence / "native-acceptance.json").read_text())
+        self.assertEqual(receipt["suite"], "manual_review_exchange")
+        self.assertEqual(receipt["positive"]["totalTestCount"], 5)
+        self.assertEqual(receipt["expectedMinimumTests"], 5)
+        self.assertFalse(receipt["negative"]["executed"])
+        self.assertEqual(len(receipt["requiredManualReviewExchangeAttachments"]), 6)
+        self.assertNotIn("unsigned-build", events)
+        self.assertNotIn("negative-tests", events)
+
+    def test_manual_partial_suite_cannot_claim_acceptance(self):
+        code, output, evidence, events = self.run_fixture("manual_partial_summary", suite="manual_review_exchange")
+        self.assertNotEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_manual_missing_discard_evidence_cannot_claim_acceptance(self):
+        code, output, evidence, events = self.run_fixture("missing_manual_attachment", suite="manual_review_exchange")
+        self.assertNotEqual(code, 0, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_manual_xctest_failure_is_preserved_without_unsigned_scope(self):
+        code, output, evidence, events = self.run_fixture("signed_failure", suite="manual_review_exchange")
+        self.assertEqual(code, 66, output)
+        self.assert_signed_evidence(evidence, events)
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+        self.assertNotIn("negative-tests", events)
+
     def test_original_full_and_diary_preset_still_run_their_complete_selected_scope(self):
-        for suite, count, negative in (("full", 78, True), ("diary_navigation", 51, False)):
+        for suite, count, negative in (("full", 83, True), ("diary_navigation", 51, False)):
             with self.subTest(suite=suite):
                 code, output, evidence, events = self.run_fixture("success", suite=suite)
                 self.assertEqual(code, 0, output)
@@ -545,6 +590,47 @@ class NativeCIOrchestrationTests(unittest.TestCase):
         self.assertFalse(receipt["passed"])
         self.assertEqual(receipt["exitCode"], 65)
         self.assertEqual(len(receipt["observed"]["failed"]), 1)
+
+    def test_each_manual_shard_runs_only_its_exact_signed_case_group(self):
+        for shard, count in (("manual_reviews", 2), ("manual_cancel", 1), ("manual_exchange", 2)):
+            with self.subTest(shard=shard):
+                code, output, evidence, events = self.run_fixture("success", shard=shard, scope="manual_review_exchange")
+                self.assertEqual(code, 0, output + (evidence / "shard-receipt.log").read_text())
+                self.assertEqual([event for event in events if event.endswith("-build")], ["signed-build"])
+                self.assertNotIn("negative-tests", events)
+                receipt = json.loads((evidence / "shard-receipt.json").read_text())
+                self.assertTrue(receipt["passed"])
+                self.assertEqual(receipt["suite"], "manual_review_exchange")
+                self.assertEqual(len(receipt["observed"]["passed"]), count)
+                self.assertTrue(all("/ManualReviewExchangeUITests/" in item for item in receipt["observed"]["passed"]))
+
+    def test_manual_shard_cannot_use_a_full_scope_plan_before_any_native_command(self):
+        code, output, evidence, events = self.run_fixture("success", shard="manual_exchange",
+            scope="manual_review_exchange", plan_scope="full")
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("plan is not the selected native scope", output)
+        self.assertEqual(events, [])
+        self.assertFalse((evidence / "native-acceptance.json").exists())
+
+    def test_missing_manual_discard_attachment_denies_the_actual_exchange_shard(self):
+        code, output, evidence, events = self.run_fixture("missing_manual_attachment",
+            shard="manual_exchange", scope="manual_review_exchange")
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("signed-tests", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(len(receipt["observed"]["passed"]), 2)
+        self.assertIn("missing required branch attachment", receipt["errors"])
+
+    def test_manual_assertion_failure_keeps_its_original_exit_and_real_failed_event(self):
+        code, output, evidence, events = self.run_fixture("signed_failure",
+            shard="manual_reviews", scope="manual_review_exchange")
+        self.assertEqual(code, 66, output)
+        self.assertNotIn("negative-tests", events)
+        receipt = json.loads((evidence / "shard-receipt.json").read_text())
+        self.assertEqual(receipt["exitCode"], 66)
+        self.assertEqual(len(receipt["observed"]["failed"]), 1)
+        self.assertFalse(receipt["passed"])
 
 
 if __name__ == "__main__":

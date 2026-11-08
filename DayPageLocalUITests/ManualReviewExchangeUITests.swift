@@ -1,0 +1,314 @@
+import XCTest
+
+/// Native journeys through production review/exchange models. The exact QA
+/// bundle/session/vault replaces only the paid transport and folder ingress.
+/// System Files selection, export destination and real BYOK remain separate
+/// acceptance surfaces; these tests never claim to exercise them.
+final class ManualReviewExchangeUITests: XCTestCase {
+  private let app = XCUIApplication()
+  private var session = UUID()
+  private let memoID = "44200000-0000-4000-8000-000000000001"
+  private var formID = "manual-review-form"
+
+  override func setUp() {
+    continueAfterFailure = false
+    session = UUID()
+  }
+  override func tearDown() {
+    app.terminate()
+    super.tearDown()
+  }
+  private func element(_ id: String) -> XCUIElement {
+    app.descendants(matching: .any).matching(identifier: id).firstMatch
+  }
+  private func launch(reset: Bool) {
+    app.launchArguments = [
+      "-qaNotebookSession", "-qaManualReviewExchangeSession", session.uuidString,
+      "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+    ] + (reset ? ["-qaResetNotebook"] : [])
+    app.launch()
+    XCTAssertTrue(app.buttons["open-sidebar"].waitForExistence(timeout: 10))
+  }
+  private func open(_ kind: String) {
+    app.buttons["open-sidebar"].tap()
+    XCTAssertTrue(app.buttons["sidebar-settings"].waitForExistence(timeout: 5))
+    app.buttons["sidebar-settings"].tap()
+    let target = app.buttons[kind == "review" ? "settings-manual-reviews" : "import-vault"]
+    XCTAssertTrue(target.waitForExistence(timeout: 5))
+    // Settings is a separate owning list, before the modal Form appears.
+    for _ in 0..<8 where !target.isHittable { app.swipeUp() }
+    XCTAssertTrue(target.isHittable); target.tap()
+    formID = kind == "review" ? "manual-review-form" : "vault-exchange-form"
+    XCTAssertTrue(element(formID).waitForExistence(timeout: 10))
+    if kind == "review" { waitLabel("qa-review-state", contains: ["sources=1", "selected=1"]) }
+    else { waitLabel("qa-exchange-state", contains: ["phase=none"]) }
+  }
+  private func reveal(_ target: XCUIElement, towardTop: Bool = false) {
+    let form = element(formID)
+    XCTAssertTrue(form.waitForExistence(timeout: 5))
+    for _ in 0..<24 {
+      guard form.exists else { capture("owning-form-closed"); XCTFail("The owning Form disappeared while revealing a control"); return }
+      var visible = form.frame.intersection(app.frame).insetBy(dx: 0, dy: 12)
+      for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+        let top = max(visible.minY, bar.frame.maxY)
+        visible = CGRect(x: visible.minX, y: top, width: visible.width, height: max(0, visible.maxY - top))
+      }
+      let keyboard = app.keyboards.firstMatch
+      if keyboard.exists { visible.size.height = max(0, min(visible.maxY, keyboard.frame.minY) - visible.minY) }
+      if target.exists, target.isHittable, visible.contains(target.frame) { return }
+      var moveDown = towardTop
+      if target.exists, target.frame.height > 0 {
+        if target.frame.minY < visible.minY { moveDown = true }
+        else if target.frame.maxY > visible.maxY { moveDown = false }
+      }
+      // A lazy row below the QA section may be absent from AX. Its explicit
+      // direction is toward later content, never a blind pull on the sheet.
+      let gesture = visible
+      guard gesture.height >= 80 else { capture("obscured-form"); XCTFail("The owning Form needs an unobscured gesture area"); return }
+      let origin = form.coordinate(withNormalizedOffset: .zero)
+      let top = gesture.minY + gesture.height * 0.25
+      let bottom = gesture.minY + gesture.height * 0.75
+      let start = origin.withOffset(CGVector(dx: gesture.midX - form.frame.minX, dy: (moveDown ? top : bottom) - form.frame.minY))
+      let end = origin.withOffset(CGVector(dx: gesture.midX - form.frame.minX, dy: (moveDown ? bottom : top) - form.frame.minY))
+      start.press(forDuration: 0.05, thenDragTo: end)
+    }
+    capture("unreachable-control")
+    XCTFail("The complete control must be reachable in its owning Form: \(target.identifier)")
+  }
+  private func tap(_ id: String) {
+    if id == "close-vault-exchange" {
+      // Close belongs to the modal navigation bar, outside its Form content.
+      let target = app.navigationBars.descendants(matching: .any).matching(identifier: id).firstMatch
+      XCTAssertTrue(target.waitForExistence(timeout: 5))
+      XCTAssertTrue(target.isHittable && app.frame.contains(target.frame))
+      XCTAssertTrue(app.navigationBars.allElementsBoundByIndex.contains { $0.isHittable && $0.frame.contains(target.frame) })
+      target.tap(); return
+    }
+    let target = element(id); reveal(target, towardTop: id.hasPrefix("qa-")); target.tap()
+  }
+  private func waitLabel(_ id: String, contains parts: [String], timeout: TimeInterval = 10) {
+    let target = element(id)
+    reveal(target, towardTop: true)
+    let check = NSCompoundPredicate(andPredicateWithSubpredicates:
+      [NSPredicate(format: "identifier == %@", id)]
+        + parts.map { NSPredicate(format: "label CONTAINS %@", $0) })
+    let ready = app.staticTexts.matching(check).firstMatch
+    XCTAssertTrue(ready.waitForExistence(timeout: timeout),
+      "Expected \(parts) in \(id); actual \(target.exists ? target.label : "absent")")
+  }
+  private func assertStored(_ kind: String, contains parts: [String]) {
+    let prefix = kind == "review" ? "qa-review" : "qa-exchange"
+    let proof = element(prefix + "-proof")
+    reveal(proof, towardTop: true)
+    let old = proof.label.split(separator: " ").first.flatMap { Int($0.dropFirst("readbacks=".count)) } ?? -1
+    XCTAssertGreaterThanOrEqual(old, 0)
+    tap(prefix + "-readback")
+    let imported = parts.contains("imported=1") ? "verified" : "none"
+    waitLabel(prefix + "-proof", contains: ["readbacks=\(old + 1)", "local=1", "originals=unchanged", "importedBytes=" + imported] + parts)
+  }
+  private func setSwitch(_ id: String, on: Bool) {
+    let target = app.switches[id]
+    reveal(target, towardTop: id.hasPrefix("qa-"))
+    XCTAssertTrue(target.exists)
+    if (target.value as? String == "1") != on {
+      let children = target.descendants(matching: .switch)
+      let count = children.count
+      XCTAssertLessThanOrEqual(count, 1, "The identified row must contain at most one native switch")
+      guard count <= 1 else { return }
+      let physical = count == 1 ? children.firstMatch : target
+      XCTAssertTrue(target.isEnabled && target.isHittable && physical.isEnabled && physical.isHittable)
+      let rowFrame = target.frame, physicalFrame = physical.frame
+      let point = count == 1 ? CGPoint(x: physicalFrame.midX, y: physicalFrame.midY)
+        : CGPoint(x: rowFrame.maxX - min(28, rowFrame.width / 2), y: rowFrame.midY)
+      XCTAssertGreaterThanOrEqual(physicalFrame.width, 44)
+      XCTAssertGreaterThanOrEqual(physicalFrame.height, 28)
+      XCTAssertTrue(rowFrame.contains(point) && app.frame.contains(point))
+      let diagnostic = XCTAttachment(string: "id=\(id) native=\(count) row=\(rowFrame) physical=\(physicalFrame) point=\(point) rowValue=\(String(describing: target.value)) nativeValue=\(String(describing: physical.value))")
+      diagnostic.name = "GET442-switch-physical-target"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+      let origin = target.coordinate(withNormalizedOffset: .zero)
+      origin.withOffset(CGVector(dx: point.x - rowFrame.minX, dy: point.y - rowFrame.minY)).tap()
+      if count == 1 { XCTAssertEqual(physical.value as? String, on ? "1" : "0") }
+    }
+    XCTAssertEqual(target.value as? String, on ? "1" : "0")
+  }
+  private func capture(_ name: String) {
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = "GET442-" + name; attachment.lifetime = .keepAlways; add(attachment)
+  }
+  private func pendingDiscardDialog() throws -> XCUIElement {
+    let dialogs = app.sheets.matching(NSPredicate(format: "label == %@",
+      "Discard this pending copy? Source files and published notes stay untouched."))
+    XCTAssertTrue(dialogs.firstMatch.waitForExistence(timeout: 5))
+    XCTAssertEqual(dialogs.count, 1, "Only the owning pending-copy confirmation may receive this action")
+    return dialogs.firstMatch
+  }
+  private func discardConfirmation(in dialog: XCUIElement) throws -> XCUIElement {
+    let matches = dialog.buttons.matching(identifier: "confirm-discard-pending-import")
+    // iOS 26 exposes both an outer button and its native child with this ID.
+    // Select the unique leaf within this dialog, never a background match.
+    let leaves = matches.allElementsBoundByIndex.filter {
+      $0.descendants(matching: .button).matching(identifier: "confirm-discard-pending-import").count == 0
+    }
+    XCTAssertEqual(leaves.count, 1)
+    let button = try XCTUnwrap(leaves.first)
+    XCTAssertTrue(button.isEnabled && button.isHittable && dialog.frame.contains(button.frame))
+    return button
+  }
+  private func cancelPendingDiscard(_ dialog: XCUIElement) throws {
+    let cancels = dialog.buttons.matching(NSPredicate(format: "label == %@", "Cancel"))
+    if cancels.count > 0 {
+      let leaves = cancels.allElementsBoundByIndex.filter {
+        $0.descendants(matching: .button).matching(NSPredicate(format: "label == %@", "Cancel")).count == 0
+      }
+      XCTAssertEqual(leaves.count, 1)
+      let cancel = try XCTUnwrap(leaves.first)
+      XCTAssertTrue(cancel.isEnabled && cancel.isHittable && dialog.frame.contains(cancel.frame))
+      cancel.tap()
+    } else {
+      // confirmationDialog can use the system's dismissible popover instead
+      // of a Cancel button. Exercise its actual native dismissal surface.
+      // https://developer.apple.com/documentation/swiftui/view/confirmationdialog(_:ispresented:titlevisibility:presenting:actions:)-9ibgk
+      let popovers = app.popovers.allElementsBoundByIndex.filter {
+        $0.frame.contains(dialog.frame) && $0.descendants(matching: .sheet).matching(NSPredicate(
+          format: "label == %@", dialog.label)).count == 1
+      }
+      XCTAssertEqual(popovers.count, 1, "A missing Cancel is supported only by the actual owning popover")
+      let popover = try XCTUnwrap(popovers.first)
+      let regions = app.otherElements.matching(identifier: "PopoverDismissRegion")
+      XCTAssertEqual(regions.count, 1)
+      let dismiss = regions.firstMatch
+      XCTAssertTrue(dismiss.isEnabled && dismiss.isHittable)
+      let surface = app.frame.intersection(dismiss.frame).insetBy(dx: 24, dy: 44)
+      XCTAssertGreaterThan(surface.width, 0); XCTAssertGreaterThan(surface.height, 0)
+      let candidates = [CGPoint(x: surface.midX, y: surface.maxY - 1), CGPoint(x: surface.midX, y: surface.minY + 1),
+        CGPoint(x: surface.minX + 1, y: surface.midY), CGPoint(x: surface.maxX - 1, y: surface.midY)]
+      let point = try XCTUnwrap(candidates.first {
+        surface.contains($0) && !popover.frame.insetBy(dx: -8, dy: -8).contains($0)
+      })
+      let diagnostic = XCTAttachment(string: "popover=\(popover.frame) dialog=\(dialog.frame) dismiss=\(dismiss.frame) point=\(point)")
+      diagnostic.name = "GET442-pending-discard-native-cancel"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+      dismiss.coordinate(withNormalizedOffset: .zero)
+        .withOffset(CGVector(dx: point.x - dismiss.frame.minX, dy: point.y - dismiss.frame.minY)).tap()
+    }
+    XCTAssertTrue(dialog.waitForNonExistence(timeout: 5), "Native cancellation must close only the confirmation")
+  }
+  private func saved(_ kind: String) -> XCUIElement {
+    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "saved-manual-review-" + kind + "-")).firstMatch
+  }
+  private func generateAndSave(_ kind: String) {
+    waitLabel("qa-review-state", contains: ["period=" + kind, "loading=false", "sources=1", "selected=1"])
+    let generate = element("generate-manual-review")
+    reveal(generate); XCTAssertFalse(generate.isEnabled, "Opening a preview cannot grant send consent")
+    waitLabel("qa-review-counts", contains: ["calls=0", "completed=0", "settled=0"])
+    let source = "manual-review-source-" + memoID
+    let sourceRow = element(source); reveal(sourceRow)
+    XCTAssertTrue(sourceRow.label.contains("GET442 original local note."))
+    tap(source)
+    waitLabel("qa-review-state", contains: ["selected=0", "consent=false", "result=false"])
+    tap(source)
+    setSwitch("manual-review-consent", on: true)
+    tap("generate-manual-review")
+    waitLabel("qa-review-state", contains: ["result=true"], timeout: 15)
+    waitLabel("qa-review-counts", contains: ["calls=1", "completed=1", "settled=1"])
+    assertStored("review", contains: ["pages=0", "imported=0", "pending=0"])
+    let editor = app.textViews["manual-review-editor"]
+    reveal(editor)
+    XCTAssertTrue((editor.value as? String ?? "").contains("GET442 synthetic " + kind + " review"))
+    editor.tap()
+    editor.typeText("\nGET442 edited before explicit Save.")
+    // Reveal Save above the keyboard in its real owning Form.
+    tap("save-manual-review")
+    waitLabel("qa-review-state", contains: ["consent=false", "result=false"])
+    assertStored("review", contains: ["pages=1", "imported=0", "pending=0"])
+    let row = saved(kind)
+    reveal(row); XCTAssertTrue(row.exists)
+    capture(kind + "-saved-independent-page")
+    row.tap()
+    let body = element("saved-manual-review-body")
+    XCTAssertTrue(body.waitForExistence(timeout: 5))
+    XCTAssertTrue(body.label.contains("GET442 edited before explicit Save."))
+  }
+
+  func testDayPreviewRequiresSendAndSaveThenSurvivesRelaunchWithoutChangingOriginals() {
+    launch(reset: true); open("review")
+    generateAndSave("day")
+    app.terminate(); launch(reset: false); open("review")
+    assertStored("review", contains: ["pages=1", "day=1", "week=0", "imported=0", "pending=0"])
+    waitLabel("qa-review-counts", contains: ["calls=0", "completed=0"])
+    let row = saved("day"); reveal(row); row.tap()
+    XCTAssertTrue(element("saved-manual-review-body").waitForExistence(timeout: 5))
+    XCTAssertTrue(element("saved-manual-review-body").label.contains("GET442 edited before explicit Save."))
+    capture("day-relaunched-page")
+  }
+
+  func testWeekReviewUsesExplicitSelectionAndSavesASeparatePage() {
+    launch(reset: true); open("review")
+    let period = element("manual-review-period"); reveal(period)
+    period.buttons["Week"].tap()
+    waitLabel("qa-review-state", contains: ["period=week", "loading=false", "sources=1", "selected=1", "consent=false"])
+    generateAndSave("week")
+    app.terminate(); launch(reset: false); open("review")
+    assertStored("review", contains: ["pages=1", "day=0", "week=1", "imported=0"])
+  }
+
+  func testCancelledNoncooperativeLateReplyCannotReappearOrSave() {
+    launch(reset: true); open("review")
+    setSwitch("qa-review-hold", on: true)
+    setSwitch("manual-review-consent", on: true)
+    tap("generate-manual-review")
+    waitLabel("qa-review-counts", contains: ["calls=1", "completed=0", "settled=0"])
+    tap("cancel-manual-review")
+    waitLabel("qa-review-state", contains: ["consent=false", "result=false"])
+    tap("qa-review-release")
+    waitLabel("qa-review-counts", contains: ["calls=1", "completed=1", "settled=1"], timeout: 15)
+    waitLabel("qa-review-state", contains: ["consent=false", "result=false"])
+    XCTAssertFalse(element("save-manual-review").exists)
+    assertStored("review", contains: ["pages=0", "imported=0", "pending=0"])
+    capture("cancelled-late-reply-fenced")
+  }
+
+  func testExportAndImportPreviewsDoNotPublishUntilConfirmThenUseANewNamespace() {
+    launch(reset: true); open("exchange")
+    tap("preview-vault-exchange-export")
+    waitLabel("qa-exchange-state", contains: ["exportNotes=1", "pending=0"])
+    reveal(element("confirm-vault-exchange-export"))
+    XCTAssertTrue(element("confirm-vault-exchange-export").exists)
+    assertStored("exchange", contains: ["pages=0", "imported=0", "pending=0"])
+    tap("qa-exchange-source")
+    waitLabel("qa-exchange-state", contains: ["pending=1", "phase=ready", "previewNotes=1"])
+    assertStored("exchange", contains: ["imported=0", "pending=1"])
+    capture("import-preview-before-confirmation")
+    tap("confirm-vault-exchange-import")
+    waitLabel("qa-exchange-state", contains: ["pending=0", "phase=none"])
+    assertStored("exchange", contains: ["imported=1", "importedReviews=1", "pending=0"])
+    app.terminate(); launch(reset: false); open("exchange")
+    assertStored("exchange", contains: ["imported=1", "importedReviews=1", "pending=0", "pages=1"])
+    capture("confirmed-new-namespace-readback")
+  }
+
+  func testPendingCopySurvivesRelaunchAndRequiresExplicitDiscard() throws {
+    launch(reset: true); open("exchange")
+    tap("qa-exchange-source")
+    waitLabel("qa-exchange-state", contains: ["pending=1", "phase=ready", "previewNotes=1"])
+    assertStored("exchange", contains: ["imported=0", "pending=1"])
+    tap("close-vault-exchange")
+    app.terminate(); launch(reset: false); open("exchange")
+    waitLabel("qa-exchange-state", contains: ["pending=1", "phase=none"])
+    let review = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "review-pending-import-")).firstMatch
+    reveal(review); review.tap()
+    waitLabel("qa-exchange-state", contains: ["phase=ready", "previewNotes=1"])
+    let discard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "discard-pending-import-")).firstMatch
+    reveal(discard); discard.tap()
+    let dialog = try pendingDiscardDialog()
+    _ = try discardConfirmation(in: dialog)
+    // Merely opening the dialog must not remove the pending copy.
+    try cancelPendingDiscard(dialog)
+    waitLabel("qa-exchange-state", contains: ["pending=1", "phase=ready"])
+    reveal(discard); discard.tap()
+    let confirmedDialog = try pendingDiscardDialog()
+    try discardConfirmation(in: confirmedDialog).tap()
+    waitLabel("qa-exchange-state", contains: ["pending=0", "phase=none"])
+    assertStored("exchange", contains: ["imported=0", "pending=0"])
+    capture("pending-copy-explicitly-discarded")
+  }
+}
