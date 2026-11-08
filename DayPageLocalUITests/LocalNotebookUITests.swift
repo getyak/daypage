@@ -34,30 +34,55 @@ final class LocalNotebookUITests: XCTestCase {
     add(attachment)
   }
 
+  private struct SyntheticOCRWorkerObservation: Codable {
+    let v: Int
+    let ui: String
+    let admittedMS: Int
+    let workerEnteredMS: Int?
+    let decodeStartedMS: Int?
+    let visionEnteredMS: Int?
+    let visionReturnedMS: Int?
+    let visionFailedMS: Int?
+    let sampledMS: Int?
+    let clamped: Bool
+    let clockValid: Bool
+  }
+
   private func captureSyntheticOCRPhaseAfterTimeout() {
-    let pending = element("qa-shared-image-ocr-phase")
-    let rawValue: String?
-    if pending.exists { rawValue = pending.value as? String }
-    else {
-      let idle = app.buttons["extract-shared-image-text"]
-      rawValue = idle.exists ? idle.value as? String : nil
-    }
-    let prefix = "GET440 OCR phase: "
+    let metadata = element("qa-shared-image-ocr-worker-facts")
+    // One post-failure metadata value read, with no wait, polling or OCR input.
+    let rawValue = metadata.exists ? metadata.value as? String : nil
+    let prefix = "GET440 OCR worker facts: "
     let allowed: Set<String> = [
       "not_started", "original_read", "original_loaded", "worker_entered", "decode_started",
       "vision_entered", "vision_returned", "vision_failed", "completed", "failed", "cancelled",
     ]
-    let phase = rawValue.flatMap { value -> String? in
-      guard value.hasPrefix(prefix) else { return nil }
-      let candidate = String(value.dropFirst(prefix.count))
-      return allowed.contains(candidate) ? candidate : nil
-    } ?? "unknown"
-    // This is MainActor's last published phase after the failed deadline,
-    // not a worker timestamp. Never retain the raw accessibility value.
+    let observation = rawValue.flatMap { value -> SyntheticOCRWorkerObservation? in
+      guard value.utf8.count <= 768, value.hasPrefix(prefix) else { return nil }
+      let data = Data(value.dropFirst(prefix.count).utf8)
+      let keys: Set<String> = ["v", "ui", "admittedMS", "workerEnteredMS", "decodeStartedMS",
+        "visionEnteredMS", "visionReturnedMS", "visionFailedMS", "sampledMS", "clamped", "clockValid"]
+      guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+        Set(object.keys) == keys,
+        let decoded = try? JSONDecoder().decode(SyntheticOCRWorkerObservation.self, from: data),
+        decoded.v == 1, decoded.admittedMS == 0, allowed.contains(decoded.ui),
+        [decoded.workerEnteredMS, decoded.decodeStartedMS, decoded.visionEnteredMS,
+          decoded.visionReturnedMS, decoded.visionFailedMS, decoded.sampledMS]
+          .compactMap({ $0 }).allSatisfy({ (0...120_000).contains($0) }) else { return nil }
+      return decoded
+    }
+    let phase = observation?.ui ?? "unknown"
+    // UI publication and directly recorded worker facts are separate. The AX
+    // getter still needs app/AX scheduling; its sample is after the failed wait.
     let attachment = XCTAttachment(string: "{\"phase\":\"\(phase)\"}")
     attachment.name = "local-screenshot-ocr-last-published-phase"
     attachment.lifetime = .keepAlways
     add(attachment)
+    let encoded = observation.flatMap { try? JSONEncoder().encode($0) }
+    let worker = XCTAttachment(string: encoded.map { String(decoding: $0, as: UTF8.self) } ?? "{\"available\":false}")
+    worker.name = "local-screenshot-ocr-worker-facts"
+    worker.lifetime = .keepAlways
+    add(worker)
   }
 
   func testSharedScreenshotRequiresReviewAndExplicitOCRBeforeSave() {

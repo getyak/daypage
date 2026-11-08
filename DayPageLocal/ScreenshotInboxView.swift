@@ -229,6 +229,16 @@ private struct ScreenshotReviewView: View {
     #endif
   }
 
+  private var syntheticOCRWorkerFactsValue: (() -> String?)? {
+    #if DEBUG
+      guard ScreenshotInboxLocation.recordsSyntheticOCRDiagnostics,
+        extractionDiagnostics.workerFacts != nil else { return nil }
+      return { extractionDiagnostics.workerFactsValue() }
+    #else
+      return nil
+    #endif
+  }
+
   var body: some View {
     NavigationStack {
       Form {
@@ -246,13 +256,15 @@ private struct ScreenshotReviewView: View {
           if extracting {
             ProgressView("Extracting text on this device…")
               .modifier(SyntheticOCRDiagnosticValue(
-                phase: syntheticOCRPhase, pendingIdentifier: "qa-shared-image-ocr-phase"))
+                phase: syntheticOCRPhase, pendingIdentifier: "qa-shared-image-ocr-phase",
+                workerFactsValue: syntheticOCRWorkerFactsValue))
             Button("Cancel extraction") { cancelExtraction() }
           } else {
             Button("Extract text on this device") { extractText() }
               .disabled(thumbnail == nil || review.busy)
               .accessibilityIdentifier("extract-shared-image-text")
-              .modifier(SyntheticOCRDiagnosticValue(phase: syntheticOCRPhase))
+              .modifier(SyntheticOCRDiagnosticValue(phase: syntheticOCRPhase,
+                workerFactsValue: syntheticOCRWorkerFactsValue))
           }
           if let extractedText {
             Text(extractedText).textSelection(.enabled)
@@ -323,6 +335,7 @@ private struct ScreenshotReviewView: View {
     #if DEBUG
       let diagnostics = ScreenshotInboxLocation.recordsSyntheticOCRDiagnostics ? extractionDiagnostics : nil
       diagnostics?.begin(epoch)
+      let workerFacts = diagnostics?.workerFacts
     #endif
     extractionTask = Task {
       do {
@@ -340,7 +353,7 @@ private struct ScreenshotReviewView: View {
           if let scopedDiagnostics {
             text = try await AttachmentTextReader.readImage(data: data, diagnostic: { phase in
               Task { @MainActor in scopedDiagnostics.record(phase, epoch: epoch) }
-            })
+            }, workerFacts: workerFacts)
           } else { text = try await AttachmentTextReader.readImage(data: data) }
         #else
           let text = try await AttachmentTextReader.readImage(data: data)
@@ -384,21 +397,62 @@ private struct ScreenshotReviewView: View {
 private struct SyntheticOCRDiagnosticValue: ViewModifier {
   let phase: String?
   var pendingIdentifier: String? = nil
+  var workerFactsValue: (() -> String?)? = nil
+  @ViewBuilder private var workerMetadata: some View {
+    #if DEBUG
+      if let workerFactsValue {
+        SyntheticOCRFactsAccessibility(read: workerFactsValue)
+          .frame(width: 1, height: 1).allowsHitTesting(false)
+      }
+    #endif
+  }
   @ViewBuilder func body(content: Content) -> some View {
     if let phase {
       if let pendingIdentifier {
         content.accessibilityValue("GET440 OCR phase: " + phase)
           .accessibilityIdentifier(pendingIdentifier)
-      } else { content.accessibilityValue("GET440 OCR phase: " + phase) }
+          .background { workerMetadata }
+      } else {
+        content.accessibilityValue("GET440 OCR phase: " + phase)
+          .background { workerMetadata }
+      }
     } else { content }
   }
 }
 
 #if DEBUG
+/// The existing phase label remains unchanged. This synthetic-only node reads
+/// the worker lock on each AX value request, even without a SwiftUI re-render.
+@MainActor
+private struct SyntheticOCRFactsAccessibility: UIViewRepresentable {
+  let read: () -> String?
+  func makeUIView(context: Context) -> SyntheticOCRFactsAccessibilityView {
+    let view = SyntheticOCRFactsAccessibilityView()
+    view.isAccessibilityElement = true
+    view.accessibilityIdentifier = "qa-shared-image-ocr-worker-facts"
+    view.accessibilityTraits = .staticText
+    view.isUserInteractionEnabled = false
+    view.backgroundColor = .clear
+    view.read = read
+    return view
+  }
+  func updateUIView(_ view: SyntheticOCRFactsAccessibilityView, context: Context) { view.read = read }
+}
+
+@MainActor
+private final class SyntheticOCRFactsAccessibilityView: UIView {
+  var read: (() -> String?)?
+  override var accessibilityValue: String? {
+    get { read?() }
+    set {} // Read-only metadata; no AX setter writes product or worker state.
+  }
+}
+
 @MainActor
 private final class SyntheticOCRDiagnostics: ObservableObject {
   @Published private(set) var phase = "not_started"
   private var epoch: UUID?
+  private(set) var workerFacts: SyntheticOCRWorkerFacts?
   private var rank = 0
   private let ranks = ["original_read": 1, "original_loaded": 2, "worker_entered": 3,
     "decode_started": 4, "vision_entered": 5, "vision_returned": 6,
@@ -406,8 +460,22 @@ private final class SyntheticOCRDiagnostics: ObservableObject {
 
   func begin(_ epoch: UUID) {
     self.epoch = epoch
+    workerFacts = SyntheticOCRWorkerFacts()
     rank = 0
     record("original_read", epoch: epoch)
+  }
+
+  /// Called by the AX getter, not a SwiftUI body snapshot. Only relative,
+  /// bounded worker facts and the separate last UI publication leave the model.
+  func workerFactsValue() -> String? {
+    guard let facts = workerFacts?.snapshot() else { return nil }
+    func number(_ value: Int?) -> String { value.map { String($0) } ?? "null" }
+    return "GET440 OCR worker facts: "
+      + "{\"v\":1,\"ui\":\"\(phase)\",\"admittedMS\":0,"
+      + "\"workerEnteredMS\":\(number(facts.workerEnteredMS)),\"decodeStartedMS\":\(number(facts.decodeStartedMS)),"
+      + "\"visionEnteredMS\":\(number(facts.visionEnteredMS)),\"visionReturnedMS\":\(number(facts.visionReturnedMS)),"
+      + "\"visionFailedMS\":\(number(facts.visionFailedMS)),\"sampledMS\":\(number(facts.sampledMS)),"
+      + "\"clamped\":\(facts.clamped),\"clockValid\":\(facts.clockValid)}"
   }
 
   func record(_ phase: String, epoch: UUID) {

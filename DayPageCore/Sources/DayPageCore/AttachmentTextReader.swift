@@ -26,8 +26,12 @@ public enum AttachmentTextReader {
   #if DEBUG
   /// Static synthetic-QA phases only. The caller owns the exact QA scope;
   /// no image, recognized text, file location or error payload is observed.
-  public static func readImage(data: Data, diagnostic: @escaping @Sendable (String) -> Void) async throws -> String {
-    try await readImageData(data: data, diagnostic: diagnostic)
+  public static func readImage(data: Data, diagnostic: @escaping @Sendable (String) -> Void,
+    workerFacts: SyntheticOCRWorkerFacts? = nil) async throws -> String {
+    try await readImageData(data: data, diagnostic: { phase in
+      workerFacts?.record(phase)
+      diagnostic(phase)
+    })
   }
   #endif
 
@@ -114,3 +118,61 @@ public enum AttachmentTextReader {
     text.count > 16_000 ? String(text.prefix(16_000)) + "\n[truncated]" : text
   }
 }
+
+#if DEBUG
+/// One synthetic attempt only. Raw uptime never leaves this object; the lock
+/// protects five first-observed worker stamps. No callbacks or UI work run locked.
+public final class SyntheticOCRWorkerFacts: @unchecked Sendable {
+  public struct Snapshot: Sendable {
+    public let workerEnteredMS: Int?
+    public let decodeStartedMS: Int?
+    public let visionEnteredMS: Int?
+    public let visionReturnedMS: Int?
+    public let visionFailedMS: Int?
+    public let sampledMS: Int?
+    public let clamped: Bool
+    public let clockValid: Bool
+  }
+  private let lock = NSLock()
+  private let admitted = DispatchTime.now().uptimeNanoseconds
+  private var stamps: [UInt64?] = Array(repeating: nil, count: 5)
+  public init() {}
+
+  fileprivate func record(_ phase: String) {
+    let index: Int
+    switch phase {
+    case "worker_entered": index = 0
+    case "decode_started": index = 1
+    case "vision_entered": index = 2
+    case "vision_returned": index = 3
+    case "vision_failed": index = 4
+    default: return
+    }
+    let observed = DispatchTime.now().uptimeNanoseconds
+    lock.lock()
+    if stamps[index] == nil { stamps[index] = observed }
+    lock.unlock()
+  }
+
+  public func snapshot() -> Snapshot {
+    lock.lock()
+    let observed = stamps
+    let sampled = DispatchTime.now().uptimeNanoseconds
+    lock.unlock()
+    var clamped = false, clockValid = true
+    func elapsed(_ stamp: UInt64?) -> Int? {
+      guard let stamp else { return nil }
+      guard stamp >= admitted else { clockValid = false; return nil }
+      let milliseconds = (stamp - admitted) / 1_000_000
+      if milliseconds > 120_000 { clamped = true }
+      return Int(min(milliseconds, 120_000))
+    }
+    let worker = elapsed(observed[0]), decode = elapsed(observed[1])
+    let entered = elapsed(observed[2]), returned = elapsed(observed[3]), failed = elapsed(observed[4])
+    let read = elapsed(sampled)
+    return Snapshot(workerEnteredMS: worker, decodeStartedMS: decode, visionEnteredMS: entered,
+      visionReturnedMS: returned, visionFailedMS: failed, sampledMS: read,
+      clamped: clamped, clockValid: clockValid)
+  }
+}
+#endif

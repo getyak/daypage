@@ -703,8 +703,22 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(editor.waitForExistence(timeout: 5))
     editor.tap()
     editor.typeText("A new thought stays visible after browsing history.")
-    app.buttons["save-note"].tap()
-    XCTAssertTrue(chooser.waitForExistence(timeout: 5))
+    guard editor.value as? String == "A new thought stays visible after browsing history." else {
+      XCTFail("Input prerequisite failed: the complete synthetic body must be visible before Save.")
+      return
+    }
+    let save = app.buttons["save-note"]
+    guard save.exists && save.isEnabled else {
+      XCTFail("Save prerequisite failed: Save must be enabled for the visible synthetic body.")
+      return
+    }
+    save.tap()
+    let returnedHome = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      !editor.exists && chooser.exists && chooser.isHittable
+        && (chooser.value as? String) == today
+    }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [returnedHome], timeout: 5), .completed)
+    XCTAssertTrue(chooser.exists)
     XCTAssertEqual(chooser.value as? String, today)
     let saved = app.buttons.matching(NSPredicate(format: "label CONTAINS 'A new thought stays visible'")).firstMatch
     XCTAssertTrue(saved.waitForExistence(timeout: 5))
