@@ -1,10 +1,116 @@
 """Task-owned loopback fixture. Synthetic UI tests only; never logs request text/keys."""
 import base64
 import json
+import sys
+import threading
 import time
 import zlib
+from datetime import datetime, timezone
+from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+
+
+# Passive synthetic-fixture trace, never an HTTP/client ACK or test verdict.
+# Counter locks allocate numbers only; the output lock writes one short line.
+_METRIC_COUNTER_LOCK = threading.Lock()
+_METRIC_OUTPUT_LOCK = threading.Lock()
+_METRIC_REQUESTS = 0
+_METRIC_EVENTS = 0
+_METRIC_FAILURE_NOTICES = 0
+_METRIC_EVENT_CAP = 4096
+_METRIC_START_NS = time.monotonic_ns()
+
+
+def _metric_incomplete():
+    global _METRIC_FAILURE_NOTICES
+    with _METRIC_COUNTER_LOCK:
+        notice = _METRIC_FAILURE_NOTICES
+        _METRIC_FAILURE_NOTICES = 1
+    if notice:
+        return
+    try:
+        with _METRIC_OUTPUT_LOCK:
+            sys.stderr.write('{"schema":1,"event":"metrics_incomplete","reason":"recorder_error"}\n')
+    except Exception:
+        pass  # A broken stdout AND stderr cannot establish a complete trace.
+
+
+def _metric_emit(state, event):
+    global _METRIC_EVENTS
+    if state is None:
+        return
+    try:
+        with _METRIC_COUNTER_LOCK:
+            ticket = _METRIC_EVENTS
+            _METRIC_EVENTS = min(ticket + 1, _METRIC_EVENT_CAP + 1)
+        if ticket > _METRIC_EVENT_CAP:
+            return
+        if ticket == _METRIC_EVENT_CAP:
+            line = '{"schema":1,"event":"metrics_incomplete","reason":"event_cap"}\n'
+        else:
+            now = time.monotonic_ns()
+            line = json.dumps({"schema": 1, "request_ordinal": state["ordinal"], "event": event,
+                "method": state["method"], "route": state["route"], "round": state["round"],
+                "tool": state["tool"], "response_kind": state["kind"], "outcome": state["outcome"],
+                "since_fixture_start_ns": now - _METRIC_START_NS,
+                "request_elapsed_ns": now - state["start_ns"],
+                "utc": datetime.now(timezone.utc).isoformat(timespec="milliseconds")}, separators=(",", ":")) + "\n"
+        with _METRIC_OUTPUT_LOCK:
+            written = sys.stdout.write(line)  # Existing runner uses python -u; no new flush.
+        if written != len(line):
+            _metric_incomplete()
+    except Exception:
+        _metric_incomplete()
+
+
+def _observe_request(method):
+    def decorate(handler):
+        @wraps(handler)
+        def observed(self):
+            global _METRIC_REQUESTS
+            state = None
+            try:
+                with _METRIC_COUNTER_LOCK:
+                    _METRIC_REQUESTS += 1
+                    ordinal = _METRIC_REQUESTS
+                path = self.path.split("?", 1)[0]
+                route = {"/health": "health", "/v1/models": "models", "/v1/chat/completions": "chat",
+                    "/slow/v1/chat/completions": "slow_chat", "/v1/audio/speech": "speech",
+                    "/failure/v1/audio/speech": "speech_failure"}.get(path, "other")
+                if path.startswith("/v1/text-to-speech/"):
+                    route = "elevenlabs_speech"
+                state = {"ordinal": ordinal, "method": method, "route": route, "round": "unknown",
+                    "tool": "none", "kind": "other", "outcome": "pending", "start_ns": time.monotonic_ns()}
+            except Exception:
+                _metric_incomplete()
+            self._request_metrics = state
+            _metric_emit(state, "request_begin")
+            try:
+                return handler(self)
+            except (BrokenPipeError, ConnectionResetError):
+                if state is not None:
+                    state["outcome"] = "write_error"
+                raise
+            except (json.JSONDecodeError, AssertionError):
+                if state is not None:
+                    state["outcome"] = "protocol_error"
+                raise
+            except Exception:
+                if state is not None:
+                    state["outcome"] = "internal_error"
+                raise
+            except BaseException:
+                if state is not None:
+                    state["outcome"] = "interrupted"
+                raise
+            finally:
+                if state is not None and state["outcome"] == "pending":
+                    state["outcome"] = "ok"  # Handler returned, not HTTP/native acceptance.
+                _metric_emit(state, "request_end")
+                self._request_metrics = None
+        return observed
+    return decorate
 
 
 SPEECH_SAMPLE = "This is a short DayPage speech sample. Your notes stay private during this test."
@@ -68,11 +174,40 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def _metric(self, event, kind=None, tool=None, outcome=None):
+        state = getattr(self, "_request_metrics", None)
+        if state is not None:
+            if kind is not None:
+                state["kind"] = kind
+            if tool is not None:
+                state["tool"] = tool if tool in TOOL_NAMES else "unknown"
+            if outcome is not None:
+                state["outcome"] = outcome
+        _metric_emit(state, event)
+
+    def _metric_decoded(self, payload):
+        state = getattr(self, "_request_metrics", None)
+        if state is not None:
+            messages = payload.get("messages", []) if isinstance(payload, dict) else []
+            count = sum(isinstance(m, dict) and m.get("role") == "tool" for m in messages) if isinstance(messages, list) else 0
+            state["round"] = count if count <= 5 else "excess"
+        self._metric("request_decoded")
+
+    def send_error(self, code, message=None, explain=None):
+        self._metric("response_begin", kind="error")
+        result = super().send_error(code, message, explain)
+        self._metric("response_written")
+        return result
+
+    @_observe_request("get")
     def do_GET(self):
+        self._metric("request_decoded")
         if self.path == "/health":
             self.send_response(200)
             self.end_headers()
+            self._metric("response_begin", kind="health")
             self.wfile.write(b"GET-326-local-fixture")
+            self._metric("response_written")
         elif self.path == "/v1/models":
             assert not self.headers.get("Authorization"), "Anonymous fixture must not receive a key"
             content = json.dumps({"data": [{"id": "fixture-model"}, {"id": "fixture-alternative"}]}).encode()
@@ -80,10 +215,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
+            self._metric("response_begin", kind="models")
             self.wfile.write(content)
+            self._metric("response_written")
         else:
             self.send_error(404)
 
+    @_observe_request("post")
     def do_POST(self):
         route = urlsplit(self.path)
         if route.path in ("/v1/audio/speech", "/failure/v1/audio/speech") or route.path.startswith("/v1/text-to-speech/"):
@@ -97,6 +235,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(413)
             return
         payload = json.loads(self.rfile.read(size))
+        self._metric_decoded(payload)
         assert payload.get("model") == "fixture-model"
         assert not self.headers.get("Authorization"), "Anonymous fixture must not receive any key"
         if any(message.get("role") == "user" and message.get("content") == "Talk without reading any note excerpts"
@@ -114,6 +253,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
+            self._metric("response_begin", kind="ordinary_stream")
             chunks = [
                 {"reasoning_content": "I will use only the supplied excerpts."},
                 {"content": "Fixture reply: **local synthetic notes**.\n\n"},
@@ -129,9 +269,12 @@ class Handler(BaseHTTPRequestHandler):
                     time.sleep(0.35)
                 self.wfile.write(b"data: [DONE]\n\n")
                 self.wfile.flush()
+                self._metric("response_written")
             except (BrokenPipeError, ConnectionResetError):
+                self._metric("write_failed", outcome="write_error")
                 pass
             return
+        self._metric("final_selected", kind="ordinary_text")
         self.json_response({"choices": [{"message": {"content": "Fixture reply: these excerpts are local synthetic notes. Your own configured AI will answer here."}}]})
 
     def tools(self, payload):
@@ -146,6 +289,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         results = [message for message in messages if message.get("role") == "tool"]
         if not results:
+            self._metric("tool_selected", kind="tool_call", tool="notes_search")
             self.json_response({"choices": [{"finish_reason": "tool_calls", "message": {
                 "role": "assistant", "content": None,
                 "tool_calls": [{"id": "fixture-notebook-search", "type": "function", "function": {
@@ -164,9 +308,11 @@ class Handler(BaseHTTPRequestHandler):
         # Reply text and source identity come from the actual tool result, never a
         # substitute note. The native test opens that source and checks its original.
         reply = "Tool reply: " + source["snippet"] + "\n\nSource: " + source["day"] + "."
+        self._metric("final_selected", kind="final_text")
         self.json_response({"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": reply}}]})
 
     def call_tool(self, name, arguments, step):
+        self._metric("tool_selected", kind="tool_call", tool=name)
         self.json_response({"choices": [{"finish_reason": "tool_calls", "message": {
             "role": "assistant", "content": None,
             "tool_calls": [{"id": "get388-step-" + str(step), "type": "function", "function": {
@@ -174,6 +320,7 @@ class Handler(BaseHTTPRequestHandler):
         }}]})
 
     def finish_tools(self, text):
+        self._metric("final_selected", kind="final_text")
         self.json_response({"choices": [{"finish_reason": "stop", "message": {
             "role": "assistant", "content": text}}]})
 
@@ -246,6 +393,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(413)
             return
         payload = json.loads(self.rfile.read(size))
+        self._metric_decoded(payload)
         assert self.headers.get("Accept") == "audio/mpeg"
         if route.path.startswith("/v1/text-to-speech/"):
             assert route.path == "/v1/text-to-speech/fixture-voice"
@@ -269,9 +417,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "audio/mpeg")
         self.send_header("Content-Length", str(len(SPEECH_MP3)))
         self.end_headers()
+        self._metric("response_begin", kind="audio")
         try:
             self.wfile.write(SPEECH_MP3)
+            self._metric("response_written")
         except (BrokenPipeError, ConnectionResetError):
+            self._metric("write_failed", outcome="write_error")
             pass
 
     def json_response(self, payload, status=200):
@@ -280,7 +431,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
+        state = getattr(self, "_request_metrics", None)
+        kind = "error" if status >= 400 else state["kind"] if state is not None else "other"
+        self._metric("response_begin", kind=kind)
         self.wfile.write(content)
+        self._metric("response_written")
 
 
 if __name__ == "__main__":
