@@ -6,6 +6,8 @@ to drive a change.
 
 ## Current
 
+- [Manual reviews and explicit file exchange](engineering/local-manual-reviews-and-exchange.md) — GET-442 / #978, local-first day/week pages and previewed folder exchange; [ADR-0034](architecture/decisions/ADR-0034-manual-reviews-explicit-file-exchange.md)
+
 - [Local Watch and personal iCloud continuity](engineering/local-watch-icloud.md) — GET-392 implementation and pending native/device acceptance; [ADR-0032](architecture/decisions/ADR-0032-local-watch-and-personal-replication.md)
 
 - [Local card tools and read aloud](engineering/local-agent-tools-and-speech.md) — scoped discovery, reviewed note changes, confirmed relationships and speech channels (GET-369/GET-388, ADR-0030/ADR-0031)

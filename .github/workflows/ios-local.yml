@@ -10,8 +10,13 @@ on:
       native_ui_suite:
         description: Native journeys to run (full retains all existing journeys)
         type: choice
-        options: [full, card_tools_speech, diary_navigation]
+        options: [full, card_tools_speech, diary_navigation, manual_review_exchange]
         default: full
+      native_ui_partitioned:
+        description: Split full or manual review/exchange into exact independently verified groups (false retains the original single job)
+        type: boolean
+        required: false
+        default: true
       runner_architecture:
         description: Hosted pool (Intel options are manual capacity fallbacks)
         type: choice
@@ -32,6 +37,8 @@ on:
       - 'scripts/ci/wait_for_release_ci.py'
       - 'scripts/tests/test_local_ios_contract.py'
       - 'scripts/tests/test_local_native_ci.py'
+      - 'scripts/tests/test_native_ui_matrix.py'
+      - 'scripts/qa/native_ui_matrix.py'
       - 'scripts/qa/run_local_native_ci.sh'
       - 'scripts/tests/test_chat_session_recovery.py'
       - 'scripts/tests/fixtures/chat_session_recovery.swift'
@@ -54,6 +61,8 @@ on:
       - '.github/workflows/testflight.yml'
       - 'scripts/ci/wait_for_release_ci.py'
       - 'scripts/tests/test_local_native_ci.py'
+      - 'scripts/tests/test_native_ui_matrix.py'
+      - 'scripts/qa/native_ui_matrix.py'
       - 'scripts/qa/run_local_native_ci.sh'
       - 'scripts/tests/test_chat_session_recovery.py'
       - 'scripts/tests/fixtures/chat_session_recovery.swift'
@@ -81,7 +90,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
           xcodebuild -version
       - name: Verify native QA failure collection without Xcode or Simulator
-        run: python3 scripts/tests/test_local_native_ci.py
+        run: |
+          python3 scripts/tests/test_native_ui_matrix.py
+          python3 scripts/tests/test_local_native_ci.py
       - run: swift test --package-path DayPageCore --jobs 2
       - run: python3 scripts/tests/test_local_ios_contract.py
       - name: Verify chat draft recovery and selected-note boundaries
@@ -99,10 +110,10 @@ jobs:
 
   native-ui:
     name: Native iOS UI (manual)
-    if: github.event_name == 'workflow_dispatch' && inputs.native_ui
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && ((inputs.native_ui_suite != 'full' && inputs.native_ui_suite != 'manual_review_exchange') || !inputs.native_ui_partitioned)
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel15' && 'macos-15-intel' || github.event_name == 'workflow_dispatch' && inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
-    # The complete matrix includes two signing builds and 58 serial journeys.
-    # A measured cold run hit 60 minutes during its final notebook cases.
+    # Retain the original unpartitioned full/preset runner for explicit use.
+    # Full uses the reviewed compiled inventory plus two unsigned cells; manual has exactly five signed cases.
     timeout-minutes: 90
     permissions:
       contents: read
@@ -141,11 +152,142 @@ jobs:
             ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/manifest.json
           retention-days: 7
           if-no-files-found: warn
+
       - name: Preserve full XCTest bundles
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: local-native-ui-xcresult-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/daypage-native-ui/evidence/*.xcresult
+          retention-days: 7
+          if-no-files-found: warn
+
+  native-ui-plan:
+    name: Plan the selected compiled native UI scope
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify coverage and receipt failure cases
+        run: python3 scripts/tests/test_native_ui_matrix.py
+      - name: Read the project's compiled target and scheme
+        id: plan
+        run: |
+          python3 scripts/qa/native_ui_matrix.py plan --repo "$GITHUB_WORKSPACE" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --profile '${{ inputs.runner_architecture }}' --suite '${{ inputs.native_ui_suite }}' \
+            --output "$RUNNER_TEMP/native-ui-plan.json" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: local-native-ui-plan-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-ui-plan.json
+          retention-days: 7
+          if-no-files-found: error
+
+  native-ui-shard:
+    name: Native iOS UI (${{ matrix.shard }})
+    # Evaluate scope before expanding a matrix that only a selected-scope plan emits.
+    if: github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
+    needs: native-ui-plan
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.native-ui-plan.outputs.matrix) }}
+    runs-on: ${{ inputs.runner_architecture == 'intel15' && 'macos-15-intel' || inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: local-native-ui-plan-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-ui-plan
+      - name: Select the installed iOS 26 toolchain on the Intel 15 fallback
+        if: inputs.runner_architecture == 'intel15'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+      - name: Enable the pinned chat renderer macro
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp scripts/ci/local-chat-macros.json "$HOME/Library/org.swift.swiftpm/security/macros.json"
+      - name: Build and verify only this signing configuration and exact method group
+        env:
+          DAYPAGE_NATIVE_CI_OUTPUT_DIR: ${{ runner.temp }}/daypage-native-ui/evidence
+          DAYPAGE_NATIVE_UI_SUITE: ${{ inputs.native_ui_suite }}
+          DAYPAGE_NATIVE_UI_SHARD: ${{ matrix.shard }}
+          DAYPAGE_NATIVE_UI_PLAN: ${{ runner.temp }}/native-ui-plan/native-ui-plan.json
+        run: bash scripts/qa/run_local_native_ci.sh
+      - name: Preserve the actual shard receipt separately for aggregation
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: local-native-ui-receipt-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/daypage-native-ui/evidence/shard-receipt.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Preserve isolated shard logs and branch attachments
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: local-native-ui-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: |
+            ${{ runner.temp }}/daypage-native-ui/evidence/*.log
+            ${{ runner.temp }}/daypage-native-ui/evidence/*.json
+            ${{ runner.temp }}/daypage-native-ui/evidence/*.plist
+            ${{ runner.temp }}/daypage-native-ui/evidence/*.sha256
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.png
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/*.txt
+            ${{ runner.temp }}/daypage-native-ui/evidence/*-attachments/manifest.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Preserve the shard's full XCTest bundles
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: local-native-ui-xcresult-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/daypage-native-ui/evidence/*.xcresult
+          retention-days: 7
+          if-no-files-found: warn
+
+  native-ui-aggregate:
+    name: Verify the complete selected native UI scope
+    needs: [native-ui-plan, native-ui-shard]
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.native_ui && (inputs.native_ui_suite == 'full' || inputs.native_ui_suite == 'manual_review_exchange') && inputs.native_ui_partitioned
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true # The mandatory validator below rejects a missing plan.
+        with:
+          name: local-native-ui-plan-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-ui-plan
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true # A missing receipt cannot satisfy the exact union.
+        with:
+          pattern: local-native-ui-receipt-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/native-ui-receipts
+      - name: Require every current-run shard and every configuration cell
+        env:
+          MATRIX_JOB_RESULT: ${{ needs.native-ui-shard.result }}
+        run: |
+          python3 scripts/qa/native_ui_matrix.py aggregate \
+            --plan "$RUNNER_TEMP/native-ui-plan/native-ui-plan.json" --suite '${{ inputs.native_ui_suite }}' \
+            --receipts "$RUNNER_TEMP/native-ui-receipts" --matrix-result "$MATRIX_JOB_RESULT" \
+            --output "$RUNNER_TEMP/native-ui-aggregate.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: local-native-ui-aggregate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-ui-aggregate.json
           retention-days: 7
           if-no-files-found: warn
