@@ -2,6 +2,9 @@ import Foundation
 import ImageIO
 import PDFKit
 import Vision
+#if targetEnvironment(simulator) && os(iOS)
+import CoreML
+#endif
 
 public enum AttachmentTextError: LocalizedError {
   case unsupported, unreadable, tooLarge, noTranscript, noText
@@ -107,6 +110,18 @@ public enum AttachmentTextReader {
     request.recognitionLevel = .accurate
     request.recognitionLanguages = ["zh-Hans", "en-US"]
     request.usesLanguageCorrection = true
+    #if targetEnvironment(simulator) && os(iOS)
+      if #available(iOS 17.0, *) {
+        // Keep the accurate multilingual request on real supported devices.
+        // Simulator stages can explicitly use their supported CPU device;
+        // stages without one keep Vision's normal device selection.
+        for (stage, devices) in try request.supportedComputeStageDevices {
+          if let cpu = devices.first(where: { if case .cpu(_) = $0 { return true }; return false }) {
+            request.setComputeDevice(cpu, for: stage)
+          }
+        }
+      }
+    #endif
     diagnostic?("vision_entered")
     do { try VNImageRequestHandler(cgImage: image).perform([request]) }
     catch { diagnostic?("vision_failed"); throw error }

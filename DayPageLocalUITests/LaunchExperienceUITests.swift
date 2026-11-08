@@ -593,7 +593,7 @@ final class LaunchExperienceUITests: XCTestCase {
     let observationLock = NSLock()
     var pollCount = 0
     var completedPollCount = 0
-    let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+    let observeSelectAllReadiness = { () -> Bool in
       selectAll = nil
       observationLock.lock()
       pollCount += 1
@@ -628,9 +628,29 @@ final class LaunchExperienceUITests: XCTestCase {
         observeHittable(candidate.isHittable) else { return false }
       selectAll = candidate
       return true
-    }, object: nil)
+    }
+    // Current Hosted observations spend about two seconds in the real unique
+    // query and hit test. Probe now; the original three seconds include ALL
+    // probes, query ACKs and any later XCTest polling, with no fresh budget.
     let waitStartedMS = observationMS()
-    let waitResult = XCTWaiter.wait(for: [selectAllAppeared], timeout: 3)
+    let deadlineMS = waitStartedMS + 3_000
+    let immediatelyReady = observeSelectAllReadiness()
+    let firstProbeFinishedMS = observationMS()
+    let waitResult: XCTWaiter.Result
+    if immediatelyReady && firstProbeFinishedMS < deadlineMS {
+      waitResult = .completed
+    } else if firstProbeFinishedMS >= deadlineMS {
+      waitResult = .timedOut
+    } else {
+      let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        guard observationMS() < deadlineMS else { return false }
+        let ready = observeSelectAllReadiness()
+        return ready && observationMS() < deadlineMS
+      }, object: nil)
+      let remaining = max(0, (deadlineMS - observationMS()) / 1_000)
+      waitResult = remaining > 0
+        ? XCTWaiter.wait(for: [selectAllAppeared], timeout: remaining) : .timedOut
+    }
     let waitFinishedMS = observationMS()
     let outcome: SelectAllReadinessObservation.Outcome = waitResult == .completed ? .completed
       : waitResult == .timedOut ? .timedOut : .other
