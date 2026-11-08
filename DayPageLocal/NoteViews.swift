@@ -287,11 +287,13 @@ struct NoteEditor: View {
           }.frame(minWidth: 48, minHeight: 48).contentShape(Rectangle())
         }.accessibilityLabel("Cancel location request")
           .accessibilityIdentifier("cancel-capture-location")
+          .modifier(QALocationDiagnosticValue(value: locationCapture.qaLocationPhaseValue))
       } else {
         Button(action: requestLocation) {
           railIcon(notebook.pendingLocation == nil ? "location" : "location.fill", label: "Location")
         }.accessibilityLabel(notebook.pendingLocation == nil ? "Add location" : "Update location")
           .accessibilityIdentifier("capture-location")
+          .modifier(QALocationDiagnosticValue(value: locationCapture.qaLocationPhaseValue))
       }
       Spacer(minLength: 0)
     }
@@ -307,6 +309,9 @@ struct NoteEditor: View {
     showSettingsRecovery = false
     let draftID = notebook.captureDraftID
     locationCapture.request { result in
+      #if DEBUG
+        locationCapture.recordQALocationPhase(.callback, token: locationCapture.qaLocationCallbackTraceToken)
+      #endif
       switch result {
       case .success(let location): updateLocation(location, for: draftID)
       case .failure(let error):
@@ -318,9 +323,18 @@ struct NoteEditor: View {
 
   private func updateLocation(_ location: Memo.Location?, for draftID: UUID) {
     guard entry == nil, !busy else { return }
+    #if DEBUG
+      let qaTrace = location == nil ? nil : locationCapture.qaLocationCallbackTraceToken
+    #endif
     applyingLocation = true
     Task {
+      #if DEBUG
+        locationCapture.recordQALocationPhase(.applyTask_enter, token: qaTrace)
+      #endif
       let saved = await notebook.setCaptureLocation(location, for: draftID)
+      #if DEBUG
+        locationCapture.recordQALocationPhase(.storage_return, token: qaTrace)
+      #endif
       if !saved {
         mediaError = notebook.error ?? String(localized: "Couldn't save the location. Try again.")
       }
@@ -424,6 +438,15 @@ struct NoteEditor: View {
         } catch { mediaError = error.localizedDescription }
       }
     }
+  }
+}
+
+/// The ordinary/Release nil branch preserves the original accessibility value.
+private struct QALocationDiagnosticValue: ViewModifier {
+  let value: String?
+  @ViewBuilder func body(content: Content) -> some View {
+    if let value { content.accessibilityValue(value) }
+    else { content }
   }
 }
 
