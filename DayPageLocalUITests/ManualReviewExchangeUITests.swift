@@ -135,6 +135,63 @@ final class ManualReviewExchangeUITests: XCTestCase {
     let attachment = XCTAttachment(screenshot: app.screenshot())
     attachment.name = "GET442-" + name; attachment.lifetime = .keepAlways; add(attachment)
   }
+  private func pendingDiscardDialog() throws -> XCUIElement {
+    let dialogs = app.sheets.matching(NSPredicate(format: "label == %@",
+      "Discard this pending copy? Source files and published notes stay untouched."))
+    XCTAssertTrue(dialogs.firstMatch.waitForExistence(timeout: 5))
+    XCTAssertEqual(dialogs.count, 1, "Only the owning pending-copy confirmation may receive this action")
+    return dialogs.firstMatch
+  }
+  private func discardConfirmation(in dialog: XCUIElement) throws -> XCUIElement {
+    let matches = dialog.buttons.matching(identifier: "confirm-discard-pending-import")
+    // iOS 26 exposes both an outer button and its native child with this ID.
+    // Select the unique leaf within this dialog, never a background match.
+    let leaves = matches.allElementsBoundByIndex.filter {
+      $0.descendants(matching: .button).matching(identifier: "confirm-discard-pending-import").count == 0
+    }
+    XCTAssertEqual(leaves.count, 1)
+    let button = try XCTUnwrap(leaves.first)
+    XCTAssertTrue(button.isEnabled && button.isHittable && dialog.frame.contains(button.frame))
+    return button
+  }
+  private func cancelPendingDiscard(_ dialog: XCUIElement) throws {
+    let cancels = dialog.buttons.matching(NSPredicate(format: "label == %@", "Cancel"))
+    if cancels.count > 0 {
+      let leaves = cancels.allElementsBoundByIndex.filter {
+        $0.descendants(matching: .button).matching(NSPredicate(format: "label == %@", "Cancel")).count == 0
+      }
+      XCTAssertEqual(leaves.count, 1)
+      let cancel = try XCTUnwrap(leaves.first)
+      XCTAssertTrue(cancel.isEnabled && cancel.isHittable && dialog.frame.contains(cancel.frame))
+      cancel.tap()
+    } else {
+      // confirmationDialog can use the system's dismissible popover instead
+      // of a Cancel button. Exercise its actual native dismissal surface.
+      // https://developer.apple.com/documentation/swiftui/view/confirmationdialog(_:ispresented:titlevisibility:presenting:actions:)-9ibgk
+      let popovers = app.popovers.allElementsBoundByIndex.filter {
+        $0.frame.contains(dialog.frame) && $0.descendants(matching: .sheet).matching(NSPredicate(
+          format: "label == %@", dialog.label)).count == 1
+      }
+      XCTAssertEqual(popovers.count, 1, "A missing Cancel is supported only by the actual owning popover")
+      let popover = try XCTUnwrap(popovers.first)
+      let regions = app.otherElements.matching(identifier: "PopoverDismissRegion")
+      XCTAssertEqual(regions.count, 1)
+      let dismiss = regions.firstMatch
+      XCTAssertTrue(dismiss.isEnabled && dismiss.isHittable)
+      let surface = app.frame.intersection(dismiss.frame).insetBy(dx: 24, dy: 44)
+      XCTAssertGreaterThan(surface.width, 0); XCTAssertGreaterThan(surface.height, 0)
+      let candidates = [CGPoint(x: surface.midX, y: surface.maxY - 1), CGPoint(x: surface.midX, y: surface.minY + 1),
+        CGPoint(x: surface.minX + 1, y: surface.midY), CGPoint(x: surface.maxX - 1, y: surface.midY)]
+      let point = try XCTUnwrap(candidates.first {
+        surface.contains($0) && !popover.frame.insetBy(dx: -8, dy: -8).contains($0)
+      })
+      let diagnostic = XCTAttachment(string: "popover=\(popover.frame) dialog=\(dialog.frame) dismiss=\(dismiss.frame) point=\(point)")
+      diagnostic.name = "GET442-pending-discard-native-cancel"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+      dismiss.coordinate(withNormalizedOffset: .zero)
+        .withOffset(CGVector(dx: point.x - dismiss.frame.minX, dy: point.y - dismiss.frame.minY)).tap()
+    }
+    XCTAssertTrue(dialog.waitForNonExistence(timeout: 5), "Native cancellation must close only the confirmation")
+  }
   private func saved(_ kind: String) -> XCUIElement {
     app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "saved-manual-review-" + kind + "-")).firstMatch
   }
@@ -229,7 +286,7 @@ final class ManualReviewExchangeUITests: XCTestCase {
     capture("confirmed-new-namespace-readback")
   }
 
-  func testPendingCopySurvivesRelaunchAndRequiresExplicitDiscard() {
+  func testPendingCopySurvivesRelaunchAndRequiresExplicitDiscard() throws {
     launch(reset: true); open("exchange")
     tap("qa-exchange-source")
     waitLabel("qa-exchange-state", contains: ["pending=1", "phase=ready", "previewNotes=1"])
@@ -242,13 +299,14 @@ final class ManualReviewExchangeUITests: XCTestCase {
     waitLabel("qa-exchange-state", contains: ["phase=ready", "previewNotes=1"])
     let discard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "discard-pending-import-")).firstMatch
     reveal(discard); discard.tap()
-    let confirm = element("confirm-discard-pending-import")
-    XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+    let dialog = try pendingDiscardDialog()
+    _ = try discardConfirmation(in: dialog)
     // Merely opening the dialog must not remove the pending copy.
-    app.buttons["Cancel"].tap()
+    try cancelPendingDiscard(dialog)
     waitLabel("qa-exchange-state", contains: ["pending=1", "phase=ready"])
     reveal(discard); discard.tap()
-    XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+    let confirmedDialog = try pendingDiscardDialog()
+    try discardConfirmation(in: confirmedDialog).tap()
     waitLabel("qa-exchange-state", contains: ["pending=0", "phase=none"])
     assertStored("exchange", contains: ["imported=0", "pending=0"])
     capture("pending-copy-explicitly-discarded")

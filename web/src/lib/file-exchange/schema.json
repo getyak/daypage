@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/getyak/daypage/contracts/daypage-file-exchange-v1",
+  "title": "DayPage explicit file exchange v1",
+  "description": "A folder containing daypage-exchange.json, records.json, canonical raw files, referenced assets and optional manual review Markdown. No account or credential fields.",
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes",
+        "sha256",
+        "kind"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 52428800
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "kind": {
+          "enum": [
+            "records",
+            "raw",
+            "asset",
+            "review"
+          ]
+        }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "namespace",
+        "memo_id",
+        "day",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "memo_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "day": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "kind",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "kind": {
+          "enum": [
+            "photo",
+            "audio",
+            "file"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 26214400
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "transcript": {
+          "type": "string",
+          "maxLength": 4194304
+        },
+        "transcription_status": {
+          "enum": [
+            "pending",
+            "done",
+            "failed"
+          ]
+        }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "original_id",
+        "namespace",
+        "day",
+        "revision",
+        "type",
+        "body",
+        "created_at",
+        "entity_mentions",
+        "attachments"
+      ],
+      "properties": {
+        "original_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "day": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "type": {
+          "enum": [
+            "text",
+            "voice",
+            "photo",
+            "location",
+            "mixed"
+          ]
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 4194304
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "lat": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "lng": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          }
+        },
+        "weather": {
+          "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "mood": {
+          "type": "string"
+        },
+        "margin_note": {
+          "type": "string"
+        },
+        "pinned_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "entity_mentions": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/attachment"
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_id",
+        "namespace",
+        "file",
+        "period_kind",
+        "start",
+        "end",
+        "time_zone",
+        "created_at",
+        "source_digest",
+        "sources",
+        "body"
+      ],
+      "properties": {
+        "generation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "file": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "period_kind": {
+          "enum": [
+            "day",
+            "week"
+          ]
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "time_zone": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/citation"
+          }
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "format",
+        "export_id",
+        "created_at",
+        "notes_count",
+        "reviews_count",
+        "files",
+        "content_sha256"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "format": {
+          "const": "daypage-file-exchange-v1"
+        },
+        "export_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "notes_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "reviews_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "notes",
+        "reviews"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "notes": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/note"
+          }
+        },
+        "reviews": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/review"
+          }
+        }
+      }
+    }
+  }
+}
