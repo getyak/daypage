@@ -306,7 +306,10 @@ final class DiaryUITests: XCTestCase {
   }
 
   private func note(_ text: String) -> XCUIElement {
-    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-' AND label CONTAINS %@", text)).firstMatch
+    // A later complete snapshot contained the saved note after the lazy First
+    // Match query reported it absent. Keep the same identifier/body predicate while
+    // resolving its first indexed match in the full query.
+    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'note-' AND label CONTAINS %@", text)).element(boundBy: 0)
   }
 
   private func reveal(_ control: XCUIElement, in container: XCUIElement, newer: Bool = false,

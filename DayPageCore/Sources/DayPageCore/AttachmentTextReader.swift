@@ -20,11 +20,24 @@ public enum AttachmentTextError: LocalizedError {
 /// The image-data entry point is also used by explicit local screenshot review.
 public enum AttachmentTextReader {
   public static func readImage(data: Data) async throws -> String {
+    try await readImageData(data, diagnostic: nil)
+  }
+
+  #if DEBUG
+  /// Static synthetic-QA phases only. The caller owns the exact QA scope;
+  /// no image, recognized text, file location or error payload is observed.
+  public static func readImage(data: Data, diagnostic: @escaping @Sendable (String) -> Void) async throws -> String {
+    try await readImageData(data, diagnostic: diagnostic)
+  }
+  #endif
+
+  private static func readImageData(data: Data, diagnostic: (@Sendable (String) -> Void)?) async throws -> String {
     try Task.checkCancellation()
     guard data.count <= 25 * 1_024 * 1_024 else { throw AttachmentTextError.tooLarge }
     let task = Task.detached(priority: .utility) {
+      diagnostic?("worker_entered")
       try Task.checkCancellation()
-      let result = try recognizeImage(data)
+      let result = try recognizeImage(data, diagnostic: diagnostic)
       try Task.checkCancellation()
       guard !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AttachmentTextError.noText }
       return bounded(result)
@@ -78,7 +91,8 @@ public enum AttachmentTextReader {
     return text
   }
 
-  private static func recognizeImage(_ data: Data) throws -> String {
+  private static func recognizeImage(_ data: Data, diagnostic: (@Sendable (String) -> Void)? = nil) throws -> String {
+    diagnostic?("decode_started")
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
       let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -89,7 +103,10 @@ public enum AttachmentTextReader {
     request.recognitionLevel = .accurate
     request.recognitionLanguages = ["zh-Hans", "en-US"]
     request.usesLanguageCorrection = true
-    try VNImageRequestHandler(cgImage: image).perform([request])
+    diagnostic?("vision_entered")
+    do { try VNImageRequestHandler(cgImage: image).perform([request]) }
+    catch { diagnostic?("vision_failed"); throw error }
+    diagnostic?("vision_returned")
     return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
   }
 

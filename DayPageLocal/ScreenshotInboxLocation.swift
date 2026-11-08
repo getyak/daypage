@@ -18,6 +18,17 @@ enum ScreenshotInboxLocation {
     #endif
   }
 
+  static var recordsSyntheticOCRDiagnostics: Bool {
+    #if DEBUG
+      return usesSyntheticUIInbox
+        && ProcessInfo.processInfo.arguments.contains("-qaSeedScreenshotInbox")
+        && (Bundle.main.object(forInfoDictionaryKey: "DayPageCaptureAppGroup") as? String)
+          == "group.com.daypage.app.localqa.capture"
+    #else
+      return false
+    #endif
+  }
+
   static func make() throws -> ScreenshotInbox {
     guard let group = Bundle.main.object(forInfoDictionaryKey: "DayPageCaptureAppGroup") as? String,
       !group.contains("$("),
