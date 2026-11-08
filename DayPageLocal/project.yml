@@ -44,6 +44,8 @@ targets:
       - path: SettingsView.swift
       - path: AppInformationService.swift
       - path: AppInformationView.swift
+      - path: ManualReviewsView.swift
+      - path: VaultExchangeView.swift
       - path: AIConnectionSettings.swift
       - path: FeedbackView.swift
       - path: CloudContinuity.swift

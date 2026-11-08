@@ -1,6 +1,9 @@
 import DayPageCore
 import Foundation
 import SwiftUI
+#if DEBUG
+  import CryptoKit
+#endif
 
 @MainActor
 final class NotebookModel: ObservableObject {
@@ -46,9 +49,17 @@ final class NotebookModel: ObservableObject {
   static let connectionKey = "local.ai.connection"
 
   init() {
+    #if DEBUG
+      // A dedicated session never shares GET326/GET440 fixtures or preferences.
+      if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaManualReviewExchangeSession") {
+        precondition(Self.reviewExchangeQASession != nil, "Invalid GET442 QA session")
+      }
+    #endif
     let preferences: UserDefaults
     if Self.isQA {
-      guard let isolated = UserDefaults(suiteName: "com.daypage.qa.GET326") else {
+      guard let isolated = UserDefaults(suiteName: Self.reviewExchangeQASession.map {
+        "com.daypage.qa.GET442." + $0.uuidString
+      } ?? "com.daypage.qa.GET326") else {
         preconditionFailure("Cannot isolate QA preferences")
       }
       preferences = isolated
@@ -57,17 +68,24 @@ final class NotebookModel: ObservableObject {
     }
     self.preferences = preferences
     speech = SpeechPlayback(defaults: preferences)
-    let container =
+    var container =
       Self.isQA
       ? URL.documentsDirectory.appendingPathComponent("qa-GET-326", isDirectory: true)
       : URL.documentsDirectory
+    if let session = Self.reviewExchangeQASession {
+      container = container.appendingPathComponent("GET-442/" + session.uuidString, isDirectory: true)
+    }
     let root = container.appendingPathComponent("vault", isDirectory: true)
     self.root = root
     #if DEBUG
+      if Self.reviewExchangeQASession != nil {
+        do { try Self.validateReviewExchangeQARoot(root) }
+        catch { preconditionFailure("GET442 QA vault boundary is invalid") }
+      }
       if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaResetNotebook") {
         // This argument has no effect in the real application bundle.
         // The QA app owns a separate sandbox and contains only synthetic data.
-        try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.removeItem(at: Self.reviewExchangeQASession == nil ? root : container)
         preferences.removeObject(forKey: Self.connectionKey)
         preferences.removeObject(forKey: SpeechPreferencesStore.key)
         preferences.removeObject(forKey: NoteTypography.storageKey)
@@ -87,6 +105,7 @@ final class NotebookModel: ObservableObject {
         configuration = AIConfiguration(
           baseURL: args[index + 1], model: "fixture-model", allowsLocalHTTP: true)
       }
+      if Self.reviewExchangeQASession != nil { configuration = Self.reviewExchangeQAConfiguration }
     #endif
   }
 
@@ -119,6 +138,7 @@ final class NotebookModel: ObservableObject {
       pendingLocation = snapshot.location
       captureDraftReady = true
       #if DEBUG
+        if Self.reviewExchangeQASession != nil { try await seedReviewExchangeQA() }
         if Self.isQA, ProcessInfo.processInfo.arguments.contains("-qaSeedCaptureDraft"),
           pendingAssets.isEmpty
         {
@@ -200,6 +220,241 @@ final class NotebookModel: ObservableObject {
     await refresh()
     isLoading = false
   }
+
+  /// The production session remains the owner of consent, source validation,
+  /// cancellation and Save. Only its transport is replaced in an exact QA vault.
+  func makeManualReviewSession() throws -> ManualReviewSession {
+    #if DEBUG
+      if Self.reviewExchangeQASession != nil {
+        try requireReviewExchangeQA()
+        return ManualReviewSession(store: store, generator: { [weak self] config, _, snapshot in
+          guard let self else { throw ManualReviewError.revoked }
+          return try await self.generateReviewExchangeQA(config: config, snapshot: snapshot)
+        })
+      }
+    #endif
+    return ManualReviewSession(store: store)
+  }
+
+  func manualReviewAPIKey(configuration: AIConfiguration) throws -> String {
+    #if DEBUG
+      if Self.reviewExchangeQASession != nil {
+        try requireReviewExchangeQA()
+        guard configuration == Self.reviewExchangeQAConfiguration else { throw ManualReviewError.revoked }
+        return "" // No Keychain access and no claim of a verified provider.
+      }
+    #endif
+    return configuration.usesAPIKey ? try KeychainSecretStore.read(origin: configuration.origin) : ""
+  }
+
+  static var reviewExchangeQASession: UUID? {
+    #if DEBUG
+      let args = ProcessInfo.processInfo.arguments
+      let matches = args.indices.filter { args[$0] == "-qaManualReviewExchangeSession" }
+      guard isQA, args.filter({ $0 == "-qaNotebookSession" }).count == 1,
+        matches.count == 1, let index = matches.first, args.indices.contains(index + 1),
+        let id = UUID(uuidString: args[index + 1]), id.uuidString == args[index + 1] else { return nil }
+      return id
+    #else
+      return nil
+    #endif
+  }
+
+  #if DEBUG
+    @Published private(set) var reviewQACalls = 0
+    @Published private(set) var reviewQACompletions = 0
+    @Published private(set) var reviewQASettled = 0
+    @Published var reviewQAHoldNext = false
+    @Published private(set) var reviewQAProof = "Not checked"
+    @Published private(set) var reviewQAReadbacks = 0
+    private var reviewQAWaiters: [CheckedContinuation<Void, Never>] = []
+    private static let reviewQAMemoID = UUID(uuidString: "44200000-0000-4000-8000-000000000001")!
+    private static let reviewExchangeQAConfiguration = AIConfiguration(
+      baseURL: "https://get442.invalid/v1", model: "local-injected-generator", usesAPIKey: false)
+    private struct ReviewQABaseline: Codable {
+      let protectedFiles: [String: String]
+      let draft: String
+      let sourceFiles: [String: String]
+      let sourceMarkdown: String
+      let sourceAsset: String
+      let sourceRaw: [String: String]
+      let sourceReviewID: UUID
+      let sourceReview: String
+    }
+    var isReviewExchangeQA: Bool { (try? requireReviewExchangeQA()) != nil }
+    private var reviewQAContainer: URL { root.deletingLastPathComponent() }
+
+    private func requireReviewExchangeQA() throws {
+      try Self.validateReviewExchangeQARoot(root)
+    }
+    private static func validateReviewExchangeQARoot(_ root: URL) throws {
+      guard let id = Self.reviewExchangeQASession else { throw ManualReviewError.revoked }
+      let base = URL.documentsDirectory.appendingPathComponent("qa-GET-326", isDirectory: true)
+      let expected = base.appendingPathComponent("GET-442/" + id.uuidString + "/vault", isDirectory: true)
+      guard root.standardizedFileURL == expected.standardizedFileURL else { throw ManualReviewError.revoked }
+      // Check each QA-owned component. Foundation may alias the sandbox's
+      // system ancestors; no link inside this session is accepted.
+      for path in [base, base.appendingPathComponent("GET-442"), expected.deletingLastPathComponent(), expected]
+        + ["baseline.json", "inspection.json", "synthetic-source", "synthetic-exchange"].map({ expected.deletingLastPathComponent().appendingPathComponent($0) }) {
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: path.path),
+          attributes[.type] as? FileAttributeType == .typeSymbolicLink {
+          throw ManualReviewError.revoked
+        }
+      }
+    }
+    func reviewQAImportSource() throws -> URL {
+      try requireReviewExchangeQA()
+      return reviewQAContainer.appendingPathComponent("synthetic-exchange", isDirectory: true)
+    }
+    private static func reviewQAHash(_ bytes: Data) -> String {
+      SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    }
+    private static func reviewQAEncode<T: Encodable>(_ value: T) throws -> Data {
+      let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+      return try encoder.encode(value)
+    }
+    private static func reviewQADraftDigest(_ snapshot: CaptureDraftSnapshot) throws -> String {
+      // Backgrounding persists the ordinary draft with a newer revision.
+      // Compare its actual identity/text/attachment bytes, not that save clock.
+      var content = snapshot; content.revision = 0
+      return reviewQAHash(try reviewQAEncode(content))
+    }
+    private func reviewQAFiles(_ folder: URL) throws -> [String: String] {
+      try requireReviewExchangeQA()
+      guard folder.standardizedFileURL.path.hasPrefix(reviewQAContainer.standardizedFileURL.path + "/") else {
+        throw ManualReviewError.revoked
+      }
+      var result: [String: String] = [:], total = 0, directories = 0
+      func walk(_ directory: URL, depth: Int = 0) throws {
+        directories += 1
+        guard directories <= 32, depth <= 8 else { throw ManualReviewError.limit }
+        let values = try directory.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
+        guard values.isSymbolicLink != true, values.isDirectory == true else { throw ManualReviewError.page }
+        for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey, .fileSizeKey]) {
+          let value = try url.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey, .fileSizeKey])
+          guard value.isSymbolicLink != true else { throw ManualReviewError.page }
+          if value.isDirectory == true { try walk(url, depth: depth + 1) }
+          else {
+            guard value.isRegularFile == true, let size = value.fileSize, size <= 1_048_576,
+              result.count < 32, total + size <= 4_194_304 else { throw ManualReviewError.limit }
+            let bytes = try Data(contentsOf: url); total += bytes.count
+            guard bytes.count == size else { throw ManualReviewError.changed }
+            result[String(url.path.dropFirst(folder.path.count + 1))] = Self.reviewQAHash(bytes)
+          }
+        }
+      }
+      try walk(folder)
+      return result
+    }
+    private func seedReviewExchangeQA() async throws {
+      try requireReviewExchangeQA()
+      let baseline = reviewQAContainer.appendingPathComponent("baseline.json")
+      if FileManager.default.fileExists(atPath: baseline.path) { return }
+      let importSource = try reviewQAImportSource()
+      guard !FileManager.default.fileExists(atPath: reviewQAContainer.appendingPathComponent("synthetic-source").path),
+        !FileManager.default.fileExists(atPath: importSource.path) else { throw ManualReviewError.conflict }
+      let existing = try await store.entries()
+      guard existing.isEmpty, draft.isEmpty, pendingAssets.isEmpty else { throw ManualReviewError.conflict }
+      let created = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600 + 0.123)
+      try await store.append(Memo(id: Self.reviewQAMemoID, created: created,
+        body: "GET442 original local note. Keep these exact bytes. #synthetic"), assets: [
+          NotebookAssetInput(data: Data("GET442 original attachment\n".utf8), fileExtension: "txt", kind: "file")])
+      let ordinary = CaptureDraftSnapshot(body: "GET442 ordinary unfinished draft — keep me.", assets: [
+        PendingNoteAsset(data: Data("GET442 ordinary draft attachment\n".utf8), name: "ordinary.txt", fileExtension: "txt", kind: "file")])
+      captureRevision += 1
+      try await captureDrafts.save(ordinary, revision: captureRevision)
+      captureMemoID = ordinary.memoID; draft = ordinary.body; pendingAssets = ordinary.assets
+      let sourceRoot = reviewQAContainer.appendingPathComponent("synthetic-source")
+      let sourceStore = NotebookStore(root: sourceRoot)
+      try await sourceStore.append(Memo(id: Self.reviewQAMemoID, created: created,
+        body: "GET442 imported note with the SAME ID and different original bytes."), assets: [
+          NotebookAssetInput(data: Data("GET442 imported attachment\n".utf8), fileExtension: "txt", kind: "file")])
+      let sourceEntries = try await sourceStore.entries()
+      let sourcePeriod = try ReviewPeriod(kind: .day, anchor: created, timeZone: .current)
+      let sourceSession = ManualReviewSession(store: sourceStore, generator: { _, _, _ in
+        "GET442 synthetic imported review. This is fixture content, not a provider response. [S1]"
+      })
+      let sourceDraft = try await sourceSession.generate(snapshot: ManualReviewSnapshot.make(
+        period: sourcePeriod, entries: sourceEntries, selectedIDs: Set(sourceEntries.map(\.id))),
+        configuration: Self.reviewExchangeQAConfiguration, apiKey: "", enabled: true)
+      let sourcePage = try await sourceSession.save(sourceDraft, editedBody: sourceDraft.body)
+      let snapshot = try await sourceStore.exchangeSnapshot()
+      try snapshot.validated()
+      let source = importSource
+      try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+      var files = snapshot.files
+      files["daypage-exchange.json"] = try Self.reviewQAEncode(snapshot.manifest)
+      for (path, bytes) in files {
+        let url = source.appendingPathComponent(path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try bytes.write(to: url, options: .atomic)
+      }
+      guard let sourceEntry = try await sourceStore.entries().first,
+        let attachment = sourceEntry.memo.attachments.first else { throw ManualReviewError.page }
+      let sourceAsset = try Data(contentsOf: await sourceStore.assetURL(attachment.file, for: sourceEntry))
+      let saved = try await captureDrafts.load()
+      let record = ReviewQABaseline(protectedFiles: try reviewQAFiles(root.appendingPathComponent("raw")),
+        draft: try Self.reviewQADraftDigest(saved), sourceFiles: try reviewQAFiles(source),
+        sourceMarkdown: sourceEntry.revision, sourceAsset: Self.reviewQAHash(sourceAsset),
+        sourceRaw: try reviewQAFiles(sourceRoot.appendingPathComponent("raw")),
+        sourceReviewID: sourcePage.id, sourceReview: Self.reviewQAHash(try sourcePage.encoded()))
+      try Self.reviewQAEncode(record).write(to: baseline, options: .atomic)
+    }
+    private func generateReviewExchangeQA(config: AIConfiguration, snapshot: ManualReviewSnapshot) async throws -> String {
+      try requireReviewExchangeQA()
+      guard config == Self.reviewExchangeQAConfiguration else { throw ManualReviewError.revoked }
+      reviewQACalls += 1
+      if reviewQAHoldNext {
+        reviewQAHoldNext = false
+        // Deliberately noncooperative: tests release this AFTER cancellation.
+        // The production session and UI must reject its late completion.
+        await withCheckedContinuation { reviewQAWaiters.append($0) }
+      }
+      reviewQACompletions += 1
+      return "GET442 synthetic \(snapshot.period.kind.rawValue) review from \(snapshot.entries.count) selected source(s). [S1]"
+    }
+    func releaseReviewQALateReply() {
+      guard isReviewExchangeQA else { return }
+      let waiters = reviewQAWaiters; reviewQAWaiters = []
+      for waiter in waiters { waiter.resume() }
+    }
+    func reviewQARequestFinished() {
+      if isReviewExchangeQA { reviewQASettled += 1 }
+    }
+    func refreshReviewQAProof() async {
+      defer { reviewQAReadbacks += 1 }
+      do {
+        try requireReviewExchangeQA()
+        let baseline = try JSONDecoder().decode(ReviewQABaseline.self,
+          from: Data(contentsOf: reviewQAContainer.appendingPathComponent("baseline.json")))
+        let entries = try await store.entries(), pages = try await store.manualReviews()
+        let draft = try await captureDrafts.load()
+        let pending = try await VaultExchangeImport(root: root).pendingImports()
+        let imported = entries.filter { !$0.namespace.isEmpty }
+        var importedBytes = true
+        for entry in imported {
+          guard UUID(uuidString: entry.namespace) != nil, entry.memo.id == Self.reviewQAMemoID,
+            entry.revision == baseline.sourceMarkdown,
+            entry.memo.attachments.count == 1 else { importedBytes = false; continue }
+          let url = try await store.assetURL(entry.memo.attachments[0].file, for: entry)
+          if Self.reviewQAHash(try Data(contentsOf: url)) != baseline.sourceAsset { importedBytes = false }
+          let importedRoot = root.appendingPathComponent("imports/" + entry.namespace)
+          if try reviewQAFiles(importedRoot.appendingPathComponent("raw")) != baseline.sourceRaw { importedBytes = false }
+          let reviewFile = importedRoot.appendingPathComponent("wiki/manual-reviews/" + baseline.sourceReviewID.uuidString + ".md")
+          if Self.reviewQAHash(try Data(contentsOf: reviewFile)) != baseline.sourceReview { importedBytes = false }
+        }
+        let unchanged = try reviewQAFiles(root.appendingPathComponent("raw")) == baseline.protectedFiles
+          && Self.reviewQADraftDigest(draft) == baseline.draft
+          && reviewQAFiles(reviewQAImportSource()) == baseline.sourceFiles
+        let importedState = imported.isEmpty ? "none" : (importedBytes ? "verified" : "CHANGED")
+        let summary = "local=\(entries.filter { $0.namespace.isEmpty }.count) imported=\(imported.count) pages=\(pages.count) day=\(pages.filter { $0.page.period.kind == .day }.count) week=\(pages.filter { $0.page.period.kind == .week }.count) importedReviews=\(pages.filter { !$0.namespace.isEmpty }.count) pending=\(pending.count) originals=\(unchanged ? "unchanged" : "CHANGED") importedBytes=\(importedState)"
+        // Only the exact synthetic session's readback is serialized.
+        try Self.reviewQAEncode(["session": Self.reviewExchangeQASession!.uuidString, "readback": summary])
+          .write(to: reviewQAContainer.appendingPathComponent("inspection.json"), options: .atomic)
+        reviewQAProof = summary
+      } catch { reviewQAProof = "QA readback FAILED" }
+    }
+  #endif
 
   func refresh() async {
     do {

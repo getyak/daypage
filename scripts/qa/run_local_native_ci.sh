@@ -25,12 +25,22 @@ PY
 mkdir -p "$daypage_evidence"
 daypage_native_root="$(mktemp -d "$RUNNER_TEMP/daypage-native-ci.XXXXXX")"
 daypage_fixture_pid=""
+daypage_shard="${DAYPAGE_NATIVE_UI_SHARD:-}"
+daypage_plan="${DAYPAGE_NATIVE_UI_PLAN:-}"
+daypage_shard_mode=""
 cleanup() {
   local daypage_exit_code=$?
   trap - EXIT INT TERM
   if [[ -n "$daypage_fixture_pid" ]]; then
     if kill -0 "$daypage_fixture_pid" 2>/dev/null; then kill "$daypage_fixture_pid" 2>/dev/null || true; fi
     wait "$daypage_fixture_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$daypage_shard" && -n "$daypage_plan" ]]; then
+    local daypage_receipt_exit=0
+    python3 scripts/qa/native_ui_matrix.py receipt --plan "$daypage_plan" --shard "$daypage_shard" \
+      --suite "${DAYPAGE_NATIVE_UI_SUITE:-full}" --evidence "$daypage_evidence" --exit-code "$daypage_exit_code" \
+      --output "$daypage_evidence/shard-receipt.json" > "$daypage_evidence/shard-receipt.log" 2>&1 || daypage_receipt_exit=$?
+    if ((daypage_exit_code == 0 && daypage_receipt_exit != 0)); then daypage_exit_code=$daypage_receipt_exit; fi
   fi
   exit "$daypage_exit_code"
 }
@@ -51,6 +61,19 @@ run_logged() {
     return "$daypage_command_exit"
   fi
 }
+
+if [[ -n "$daypage_shard" || -n "$daypage_plan" ]]; then
+  case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
+    full|manual_review_exchange) ;;
+    *) echo "This preset has no reviewed shard plan." >&2; exit 2 ;;
+  esac
+  if [[ -z "$daypage_shard" || -z "$daypage_plan" ]]; then
+    echo "A shard requires its exact selected-scope plan." >&2; exit 2
+  fi
+  run_logged "$daypage_evidence/shard-selection.log" python3 scripts/qa/native_ui_matrix.py select \
+    --plan "$daypage_plan" --shard "$daypage_shard" --suite "${DAYPAGE_NATIVE_UI_SUITE:-full}" --repo "$daypage_repo_root"
+  daypage_shard_mode="$(head -n 1 "$daypage_evidence/shard-selection.log")"
+fi
 
 python3 - "$daypage_evidence/provenance.json" <<'PY'
 import json, os, pathlib, platform, subprocess, sys
@@ -204,17 +227,24 @@ daypage_negative="$daypage_native_root/NegativeDerivedData"
 daypage_signed="$daypage_negative"
 daypage_ui_suite="${DAYPAGE_NATIVE_UI_SUITE:-full}"
 case "$daypage_ui_suite" in
-  full|card_tools_speech|diary_navigation|app_information) ;;
+  full|card_tools_speech|diary_navigation|manual_review_exchange|app_information) ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
 daypage_negative_exit=0
 daypage_negative_export_exit=0
 daypage_negative_summary_exit=0
 daypage_negative_receipt_exit=0
+daypage_signed_exit=0
+daypage_signed_summary_exit=0
+daypage_signed_export_exit=0
+daypage_run_negative=true
+daypage_run_signed=true
+if [[ "$daypage_ui_suite" == diary_navigation || "$daypage_ui_suite" == manual_review_exchange || "$daypage_ui_suite" == app_information || "$daypage_shard_mode" == signed ]]; then daypage_run_negative=false; fi
+if [[ "$daypage_shard_mode" == unsigned ]]; then daypage_run_signed=false; fi
 
 # First prove the genuine unavailable-Keychain UI; a positive branch is not
 # accepted as negative evidence merely because XCTest itself returned success.
-if [[ "$daypage_ui_suite" != diary_navigation && "$daypage_ui_suite" != app_information ]]; then
+if [[ "$daypage_run_negative" == true ]]; then
 run_logged "$daypage_evidence/negative-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO
 fi
@@ -244,7 +274,14 @@ finally:
     (pathlib.Path(sys.argv[2]) / 'simulator-boot-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'event': 'boot-finish', **receipt}), flush=True)
 PY
-if [[ "$daypage_ui_suite" != diary_navigation && "$daypage_ui_suite" != app_information ]]; then
+if [[ "$daypage_run_negative" == true ]]; then
+if [[ "$daypage_shard_mode" == unsigned ]]; then
+python3 - "$daypage_negative" <<'PY'
+import pathlib, plistlib, sys
+app = pathlib.Path(sys.argv[1]) / 'Build/Products/Debug-iphonesimulator/DayPage.app'
+assert plistlib.loads((app / 'Info.plist').read_bytes()).get('CFBundleIdentifier') == 'com.daypage.app.localqa', 'Only the isolated QA app may run'
+PY
+fi
 run_logged "$daypage_evidence/negative-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_negative" CODE_SIGNING_ALLOWED=NO \
   -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testAISetupKeepsQuestionAndEmptyNotebookExplainsScope \
@@ -278,6 +315,7 @@ fi
 
 # Let Xcode generate simulated Mach-O entitlements and the local ad hoc
 # signature. This never accesses a Developer ID key or changes release signing.
+if [[ "$daypage_run_signed" == true ]]; then
 daypage_signing=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES)
 run_logged "$daypage_evidence/signed-build.log" xcodebuild build-for-testing \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}"
@@ -315,6 +353,7 @@ if ! grep -q 'sectname __entitlements' "$daypage_evidence/macho.log"; then
   echo "The QA executable is missing its simulated Mach-O entitlements." >&2
   exit 1
 fi
+shasum -a 256 "$daypage_app/DayPage" > "$daypage_evidence/signed-executable.sha256"
 daypage_signed_exit=0
 daypage_test_selection=()
 case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
@@ -341,8 +380,17 @@ case "${DAYPAGE_NATIVE_UI_SUITE:-full}" in
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testChineseCardHeaderAtLargeTextInDarkMode
       -only-testing:DayPageLocalUITests/LaunchExperienceUITests/testCaptureFromHistoricalDateReturnsToTheSavedNoteToday)
     ;;
+  manual_review_exchange)
+    daypage_test_selection=(-only-testing:DayPageLocalUITests/ManualReviewExchangeUITests)
+    ;;
   *) echo "Unknown native UI suite." >&2; exit 2 ;;
 esac
+if [[ -n "$daypage_shard" ]]; then
+  daypage_test_selection=()
+  while IFS= read -r daypage_case; do
+    daypage_test_selection+=("-only-testing:$daypage_case")
+  done < <(tail -n +2 "$daypage_evidence/shard-selection.log")
+fi
 run_logged "$daypage_evidence/signed-ui.log" xcodebuild test-without-building \
   "${daypage_common[@]}" -derivedDataPath "$daypage_signed" "${daypage_signing[@]}" \
   ${daypage_test_selection[@]+"${daypage_test_selection[@]}"} \
@@ -353,6 +401,7 @@ run_logged "$daypage_evidence/signed-summary.log" xcrun xcresulttool get test-re
 daypage_signed_export_exit=0
 run_logged "$daypage_evidence/signed-export.log" xcrun xcresulttool export attachments \
   --path "$daypage_evidence/signed-full-ui.xcresult" --output-path "$daypage_evidence/signed-attachments" || daypage_signed_export_exit=$?
+fi
 if ((daypage_negative_exit != 0)); then exit "$daypage_negative_exit"; fi
 if ((daypage_negative_export_exit != 0)); then exit "$daypage_negative_export_exit"; fi
 if ((daypage_negative_summary_exit != 0)); then exit "$daypage_negative_summary_exit"; fi
@@ -360,6 +409,10 @@ if ((daypage_negative_receipt_exit != 0)); then exit "$daypage_negative_receipt_
 if ((daypage_signed_exit != 0)); then exit "$daypage_signed_exit"; fi
 if ((daypage_signed_summary_exit != 0)); then exit "$daypage_signed_summary_exit"; fi
 if ((daypage_signed_export_exit != 0)); then exit "$daypage_signed_export_exit"; fi
+if [[ -n "$daypage_shard" ]]; then
+  echo "Selected shard commands finished; its receipt requires exact actual native evidence."
+  exit 0
+fi
 python3 - "$daypage_evidence" <<'PY'
 import json, os, pathlib, re, sys
 root = pathlib.Path(sys.argv[1])
@@ -369,7 +422,11 @@ suite = os.environ.get('DAYPAGE_NATIVE_UI_SUITE', 'full')
 files = list(pathlib.Path('DayPageLocalUITests').glob('*.swift'))
 if suite == 'card_tools_speech':
     files = [p for p in files if p.stem in {'CardToolsSpeechUITests', 'ChatExperienceUITests'}]
-if suite == 'diary_navigation':
+if suite == 'manual_review_exchange':
+    files = [p for p in files if p.stem == 'ManualReviewExchangeUITests']
+    expected = sum(len(re.findall(r'^[ \t]+func test\w+\(', p.read_text(), re.M)) for p in files)
+    assert expected >= 5 and summary['totalTestCount'] == expected, 'Every selected manual review/exchange test must execute'
+elif suite == 'diary_navigation':
     files = [p for p in files if p.stem in {'DiaryUITests', 'CardShareUITests', 'CalendarUITests', 'LocalNotebookUITests'}]
     selected = {'testArchiveIsBrowseAndSearchReturnsToItsOrigin', 'testNoSearchMatchesHasClearRecovery',
                 'testLargeArchiveFindsOlderNotesWithoutLeakingItsSearchFilter',
@@ -408,11 +465,16 @@ assert all(any(required in name for name in names) for required in required_diar
 required_information = ['app-information-privacy-en', 'app-information-about-zh',
                         'app-information-after-manual-check'] if suite in {'full', 'diary_navigation', 'app_information'} else []
 assert all(any(required in name for name in names) for required in required_information), 'A required information reader journey has no native evidence'
-negative = {'executed': False, 'reason': 'Outside ' + suite + ' scope; full retains unsigned recovery checks'} if suite in {'diary_navigation', 'app_information'} else json.loads((root / 'negative-receipt.json').read_text())
+required_manual = ['GET442-day-relaunched-page', 'GET442-week-saved-independent-page',
+                   'GET442-cancelled-late-reply-fenced', 'GET442-import-preview-before-confirmation',
+                   'GET442-confirmed-new-namespace-readback', 'GET442-pending-copy-explicitly-discarded'] if suite in {'full', 'manual_review_exchange'} else []
+assert all(any(required in name for name in names) for required in required_manual), 'A required manual review/exchange journey did not produce its native evidence'
+negative = {'executed': False, 'reason': f'Outside {suite} scope; full retains unsigned recovery checks'} if suite in {'diary_navigation', 'manual_review_exchange', 'app_information'} else json.loads((root / 'negative-receipt.json').read_text())
 receipt = {'passed': True, 'suite': suite, 'expectedMinimumTests': expected, 'source': json.loads((root / 'provenance.json').read_text()),
            'negative': negative, 'positive': summary,
            'requiredChatAttachments': required_chat, 'requiredDiaryAttachments': required_diary,
-           'requiredInformationAttachments': required_information}
+           'requiredInformationAttachments': required_information,
+           'requiredManualReviewExchangeAttachments': required_manual}
 (root / 'native-acceptance.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PY
 echo "Verified the selected signed native UI suite; see the receipt for its explicit recovery scope."

@@ -199,6 +199,9 @@ jobs:
       - name: Run backend contracts and security regressions
         run: pnpm backend:check
 
+      - name: Verify explicit file exchange preview without network access
+        run: pnpm --filter daypage-web test:file-exchange
+
       - name: Lint Web product
         run: pnpm --filter daypage-web lint
 
@@ -211,6 +214,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://daypage-build.invalid
           NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-build-public-key-not-a-credential
         run: pnpm --filter daypage-web exec next build --webpack
+
+      - name: Verify browser-local exchange durability and recovery
+        timeout-minutes: 5
+        env:
+          GET443_BROWSER_RUN: "1"
+          GET443_BROWSER_CHANNEL: chrome
+          GET443_ARTIFACT_DIR: ${{ runner.temp }}/daypage-exchange-idb
+        run: pnpm --filter daypage-web exec node scripts/file-exchange-local-idb.browser.mjs
+
+      - name: Preserve browser-local exchange evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-exchange-idb-${{ github.sha }}
+          path: ${{ runner.temp }}/daypage-exchange-idb
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Verify landing pages on desktop and mobile
         env:
@@ -239,6 +259,52 @@ jobs:
           go test ./...
           go vet ./...
           go build ./...
+
+  notebooks-browser:
+    name: Notebook file exchange on desktop and narrow screens
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    # A separate build keeps the ordinary production-bundle gate intact.
+    # This public loopback configuration belongs only to the synthetic Auth
+    # fixture; no selected notebook data may reach it or another service.
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:13143/__get443_supabase
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-get443-public-key-not-a-credential
+      DAYPAGE_PRIVATE_PREVIEW: "1"
+      GET443_NOTEBOOKS_RUN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.4 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Set the task-owned notebook evidence directory
+        run: printf 'GET443_NOTEBOOKS_ARTIFACT_DIR=%s/daypage-notebooks-ui\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Build the actual Web app for the isolated identity fixture
+        run: pnpm --filter daypage-web exec next build --webpack
+      - name: Verify rendered notebook selection, identity and file recovery
+        run: pnpm --filter daypage-web exec playwright test --config playwright.notebooks.config.ts
+      - name: Verify completed notebook evidence and process cleanup
+        run: pnpm --filter daypage-web exec node scripts/file-exchange-notebooks-fixture.mjs --verify-evidence
+      - name: Preserve rendered notebook evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-notebooks-ui-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/daypage-notebooks-ui
+            !${{ runner.temp }}/daypage-notebooks-ui/profiles/**
+          retention-days: 7
+          if-no-files-found: error
 
   xcode-tests:
     name: Xcode Unit Tests (DayPageTests)
@@ -398,6 +464,9 @@ jobs:
 
       - name: Write deterministic placeholder secrets
         run: bash scripts/ci/write_placeholder_secrets.sh
+
+      - name: Test the explicit Mac file exchange adapter
+        run: swift test --package-path DayPageMacExchange
 
       - name: Build the native macOS companion
         run: |

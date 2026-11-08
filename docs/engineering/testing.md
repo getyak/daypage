@@ -81,6 +81,28 @@ make check-ios IOS_RESULT_BUNDLE_PATH=build/TestResults.xcresult
 make build-ios DERIVED_DATA=build/DD
 ```
 
+### Local notebook manual review and file exchange
+
+The `ios-local.yml` manual workflow supports the explicit
+`native_ui_suite=manual_review_exchange` scope. It selects all five
+`ManualReviewExchangeUITests` cases and requires their native readback
+attachments; missing, skipped or failed cases cannot produce acceptance.
+
+These journeys use the exact Debug QA bundle and a unique session vault. They
+exercise real review selection/consent/Save/relaunch, cancelled late results,
+file preview/confirmed new-namespace import and pending reopen/explicit discard.
+Only the model transport and synthetic source-folder ingress are injected.
+System Files selection, export destination and real BYOK/provider acceptance
+remain separate. The scoped receipt records that unrelated unsigned Keychain
+recovery is outside this scope; `full` retains those checks and includes the
+manual review/exchange journeys.
+
+`python3 scripts/tests/test_local_native_ci.py` checks orchestration with inert
+command doubles, including refusal to accept a partial manual suite or missing
+discard evidence. It does not compile or run XCTest, sign an app, open a network
+listener or prove a native journey passed. Read the workflow's current-source
+native receipt and original XCTest evidence for execution results.
+
 ### Device profiles and selection policy
 
 `scripts/ci/select_simulator.py` picks the daily primary device:

@@ -9,6 +9,6 @@ let package = Package(
     targets: [
         .target(name: "DayPageCapture"),
         .target(name: "DayPageCore", dependencies: ["DayPageCapture"]),
-        .testTarget(name: "DayPageCoreTests", dependencies: ["DayPageCore"])
+        .testTarget(name: "DayPageCoreTests", dependencies: ["DayPageCore"], resources: [.copy("Fixtures")])
     ]
 )

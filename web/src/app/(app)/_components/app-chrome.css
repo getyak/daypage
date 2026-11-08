@@ -18,6 +18,17 @@
   min-width: 0;
 }
 
+/* Keep navigation and actions reachable on compact screens. */
+@media (max-width: 639px) {
+  .app-topbar__context {
+    display: none;
+  }
+
+  .app-topbar__actions {
+    flex-shrink: 0;
+  }
+}
+
 .app-shell[data-capture="true"] > .sb,
 .app-shell[data-capture="true"] .app-topbar__context,
 .app-shell[data-capture="true"] .app-topbar__actions {

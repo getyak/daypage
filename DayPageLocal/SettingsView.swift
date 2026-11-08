@@ -5,7 +5,8 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
   @EnvironmentObject private var notebook: NotebookModel
   @AppStorage("local.appearance") private var appearance = "system"
-  @State private var importing = false
+  @State private var exchangeOpen = false
+  @State private var reviewsOpen = false
   @State private var exporting = false
   @State private var modelsOpen = false
   @State private var speechOpen = false
@@ -45,13 +46,14 @@ struct SettingsView: View {
         } label: {
           Label("Devices & iCloud", systemImage: "icloud")
         }.accessibilityIdentifier("settings-continuity")
-        Button { importing = true } label: {
-          Label(notebook.isImporting ? "Importing a copy…" : "Import a copy of an older Vault",
-                systemImage: "folder.badge.plus")
-        }
-        .disabled(notebook.isImporting).accessibilityIdentifier("import-vault")
+        Button { reviewsOpen = true } label: {
+          Label("Day and week reviews", systemImage: "calendar.badge.clock")
+        }.accessibilityIdentifier("settings-manual-reviews")
+        Button { exchangeOpen = true } label: {
+          Label("Exchange notebook files", systemImage: "folder.badge.plus")
+        }.accessibilityIdentifier("import-vault")
         Button { exporting = true } label: {
-          Label("Export notebook files", systemImage: "square.and.arrow.up")
+          Label("Export full Vault backup", systemImage: "square.and.arrow.up")
         }
         .accessibilityIdentifier("export-vault")
         Text("Older iCloud notes are not moved automatically. Download the whole Vault in Files, then select its folder here. Originals stay untouched; imported copies are kept separately from local notes.")
@@ -121,12 +123,8 @@ struct SettingsView: View {
         }
       }
     }
-    .fileImporter(isPresented: $importing, allowedContentTypes: [.folder]) { result in
-      switch result {
-      case .success(let url): Task { await notebook.importVault(url) }
-      case .failure(let error): notebook.report(error)
-      }
-    }
+    .sheet(isPresented: $exchangeOpen) { VaultExchangeView() }
+    .sheet(isPresented: $reviewsOpen) { ManualReviewsView() }
     .sheet(isPresented: $speechOpen) {
       NavigationStack {
         SpeechSettingsView(defaults: notebook.preferences).toolbar {

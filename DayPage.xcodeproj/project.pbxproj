@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E44600000000000000000001 /* DayPageMacExchange in Frameworks */ = {isa = PBXBuildFile; productRef = E44600000000000000000002 /* DayPageMacExchange */; };
 		MAC1000001 /* MacCloudConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = MAC2000001 /* MacCloudConfiguration.swift */; };
 		MAC1000002 /* MacCloudAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = MAC2000002 /* MacCloudAuthService.swift */; };
 		MAC1000003 /* MacAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MAC2000003 /* MacAuthView.swift */; };
@@ -766,6 +767,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E44600000000000000000001 /* DayPageMacExchange in Frameworks */,
 				MACSPM0001 /* Supabase in Frameworks */,
 				C6D17C7128776C1D7DDC2A3A /* Cocoa.framework in Frameworks */,
 				28EF66A892C53EC4D377ABB3 /* DayPageModels in Frameworks */,
@@ -1568,6 +1570,7 @@
 			);
 			name = DayPageMac;
 			packageProductDependencies = (
+				E44600000000000000000002 /* DayPageMacExchange */,
 				SPM00002 /* Supabase */,
 				AAA8879467337005F52BBE35 /* DayPageModels */,
 				BBF0FE045FACC9003A215FEC /* DayPageStorage */,
@@ -1727,6 +1730,7 @@
 			);
 			mainGroup = A60000001;
 			packageReferences = (
+				E44600000000000000000003 /* XCLocalSwiftPackageReference "DayPageMacExchange" */,
 				SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */,
@@ -2757,6 +2761,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		E44600000000000000000003 /* XCLocalSwiftPackageReference "DayPageMacExchange" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = DayPageMacExchange;
+		};
 		7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = DayPageKit;
@@ -2783,6 +2791,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E44600000000000000000002 /* DayPageMacExchange */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E44600000000000000000003 /* XCLocalSwiftPackageReference "DayPageMacExchange" */;
+			productName = DayPageMacExchange;
+		};
 		160D427C0AE7DAC5724A134F /* DayPageServices */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;

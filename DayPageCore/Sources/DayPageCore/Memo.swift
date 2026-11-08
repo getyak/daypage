@@ -245,11 +245,11 @@ extension Memo {
     let memoType = MemoType(rawValue: typeRaw) ?? .text
 
     let createdString = fm.scalar("created") ?? ""
-    let created = ISO8601DateFormatter.memo.date(from: createdString) ?? Date()
+    let created = ISO8601DateFormatter.memoDate(from: createdString) ?? Date()
 
     let pinnedAt: Date? = {
       guard let s = fm.scalar("pinned_at") else { return nil }
-      return ISO8601DateFormatter.memo.date(from: s)
+      return ISO8601DateFormatter.memoDate(from: s)
     }()
 
     var location: Location?
@@ -365,6 +365,39 @@ public enum TextCount {
 // MARK: - ISO8601DateFormatter extension
 
 extension ISO8601DateFormatter {
+  /// Both forms are legal in canonical/imported RFC3339 timestamps. Keep the
+  /// fractional writer unchanged while accepting legacy whole-second dates.
+  static func memoDate(from value: String) -> Date? {
+    if let components = memoComponents(from: value),
+      let fraction = Double("0." + (components.fraction.isEmpty ? "0" : String(components.fraction))) {
+      return Date(timeIntervalSinceReferenceDate: components.whole.timeIntervalSinceReferenceDate + fraction)
+    }
+    // Keep the ordinary reader's prior noncanonical/malformed compatibility
+    // policy separate. Exchange admission requires memoComponents to succeed.
+    return memo.date(from: value)
+  }
+
+  private static let wholeSeconds: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime]
+    return formatter
+  }()
+
+  /// Preserve decimal digits for exchange rounding. Only the whole civil
+  /// second goes through Foundation, so fractions and offsets are not clipped.
+  static func memoComponents(from text: String) -> (whole: Date, fraction: Substring)? {
+    guard text.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$", options: .regularExpression) != nil else { return nil }
+    let suffixLength = text.hasSuffix("Z") || text.hasSuffix("z") ? 1 : 6
+    let base = String(text.prefix(19)).uppercased(), suffix = String(text.suffix(suffixLength)).uppercased()
+    guard let civil = wholeSeconds.date(from: base + "Z"), wholeSeconds.string(from: civil) == base + "Z" else { return nil }
+    var offset = 0
+    if suffix != "Z" {
+      guard let hours = Int(suffix.dropFirst().prefix(2)), let minutes = Int(suffix.suffix(2)), hours <= 23, minutes <= 59 else { return nil }
+      offset = (hours * 3600 + minutes * 60) * (suffix.hasPrefix("-") ? -1 : 1)
+    }
+    let middle = text.dropFirst(19).dropLast(suffixLength)
+    return (civil.addingTimeInterval(-Double(offset)), middle.isEmpty ? Substring() : middle.dropFirst())
+  }
+
   public static let memo: ISO8601DateFormatter = {
     let f = ISO8601DateFormatter()
     f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
