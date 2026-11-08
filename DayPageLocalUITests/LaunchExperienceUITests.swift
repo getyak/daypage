@@ -557,17 +557,26 @@ final class LaunchExperienceUITests: XCTestCase {
     // A URL is not a reliable paragraph-selection target. Observe and invoke
     // the native editing action; never infer whole-field selection from taps.
     field.press(forDuration: 1.1)
-    let selectAllButton = app.buttons["Select All"]
-    let selectAllMenuItem = app.menuItems["Select All"]
+    let selectAllQuery = app.descendants(matching: .any)
+      .matching(.any, identifier: "Select All")
+      .matching(NSPredicate(format: "elementType == %lu OR elementType == %lu",
+        XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.menuItem.rawValue))
+    var selectAll: XCUIElement?
     let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-      (selectAllButton.exists && selectAllButton.isHittable) ||
-        (selectAllMenuItem.exists && selectAllMenuItem.isHittable)
+      selectAll = nil
+      let candidates = selectAllQuery.allElementsBoundByAccessibilityElement
+      guard candidates.count == 1, let candidate = candidates.first, candidate.isHittable else { return false }
+      selectAll = candidate
+      return true
     }, object: nil)
-    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 3) == .completed else {
+    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 3) == .completed, let selectAll else {
       XCTFail("The native Select All editing action must be visible before replacing the custom address")
       return
     }
-    let selectAll = selectAllButton.exists && selectAllButton.isHittable ? selectAllButton : selectAllMenuItem
+    guard selectAll.isHittable else {
+      XCTFail("The native Select All editing action must remain hittable before replacing the custom address")
+      return
+    }
     selectAll.tap()
     field.typeText(XCUIKeyboardKey.delete.rawValue)
     let cleared = field.value as? String
