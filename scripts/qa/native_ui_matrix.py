@@ -17,9 +17,16 @@ import xml.etree.ElementTree as ET
 PROJECT = "DayPageLocal/DayPageLocal.xcodeproj/project.pbxproj"
 SCHEME = "DayPageLocal/DayPageLocal.xcodeproj/xcshareddata/xcschemes/DayPage.xcscheme"
 GROUPS = {
-    "calendar_card_share": [
+    "calendar_share_export": [
         "DayPageLocalUITests/CalendarUITests/testRecordCountsCancelAndExactEmptyDayCommit",
         "DayPageLocalUITests/CalendarUITests/testLargeTextMonthNavigationRetainsSelectionUntilDone",
+        "DayPageLocalUITests/CardShareUITests/testCardSharePreviewChangesStyleDateAndFormat",
+        "DayPageLocalUITests/CardShareUITests/testDetailShareOpensTheSamePreview",
+        "DayPageLocalUITests/CardShareUITests/testAttachmentOnlyNoteExplainsFormatsBeforeExport",
+        "DayPageLocalUITests/CardShareUITests/testImageActuallyExportsAndSystemShareCancellationReturnsToPreview",
+        "DayPageLocalUITests/CardShareUITests/testLongNoteKeepsItsFinalLineInCompleteText"
+    ],
+    "card_share_gestures": [
         "DayPageLocalUITests/CardShareUITests/testShortRightDragDoesNotOpenNoteDetail",
         "DayPageLocalUITests/CardShareUITests/testSmallTouchMovementStillOpensNote",
         "DayPageLocalUITests/CardShareUITests/testBodyLongPressKeepsCardActionsAndDoesNotOpenDetail",
@@ -29,12 +36,7 @@ GROUPS = {
         "DayPageLocalUITests/CardShareUITests/testArchiveAndSearchShortDragsKeepDetailsClosed",
         "DayPageLocalUITests/CardShareUITests/testLeadingSwipePinsAndOpensNoteScopedChat",
         "DayPageLocalUITests/CardShareUITests/testTrailingSwipeRequiresConfirmationAndKeepsUndo",
-        "DayPageLocalUITests/CardShareUITests/testCardSharePreviewChangesStyleDateAndFormat",
-        "DayPageLocalUITests/CardShareUITests/testDetailShareOpensTheSamePreview",
-        "DayPageLocalUITests/CardShareUITests/testAttachmentOnlyNoteExplainsFormatsBeforeExport",
-        "DayPageLocalUITests/CardShareUITests/testArchiveAndSearchRowsKeepSwipeActionsAndSuppressThemDuringSelection",
-        "DayPageLocalUITests/CardShareUITests/testImageActuallyExportsAndSystemShareCancellationReturnsToPreview",
-        "DayPageLocalUITests/CardShareUITests/testLongNoteKeepsItsFinalLineInCompleteText"
+        "DayPageLocalUITests/CardShareUITests/testArchiveAndSearchRowsKeepSwipeActionsAndSuppressThemDuringSelection"
     ],
     "card_tools": [
         "DayPageLocalUITests/CardToolsSpeechUITests/testCreatedNoteAndReceiptReopenAndUndoWithoutConsumingCaptureDraft",

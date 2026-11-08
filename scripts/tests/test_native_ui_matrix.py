@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from collections import Counter
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/qa/native_ui_matrix.py"
@@ -23,12 +24,15 @@ class MatrixCLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             plan = json.loads(output.read_text())
             self.assertEqual({s["id"]: len(s["expectedIDs"]) for s in plan["shards"]}, {
-                "calendar_card_share": 17, "card_tools": 7, "speech": 4, "chat": 5,
+                "calendar_share_export": 7, "card_share_gestures": 10,
+                "card_tools": 7, "speech": 4, "chat": 5,
                 "diary": 10, "launch": 18, "local_notebook": 17,
                 "manual_reviews": 2, "manual_cancel": 1, "manual_exchange": 2, "unsigned": 2})
             cells = [(s["signingMode"], item) for s in plan["shards"] for item in s["expectedIDs"]]
             self.assertEqual(len(cells), 85)
             self.assertEqual(len(set(cells)), 85)
+            self.assertEqual(len(plan["shards"]), 12)
+            self.assertEqual(Counter(mode for mode, _ in cells), {"signed": 83, "unsigned": 2})
             self.assertEqual(len(plan["compiledSources"]), 8)
             self.assertEqual(plan["suite"], "full")
 
@@ -200,6 +204,45 @@ class EvidenceTests(unittest.TestCase):
             self.assertFalse(self.matrix.aggregate(self.plan, records, "success")["passed"])
         for status in ("failure", "cancelled", "skipped", ""):
             self.assertFalse(self.matrix.aggregate(self.plan, receipts, status)["passed"])
+
+    def test_balanced_calendar_share_partition_preserves_exact_signed_union_and_attempt(self):
+        # Independent pre-split IDs: retain every original method exactly once,
+        # rather than deriving the expected union from the new GROUPS mapping.
+        original = {
+            "DayPageLocalUITests/CalendarUITests/testLargeTextMonthNavigationRetainsSelectionUntilDone",
+            "DayPageLocalUITests/CalendarUITests/testRecordCountsCancelAndExactEmptyDayCommit",
+            "DayPageLocalUITests/CardShareUITests/testArchiveAndSearchRowsKeepSwipeActionsAndSuppressThemDuringSelection",
+            "DayPageLocalUITests/CardShareUITests/testArchiveAndSearchShortDragsKeepDetailsClosed",
+            "DayPageLocalUITests/CardShareUITests/testAttachmentOnlyNoteExplainsFormatsBeforeExport",
+            "DayPageLocalUITests/CardShareUITests/testBodyLongPressKeepsCardActionsAndDoesNotOpenDetail",
+            "DayPageLocalUITests/CardShareUITests/testCardSharePreviewChangesStyleDateAndFormat",
+            "DayPageLocalUITests/CardShareUITests/testDetailShareOpensTheSamePreview",
+            "DayPageLocalUITests/CardShareUITests/testDiagonalDragDoesNotOpenNoteDetail",
+            "DayPageLocalUITests/CardShareUITests/testFullSwipesRevealActionsWithoutOpeningAnotherScreen",
+            "DayPageLocalUITests/CardShareUITests/testImageActuallyExportsAndSystemShareCancellationReturnsToPreview",
+            "DayPageLocalUITests/CardShareUITests/testLeadingSwipePinsAndOpensNoteScopedChat",
+            "DayPageLocalUITests/CardShareUITests/testLongNoteKeepsItsFinalLineInCompleteText",
+            "DayPageLocalUITests/CardShareUITests/testShortRightDragDoesNotOpenNoteDetail",
+            "DayPageLocalUITests/CardShareUITests/testSidebarEdgeSwipesKeepNoteDetailsClosed",
+            "DayPageLocalUITests/CardShareUITests/testSmallTouchMovementStillOpensNote",
+            "DayPageLocalUITests/CardShareUITests/testTrailingSwipeRequiresConfirmationAndKeepsUndo",
+        }
+        shards = {shard["id"]: shard for shard in self.plan["shards"]}
+        self.assertNotIn("calendar_card_share", shards)
+        for shard_id in ("calendar_share_export", "card_share_gestures"):
+            self.assertIn(shard_id, shards)
+        exports, gestures = shards["calendar_share_export"], shards["card_share_gestures"]
+        self.assertEqual((len(exports["expectedIDs"]), len(gestures["expectedIDs"])), (7, 10))
+        self.assertFalse(set(exports["expectedIDs"]) & set(gestures["expectedIDs"]))
+        cells = [(shard["signingMode"], item) for shard in (exports, gestures) for item in shard["expectedIDs"]]
+        self.assertEqual(Counter(cells), Counter(("signed", item) for item in original))
+        receipts = [self.receipt(shard) for shard in self.plan["shards"]]
+        self.assertTrue(self.matrix.aggregate(self.plan, receipts, "success")["passed"])
+        # A split may not exempt either new shard from the current-attempt fence.
+        for shard_id in ("calendar_share_export", "card_share_gestures"):
+            changed = copy.deepcopy(receipts)
+            next(record for record in changed if record["shard"] == shard_id)["runAttempt"] = "3"
+            self.assertFalse(self.matrix.aggregate(self.plan, changed, "success")["passed"])
 
     def test_compiled_membership_missing_new_and_unknown_test_fail_closed(self):
         repo = self.directory / "repo"
