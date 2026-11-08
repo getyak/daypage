@@ -465,6 +465,9 @@ jobs:
       - name: Write deterministic placeholder secrets
         run: bash scripts/ci/write_placeholder_secrets.sh
 
+      - name: Test the explicit Mac file exchange adapter
+        run: swift test --package-path DayPageMacExchange
+
       - name: Build the native macOS companion
         run: |
           xcodebuild build \
