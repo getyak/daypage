@@ -245,7 +245,8 @@ private struct ScreenshotReviewView: View {
         Section("On-device text") {
           if extracting {
             ProgressView("Extracting text on this device…")
-              .modifier(SyntheticOCRDiagnosticValue(phase: syntheticOCRPhase))
+              .modifier(SyntheticOCRDiagnosticValue(
+                phase: syntheticOCRPhase, pendingIdentifier: "qa-shared-image-ocr-phase"))
             Button("Cancel extraction") { cancelExtraction() }
           } else {
             Button("Extract text on this device") { extractText() }
@@ -382,9 +383,14 @@ private struct ScreenshotReviewView: View {
 /// are static phase names, not user content or a substitute OCR result.
 private struct SyntheticOCRDiagnosticValue: ViewModifier {
   let phase: String?
+  var pendingIdentifier: String? = nil
   @ViewBuilder func body(content: Content) -> some View {
-    if let phase { content.accessibilityValue("GET440 OCR phase: " + phase) }
-    else { content }
+    if let phase {
+      if let pendingIdentifier {
+        content.accessibilityValue("GET440 OCR phase: " + phase)
+          .accessibilityIdentifier(pendingIdentifier)
+      } else { content.accessibilityValue("GET440 OCR phase: " + phase) }
+    } else { content }
   }
 }
 

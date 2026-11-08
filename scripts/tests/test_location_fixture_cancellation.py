@@ -126,13 +126,14 @@ def main():
     helpers = match.group(1)
     assert "private final class QALocationIntentGate" in helpers
     assert "private final class QALocationIntentLease" in helpers
-    compiler = subprocess.check_output(["xcrun", "--find", "swiftc"], text=True).strip()
+    compiler = subprocess.check_output(["xcrun", "--sdk", "macosx", "--find", "swiftc"], text=True).strip()
+    sdk = subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()
     with tempfile.TemporaryDirectory(prefix="daypage-location-intent-", dir=os.environ.get("RUNNER_TEMP")) as directory:
         root = Path(directory)
         swift = root / "LocationIntentContract.swift"
         binary = root / "LocationIntentContract"
         swift.write_text("import Foundation\n\n" + helpers + "\n" + HARNESS)
-        compiled = subprocess.run([compiler, "-swift-version", "5", "-DDEBUG", "-strict-concurrency=complete",
+        compiled = subprocess.run([compiler, "-sdk", sdk, "-swift-version", "5", "-DDEBUG", "-strict-concurrency=complete",
                                    "-parse-as-library", str(swift), "-o", str(binary)], capture_output=True, text=True, timeout=90)
         if compiled.returncode:
             raise AssertionError("The exact fixture helpers did not compile:\n" + compiled.stderr)

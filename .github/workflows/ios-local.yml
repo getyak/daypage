@@ -25,7 +25,7 @@ on:
       diagnostic_shard:
         description: Exact existing group for an explicit diagnostic run
         type: choice
-        options: [card_tools, diary]
+        options: [card_tools, diary, launch, local_notebook]
         default: card_tools
       runner_architecture:
         description: Hosted pool (Intel options are manual capacity fallbacks)
@@ -87,7 +87,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: local-ios-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && '-card-tools-diagnostic' || '' }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && inputs.diagnostic_shard == 'diary' && '-diary' || '' }}
+  group: local-ios-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && '-card-tools-diagnostic' || '' }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && inputs.diagnostic_shard == 'diary' && '-diary' || '' }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && inputs.diagnostic_shard == 'launch' && '-launch' || '' }}${{ github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools && inputs.diagnostic_shard == 'local_notebook' && '-local-notebook' || '' }}
   cancel-in-progress: true
 jobs:
   verify:
@@ -308,7 +308,7 @@ jobs:
           if-no-files-found: warn
 
   native-ui-card-tools-diagnostic:
-    name: ${{ inputs.diagnostic_shard == 'diary' && 'Diagnostic only - diary (10 cases)' || 'Diagnostic only - card tools (7 cases)' }}
+    name: ${{ inputs.diagnostic_shard == 'diary' && 'Diagnostic only - diary (10 cases)' || inputs.diagnostic_shard == 'launch' && 'Diagnostic only - launch (18 cases)' || inputs.diagnostic_shard == 'local_notebook' && 'Diagnostic only - local notebook (17 cases)' || 'Diagnostic only - card tools (7 cases)' }}
     if: github.event_name == 'workflow_dispatch' && inputs.diagnostic_card_tools
     runs-on: ${{ inputs.runner_architecture == 'intel15' && 'macos-15-intel' || inputs.runner_architecture == 'intel' && 'macos-26-intel' || 'macos-26' }}
     timeout-minutes: 90
@@ -326,7 +326,7 @@ jobs:
           test "$DAYPAGE_DIAGNOSTIC_NATIVE_UI" = true
           test "$DAYPAGE_DIAGNOSTIC_SUITE" = full
           case "$DAYPAGE_DIAGNOSTIC_SHARD" in
-            card_tools|diary) ;;
+            card_tools|diary|launch|local_notebook) ;;
             *) echo "Choose an existing diagnostic group." >&2; exit 2 ;;
           esac
       - name: Select the installed iOS 26 toolchain on the Intel 15 fallback

@@ -34,6 +34,32 @@ final class LocalNotebookUITests: XCTestCase {
     add(attachment)
   }
 
+  private func captureSyntheticOCRPhaseAfterTimeout() {
+    let pending = element("qa-shared-image-ocr-phase")
+    let rawValue: String?
+    if pending.exists { rawValue = pending.value as? String }
+    else {
+      let idle = app.buttons["extract-shared-image-text"]
+      rawValue = idle.exists ? idle.value as? String : nil
+    }
+    let prefix = "GET440 OCR phase: "
+    let allowed: Set<String> = [
+      "not_started", "original_read", "original_loaded", "worker_entered", "decode_started",
+      "vision_entered", "vision_returned", "vision_failed", "completed", "failed", "cancelled",
+    ]
+    let phase = rawValue.flatMap { value -> String? in
+      guard value.hasPrefix(prefix) else { return nil }
+      let candidate = String(value.dropFirst(prefix.count))
+      return allowed.contains(candidate) ? candidate : nil
+    } ?? "unknown"
+    // This is MainActor's last published phase after the failed deadline,
+    // not a worker timestamp. Never retain the raw accessibility value.
+    let attachment = XCTAttachment(string: "{\"phase\":\"\(phase)\"}")
+    attachment.name = "local-screenshot-ocr-last-published-phase"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
+
   func testSharedScreenshotRequiresReviewAndExplicitOCRBeforeSave() {
     app.launchArguments += ["-qaScreenshotInbox", "-qaSeedScreenshotInbox"]
     app.launch()
@@ -56,6 +82,7 @@ final class LocalNotebookUITests: XCTestCase {
     let extracted = app.staticTexts.matching(identifier: "shared-image-extracted-text")
       .element(boundBy: 0)
     if !extracted.waitForExistence(timeout: 20) {
+      captureSyntheticOCRPhaseAfterTimeout()
       screenshot("local-screenshot-ocr-result-not-found")
       let hierarchy = XCTAttachment(string: app.debugDescription)
       hierarchy.name = "local-screenshot-ocr-result-not-found-accessibility"

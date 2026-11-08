@@ -546,6 +546,28 @@ final class LaunchExperienceUITests: XCTestCase {
     XCTAssertTrue(save.label.contains("saved"))
   }
 
+  private struct SelectAllReadinessPoll: Encodable {
+    enum CandidateCount: String, Encodable { case zero, one, many }
+    let ordinal: Int
+    let queryStartedMS: Double
+    let queryFinishedMS: Double
+    let candidateCount: CandidateCount
+    let hittableStartedMS: Double?
+    let hittableFinishedMS: Double?
+    let hittable: Bool?
+  }
+
+  private struct SelectAllReadinessObservation: Encodable {
+    enum Outcome: String, Encodable { case completed, timedOut, other }
+    let schemaVersion = 1
+    let waitStartedMS: Double
+    let waitFinishedMS: Double
+    let outcome: Outcome
+    let polls: [SelectAllReadinessPoll]
+    let droppedPolls: Int
+    let inFlightPolls: Int
+  }
+
   private func setCustomAddress(_ address: String) {
     let field = app.textFields["ai-base-url"]
     for _ in 0..<6 {
@@ -562,18 +584,83 @@ final class LaunchExperienceUITests: XCTestCase {
       .matching(NSPredicate(format: "elementType == %lu OR elementType == %lu",
         XCUIElement.ElementType.button.rawValue, XCUIElement.ElementType.menuItem.rawValue))
     var selectAll: XCUIElement?
+    let observationOrigin = ProcessInfo.processInfo.systemUptime
+    func observationMS() -> Double {
+      (ProcessInfo.processInfo.systemUptime - observationOrigin) * 1_000
+    }
+    var polls: [SelectAllReadinessPoll] = []
+    polls.reserveCapacity(8)
+    let observationLock = NSLock()
+    var pollCount = 0
+    var completedPollCount = 0
     let selectAllAppeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
       selectAll = nil
+      observationLock.lock()
+      pollCount += 1
+      let ordinal = pollCount
+      observationLock.unlock()
+      let queryStartedMS = observationMS()
       let candidates = selectAllQuery.allElementsBoundByAccessibilityElement
-      guard candidates.count == 1, let candidate = candidates.first, candidate.isHittable else { return false }
+      let queryFinishedMS = observationMS()
+      var hittableStartedMS: Double?
+      var hittableFinishedMS: Double?
+      var hittable: Bool?
+      func observeHittable(_ value: @autoclosure () -> Bool) -> Bool {
+        hittableStartedMS = observationMS()
+        let result = value()
+        hittableFinishedMS = observationMS()
+        hittable = result
+        return result
+      }
+      defer {
+        // Protect only primitive observations; never hold the lock across AX work.
+        observationLock.lock()
+        completedPollCount += 1
+        if polls.count == 8 { polls.removeFirst() }
+        polls.append(SelectAllReadinessPoll(ordinal: ordinal,
+          queryStartedMS: queryStartedMS, queryFinishedMS: queryFinishedMS,
+          candidateCount: candidates.isEmpty ? .zero : candidates.count == 1 ? .one : .many,
+          hittableStartedMS: hittableStartedMS, hittableFinishedMS: hittableFinishedMS,
+          hittable: hittable))
+        observationLock.unlock()
+      }
+      guard candidates.count == 1, let candidate = candidates.first,
+        observeHittable(candidate.isHittable) else { return false }
       selectAll = candidate
       return true
     }, object: nil)
-    guard XCTWaiter.wait(for: [selectAllAppeared], timeout: 3) == .completed, let selectAll else {
+    let waitStartedMS = observationMS()
+    let waitResult = XCTWaiter.wait(for: [selectAllAppeared], timeout: 3)
+    let waitFinishedMS = observationMS()
+    let outcome: SelectAllReadinessObservation.Outcome = waitResult == .completed ? .completed
+      : waitResult == .timedOut ? .timedOut : .other
+    observationLock.lock()
+    let observation = SelectAllReadinessObservation(waitStartedMS: waitStartedMS,
+      waitFinishedMS: waitFinishedMS, outcome: outcome, polls: polls,
+      droppedPolls: completedPollCount - polls.count,
+      inFlightPolls: pollCount - completedPollCount)
+    observationLock.unlock()
+    var readinessAttached = false
+    func attachReadinessOnce() {
+      guard !readinessAttached else { return }
+      readinessAttached = true
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = [.sortedKeys]
+      let data = (try? encoder.encode(observation))
+        ?? Data("{\"schemaVersion\":1,\"incomplete\":true}".utf8)
+      let attachment = XCTAttachment(string: String(decoding: data, as: UTF8.self))
+      attachment.name = "select-all-readiness"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+    }
+    defer { attachReadinessOnce() }
+    guard waitResult == .completed, let selectAll else {
+      attachReadinessOnce()
       XCTFail("The native Select All editing action must be visible before replacing the custom address")
       return
     }
     guard selectAll.isHittable else {
+      attachReadinessOnce()
       XCTFail("The native Select All editing action must remain hittable before replacing the custom address")
       return
     }
