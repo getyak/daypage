@@ -6,6 +6,8 @@ to drive a change.
 
 ## Current
 
+- [Mac notebook file exchange](engineering/mac-file-exchange.md) — GET-446 / #982, explicit preview/confirmation into a separate visible local notebook; [ADR-0037](architecture/decisions/ADR-0037-explicit-mac-notebook-file-exchange.md)
+
 - [Manual reviews and explicit file exchange](engineering/local-manual-reviews-and-exchange.md) — GET-442 / #978, local-first day/week pages and previewed folder exchange; [ADR-0034](architecture/decisions/ADR-0034-manual-reviews-explicit-file-exchange.md)
 
 - [Local Watch and personal iCloud continuity](engineering/local-watch-icloud.md) — GET-392 implementation and pending native/device acceptance; [ADR-0032](architecture/decisions/ADR-0032-local-watch-and-personal-replication.md)
