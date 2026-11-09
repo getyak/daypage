@@ -161,7 +161,8 @@ final class NotebookModel: ObservableObject {
           try await store.entries().isEmpty
         {
           let calendar = Calendar(identifier: .gregorian)
-          for (index, offset) in [0, 1, 2, 7, 35, 70, 100, 140].enumerated() {
+          // Keep five distinct months while preserving the eight-note QA history.
+          for (index, offset) in [0, 1, 2, 7, 35, 66, 100, 140].enumerated() {
             let date = calendar.date(byAdding: .day, value: -offset, to: Date()) ?? Date()
             let extra = ProcessInfo.processInfo.arguments.contains("-qaLongDiaryHistory")
               ? "\n\n" + String(repeating: "A synthetic memory with room to read and revisit. ", count: 24)

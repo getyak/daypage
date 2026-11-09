@@ -253,54 +253,50 @@ final class CardToolsSpeechUITests: XCTestCase {
     }
   }
 
-  // Speech Form has a different accessibility tree from the chat header.
-  // Retain its validated physical target path independently of chat settling.
+  // Candidate: bind the one physical tap to the identified row's own target.
+  // It does not add a settling wait or change the original state deadline.
   private func setSpeechSwitch(_ id: String, on: Bool) {
     let control = app.switches[id]
     XCTAssertTrue(control.waitForExistence(timeout: 5))
     if (control.value as? String == "1") != on {
       XCTAssertTrue(control.isHittable)
-      // SwiftUI exposes the row and its native switch separately. The thumb
-      // may extend a few points past the row, so associate it by its centre.
+      XCTAssertTrue(control.isEnabled)
       XCTAssertGreaterThanOrEqual(control.frame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(control.frame.height + geometryEpsilon, 28)
-      let rowFrame = control.frame
-      let bounds = rowFrame.insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon)
-      let nativeFrames = app.switches.allElementsBoundByIndex.compactMap { element -> CGRect? in
-        guard element.identifier.isEmpty else { return nil }
-        let frame = element.frame
-        guard bounds.contains(CGPoint(x: frame.midX, y: frame.midY)), element.isHittable else { return nil }
-        return frame
-      }
-      XCTAssertLessThanOrEqual(nativeFrames.count, 1,
+      let nativeSwitches = control.descendants(matching: .switch)
+      XCTAssertLessThanOrEqual(nativeSwitches.count, 1,
         "The identified row must contain at most one native switch")
-      let point: XCUICoordinate
-      let targetFrame: CGRect
-      let targetMode: String
-      if let nativeFrame = nativeFrames.first {
-        targetFrame = nativeFrame
-        targetMode = "native-centre"
-        // Anchor the physical centre to the stable row identifier, not an
-        // unlabelled switch index or XCTest's inferred activation hit point.
-        point = control.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
-          dx: targetFrame.midX - rowFrame.minX, dy: targetFrame.midY - rowFrame.minY))
-      } else {
-        targetFrame = rowFrame
-        targetMode = "identified-trailing"
-        point = control.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+      let hasNative = nativeSwitches.count == 1
+      let target = hasNative ? nativeSwitches.firstMatch : control
+      XCTAssertTrue(target.isHittable)
+      XCTAssertTrue(target.isEnabled)
+      // One returned AX tree owns both frames. No global switch enumeration
+      // or old global frame is converted into a live row-relative offset.
+      guard let sample = switchSnapshot(id, native: hasNative) else {
+        XCTFail("The identified switch must have one consistent row and physical target")
+        return
       }
+      let rowFrame = sample.row, targetFrame = sample.target
       XCTAssertGreaterThanOrEqual(targetFrame.width + geometryEpsilon, 44)
       XCTAssertGreaterThanOrEqual(targetFrame.height + geometryEpsilon, 28)
       let geometry = XCTAttachment(string:
-        "id=\(id) requested=\(on) mode=\(targetMode)\nrow=\(rowFrame)\ntarget=\(targetFrame)")
+        "id=\(id) requested=\(on) mode=\(hasNative ? "native-child-centre" : "identified-trailing")\n"
+          + "row=\(rowFrame)\ntarget=\(targetFrame)\nmonotonic=\(ProcessInfo.processInfo.systemUptime)")
       geometry.name = "switch-activation-" + id
       geometry.lifetime = .keepAlways
       add(geometry)
-      point.tap()
+      // Resolve the selected element's own current bounds at event time.
+      // Keep exactly one real tap, and never force the app's value.
+      target.coordinate(withNormalizedOffset: CGVector(dx: hasNative ? 0.5 : 0.95, dy: 0.5)).tap()
     }
     let updated = app.switches.matching(NSPredicate(
       format: "identifier == %@ AND value == %@", id, on ? "1" : "0")).firstMatch
     let changed = updated.waitForExistence(timeout: 5)
+    let observation = XCTAttachment(string:
+      "id=\(id) requested=\(on) exactValueObserved=\(changed) monotonic=\(ProcessInfo.processInfo.systemUptime)")
+    observation.name = "switch-observation-" + id
+    observation.lifetime = .keepAlways
+    add(observation)
     if !changed { captureLookupFailure(control, scroller: form) }
     XCTAssertTrue(changed, "The identified switch must reach the requested value")
   }
