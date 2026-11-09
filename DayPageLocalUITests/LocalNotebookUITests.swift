@@ -78,8 +78,36 @@ final class LocalNotebookUITests: XCTestCase {
   }
 
   private func informationFooter() {
+    let minimumTouchSize: CGFloat = 44
+    let window = app.frame
+    // A clipped target can be hittable at the screen's bottom edge. Requiring
+    // its complete 44-point body plus half a touch height of edge clearance
+    // keeps the target's center at least one touch height inside the window.
+    let edgeClearance = minimumTouchSize / 2
+    var top = window.minY + edgeClearance
+    for bar in app.navigationBars.allElementsBoundByAccessibilityElement
+      where bar.exists && bar.isHittable {
+      if window.intersects(bar.frame) { top = max(top, bar.frame.maxY) }
+    }
+    let viewport = CGRect(x: window.minX, y: top, width: window.width,
+      height: max(0, window.maxY - edgeClearance - top))
+    guard !viewport.isNull, !viewport.isEmpty, viewport.height >= minimumTouchSize else {
+      XCTFail("The public-information page needs an unobscured touch area")
+      return
+    }
+    let buttons = app.buttons.matching(identifier: "app-information-check-latest")
     for _ in 0..<24 {
-      if element("app-information-check-latest").isHittable { return }
+      let candidates = buttons.allElementsBoundByAccessibilityElement
+      guard candidates.count <= 1 else {
+        XCTFail("The public-information footer needs one unambiguous check button")
+        return
+      }
+      if let button = candidates.first {
+        let frame = button.frame
+        if frame.width >= minimumTouchSize - 0.000_001,
+          frame.height >= minimumTouchSize - 0.000_001,
+          viewport.contains(frame), button.isHittable { return }
+      }
       app.swipeUp()
     }
     XCTFail("The public-information footer is not reachable")
