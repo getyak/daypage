@@ -309,6 +309,8 @@ jobs:
   xcode-tests:
     name: Xcode Unit Tests (DayPageTests)
     runs-on: macos-15
+    env:
+      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     needs: unit-tests
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
@@ -345,6 +347,7 @@ jobs:
       - name: Run DayPageTests
         run: |
           set -o pipefail
+          mkdir -p "$DAYPAGE_PACKAGE_CACHE"
           DEST=$(xcrun simctl list devices available --json 2>/dev/null \
             | python3 scripts/ci/select_simulator.py \
                 --format destination --fallback-name "iPhone 16")
@@ -353,10 +356,34 @@ jobs:
             -scheme DayPage \
             -destination "$DEST" \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/daypage-source-packages" \
+            -packageCachePath "$DAYPAGE_PACKAGE_CACHE" \
             -configuration Debug \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee xcode-tests.log
+
+      - name: Verify the job-owned package artifact cache
+        if: always()
+        run: |
+          xcodebuild -version > package-toolchain.txt
+          xcrun swift --version >> package-toolchain.txt
+          xcodebuild -help 2>&1 | sed -n '/packageCachePath/p' >> package-toolchain.txt
+          python3 scripts/ci/verify_package_artifacts.py \
+            --cache "$DAYPAGE_PACKAGE_CACHE" \
+            --sources "$RUNNER_TEMP/daypage-source-packages" \
+            --resolved DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
+            --output package-artifact-receipt.json
+
+      - name: Preserve package cache readback
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-cache-xcode-tests-${{ github.sha }}
+          path: |
+            package-toolchain.txt
+            package-artifact-receipt.json
+            xcode-tests.log
+          retention-days: 7
 
       - name: Upload xcresult bundle
         if: always()
@@ -369,6 +396,8 @@ jobs:
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15
+    env:
+      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     needs: [unit-tests, xcode-tests]
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
@@ -410,6 +439,7 @@ jobs:
       - name: Build (simulator, CODE_SIGNING_ALLOWED=NO)
         run: |
           set -o pipefail
+          mkdir -p "$DAYPAGE_PACKAGE_CACHE"
           DEST=$(xcrun simctl list devices available --json 2>/dev/null \
             | python3 scripts/ci/select_simulator.py \
                 --format destination --fallback-name "iPhone 16")
@@ -426,11 +456,35 @@ jobs:
             -scheme DayPage \
             -destination "$DEST" \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/daypage-source-packages" \
+            -packageCachePath "$DAYPAGE_PACKAGE_CACHE" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
             -derivedDataPath $PWD/build/DD \
             build 2>&1 | tee build.log
           grep 'BUILD SUCCEEDED' build.log
+
+      - name: Verify the job-owned package artifact cache
+        if: always()
+        run: |
+          xcodebuild -version > package-toolchain.txt
+          xcrun swift --version >> package-toolchain.txt
+          xcodebuild -help 2>&1 | sed -n '/packageCachePath/p' >> package-toolchain.txt
+          python3 scripts/ci/verify_package_artifacts.py \
+            --cache "$DAYPAGE_PACKAGE_CACHE" \
+            --sources "$RUNNER_TEMP/daypage-source-packages" \
+            --resolved DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
+            --output package-artifact-receipt.json
+
+      - name: Preserve package cache readback
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-cache-build-${{ github.sha }}
+          path: |
+            package-toolchain.txt
+            package-artifact-receipt.json
+            build.log
+          retention-days: 7
 
       - name: Export built .app path
         id: app_path
@@ -449,6 +503,8 @@ jobs:
   macos-build:
     name: macOS Build (no signing)
     runs-on: macos-15
+    env:
+      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
@@ -470,15 +526,43 @@ jobs:
 
       - name: Build the native macOS companion
         run: |
+          set -o pipefail
+          mkdir -p "$DAYPAGE_PACKAGE_CACHE"
           xcodebuild build \
             -project DayPage.xcodeproj \
             -target DayPageMac \
             -configuration Debug \
             -sdk macosx \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/daypage-source-packages" \
+            -packageCachePath "$DAYPAGE_PACKAGE_CACHE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             SYMROOT="$RUNNER_TEMP/daypage-macos-products" \
-            OBJROOT="$RUNNER_TEMP/daypage-macos-intermediates"
+            OBJROOT="$RUNNER_TEMP/daypage-macos-intermediates" \
+            2>&1 | tee macos-build.log
+
+      - name: Verify the job-owned package artifact cache
+        if: always()
+        run: |
+          xcodebuild -version > package-toolchain.txt
+          xcrun swift --version >> package-toolchain.txt
+          xcodebuild -help 2>&1 | sed -n '/packageCachePath/p' >> package-toolchain.txt
+          python3 scripts/ci/verify_package_artifacts.py \
+            --cache "$DAYPAGE_PACKAGE_CACHE" \
+            --sources "$RUNNER_TEMP/daypage-source-packages" \
+            --resolved DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
+            --output package-artifact-receipt.json
+
+      - name: Preserve package cache readback
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-cache-macos-build-${{ github.sha }}
+          path: |
+            package-toolchain.txt
+            package-artifact-receipt.json
+            macos-build.log
+          retention-days: 7
 
   ui-tests:
     name: Maestro UI Tests
