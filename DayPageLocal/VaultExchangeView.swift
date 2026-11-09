@@ -215,12 +215,18 @@ struct VaultExchangeView: View {
               Text(job.sourceName).font(.headline)
               Text(ByteCountFormatter.string(fromByteCount: Int64(job.byteCount), countStyle: .file)).font(.caption)
               if job.phase == .ready || job.phase == .published {
-                Button("Review pending import") { exchange.choose(job) }.disabled(exchange.busy)
+                Button { exchange.choose(job) } label: {
+                  Text("Review pending import").frame(minHeight: 44, alignment: .leading)
+                }.buttonStyle(.borderless).disabled(exchange.busy)
                   .accessibilityIdentifier("review-pending-import-" + job.id.uuidString)
               } else if job.phase == .needsSource {
-                Button("Select the same source to resume") { resumeJob = job; importing = true }.disabled(exchange.busy)
+                Button { resumeJob = job; importing = true } label: {
+                  Text("Select the same source to resume").frame(minHeight: 44, alignment: .leading)
+                }.buttonStyle(.borderless).disabled(exchange.busy)
               } else { Text("This interrupted copy needs a fresh source selection or explicit discard.").font(.caption) }
-              Button("Discard pending copy", role: .destructive) { discardJob = job }.disabled(exchange.busy)
+              Button(role: .destructive) { discardJob = job } label: {
+                Text("Discard pending copy").frame(minHeight: 44, alignment: .leading)
+              }.buttonStyle(.borderless).disabled(exchange.busy)
                 .accessibilityIdentifier("discard-pending-import-" + job.id.uuidString)
             }
           }
