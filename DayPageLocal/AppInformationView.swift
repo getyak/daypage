@@ -31,11 +31,6 @@ struct AppInformationView: View {
           .font(.caption).foregroundStyle(.secondary)
           .accessibilityIdentifier("app-information-source")
         Text("Updated: \(information.revisionDate)").font(.caption).foregroundStyle(.secondary)
-        if failed {
-          Text("Could not check for updates. The included information is still available.")
-            .font(.callout).foregroundStyle(.secondary)
-            .accessibilityIdentifier("app-information-failure")
-        }
         Button(action: checkLatest) {
           HStack {
             Text("Check latest information")
@@ -44,6 +39,11 @@ struct AppInformationView: View {
         }
         .disabled(fetchTask != nil)
         .accessibilityIdentifier("app-information-check-latest")
+        if failed {
+          Text("Could not check for updates. The included information is still available.")
+            .font(.callout).foregroundStyle(.secondary)
+            .accessibilityIdentifier("app-information-failure")
+        }
       }
     }
     .textSelection(.enabled)
