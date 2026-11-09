@@ -309,14 +309,17 @@ jobs:
   xcode-tests:
     name: Xcode Unit Tests (DayPageTests)
     runs-on: macos-15
-    env:
-      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     needs: unit-tests
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize the job-owned package cache
+        run: |
+          printf 'DAYPAGE_PACKAGE_CACHE=%s/daypage-package-cache-%s\n' \
+            "$RUNNER_TEMP" "$GITHUB_JOB" >> "$GITHUB_ENV"
 
       - name: Select newest Xcode
         run: |
@@ -396,14 +399,17 @@ jobs:
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15
-    env:
-      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     needs: [unit-tests, xcode-tests]
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize the job-owned package cache
+        run: |
+          printf 'DAYPAGE_PACKAGE_CACHE=%s/daypage-package-cache-%s\n' \
+            "$RUNNER_TEMP" "$GITHUB_JOB" >> "$GITHUB_ENV"
 
       # Project uses iOS 26 SDK APIs (AVAudioSession.allowBluetoothHFP, etc.).
       # Pick the newest Xcode available on the runner — macos-15 image usually
@@ -503,13 +509,16 @@ jobs:
   macos-build:
     name: macOS Build (no signing)
     runs-on: macos-15
-    env:
-      DAYPAGE_PACKAGE_CACHE: ${{ runner.temp }}/daypage-package-cache-${{ github.job }}
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize the job-owned package cache
+        run: |
+          printf 'DAYPAGE_PACKAGE_CACHE=%s/daypage-package-cache-%s\n' \
+            "$RUNNER_TEMP" "$GITHUB_JOB" >> "$GITHUB_ENV"
 
       - name: Select newest Xcode
         run: |
