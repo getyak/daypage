@@ -568,13 +568,102 @@ final class LaunchExperienceUITests: XCTestCase {
     let inFlightPolls: Int
   }
 
+  private func customAddressScroller() -> XCUIElement? {
+    let identifier = "ai-connection-settings-form"
+    let candidates = [app.collectionViews.matching(identifier: identifier),
+      app.tables.matching(identifier: identifier), app.scrollViews.matching(identifier: identifier)]
+      .flatMap { $0.allElementsBoundByAccessibilityElement }
+    guard !candidates.isEmpty else { return nil }
+    if candidates.count == 1 { return candidates[0].isHittable ? candidates[0] : nil }
+    // A native wrapper can share the Form's ID. Deduplicate only a proved
+    // ancestor chain; independent or branching owners still fail closed.
+    let sameOwner = NSPredicate(format:
+      "identifier == %@ AND (elementType == %lu OR elementType == %lu OR elementType == %lu)",
+      identifier, XCUIElement.ElementType.collectionView.rawValue,
+      XCUIElement.ElementType.table.rawValue, XCUIElement.ElementType.scrollView.rawValue)
+    let hierarchy = candidates.map { candidate in
+      (element: candidate, nested: candidate.descendants(matching: .any).matching(sameOwner).count)
+    }.sorted { $0.nested < $1.nested }
+    guard hierarchy.map({ $0.nested }) == Array(0..<candidates.count) else { return nil }
+    return hierarchy.first(where: { $0.element.isHittable })?.element
+  }
+
+  private func customAddressViewport(in scroller: XCUIElement, keyboard: XCUIElement?,
+    navigationBars: [XCUIElement], inputOverlays: [XCUIElement]) -> CGRect {
+    let frame = scroller.frame.intersection(app.frame)
+    guard !frame.isEmpty, !frame.isNull else { return .null }
+    var top = frame.minY
+    var bottom = frame.maxY
+    for bar in navigationBars where bar.exists && bar.isHittable {
+      if frame.intersects(bar.frame) { top = max(top, bar.frame.maxY) }
+    }
+    if let keyboard {
+      // Match the existing speech helper: AX Keyboard starts below its rounded
+      // top, and the owning Form's AX bounds can extend behind the input view.
+      bottom = min(bottom, keyboard.frame.minY - 24)
+      for overlay in inputOverlays where overlay.exists {
+        let overlap = frame.intersection(overlay.frame)
+        if !overlap.isEmpty && !overlap.isNull { bottom = min(bottom, overlap.minY) }
+      }
+    }
+    return CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
+      .insetBy(dx: 8, dy: 8)
+  }
+
   private func setCustomAddress(_ address: String) {
     let field = app.textFields["ai-base-url"]
-    for _ in 0..<6 {
-      if field.isHittable { break }
-      app.swipeDown()
+    guard let scroller = customAddressScroller() else {
+      XCTFail("The custom address needs one unambiguous, hittable AI settings scroll container")
+      return
     }
-    field.tap()
+    let navigationBars = app.navigationBars.allElementsBoundByAccessibilityElement
+    // Keep exact-ID queries live as the keyboard appears/reflows; `.element`
+    // requires uniqueness instead of silently choosing a first overlay.
+    let inputOverlays = ["inputView", "SystemInputAssistantView"].map {
+      app.otherElements.matching(identifier: $0).element
+    }
+    var focusedAddress = false
+    var readyForLongPress = false
+    // Keep one shared six-attempt budget, including focus. A pre-keyboard hit
+    // test alone did not keep the later long press above the keyboard.
+    for _ in 0..<6 {
+      let keyboards = app.keyboards.allElementsBoundByAccessibilityElement
+      guard keyboards.count <= 1 else {
+        XCTFail("The custom address needs an unambiguous keyboard viewport")
+        return
+      }
+      let viewport = customAddressViewport(in: scroller, keyboard: keyboards.first,
+        navigationBars: navigationBars, inputOverlays: inputOverlays)
+      guard !viewport.isNull, !viewport.isEmpty, viewport.height >= 80 else {
+        XCTFail("The AI settings Form needs an unobscured gesture area")
+        return
+      }
+      let fieldFrame = field.exists ? field.frame : CGRect.null
+      let fullyVisible = !fieldFrame.isNull && !fieldFrame.isEmpty && viewport.contains(fieldFrame)
+      if fullyVisible && field.isHittable {
+        if focusedAddress && keyboards.count == 1 {
+          readyForLongPress = true
+          break
+        }
+        field.tap()
+        focusedAddress = true
+        continue
+      }
+      let moveDown = fieldFrame.isNull || fieldFrame.minY < viewport.minY
+      let high = viewport.minY + viewport.height * 0.25
+      let low = viewport.minY + viewport.height * 0.75
+      let origin = scroller.coordinate(withNormalizedOffset: .zero)
+      let containerFrame = scroller.frame
+      let start = origin.withOffset(CGVector(dx: viewport.midX - containerFrame.minX,
+        dy: (moveDown ? high : low) - containerFrame.minY))
+      let end = origin.withOffset(CGVector(dx: viewport.midX - containerFrame.minX,
+        dy: (moveDown ? low : high) - containerFrame.minY))
+      start.press(forDuration: 0.05, thenDragTo: end)
+    }
+    guard readyForLongPress else {
+      XCTFail("The focused custom address must be fully visible above the keyboard before the one native long press")
+      return
+    }
     let previous = field.value as? String
     // A URL is not a reliable paragraph-selection target. Observe and invoke
     // the native editing action; never infer whole-field selection from taps.

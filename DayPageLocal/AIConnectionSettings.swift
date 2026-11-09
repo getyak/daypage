@@ -175,6 +175,7 @@ struct AIConnectionSettings<AdditionalSettings: View>: View {
       .disabled(busy)
       additionalSettings
     }
+    .accessibilityIdentifier("ai-connection-settings-form")
     .onAppear(perform: load)
     .onDisappear { task?.cancel() }
     .onChange(of: connection.baseURL) { _ in
