@@ -96,7 +96,14 @@ final class CardToolsSpeechUITests: XCTestCase {
       XCTFail("The owning scroll container must exist before revealing the target")
       return
     }
+    var declinedSystemPasswordSave = false
     for _ in 0..<8 {
+      if !declinedSystemPasswordSave, target.exists,
+        target.identifier.hasPrefix("speech-channel-"), scroll.identifier == "speech-settings-form",
+        declineSystemPasswordSaveIfPresent() {
+        declinedSystemPasswordSave = true
+        continue
+      }
       if target.exists && target.isHittable,
         visibleFrame(of: scroll).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(target.frame) { return }
       scrollVisibleContent(scroll, toward: target, down: down)
@@ -109,6 +116,30 @@ final class CardToolsSpeechUITests: XCTestCase {
     XCTAssertTrue(target.isHittable, "Control must be reachable: \(target.identifier)")
     XCTAssertTrue(visibleFrame(of: scroll).insetBy(dx: -geometryEpsilon, dy: -geometryEpsilon).contains(target.frame),
       "The complete target must be clear of navigation and keyboard overlays before tapping")
+  }
+
+  /// Decline only the observed iOS Password AutoFill interruption after an API-key save.
+  /// The original journey must still prove real app Keychain storage and playback.
+  private func declineSystemPasswordSaveIfPresent() -> Bool {
+    let prompts = app.sheets.matching(NSPredicate(format: "label == %@", "Save Password?"))
+    guard prompts.count == 1 else { return false }
+    let prompt = prompts.element(boundBy: 0)
+    let titles = prompt.staticTexts.matching(NSPredicate(format: "label == %@", "Save Password?"))
+    let declines = prompt.buttons.matching(NSPredicate(format: "label == %@", "Not Now"))
+    let saves = prompt.buttons.matching(NSPredicate(format: "label == %@", "Save"))
+    guard titles.count == 1, declines.count == 1, saves.count == 1 else { return false }
+    let decline = declines.element(boundBy: 0)
+    guard decline.isEnabled, decline.isHittable,
+      decline.frame.width >= 44, decline.frame.height >= 44,
+      prompt.frame.contains(decline.frame), app.frame.contains(decline.frame) else { return false }
+    decline.tap()
+    let receipt = XCTAttachment(string:
+      "Declined the exact iOS Save Password? sheet with its unique Not Now action. "
+        + "App Keychain, relaunch, decoded playback and channel isolation remain required.")
+    receipt.name = "speech-system-password-save-declined"
+    receipt.lifetime = .keepAlways
+    add(receipt)
+    return true
   }
 
   private func visibleFrame(of scroller: XCUIElement) -> CGRect {
