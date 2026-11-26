@@ -292,7 +292,9 @@ jobs:
       - name: Build the actual Web app for the isolated identity fixture
         run: pnpm --filter daypage-web exec next build --webpack
       - name: Verify rendered notebook selection, identity and file recovery
-        run: pnpm --filter daypage-web exec playwright test --config playwright.notebooks.config.ts
+        env:
+          GET443_NOTEBOOKS_HEADFUL: "1"
+        run: xvfb-run --auto-servernum pnpm --filter daypage-web exec playwright test --config playwright.notebooks.config.ts
       - name: Verify completed notebook evidence and process cleanup
         run: pnpm --filter daypage-web exec node scripts/file-exchange-notebooks-fixture.mjs --verify-evidence
       - name: Preserve rendered notebook evidence
