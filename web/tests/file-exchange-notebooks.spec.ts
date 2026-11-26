@@ -235,7 +235,9 @@ test("actual Next notebooks: picker, persistence, original bytes and real SDK id
   }
   async function launch() {
     processes = []; pid = 0;
-    context = await chromium.launchPersistentContext(profile, { channel: "chrome", chromiumSandbox: true, headless: true,
+    // The hosted Linux gate uses a virtual display for the native directory picker.
+    context = await chromium.launchPersistentContext(profile, {
+      channel: "chrome", chromiumSandbox: true, headless: process.env.GET443_NOTEBOOKS_HEADFUL !== "1",
       viewport, serviceWorkers: "block", acceptDownloads: true, downloadsPath: path.join(output, "download-temp"),
       // CDP getBrowserCommandLine requires this explicit automation switch;
       // pinned Playwright1.60 does not include it in the default switches.
